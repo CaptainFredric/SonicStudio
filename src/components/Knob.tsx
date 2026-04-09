@@ -6,11 +6,21 @@ interface KnobProps {
   max: number;
   min: number;
   onChange: (val: number) => void;
+  step?: number;
   unit?: string;
   value: number;
 }
 
-export const Knob = ({ label, value, min, max, onChange, unit = '', color = 'var(--accent)' }: KnobProps) => {
+export const Knob = ({
+  label,
+  value,
+  min,
+  max,
+  onChange,
+  step,
+  unit = '',
+  color = 'var(--accent)',
+}: KnobProps) => {
   const percentage = ((value - min) / (max - min)) * 100;
   const rotation = (percentage / 100) * 270 - 135;
   const formattedValue = formatValue(value, unit);
@@ -42,7 +52,7 @@ export const Knob = ({ label, value, min, max, onChange, unit = '', color = 'var
           max={max}
           min={min}
           onChange={(event) => onChange(Number(event.target.value))}
-          step={(max - min) / 100}
+          step={step ?? (max - min) / 100}
           type="range"
           value={value}
         />

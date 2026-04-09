@@ -21,7 +21,9 @@ const isRecord = (value: unknown): value is Record<string, unknown> => (
 
 const normalizeUiState = (value: unknown, project: Project): StudioUIState => {
   const candidate = isRecord(value) ? value : {};
-  const activeView = candidate.activeView === 'PIANO_ROLL' || candidate.activeView === 'MIXER'
+  const activeView = candidate.activeView === 'PIANO_ROLL'
+    || candidate.activeView === 'MIXER'
+    || candidate.activeView === 'ARRANGER'
     ? candidate.activeView
     : 'SEQUENCER';
   const selectedTrackId = typeof candidate.selectedTrackId === 'string'

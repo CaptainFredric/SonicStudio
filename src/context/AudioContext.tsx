@@ -10,6 +10,7 @@ import React, {
 
 import { engine } from '../audio/ToneEngine';
 import {
+  buildDefaultArranger,
   cloneProject,
   createEmptyPattern,
   createTrack as buildTrack,
@@ -20,6 +21,7 @@ import {
   MIN_PATTERN_COUNT,
   MIN_STEPS_PER_PATTERN,
   resizeTrackPatterns,
+  type ArrangerSection,
   type AppView,
   type InstrumentType,
   type Project,
@@ -39,6 +41,8 @@ type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 interface AudioContextType {
   activeView: AppView;
+  addArrangerSection: () => void;
+  arrangerSections: ArrangerSection[];
   bpm: number;
   canRedo: boolean;
   canUndo: boolean;
@@ -60,6 +64,7 @@ interface AudioContextType {
   projectName: string;
   redo: () => void;
   removeTrack: (trackId: string) => void;
+  removeArrangerSection: (sectionId: string) => void;
   renameTrack: (trackId: string, name: string) => void;
   renameProject: (name: string) => void;
   saveProject: () => void;
@@ -84,6 +89,7 @@ interface AudioContextType {
   undo: () => void;
   updateTrackPan: (trackId: string, pan: number) => void;
   updateTrackVolume: (trackId: string, volume: number) => void;
+  updateArrangerSection: (sectionId: string, updates: Partial<ArrangerSection>) => void;
 }
 
 interface HistoryState {
@@ -98,12 +104,14 @@ interface EditorState {
 }
 
 type EditorAction =
+  | { type: 'ADD_ARRANGER_SECTION' }
   | { type: 'CLEAR_TRACK'; trackId: string }
   | { type: 'CREATE_TRACK'; trackType: InstrumentType }
   | { type: 'DUPLICATE_TRACK'; trackId: string }
   | { type: 'HYDRATE_SESSION'; session: StudioSession }
   | { type: 'REDO' }
   | { type: 'REMOVE_TRACK'; trackId: string }
+  | { type: 'REMOVE_ARRANGER_SECTION'; sectionId: string }
   | { type: 'SET_ACTIVE_VIEW'; view: AppView }
   | { type: 'SET_BPM'; bpm: number }
   | { type: 'SET_CURRENT_PATTERN'; pattern: number }
@@ -113,6 +121,7 @@ type EditorAction =
   | { type: 'SET_STEPS_PER_PATTERN'; stepsPerPattern: number }
   | { type: 'SET_TRACK_PARAMS'; trackId: string; params: Partial<SynthParams> }
   | { type: 'SET_TRACK_NAME'; name: string; trackId: string }
+  | { type: 'UPDATE_ARRANGER_SECTION'; sectionId: string; updates: Partial<ArrangerSection> }
   | { type: 'TOGGLE_MUTE'; trackId: string }
   | { type: 'TOGGLE_PAN'; trackId: string; pan: number }
   | { type: 'TOGGLE_SETTINGS' }
@@ -125,6 +134,31 @@ const AudioContext = createContext<AudioContextType | null>(null);
 const HISTORY_LIMIT = 100;
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+const syncArrangerPositions = (
+  arranger: ArrangerSection[] | undefined,
+  patternCount: number,
+): ArrangerSection[] => {
+  if (!arranger || arranger.length === 0) {
+    return [];
+  }
+
+  let cursor = 0;
+
+  return arranger.map((section, index) => {
+    const duration = clamp(Math.round(section.duration || 16), 4, 128);
+    const nextSection: ArrangerSection = {
+      ...section,
+      name: section.name?.trim() || `Section ${index + 1}`,
+      duration,
+      patternIndex: clamp(Math.round(section.patternIndex || 0), 0, Math.max(patternCount - 1, 0)),
+      positionInBeats: cursor,
+    };
+
+    cursor += duration;
+    return nextSection;
+  });
+};
 
 const createInitialEditorState = (): EditorState => {
   const session = loadPersistedSession() ?? createDefaultSession();
@@ -225,6 +259,7 @@ const resizeProjectTransport = (
       stepsPerPattern: nextStepsPerPattern,
     },
     tracks: project.tracks.map((track) => resizeTrackPatterns(track, nextPatternCount, nextStepsPerPattern)),
+    arranger: syncArrangerPositions(project.arranger, nextPatternCount),
   };
 };
 
@@ -232,6 +267,27 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
   const { present } = state.history;
 
   switch (action.type) {
+    case 'ADD_ARRANGER_SECTION': {
+      const arranger = syncArrangerPositions(
+        [
+          ...(present.arranger && present.arranger.length > 0 ? present.arranger : buildDefaultArranger(present.transport)),
+          {
+            id: `section_${Date.now()}`,
+            name: `Section ${(present.arranger?.length ?? 0) + 1}`,
+            patternIndex: present.transport.currentPattern,
+            duration: 16,
+            positionInBeats: 0,
+          },
+        ],
+        present.transport.patternCount,
+      );
+
+      return commitProject(state, {
+        ...present,
+        arranger,
+      });
+    }
+
     case 'HYDRATE_SESSION':
       return {
         history: {
@@ -461,6 +517,34 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
       }, nextSelectedTrackId);
     }
 
+    case 'REMOVE_ARRANGER_SECTION': {
+      const nextArranger = syncArrangerPositions(
+        (present.arranger ?? []).filter((section) => section.id !== action.sectionId),
+        present.transport.patternCount,
+      );
+
+      return commitProject(state, {
+        ...present,
+        arranger: nextArranger,
+      });
+    }
+
+    case 'UPDATE_ARRANGER_SECTION': {
+      const nextArranger = syncArrangerPositions(
+        (present.arranger ?? []).map((section) => (
+          section.id === action.sectionId
+            ? { ...section, ...action.updates }
+            : section
+        )),
+        present.transport.patternCount,
+      );
+
+      return commitProject(state, {
+        ...present,
+        arranger: nextArranger,
+      });
+    }
+
     case 'UNDO': {
       if (state.history.past.length === 0) {
         return state;
@@ -525,6 +609,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
 
   const project = editorState.history.present;
   const { activeView, selectedTrackId } = editorState.ui;
+  const arrangerSections = project.arranger ?? [];
 
   useEffect(() => {
     engine.syncProject(project);
@@ -730,6 +815,8 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
   return (
     <AudioContext.Provider value={{
       activeView,
+      addArrangerSection: () => dispatch({ type: 'ADD_ARRANGER_SECTION' }),
+      arrangerSections,
       bpm: project.transport.bpm,
       canRedo: editorState.history.future.length > 0,
       canUndo: editorState.history.past.length > 0,
@@ -750,6 +837,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       patternCount: project.transport.patternCount,
       projectName: project.metadata.name,
       redo: () => dispatch({ type: 'REDO' }),
+      removeArrangerSection: (sectionId) => dispatch({ type: 'REMOVE_ARRANGER_SECTION', sectionId }),
       removeTrack: (trackId) => dispatch({ type: 'REMOVE_TRACK', trackId }),
       renameTrack: (trackId, name) => dispatch({ type: 'SET_TRACK_NAME', trackId, name }),
       renameProject: (name) => dispatch({ type: 'SET_PROJECT_NAME', name }),
@@ -773,6 +861,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       toggleStep: (trackId, stepIndex, note) => dispatch({ type: 'TOGGLE_STEP', trackId, stepIndex, note }),
       tracks: project.tracks,
       undo: () => dispatch({ type: 'UNDO' }),
+      updateArrangerSection: (sectionId, updates) => dispatch({ type: 'UPDATE_ARRANGER_SECTION', sectionId, updates }),
       updateTrackPan: (trackId, pan) => dispatch({ type: 'TOGGLE_PAN', trackId, pan }),
       updateTrackVolume: (trackId, volume) => dispatch({ type: 'TOGGLE_VOLUME', trackId, volume }),
     }}>

@@ -126,6 +126,40 @@ const isRecord = (value: unknown): value is Record<string, unknown> => (
   typeof value === 'object' && value !== null
 );
 
+const normalizeArrangerSections = (
+  arranger: unknown,
+  transport: TransportSettings,
+): ArrangerSection[] => {
+  if (!Array.isArray(arranger) || arranger.length === 0) {
+    return [];
+  }
+
+  let cursor = 0;
+
+  return arranger.map((section, index) => {
+    const candidate = isRecord(section) ? section : {};
+    const duration = clamp(
+      typeof candidate.duration === 'number' ? Math.round(candidate.duration) : 16,
+      4,
+      128,
+    );
+    const normalized: ArrangerSection = {
+      id: typeof candidate.id === 'string' && candidate.id ? candidate.id : createId('section'),
+      name: typeof candidate.name === 'string' && candidate.name.trim() ? candidate.name.trim() : `Section ${index + 1}`,
+      patternIndex: clamp(
+        typeof candidate.patternIndex === 'number' ? Math.round(candidate.patternIndex) : 0,
+        0,
+        transport.patternCount - 1,
+      ),
+      duration,
+      positionInBeats: cursor,
+    };
+
+    cursor += duration;
+    return normalized;
+  });
+};
+
 export const createEmptyPattern = (stepCount: number = DEFAULT_STEPS_PER_PATTERN): StepValue[] => (
   Array.from({ length: stepCount }, () => null)
 );
@@ -141,6 +175,30 @@ export const createPatternBank = (
   }
 
   return patterns;
+};
+
+export const buildDefaultArranger = (transport: TransportSettings): ArrangerSection[] => {
+  const sections: ArrangerSection[] = [
+    {
+      id: createId('section'),
+      name: 'Intro',
+      patternIndex: 0,
+      duration: 16,
+      positionInBeats: 0,
+    },
+  ];
+
+  if (transport.patternCount > 1) {
+    sections.push({
+      id: createId('section'),
+      name: 'Verse',
+      patternIndex: 1,
+      duration: 16,
+      positionInBeats: 16,
+    });
+  }
+
+  return normalizeArrangerSections(sections, transport);
 };
 
 const normalizeParams = (
@@ -349,6 +407,7 @@ export const createDemoProject = (projectName: string = 'Midnight Sketch'): Proj
     },
     transport,
     tracks,
+    arranger: buildDefaultArranger(transport),
   };
 };
 
@@ -377,6 +436,7 @@ export const normalizeProject = (input: unknown): Project | null => {
     },
     transport,
     tracks,
+    arranger: normalizeArrangerSections(input.arranger, transport),
   };
 };
 

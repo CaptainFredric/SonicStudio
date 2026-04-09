@@ -7,22 +7,22 @@
 }
 
 :root {
-  --bg-app: #0b0f13;
-  --bg-panel: rgba(16, 21, 28, 0.9);
-  --bg-panel-strong: rgba(24, 31, 41, 0.96);
-  --bg-panel-muted: rgba(12, 16, 22, 0.78);
-  --bg-control: #0e1319;
-  --border-soft: rgba(151, 163, 180, 0.16);
-  --border-strong: rgba(214, 222, 231, 0.14);
-  --text-primary: #edf2f7;
-  --text-secondary: #9aa6b7;
-  --text-tertiary: #6d7887;
-  --accent: #82c9bb;
-  --accent-strong: #c4f1e8;
-  --accent-muted: rgba(130, 201, 187, 0.16);
-  --danger: #f08f86;
-  --warning: #d7b16a;
-  --shadow-panel: 0 18px 40px rgba(0, 0, 0, 0.24);
+  --bg-app: #07090d;
+  --bg-panel: rgba(13, 17, 22, 0.88);
+  --bg-panel-strong: rgba(19, 24, 31, 0.96);
+  --bg-panel-muted: rgba(10, 13, 18, 0.8);
+  --bg-control: #0d1116;
+  --border-soft: rgba(175, 185, 197, 0.12);
+  --border-strong: rgba(229, 236, 244, 0.12);
+  --text-primary: #edf1f5;
+  --text-secondary: #9ca7b6;
+  --text-tertiary: #667181;
+  --accent: #94d6cb;
+  --accent-strong: #d2f6ef;
+  --accent-muted: rgba(148, 214, 203, 0.15);
+  --danger: #f19c92;
+  --warning: #d5b472;
+  --shadow-panel: 0 24px 56px rgba(0, 0, 0, 0.34);
 }
 
 @layer base {
@@ -37,9 +37,10 @@
   body {
     @apply font-sans overflow-hidden select-none;
     background:
-      radial-gradient(circle at top left, rgba(130, 201, 187, 0.08), transparent 26%),
-      radial-gradient(circle at top right, rgba(104, 130, 166, 0.08), transparent 28%),
-      linear-gradient(180deg, #0b0f13 0%, #0d1218 46%, #090c10 100%);
+      radial-gradient(circle at top left, rgba(148, 214, 203, 0.12), transparent 24%),
+      radial-gradient(circle at 82% 0%, rgba(210, 133, 86, 0.08), transparent 20%),
+      radial-gradient(circle at bottom right, rgba(111, 136, 178, 0.08), transparent 26%),
+      linear-gradient(180deg, #07090d 0%, #090c11 45%, #05070a 100%);
     color: var(--text-primary);
   }
 
@@ -49,11 +50,11 @@
     inset: 0;
     pointer-events: none;
     background-image:
-      linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
-    background-size: 40px 40px;
-    mask-image: radial-gradient(circle at center, black 35%, transparent 88%);
-    opacity: 0.28;
+      linear-gradient(rgba(255, 255, 255, 0.012) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.012) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(circle at center, black 42%, transparent 88%);
+    opacity: 0.22;
   }
 
   button,
@@ -70,23 +71,28 @@
 }
 
 .surface-panel {
-  background: var(--bg-panel);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0) 24%),
+    var(--bg-panel);
   border: 1px solid var(--border-soft);
-  border-radius: 0;
-  box-shadow: var(--shadow-panel);
+  border-radius: 18px;
+  box-shadow: var(--shadow-panel), inset 0 1px 0 rgba(255,255,255,0.04);
   backdrop-filter: blur(16px);
 }
 
 .surface-panel-strong {
-  background: var(--bg-panel-strong);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0) 28%),
+    var(--bg-panel-strong);
   border: 1px solid var(--border-strong);
-  border-radius: 4px;
+  border-radius: 14px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
 }
 
 .surface-panel-muted {
   background: var(--bg-panel-muted);
   border: 1px solid var(--border-soft);
-  border-radius: 4px;
+  border-radius: 14px;
 }
 
 .section-label {
@@ -99,19 +105,19 @@
 }
 
 h1 {
-  @apply font-sans font-700 tracking-tight;
+  @apply font-sans font-bold tracking-tight;
   font-size: 24px;
   line-height: 1.2;
 }
 
 h2 {
-  @apply font-sans font-600 tracking-tight;
+  @apply font-sans font-semibold tracking-tight;
   font-size: 18px;
   line-height: 1.3;
 }
 
 h3 {
-  @apply font-sans font-600;
+  @apply font-sans font-semibold;
   font-size: 14px;
   line-height: 1.4;
 }
@@ -119,8 +125,9 @@ h3 {
 .control-field {
   background: var(--bg-control);
   border: 1px solid var(--border-soft);
-  border-radius: 4px;
+  border-radius: 14px;
   color: var(--text-primary);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
 }
 
 .control-field:focus {
@@ -130,9 +137,9 @@ h3 {
 }
 
 .control-chip {
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(255, 255, 255, 0.03);
   border: 1px solid var(--border-soft);
-  border-radius: 4px;
+  border-radius: 999px;
   color: var(--text-secondary);
 }
 
@@ -145,7 +152,7 @@ h3 {
 .ghost-icon-button {
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 12px;
+  border-radius: 14px;
   color: var(--text-secondary);
 }
 

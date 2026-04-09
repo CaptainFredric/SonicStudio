@@ -1,5 +1,5 @@
-// Example SonicStudio Backend Server Template
-// Node.js + Express setup for production deployment
+// SonicStudio optional local backend.
+// Scope: health checks plus basic local project save, load, list, and share.
 
 import express from 'express';
 import cors from 'cors';

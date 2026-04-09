@@ -1,7 +1,16 @@
 // Backend API Client for SonicStudio
 // Supports both local and remote operations
 
-const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+const resolveApiBase = () => {
+  const configured = typeof import.meta !== 'undefined' ? import.meta.env?.VITE_API_URL : undefined;
+  const base = typeof configured === 'string' && configured.trim()
+    ? configured.trim()
+    : 'http://localhost:3001/api';
+
+  return base.replace(/\/+$/, '');
+};
+
+const API_BASE = resolveApiBase();
 
 export interface SaveProjectRequest {
   name: string;

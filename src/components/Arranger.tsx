@@ -1,52 +1,21 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 
 import { useAudio } from '../context/AudioContext';
-import type { ArrangerSection } from '../project/schema';
 
 export const Arranger = () => {
-  const { bpm, patternCount, tracks } = useAudio();
-  const [sections, setSections] = useState<ArrangerSection[]>([
-    {
-      id: '1',
-      name: 'Intro',
-      patternIndex: 0,
-      duration: 16,
-      positionInBeats: 0,
-    },
-    {
-      id: '2',
-      name: 'Verse',
-      patternIndex: 1,
-      duration: 16,
-      positionInBeats: 16,
-    },
-  ]);
-
-  const [draggedSection, setDraggedSection] = useState<string | null>(null);
-
-  const addSection = () => {
-    const newSection: ArrangerSection = {
-      id: String(Date.now()),
-      name: `Section ${sections.length + 1}`,
-      patternIndex: 0,
-      duration: 16,
-      positionInBeats: sections.length > 0 ? sections[sections.length - 1].positionInBeats + sections[sections.length - 1].duration : 0,
-    };
-    setSections([...sections, newSection]);
-  };
-
-  const removeSection = (id: string) => {
-    setSections(sections.filter((s) => s.id !== id));
-  };
-
-  const updateSection = (id: string, updates: Partial<ArrangerSection>) => {
-    setSections(sections.map((s) => (s.id === id ? { ...s, ...updates } : s)));
-  };
-
-  const totalBeats = sections.reduce((sum, s) => sum + s.duration, 0) || 64;
+  const {
+    addArrangerSection,
+    arrangerSections,
+    bpm,
+    patternCount,
+    removeArrangerSection,
+    updateArrangerSection,
+  } = useAudio();
+  const totalBeats = arrangerSections.reduce((sum, s) => sum + s.duration, 0) || 64;
   const pixelsPerBeat = 12;
   const timelineWidth = totalBeats * pixelsPerBeat;
+  const totalDurationSeconds = totalBeats * (60 / bpm);
 
   return (
     <section className="surface-panel flex flex-1 min-h-0 flex-col overflow-hidden">
@@ -54,51 +23,85 @@ export const Arranger = () => {
         <div>
           <div className="section-label">Arranger</div>
           <h2 className="mt-2 text-lg font-semibold tracking-tight text-[var(--text-primary)]">Song composition</h2>
+          <p className="mt-2 text-sm text-[var(--text-secondary)]">Persisted arrangement sections for turning loop sketches into a full song path.</p>
         </div>
-        <button
-          className="control-field flex items-center gap-2 px-4 py-2 text-sm font-medium text-[var(--accent-strong)] hover:text-[var(--text-primary)]"
-          onClick={addSection}
-        >
-          <Plus className="h-4 w-4" />
-          Add section
-        </button>
+        <div className="flex items-center gap-3">
+          <div className="hidden md:block text-right">
+            <div className="section-label">Song length</div>
+            <div className="mt-1 font-mono text-sm text-[var(--text-primary)]">{totalBeats} beats · {totalDurationSeconds.toFixed(1)}s</div>
+          </div>
+          <button
+            className="control-field flex items-center gap-2 px-4 py-2 text-sm font-medium text-[var(--accent-strong)] hover:text-[var(--text-primary)]"
+            onClick={addArrangerSection}
+          >
+            <Plus className="h-4 w-4" />
+            Add section
+          </button>
+        </div>
       </div>
 
       <div className="flex flex-1 min-h-0 gap-4 p-5">
         <div className="surface-panel-strong w-[200px] shrink-0 overflow-y-auto p-4">
           <div className="section-label mb-4">Sections</div>
           <div className="space-y-2">
-            {sections.map((section) => (
+            {arrangerSections.map((section) => (
               <div
                 key={section.id}
                 className="group relative border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3 hover:bg-[rgba(255,255,255,0.04)]"
-                draggable
-                onDragEnd={() => setDraggedSection(null)}
-                onDragStart={() => setDraggedSection(section.id)}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <input
                       className="w-full bg-transparent text-sm font-medium text-[var(--text-primary)] focus:outline-none"
-                      onChange={(event) => updateSection(section.id, { name: event.target.value })}
+                      onChange={(event) => updateArrangerSection(section.id, { name: event.target.value })}
                       value={section.name}
                     />
-                    <div className="mt-2 text-xs text-[var(--text-secondary)]">
-                      Pattern <span className="font-mono">{section.patternIndex + 1}</span>
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <label className="text-xs text-[var(--text-secondary)]">
+                        <span className="section-label block mb-1">Pattern</span>
+                        <select
+                          className="control-field w-full px-2 py-1 text-xs"
+                          onChange={(event) => updateArrangerSection(section.id, { patternIndex: Number(event.target.value) })}
+                          value={section.patternIndex}
+                        >
+                          {Array.from({ length: patternCount }, (_, patternIndex) => (
+                            <option key={patternIndex} value={patternIndex}>
+                              {String.fromCharCode(65 + patternIndex)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="text-xs text-[var(--text-secondary)]">
+                        <span className="section-label block mb-1">Length</span>
+                        <input
+                          className="control-field w-full px-2 py-1 text-xs"
+                          min={4}
+                          onChange={(event) => updateArrangerSection(section.id, { duration: Number(event.target.value) })}
+                          step={4}
+                          type="number"
+                          value={section.duration}
+                        />
+                      </label>
                     </div>
-                    <div className="mt-1 text-xs text-[var(--text-tertiary)]">
-                      {Math.round((section.duration / (bpm / 60)) * 1000) / 1000}s
+                    <div className="mt-3 flex items-center justify-between text-[10px] text-[var(--text-tertiary)]">
+                      <span>Starts at beat {section.positionInBeats + 1}</span>
+                      <span>{(section.duration * (60 / bpm)).toFixed(1)}s</span>
                     </div>
                   </div>
                   <button
                     className="ghost-icon-button flex h-8 w-8 items-center justify-center opacity-0 transition-opacity group-hover:opacity-100"
-                    onClick={() => removeSection(section.id)}
+                    onClick={() => removeArrangerSection(section.id)}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
               </div>
             ))}
+            {arrangerSections.length === 0 && (
+              <div className="border border-dashed border-[var(--border-soft)] p-4 text-sm text-[var(--text-secondary)]">
+                Add sections to turn your patterns into a real arrangement.
+              </div>
+            )}
           </div>
         </div>
 
@@ -122,21 +125,22 @@ export const Arranger = () => {
                 </svg>
 
                 <div className="relative h-full space-y-2">
-                  {sections.map((section) => (
+                  {arrangerSections.map((section, index) => (
                     <div
                       key={section.id}
-                      className="surface-panel-strong p-2 cursor-move hover:opacity-90 transition-opacity"
+                      className="surface-panel-strong p-3 hover:opacity-95 transition-opacity"
                       style={{
                         marginLeft: `${section.positionInBeats * pixelsPerBeat}px`,
                         width: `${section.duration * pixelsPerBeat}px`,
-                        opacity: draggedSection === section.id ? 0.5 : 1,
+                        borderLeft: `3px solid hsl(${(index * 47) % 360} 70% 65%)`,
                       }}
                     >
                       <div className="text-xs font-semibold text-[var(--text-primary)] truncate">
                         {section.name}
                       </div>
-                      <div className="text-[10px] text-[var(--text-tertiary)] truncate">
-                        Pattern {section.patternIndex + 1}
+                      <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-[var(--text-tertiary)] truncate">
+                        <span>Pattern {String.fromCharCode(65 + section.patternIndex)}</span>
+                        <span>{section.duration} beats</span>
                       </div>
                     </div>
                   ))}

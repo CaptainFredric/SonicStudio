@@ -55,7 +55,7 @@ export const TopBar = () => {
             </div>
             <div className="min-w-0">
               <h1 className="text-[17px] font-semibold tracking-tight text-[var(--text-primary)]">SonicStudio</h1>
-              <p className="mt-1 hidden text-xs text-[var(--text-secondary)] lg:block">Clean browser groove workspace</p>
+              <p className="mt-1 hidden text-xs text-[var(--text-secondary)] lg:block">Loop sketching, arrangement, and sound design in one browser desk</p>
             </div>
           </div>
 
