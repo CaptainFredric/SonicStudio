@@ -54,12 +54,12 @@ export const TopBar = () => {
       <div className="flex min-w-0 flex-col gap-4 2xl:flex-row 2xl:items-center 2xl:justify-between">
         <div className="flex min-w-0 flex-col gap-4 xl:flex-row xl:items-center xl:gap-5">
           <div className="flex min-w-0 items-center gap-3 xl:min-w-[220px]">
-            <div className="surface-panel-strong flex h-12 w-12 items-center justify-center" style={{ borderRadius: '4px' }}>
+            <div className="surface-panel-strong flex h-12 w-12 items-center justify-center" style={{ borderRadius: '2px' }}>
               <Waves className="h-5 w-5 text-[var(--accent)]" />
             </div>
             <div className="min-w-0">
               <h1 className="text-[18px] font-semibold tracking-tight text-[var(--text-primary)]">SonicStudio</h1>
-              <p className="mt-1 text-xs text-[var(--text-secondary)]">Clip arrangement, pattern writing, and browser sound design in one desk</p>
+              <p className="mt-1 text-xs text-[var(--text-secondary)]">Clip arrangement, expressive sequencing, and sound design in one instrument desk</p>
             </div>
           </div>
 
@@ -169,11 +169,11 @@ export const TopBar = () => {
             </div>
 
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-              <div className="surface-panel-muted min-w-[148px] px-4 py-3">
-                <div className="section-label mb-1">Song span</div>
-                <div className="text-sm font-medium text-[var(--text-primary)]">{songLengthInBeats} steps</div>
-                <div className="mt-1 text-[11px] text-[var(--text-secondary)]">{Math.max(1, Math.ceil(songLengthInBeats / 16))} sections worth of runway</div>
-              </div>
+            <div className="surface-panel-muted min-w-[148px] px-4 py-3">
+              <div className="section-label mb-1">Song span</div>
+              <div className="text-sm font-medium text-[var(--text-primary)]">{songLengthInBeats} steps</div>
+              <div className="mt-1 text-[11px] text-[var(--text-secondary)]">{Math.max(1, Math.ceil(songLengthInBeats / 16))} bars of arrangement runway</div>
+            </div>
 
               <div className="surface-panel-muted min-w-[148px] px-4 py-3">
                 <div className="section-label mb-1">Session</div>

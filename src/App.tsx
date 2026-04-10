@@ -20,14 +20,14 @@ const SideNav = () => {
   ];
 
   return (
-    <aside className="surface-panel sm:w-[96px] w-full shrink-0 shrink px-2 py-3 sm:py-4 flex sm:flex-col flex-row items-center justify-start sm:justify-start gap-2 sm:gap-4 overflow-x-auto sm:overflow-x-visible [-webkit-overflow-scrolling:touch]">
-      <div className="section-label hidden sm:block">Views</div>
+    <aside className="studio-nav sm:w-[104px] w-full shrink-0 shrink px-2 py-3 sm:py-4 flex sm:flex-col flex-row items-center justify-start sm:justify-start gap-2 sm:gap-4 overflow-x-auto sm:overflow-x-visible [-webkit-overflow-scrolling:touch]">
+      <div className="section-label hidden sm:block">Deck</div>
       <div className="flex sm:flex-col flex-row gap-2 w-full sm:w-auto">
         {navItems.map(item => (
           <button
             key={item.id}
             onClick={() => setActiveView(item.id as any)}
-            className={`rounded-2xl border px-2 py-3 transition-colors ${activeView === item.id ? 'bg-[var(--accent-muted)] border-[rgba(130,201,187,0.3)] text-[var(--accent-strong)]' : 'bg-transparent border-transparent text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.02)] hover:border-[var(--border-soft)] hover:text-[var(--text-primary)]'}`}
+            className={`nav-button px-2 py-3 transition-colors ${activeView === item.id ? 'is-active' : ''}`}
             title={item.label}
           >
             <div className="flex flex-col items-center gap-2">
@@ -39,7 +39,7 @@ const SideNav = () => {
       </div>
       <div className="ml-auto sm:mt-auto sm:w-full pt-3 sm:border-t border-[var(--border-soft)]">
         <button
-          className={`rounded-2xl border px-2 py-3 transition-colors shrink-0 sm:w-full ${isSettingsOpen ? 'bg-[var(--accent-muted)] border-[rgba(130,201,187,0.3)] text-[var(--accent-strong)]' : 'bg-transparent border-transparent text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.02)] hover:border-[var(--border-soft)] hover:text-[var(--text-primary)]'}`}
+          className={`nav-button px-2 py-3 transition-colors shrink-0 sm:w-full ${isSettingsOpen ? 'is-active' : ''}`}
           onClick={toggleSettings}
         >
           <div className="flex sm:flex-col flex-row items-center gap-2">
@@ -68,14 +68,14 @@ const StudioShell = () => {
   const { isSettingsOpen } = useAudio();
 
   return (
-    <div className="h-screen w-screen overflow-hidden antialiased text-[var(--text-primary)]">
+    <div className="app-shell h-screen w-screen overflow-hidden antialiased text-[var(--text-primary)]">
       <div className="flex h-full flex-col overflow-hidden">
         <div className="px-3 pt-3">
           <TopBar />
         </div>
         <div className="flex flex-1 min-h-0 gap-3 px-3 pb-3">
           <SideNav />
-          <div className="flex min-h-0 flex-1 flex-col gap-3">
+          <div className="chrome-frame flex min-h-0 flex-1 flex-col gap-3 p-3">
             <div className="flex min-h-0 flex-1 gap-3">
               <ViewRouter />
               {isSettingsOpen && <SettingsSidebar />}

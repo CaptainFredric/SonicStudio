@@ -9,6 +9,7 @@ const NOTE_WINDOWS = {
   LOW: buildNoteRange(4, 2),
   MID: buildNoteRange(5, 3),
 } as const;
+const ALL_NOTES = buildNoteRange(6, 2);
 
 type NoteWindowKey = keyof typeof NOTE_WINDOWS;
 
@@ -227,7 +228,7 @@ export const PianoRoll = () => {
           </div>
         </div>
 
-        <aside className="surface-panel-strong w-[280px] shrink-0 overflow-auto p-4">
+        <aside className="surface-panel-strong w-[300px] shrink-0 overflow-auto p-4">
           <div className="flex items-center gap-2">
             <SlidersHorizontal className="h-4 w-4 text-[var(--accent)]" />
             <span className="section-label">Step inspector</span>
@@ -242,6 +243,57 @@ export const PianoRoll = () => {
                   {selectedStep ? `${selectedStep.note} · velocity ${Math.round(selectedStep.velocity * 100)} · gate ${selectedStep.gate.toFixed(2)}` : 'No note on this step yet'}
                 </div>
               </div>
+
+              {!isDrum && (
+                <div>
+                  <div className="section-label">Pitch</div>
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      className="ghost-icon-button flex h-10 w-10 items-center justify-center"
+                      disabled={!selectedStep}
+                      onClick={() => selectedStep && updateStepEvent(track.id, selectedStepIndex, { note: shiftNote(selectedStep.note, -1) })}
+                    >
+                      <Minus className="h-4 w-4" />
+                    </button>
+                    <select
+                      className="control-field h-10 flex-1 px-3 text-sm"
+                      disabled={!selectedStep}
+                      onChange={(event) => updateStepEvent(track.id, selectedStepIndex, { note: event.target.value })}
+                      value={selectedStep?.note ?? ''}
+                    >
+                      {!selectedStep && <option value="">Place a note first</option>}
+                      {ALL_NOTES.map((note) => (
+                        <option key={note} value={note}>
+                          {note}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      className="ghost-icon-button flex h-10 w-10 items-center justify-center"
+                      disabled={!selectedStep}
+                      onClick={() => selectedStep && updateStepEvent(track.id, selectedStepIndex, { note: shiftNote(selectedStep.note, 1) })}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <div className="mt-2 flex gap-2">
+                    <button
+                      className="control-chip px-3 py-2 text-[10px] font-medium uppercase tracking-[0.14em]"
+                      disabled={!selectedStep}
+                      onClick={() => selectedStep && updateStepEvent(track.id, selectedStepIndex, { note: shiftNote(selectedStep.note, -12) })}
+                    >
+                      -8va
+                    </button>
+                    <button
+                      className="control-chip px-3 py-2 text-[10px] font-medium uppercase tracking-[0.14em]"
+                      disabled={!selectedStep}
+                      onClick={() => selectedStep && updateStepEvent(track.id, selectedStepIndex, { note: shiftNote(selectedStep.note, 12) })}
+                    >
+                      +8va
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div>
                 <div className="flex items-center justify-between">
@@ -351,4 +403,22 @@ function buildNoteRange(highOctave: number, lowOctave: number) {
   }
 
   return notes;
+}
+
+function shiftNote(note: string, semitones: number) {
+  const match = note.match(/^([A-G]#?)(-?\d+)$/);
+  if (!match) {
+    return note;
+  }
+
+  const pitchClass = NOTE_NAMES.indexOf(match[1]);
+  if (pitchClass === -1) {
+    return note;
+  }
+
+  const midi = (Number(match[2]) + 1) * 12 + pitchClass + semitones;
+  const clampedMidi = Math.max(24, Math.min(96, midi));
+  const nextPitch = NOTE_NAMES[clampedMidi % 12];
+  const octave = Math.floor(clampedMidi / 12) - 1;
+  return `${nextPitch}${octave}`;
 }
