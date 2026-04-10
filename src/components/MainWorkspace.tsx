@@ -147,7 +147,13 @@ export const MainWorkspace = () => {
                           : undefined}
                       >
                         {isActive && !['kick', 'snare', 'hihat'].includes(track.type) && (
-                          <span className="absolute bottom-1 right-1 font-mono text-[9px] font-medium text-black/60">{value}</span>
+                          <span className="absolute bottom-1 right-1 font-mono text-[9px] font-medium text-black/60">{value.note}</span>
+                        )}
+                        {isActive && (
+                          <span
+                            className="absolute bottom-1 left-1 rounded-full bg-black/20"
+                            style={{ height: '3px', width: `${Math.max(6, Math.min(20, value.gate * 6))}px` }}
+                          />
                         )}
                         {isCurrent && <span className="absolute inset-y-1 left-1 w-[2px] rounded-full bg-white/50" />}
                       </button>

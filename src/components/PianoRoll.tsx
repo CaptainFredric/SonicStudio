@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeftRight, Eraser, LayoutGrid, Minus, Plus } from 'lucide-react';
+import { ArrowLeftRight, Eraser, LayoutGrid, Minus, Plus, SlidersHorizontal } from 'lucide-react';
 
 import { useAudio } from '../context/AudioContext';
 
@@ -23,9 +23,11 @@ export const PianoRoll = () => {
     toggleStep,
     tracks,
     transposePattern,
+    updateStepEvent,
   } = useAudio();
   const track = tracks.find((candidate) => candidate.id === selectedTrackId);
   const [noteWindow, setNoteWindow] = useState<NoteWindowKey>('MID');
+  const [selectedStepIndex, setSelectedStepIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (!track) {
@@ -44,6 +46,16 @@ export const PianoRoll = () => {
 
     setNoteWindow('MID');
   }, [track?.id, track?.type]);
+
+  useEffect(() => {
+    if (!track) {
+      setSelectedStepIndex(null);
+      return;
+    }
+
+    const firstActiveStep = (track.patterns[currentPattern] ?? []).findIndex((step) => step !== null);
+    setSelectedStepIndex(firstActiveStep >= 0 ? firstActiveStep : 0);
+  }, [currentPattern, track?.id]);
 
   const renderNotes = useMemo(() => {
     if (!track) {
@@ -71,6 +83,7 @@ export const PianoRoll = () => {
   const isDrum = track.type === 'kick' || track.type === 'snare' || track.type === 'hihat';
   const patternSteps = track.patterns[currentPattern] ?? Array(stepsPerPattern).fill(null);
   const activeNoteCount = patternSteps.filter((step) => step !== null).length;
+  const selectedStep = selectedStepIndex !== null ? patternSteps[selectedStepIndex] : null;
 
   return (
     <section className="surface-panel flex flex-1 min-h-0 flex-col overflow-hidden">
@@ -86,7 +99,7 @@ export const PianoRoll = () => {
           <p className="mt-2 text-sm text-[var(--text-secondary)]">
             {isDrum
               ? 'Drum lanes stay simple here. Use shift tools to move the groove around the bar.'
-              : 'Pitch editing, transposition, and bar shifting now let you shape phrases instead of only toggling notes.'}
+              : 'Each step now stores pitch, velocity, and gate, so phrases can breathe instead of sounding flat.'}
           </p>
         </div>
 
@@ -140,61 +153,142 @@ export const PianoRoll = () => {
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto p-4">
-        <div className="inline-flex min-w-max flex-col overflow-hidden rounded-[24px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]">
-          <div className="flex h-10 border-b border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)]">
-            <div className="w-[88px] shrink-0 border-r border-[var(--border-soft)]" />
-            {Array.from({ length: stepsPerPattern }, (_, stepIndex) => stepIndex).map((stepIndex) => (
-              <div
-                className={`relative flex w-14 items-center justify-center border-r border-[var(--border-soft)] ${stepIndex % 4 === 0 ? 'bg-[rgba(255,255,255,0.03)]' : ''}`}
-                key={stepIndex}
-              >
-                <span className="font-mono text-[10px] text-[var(--text-tertiary)]">{stepIndex + 1}</span>
-                {currentStep === stepIndex && <div className="absolute inset-x-1 bottom-1 h-[2px] rounded-full bg-[var(--accent)]" />}
-              </div>
-            ))}
+      <div className="flex min-h-0 flex-1 gap-4 p-4">
+        <div className="min-w-0 flex-1 overflow-auto">
+          <div className="inline-flex min-w-max flex-col overflow-hidden rounded-[24px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]">
+            <div className="flex h-10 border-b border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)]">
+              <div className="w-[88px] shrink-0 border-r border-[var(--border-soft)]" />
+              {Array.from({ length: stepsPerPattern }, (_, stepIndex) => stepIndex).map((stepIndex) => (
+                <button
+                  className={`relative flex w-14 items-center justify-center border-r border-[var(--border-soft)] ${stepIndex % 4 === 0 ? 'bg-[rgba(255,255,255,0.03)]' : ''} ${selectedStepIndex === stepIndex ? 'text-[var(--accent-strong)]' : ''}`}
+                  key={stepIndex}
+                  onClick={() => setSelectedStepIndex(stepIndex)}
+                >
+                  <span className="font-mono text-[10px]">{stepIndex + 1}</span>
+                  {currentStep === stepIndex && <div className="absolute inset-x-1 bottom-1 h-[2px] rounded-full bg-[var(--accent)]" />}
+                </button>
+              ))}
+            </div>
+
+            {renderNotes.map((note) => {
+              const isBlackKey = note.includes('#');
+
+              return (
+                <div className="flex h-9 border-b border-[var(--border-soft)]/80 last:border-b-0" key={note}>
+                  <div className={`flex w-[88px] shrink-0 items-center justify-between border-r border-[var(--border-soft)] px-3 font-mono text-[10px] ${isBlackKey ? 'bg-[rgba(255,255,255,0.02)] text-[var(--text-tertiary)]' : 'bg-[rgba(255,255,255,0.05)] text-[var(--text-primary)]'}`}>
+                    <span>{isDrum ? 'TRIG' : note}</span>
+                    {!isDrum && note.startsWith('C') && (
+                      <span className="text-[9px] text-[var(--text-tertiary)]">oct</span>
+                    )}
+                  </div>
+
+                  {Array.from({ length: stepsPerPattern }, (_, stepIndex) => stepIndex).map((stepIndex) => {
+                    const step = patternSteps[stepIndex];
+                    const isActive = step?.note === note;
+                    const isCurrent = currentStep === stepIndex;
+                    const isSelected = selectedStepIndex === stepIndex;
+
+                    return (
+                      <button
+                        className={`relative w-14 border-r border-[var(--border-soft)] transition-colors ${stepIndex % 4 === 0 ? 'bg-[rgba(255,255,255,0.02)]' : ''} ${isSelected ? 'ring-1 ring-inset ring-[rgba(124,211,252,0.22)]' : ''} hover:bg-[rgba(255,255,255,0.04)]`}
+                        key={`${note}-${stepIndex}`}
+                        onClick={() => {
+                          setSelectedStepIndex(stepIndex);
+                          toggleStep(track.id, stepIndex, note);
+                        }}
+                      >
+                        {isActive && step && (
+                          <>
+                            <span
+                              className="absolute inset-y-[3px] left-[3px] rounded-md"
+                              style={{
+                                background: track.color,
+                                boxShadow: 'inset 0 0 0 1px rgba(15, 23, 42, 0.16)',
+                                opacity: isCurrent ? 1 : 0.88,
+                                width: `${Math.max(10, Math.min(52, step.gate * 14))}px`,
+                              }}
+                            />
+                            <span
+                              className="absolute bottom-1 right-1 rounded-full bg-black/25"
+                              style={{
+                                height: `${Math.max(3, Math.min(14, step.velocity * 14))}px`,
+                                width: '4px',
+                              }}
+                            />
+                          </>
+                        )}
+                        {isCurrent && <span className="absolute inset-y-1 left-1 w-[2px] rounded-full bg-white/35" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <aside className="surface-panel-strong w-[280px] shrink-0 overflow-auto p-4">
+          <div className="flex items-center gap-2">
+            <SlidersHorizontal className="h-4 w-4 text-[var(--accent)]" />
+            <span className="section-label">Step inspector</span>
           </div>
 
-          {renderNotes.map((note) => {
-            const isBlackKey = note.includes('#');
-
-            return (
-              <div className="flex h-9 border-b border-[var(--border-soft)]/80 last:border-b-0" key={note}>
-                <div className={`flex w-[88px] shrink-0 items-center justify-between border-r border-[var(--border-soft)] px-3 font-mono text-[10px] ${isBlackKey ? 'bg-[rgba(255,255,255,0.02)] text-[var(--text-tertiary)]' : 'bg-[rgba(255,255,255,0.05)] text-[var(--text-primary)]'}`}>
-                  <span>{isDrum ? 'TRIG' : note}</span>
-                  {!isDrum && note.startsWith('C') && (
-                    <span className="text-[9px] text-[var(--text-tertiary)]">oct</span>
-                  )}
+          {selectedStepIndex !== null ? (
+            <div className="mt-4 space-y-4">
+              <div className="rounded-2xl border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+                <div className="section-label">Selected step</div>
+                <div className="mt-2 text-sm font-medium text-[var(--text-primary)]">Step {selectedStepIndex + 1}</div>
+                <div className="mt-1 text-xs text-[var(--text-secondary)]">
+                  {selectedStep ? `${selectedStep.note} · velocity ${Math.round(selectedStep.velocity * 100)} · gate ${selectedStep.gate.toFixed(2)}` : 'No note on this step yet'}
                 </div>
-
-                {Array.from({ length: stepsPerPattern }, (_, stepIndex) => stepIndex).map((stepIndex) => {
-                  const isActive = patternSteps[stepIndex] === note;
-                  const isCurrent = currentStep === stepIndex;
-
-                  return (
-                    <button
-                      className={`relative w-14 border-r border-[var(--border-soft)] transition-colors ${stepIndex % 4 === 0 ? 'bg-[rgba(255,255,255,0.02)]' : ''} hover:bg-[rgba(255,255,255,0.04)]`}
-                      key={`${note}-${stepIndex}`}
-                      onClick={() => toggleStep(track.id, stepIndex, note)}
-                    >
-                      {isActive && (
-                        <span
-                          className="absolute inset-[3px] rounded-md"
-                          style={{
-                            background: track.color,
-                            boxShadow: 'inset 0 0 0 1px rgba(15, 23, 42, 0.16)',
-                            opacity: isCurrent ? 1 : 0.88,
-                          }}
-                        />
-                      )}
-                      {isCurrent && <span className="absolute inset-y-1 left-1 w-[2px] rounded-full bg-white/35" />}
-                    </button>
-                  );
-                })}
               </div>
-            );
-          })}
-        </div>
+
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="section-label">Velocity</span>
+                  <span className="font-mono text-[10px] text-[var(--text-secondary)]">
+                    {selectedStep ? Math.round(selectedStep.velocity * 100) : 82}
+                  </span>
+                </div>
+                <input
+                  className="mt-3"
+                  disabled={!selectedStep}
+                  max="1"
+                  min="0.1"
+                  onChange={(event) => updateStepEvent(track.id, selectedStepIndex, { velocity: Number(event.target.value) })}
+                  step="0.01"
+                  type="range"
+                  value={selectedStep?.velocity ?? 0.82}
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="section-label">Gate</span>
+                  <span className="font-mono text-[10px] text-[var(--text-secondary)]">
+                    {selectedStep ? selectedStep.gate.toFixed(2) : '1.00'}
+                  </span>
+                </div>
+                <input
+                  className="mt-3"
+                  disabled={!selectedStep}
+                  max="4"
+                  min="0.25"
+                  onChange={(event) => updateStepEvent(track.id, selectedStepIndex, { gate: Number(event.target.value) })}
+                  step="0.25"
+                  type="range"
+                  value={selectedStep?.gate ?? 1}
+                />
+              </div>
+
+              {!selectedStep && (
+                <p className="text-xs text-[var(--text-secondary)]">Click any note cell to place a note, then shape its dynamics and hold length here.</p>
+              )}
+            </div>
+          ) : (
+            <p className="mt-4 text-sm text-[var(--text-secondary)]">Choose a step to edit its performance details.</p>
+          )}
+        </aside>
       </div>
     </section>
   );

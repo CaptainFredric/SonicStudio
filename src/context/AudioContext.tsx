@@ -13,6 +13,7 @@ import {
   cloneProject,
   createArrangerClip as buildArrangerClip,
   createEmptyPattern,
+  createStepEvent,
   createTrack as buildTrack,
   defaultNoteForTrack,
   duplicateTrack as buildDuplicateTrack,
@@ -24,6 +25,7 @@ import {
   type ArrangementClip,
   type AppView,
   type InstrumentType,
+  type NoteEvent,
   type Project,
   type StudioSession,
   type StudioUIState,
@@ -96,6 +98,7 @@ interface AudioContextType {
   transportMode: TransportMode;
   undo: () => void;
   updateArrangerClip: (clipId: string, updates: Partial<ArrangementClip>) => void;
+  updateStepEvent: (trackId: string, stepIndex: number, updates: Partial<NoteEvent>) => void;
   updateTrackPan: (trackId: string, pan: number) => void;
   updateTrackVolume: (trackId: string, volume: number) => void;
 }
@@ -140,7 +143,8 @@ type EditorAction =
   | { type: 'TOGGLE_VOLUME'; trackId: string; volume: number }
   | { type: 'TRANSPOSE_PATTERN'; semitones: number; trackId: string }
   | { type: 'UNDO' }
-  | { type: 'UPDATE_ARRANGER_CLIP'; clipId: string; updates: Partial<ArrangementClip> };
+  | { type: 'UPDATE_ARRANGER_CLIP'; clipId: string; updates: Partial<ArrangementClip> }
+  | { type: 'UPDATE_STEP_EVENT'; stepIndex: number; trackId: string; updates: Partial<NoteEvent> };
 
 const AudioContext = createContext<AudioContextType | null>(null);
 const HISTORY_LIMIT = 100;
@@ -447,9 +451,12 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
         const patternId = present.transport.currentPattern;
         const existingSteps = track.patterns[patternId] ?? createEmptyPattern(present.transport.stepsPerPattern);
         const nextSteps = [...existingSteps];
-        const targetNote = action.note ?? nextSteps[action.stepIndex] ?? defaultNoteForTrack(track);
+        const existingStep = nextSteps[action.stepIndex];
+        const targetNote = action.note ?? existingStep?.note ?? defaultNoteForTrack(track);
 
-        nextSteps[action.stepIndex] = nextSteps[action.stepIndex] === targetNote ? null : targetNote;
+        nextSteps[action.stepIndex] = existingStep?.note === targetNote
+          ? null
+          : createStepEvent(targetNote, existingStep ?? {});
 
         return {
           ...track,
@@ -473,8 +480,8 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
         }
 
         const nextSteps = action.direction === 'left'
-          ? [...currentPattern.slice(1), null]
-          : [null, ...currentPattern.slice(0, -1)];
+          ? [...currentPattern.slice(1).map((step) => (step ? { ...step } : null)), null]
+          : [null, ...currentPattern.slice(0, -1).map((step) => (step ? { ...step } : null))];
 
         return {
           ...track,
@@ -494,7 +501,7 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
         const patternId = present.transport.currentPattern;
         const currentPattern = track.patterns[patternId] ?? createEmptyPattern(present.transport.stepsPerPattern);
         const nextSteps = currentPattern.map((step) => (
-          typeof step === 'string' ? transposeNote(step, action.semitones) : step
+          step ? { ...step, note: transposeNote(step.note, action.semitones) } : step
         ));
 
         return {
@@ -545,6 +552,31 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
           patterns: {
             ...track.patterns,
             [patternId]: createEmptyPattern(present.transport.stepsPerPattern),
+          },
+        };
+      }));
+
+    case 'UPDATE_STEP_EVENT':
+      return commitProject(state, updateTrack(present, action.trackId, (track) => {
+        const patternId = present.transport.currentPattern;
+        const currentPattern = track.patterns[patternId] ?? createEmptyPattern(present.transport.stepsPerPattern);
+        const targetStep = currentPattern[action.stepIndex];
+
+        if (!targetStep) {
+          return track;
+        }
+
+        const nextSteps = [...currentPattern];
+        nextSteps[action.stepIndex] = createStepEvent(targetStep.note, {
+          ...targetStep,
+          ...action.updates,
+        });
+
+        return {
+          ...track,
+          patterns: {
+            ...track.patterns,
+            [patternId]: nextSteps,
           },
         };
       }));
@@ -1002,6 +1034,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       transportMode: project.transport.mode,
       undo: () => dispatch({ type: 'UNDO' }),
       updateArrangerClip: (clipId, updates) => dispatch({ type: 'UPDATE_ARRANGER_CLIP', clipId, updates }),
+      updateStepEvent: (trackId, stepIndex, updates) => dispatch({ type: 'UPDATE_STEP_EVENT', stepIndex, trackId, updates }),
       updateTrackPan: (trackId, pan) => dispatch({ type: 'TOGGLE_PAN', pan, trackId }),
       updateTrackVolume: (trackId, volume) => dispatch({ type: 'TOGGLE_VOLUME', trackId, volume }),
     }}>

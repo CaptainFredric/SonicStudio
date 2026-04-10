@@ -2,6 +2,7 @@ import * as Tone from 'tone';
 
 import type {
   ArrangementClip,
+  NoteEvent,
   Project,
   StepValue,
   Track,
@@ -125,22 +126,29 @@ class ToneEngine {
     };
   }
 
-  private triggerTrack(graph: TrackGraph, track: Track, note: string, time: number) {
+  private triggerTrack(graph: TrackGraph, track: Track, step: NoteEvent, time: number) {
+    const duration = Tone.Time('16n').toSeconds() * step.gate;
+
     switch (track.type) {
       case 'kick':
-        (graph.instrument as Tone.MembraneSynth).triggerAttackRelease(note || 'C1', '8n', time);
+        (graph.instrument as Tone.MembraneSynth).triggerAttackRelease(step.note || 'C1', duration, time, step.velocity);
         break;
       case 'snare':
-        (graph.instrument as Tone.NoiseSynth).triggerAttackRelease('16n', time);
+        (graph.instrument as Tone.NoiseSynth).triggerAttackRelease(duration, time, step.velocity);
         break;
       case 'hihat':
-        (graph.instrument as Tone.MetalSynth).triggerAttackRelease('32n', time, 0.3);
+        (graph.instrument as Tone.MetalSynth).triggerAttackRelease(duration * 0.5, time, step.velocity);
         break;
       case 'bass':
-        (graph.instrument as Tone.MonoSynth).triggerAttackRelease(note || 'C2', '16n', time);
+        (graph.instrument as Tone.MonoSynth).triggerAttackRelease(step.note || 'C2', duration, time, step.velocity);
         break;
       default:
-        (graph.instrument as Tone.PolySynth).triggerAttackRelease(note || 'C4', track.type === 'pad' ? '8n' : '16n', time);
+        (graph.instrument as Tone.PolySynth).triggerAttackRelease(
+          step.note || 'C4',
+          track.type === 'pad' ? duration * 1.5 : duration,
+          time,
+          step.velocity,
+        );
         break;
     }
   }
