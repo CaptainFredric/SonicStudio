@@ -9,7 +9,7 @@ export interface NoteEvent {
   velocity: number;
 }
 
-export type StepValue = NoteEvent | null;
+export type StepValue = NoteEvent[];
 
 export interface ArrangerSection {
   id: string;
@@ -100,7 +100,7 @@ export const MAX_PATTERN_COUNT = 8;
 export const MAX_STEPS_PER_PATTERN = 64;
 export const MIN_PATTERN_COUNT = 1;
 export const MIN_STEPS_PER_PATTERN = 8;
-export const PROJECT_SCHEMA_VERSION = 3;
+export const PROJECT_SCHEMA_VERSION = 4;
 
 export const INITIAL_PARAMS: SynthParams = {
   cutoff: 2000,
@@ -200,6 +200,7 @@ const createId = (prefix: string) => {
 
 const clampStepVelocity = (velocity: number) => clamp(velocity, 0.1, 1);
 const clampStepGate = (gate: number) => clamp(gate, 0.25, 4);
+const cloneStep = (step: StepValue): StepValue => step.map((event) => ({ ...event }));
 
 const isInstrumentType = (value: unknown): value is InstrumentType => (
   value === 'kick'
@@ -316,17 +317,30 @@ export const createStepEvent = (
 
 const normalizeStepValue = (value: unknown): StepValue => {
   if (typeof value === 'string') {
-    return createStepEvent(value);
+    return [createStepEvent(value)];
+  }
+
+  if (Array.isArray(value)) {
+    return value.flatMap((candidate) => {
+      if (!isRecord(candidate) || typeof candidate.note !== 'string') {
+        return [];
+      }
+
+      return [createStepEvent(candidate.note, {
+        gate: typeof candidate.gate === 'number' ? candidate.gate : 1,
+        velocity: typeof candidate.velocity === 'number' ? candidate.velocity : 0.82,
+      })];
+    });
   }
 
   if (!isRecord(value) || typeof value.note !== 'string') {
-    return null;
+    return [];
   }
 
-  return createStepEvent(value.note, {
+  return [createStepEvent(value.note, {
     gate: typeof value.gate === 'number' ? value.gate : 1,
     velocity: typeof value.velocity === 'number' ? value.velocity : 0.82,
-  });
+  })];
 };
 
 const normalizePatterns = (
@@ -469,7 +483,7 @@ const legacySectionsToClips = (
 };
 
 export const createEmptyPattern = (stepCount: number = DEFAULT_STEPS_PER_PATTERN): StepValue[] => (
-  Array.from({ length: stepCount }, () => null)
+  Array.from({ length: stepCount }, () => [])
 );
 
 export const createPatternBank = (
@@ -594,8 +608,8 @@ export const resizeTrackPatterns = (
   for (let patternIndex = 0; patternIndex < patternCount; patternIndex += 1) {
     const sourceSteps = track.patterns[patternIndex] ?? [];
     patterns[patternIndex] = Array.from({ length: stepsPerPattern }, (_, stepIndex) => {
-      const value = sourceSteps[stepIndex];
-      return value ? { ...value } : null;
+    const value = sourceSteps[stepIndex];
+      return Array.isArray(value) ? cloneStep(value) : [];
     });
   }
 
@@ -626,7 +640,16 @@ export const createDemoProject = (projectName: string = 'Night Transit'): Projec
     note: string,
     options: Partial<NoteEvent> = {},
   ) => {
-    track.patterns[patternIndex][stepIndex] = createStepEvent(note, options);
+    track.patterns[patternIndex][stepIndex] = [createStepEvent(note, options)];
+  };
+
+  const stack = (
+    track: Track,
+    patternIndex: number,
+    stepIndex: number,
+    notes: Array<{ note: string; options?: Partial<NoteEvent> }>,
+  ) => {
+    track.patterns[patternIndex][stepIndex] = notes.map((entry) => createStepEvent(entry.note, entry.options));
   };
 
   put(kickTrack, 0, 0, 'C1', { velocity: 0.96 });
@@ -683,16 +706,36 @@ export const createDemoProject = (projectName: string = 'Night Transit'): Projec
   put(leadTrack, 2, 10, 'A4', { gate: 1, velocity: 0.84 });
   put(leadTrack, 2, 14, 'C5', { gate: 1.25, velocity: 0.9 });
 
-  put(padTrack, 0, 0, 'C4', { gate: 2.5, velocity: 0.62 });
-  put(padTrack, 0, 4, 'G4', { gate: 2, velocity: 0.58 });
-  put(padTrack, 0, 8, 'A4', { gate: 2, velocity: 0.56 });
-  put(padTrack, 0, 12, 'G4', { gate: 2.5, velocity: 0.6 });
-  put(padTrack, 1, 0, 'A3', { gate: 2.5, velocity: 0.6 });
-  put(padTrack, 1, 4, 'E4', { gate: 2, velocity: 0.56 });
-  put(padTrack, 1, 8, 'G4', { gate: 2, velocity: 0.58 });
-  put(padTrack, 1, 12, 'E4', { gate: 2.5, velocity: 0.54 });
-  put(padTrack, 2, 0, 'F4', { gate: 3, velocity: 0.62 });
-  put(padTrack, 2, 8, 'C5', { gate: 3, velocity: 0.58 });
+  stack(padTrack, 0, 0, [
+    { note: 'C4', options: { gate: 2.5, velocity: 0.62 } },
+    { note: 'E4', options: { gate: 2.5, velocity: 0.56 } },
+    { note: 'G4', options: { gate: 2.5, velocity: 0.58 } },
+  ]);
+  stack(padTrack, 0, 8, [
+    { note: 'A3', options: { gate: 2.25, velocity: 0.56 } },
+    { note: 'C4', options: { gate: 2.25, velocity: 0.54 } },
+    { note: 'E4', options: { gate: 2.25, velocity: 0.52 } },
+  ]);
+  stack(padTrack, 1, 0, [
+    { note: 'A3', options: { gate: 2.5, velocity: 0.6 } },
+    { note: 'C4', options: { gate: 2.5, velocity: 0.54 } },
+    { note: 'E4', options: { gate: 2.5, velocity: 0.56 } },
+  ]);
+  stack(padTrack, 1, 8, [
+    { note: 'G3', options: { gate: 2.25, velocity: 0.58 } },
+    { note: 'B3', options: { gate: 2.25, velocity: 0.52 } },
+    { note: 'D4', options: { gate: 2.25, velocity: 0.54 } },
+  ]);
+  stack(padTrack, 2, 0, [
+    { note: 'F3', options: { gate: 3, velocity: 0.62 } },
+    { note: 'A3', options: { gate: 3, velocity: 0.56 } },
+    { note: 'C4', options: { gate: 3, velocity: 0.58 } },
+  ]);
+  stack(padTrack, 2, 8, [
+    { note: 'G3', options: { gate: 3, velocity: 0.58 } },
+    { note: 'B3', options: { gate: 3, velocity: 0.54 } },
+    { note: 'D4', options: { gate: 3, velocity: 0.56 } },
+  ]);
 
   const timestamp = new Date().toISOString();
 

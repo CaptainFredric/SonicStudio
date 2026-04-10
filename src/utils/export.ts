@@ -70,7 +70,11 @@ export async function exportToJSON(
         muted: track.muted,
         solo: track.solo,
         activeSteps: Object.values(track.patterns).reduce(
-          (sum, pattern) => sum + pattern.filter((step) => step !== null).length,
+          (sum, pattern) => sum + pattern.filter((step) => step.length > 0).length,
+          0,
+        ),
+        noteEvents: Object.values(track.patterns).reduce(
+          (sum, pattern) => sum + pattern.reduce((patternSum, step) => patternSum + step.length, 0),
           0,
         ),
       })),

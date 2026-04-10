@@ -100,9 +100,9 @@ class ToneEngine {
 
   private resolvePatternStep(track: Track, songStep: number): { note: StepValue; patternIndex: number } | null {
     if (this.transportMode === 'PATTERN') {
-      const patternSteps = track.patterns[this.currentPattern] ?? Array(this.stepsPerPattern).fill(null);
+      const patternSteps = track.patterns[this.currentPattern] ?? Array.from({ length: this.stepsPerPattern }, () => []);
       return {
-        note: patternSteps[songStep % this.stepsPerPattern] ?? null,
+        note: patternSteps[songStep % this.stepsPerPattern] ?? [],
         patternIndex: this.currentPattern,
       };
     }
@@ -118,10 +118,10 @@ class ToneEngine {
     }
 
     const localStep = (songStep - activeClip.startBeat) % this.stepsPerPattern;
-    const patternSteps = track.patterns[activeClip.patternIndex] ?? Array(this.stepsPerPattern).fill(null);
+    const patternSteps = track.patterns[activeClip.patternIndex] ?? Array.from({ length: this.stepsPerPattern }, () => []);
 
     return {
-      note: patternSteps[localStep] ?? null,
+      note: patternSteps[localStep] ?? [],
       patternIndex: activeClip.patternIndex,
     };
   }
@@ -163,7 +163,7 @@ class ToneEngine {
       }
 
       const resolved = this.resolvePatternStep(track, songStep);
-      if (!resolved?.note) {
+      if (!resolved || resolved.note.length === 0) {
         return;
       }
 
@@ -173,7 +173,9 @@ class ToneEngine {
         return;
       }
 
-      this.triggerTrack(graph, track, resolved.note, time);
+      resolved.note.forEach((event) => {
+        this.triggerTrack(graph, track, event, time);
+      });
     });
 
     Tone.Draw.schedule(() => {

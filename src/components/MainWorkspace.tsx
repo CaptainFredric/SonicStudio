@@ -35,7 +35,7 @@ export const MainWorkspace = () => {
         <div>
           <div className="section-label">Sequencer</div>
           <h2 className="mt-2 text-lg font-semibold tracking-tight text-[var(--text-primary)]">Pattern grid</h2>
-          <p className="mt-2 text-sm text-[var(--text-secondary)]">Drums, bass, leads, pads, plucks, and motion layers can all share the same clip based song skeleton now.</p>
+          <p className="mt-2 text-sm text-[var(--text-secondary)]">Drums, bass, leads, pads, plucks, and motion layers now share one clip skeleton, and melodic lanes can stack notes inside a single step for thicker phrases.</p>
         </div>
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
           {TRACK_BUTTONS.map((button) => (
@@ -74,12 +74,12 @@ export const MainWorkspace = () => {
 
         <div className="flex-1 overflow-auto">
           {tracks.map((track) => {
-            const patternSteps = track.patterns[currentPattern] || Array(stepsPerPattern).fill(null);
+            const patternSteps = track.patterns[currentPattern] || Array.from({ length: stepsPerPattern }, () => []);
             const selected = selectedTrackId === track.id;
 
             return (
               <div
-                className={`flex border-b border-[var(--border-soft)] transition-colors ${selected ? 'bg-[rgba(130,201,187,0.06)]' : 'bg-transparent hover:bg-[rgba(255,255,255,0.02)]'}`}
+                className={`flex border-b border-[var(--border-soft)] transition-colors ${selected ? 'bg-[rgba(125,211,252,0.06)]' : 'bg-transparent hover:bg-[rgba(255,255,255,0.02)]'}`}
                 key={track.id}
               >
                 <div
@@ -104,6 +104,9 @@ export const MainWorkspace = () => {
                       <div className="mt-2 flex items-center gap-3">
                         <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.type}</span>
                         <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.volume.toFixed(0)} dB</span>
+                        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+                          {patternSteps.reduce((sum, step) => sum + step.length, 0)} notes
+                        </span>
                       </div>
                     </div>
                     <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
@@ -131,8 +134,11 @@ export const MainWorkspace = () => {
 
                 <div className="flex flex-1 gap-[2px] px-2 py-2">
                   {patternSteps.map((value, stepIndex) => {
-                    const isActive = value !== null;
+                    const isActive = value.length > 0;
                     const isCurrent = currentStep === stepIndex;
+                    const leadEvent = value[0];
+                    const extraNotes = Math.max(0, value.length - 1);
+                    const maxGate = value.reduce((gate, event) => Math.max(gate, event.gate), 0);
 
                     return (
                       <button
@@ -146,14 +152,22 @@ export const MainWorkspace = () => {
                             }
                           : undefined}
                       >
-                        {isActive && !['kick', 'snare', 'hihat'].includes(track.type) && (
-                          <span className="absolute bottom-1 right-1 font-mono text-[9px] font-medium text-black/60">{value.note}</span>
+                        {isActive && !['kick', 'snare', 'hihat'].includes(track.type) && leadEvent && (
+                          <span className="absolute bottom-1 right-1 font-mono text-[9px] font-medium text-black/60">
+                            {leadEvent.note}
+                            {extraNotes > 0 ? ` +${extraNotes}` : ''}
+                          </span>
                         )}
                         {isActive && (
                           <span
                             className="absolute bottom-1 left-1 rounded-full bg-black/20"
-                            style={{ height: '3px', width: `${Math.max(6, Math.min(20, value.gate * 6))}px` }}
+                            style={{ height: '3px', width: `${Math.max(6, Math.min(20, maxGate * 6))}px` }}
                           />
+                        )}
+                        {extraNotes > 0 && (
+                          <span className="absolute left-1 top-1 rounded-sm bg-black/20 px-1 font-mono text-[8px] text-white/80">
+                            {value.length}
+                          </span>
                         )}
                         {isCurrent && <span className="absolute inset-y-1 left-1 w-[2px] rounded-full bg-white/50" />}
                       </button>
