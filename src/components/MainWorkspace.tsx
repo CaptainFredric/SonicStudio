@@ -9,6 +9,9 @@ const TRACK_BUTTONS = [
   { label: 'Hat', type: 'hihat' as const },
   { label: 'Bass', type: 'bass' as const },
   { label: 'Lead', type: 'lead' as const },
+  { label: 'Pad', type: 'pad' as const },
+  { label: 'Pluck', type: 'pluck' as const },
+  { label: 'FX', type: 'fx' as const },
 ];
 
 export const MainWorkspace = () => {
@@ -32,6 +35,7 @@ export const MainWorkspace = () => {
         <div>
           <div className="section-label">Sequencer</div>
           <h2 className="mt-2 text-lg font-semibold tracking-tight text-[var(--text-primary)]">Pattern grid</h2>
+          <p className="mt-2 text-sm text-[var(--text-secondary)]">Drums, bass, leads, pads, plucks, and motion layers can all share the same clip based song skeleton now.</p>
         </div>
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
           {TRACK_BUTTONS.map((button) => (

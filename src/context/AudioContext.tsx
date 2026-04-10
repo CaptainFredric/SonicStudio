@@ -72,6 +72,7 @@ interface AudioContextType {
   saveProject: () => void;
   saveStatus: SaveStatus;
   selectedTrackId: string | null;
+  shiftPattern: (trackId: string, direction: 'left' | 'right') => void;
   setActiveView: (view: AppView) => void;
   setBpm: (bpm: number) => void;
   setCurrentPattern: (pattern: number) => void;
@@ -91,6 +92,7 @@ interface AudioContextType {
   toggleSolo: (trackId: string) => void;
   toggleStep: (trackId: string, stepIndex: number, note?: string) => void;
   tracks: Track[];
+  transposePattern: (trackId: string, semitones: number) => void;
   transportMode: TransportMode;
   undo: () => void;
   updateArrangerClip: (clipId: string, updates: Partial<ArrangementClip>) => void;
@@ -118,6 +120,7 @@ type EditorAction =
   | { type: 'REDO' }
   | { type: 'REMOVE_ARRANGER_CLIP'; clipId: string }
   | { type: 'REMOVE_TRACK'; trackId: string }
+  | { type: 'SHIFT_PATTERN'; direction: 'left' | 'right'; trackId: string }
   | { type: 'SET_ACTIVE_VIEW'; view: AppView }
   | { type: 'SET_BPM'; bpm: number }
   | { type: 'SET_CURRENT_PATTERN'; pattern: number }
@@ -135,13 +138,45 @@ type EditorAction =
   | { type: 'TOGGLE_SOLO'; trackId: string }
   | { type: 'TOGGLE_STEP'; note?: string; stepIndex: number; trackId: string }
   | { type: 'TOGGLE_VOLUME'; trackId: string; volume: number }
+  | { type: 'TRANSPOSE_PATTERN'; semitones: number; trackId: string }
   | { type: 'UNDO' }
   | { type: 'UPDATE_ARRANGER_CLIP'; clipId: string; updates: Partial<ArrangementClip> };
 
 const AudioContext = createContext<AudioContextType | null>(null);
 const HISTORY_LIMIT = 100;
+const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+const noteToMidi = (note: string): number | null => {
+  const match = note.match(/^([A-G]#?)(-?\d+)$/);
+  if (!match) {
+    return null;
+  }
+
+  const pitchClass = NOTE_NAMES.indexOf(match[1]);
+  if (pitchClass === -1) {
+    return null;
+  }
+
+  return (Number(match[2]) + 1) * 12 + pitchClass;
+};
+
+const midiToNote = (midi: number): string => {
+  const clampedMidi = clamp(Math.round(midi), 24, 96);
+  const pitchClass = NOTE_NAMES[clampedMidi % 12];
+  const octave = Math.floor(clampedMidi / 12) - 1;
+  return `${pitchClass}${octave}`;
+};
+
+const transposeNote = (note: string, semitones: number): string => {
+  const midi = noteToMidi(note);
+  if (midi === null) {
+    return note;
+  }
+
+  return midiToNote(midi + semitones);
+};
 
 const syncArrangerClips = (
   arrangerClips: ArrangementClip[],
@@ -427,6 +462,49 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
 
       return commitProject(state, nextProject);
     }
+
+    case 'SHIFT_PATTERN':
+      return commitProject(state, updateTrack(present, action.trackId, (track) => {
+        const patternId = present.transport.currentPattern;
+        const currentPattern = track.patterns[patternId] ?? createEmptyPattern(present.transport.stepsPerPattern);
+
+        if (currentPattern.every((step) => step === null)) {
+          return track;
+        }
+
+        const nextSteps = action.direction === 'left'
+          ? [...currentPattern.slice(1), null]
+          : [null, ...currentPattern.slice(0, -1)];
+
+        return {
+          ...track,
+          patterns: {
+            ...track.patterns,
+            [patternId]: nextSteps,
+          },
+        };
+      }));
+
+    case 'TRANSPOSE_PATTERN':
+      return commitProject(state, updateTrack(present, action.trackId, (track) => {
+        if (track.type === 'kick' || track.type === 'snare' || track.type === 'hihat') {
+          return track;
+        }
+
+        const patternId = present.transport.currentPattern;
+        const currentPattern = track.patterns[patternId] ?? createEmptyPattern(present.transport.stepsPerPattern);
+        const nextSteps = currentPattern.map((step) => (
+          typeof step === 'string' ? transposeNote(step, action.semitones) : step
+        ));
+
+        return {
+          ...track,
+          patterns: {
+            ...track.patterns,
+            [patternId]: nextSteps,
+          },
+        };
+      }));
 
     case 'TOGGLE_VOLUME':
       return commitProject(state, updateTrack(present, action.trackId, (track) => {
@@ -900,6 +978,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       saveProject,
       saveStatus,
       selectedTrackId,
+      shiftPattern: (trackId, direction) => dispatch({ type: 'SHIFT_PATTERN', direction, trackId }),
       setActiveView: (view) => dispatch({ type: 'SET_ACTIVE_VIEW', view }),
       setBpm: (bpm) => dispatch({ type: 'SET_BPM', bpm }),
       setCurrentPattern: (pattern) => dispatch({ type: 'SET_CURRENT_PATTERN', pattern }),
@@ -919,6 +998,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       toggleSolo: (trackId) => dispatch({ type: 'TOGGLE_SOLO', trackId }),
       toggleStep: (trackId, stepIndex, note) => dispatch({ type: 'TOGGLE_STEP', note, stepIndex, trackId }),
       tracks: project.tracks,
+      transposePattern: (trackId, semitones) => dispatch({ type: 'TRANSPOSE_PATTERN', semitones, trackId }),
       transportMode: project.transport.mode,
       undo: () => dispatch({ type: 'UNDO' }),
       updateArrangerClip: (clipId, updates) => dispatch({ type: 'UPDATE_ARRANGER_CLIP', clipId, updates }),

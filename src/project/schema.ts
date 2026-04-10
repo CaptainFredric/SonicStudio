@@ -1,5 +1,5 @@
 export type AppView = 'SEQUENCER' | 'PIANO_ROLL' | 'MIXER' | 'ARRANGER';
-export type InstrumentType = 'kick' | 'snare' | 'hihat' | 'bass' | 'lead';
+export type InstrumentType = 'kick' | 'snare' | 'hihat' | 'bass' | 'lead' | 'pad' | 'pluck' | 'fx';
 export type StepValue = string | null;
 export type TransportMode = 'PATTERN' | 'SONG';
 export type OscillatorShape = 'sine' | 'triangle' | 'sawtooth' | 'square';
@@ -156,9 +156,30 @@ const TRACK_PRESETS: Record<
     source: { octaveShift: 0, portamento: 0.05, waveform: 'sawtooth' },
     volume: -12,
   },
+  pad: {
+    color: '#67e8f9',
+    name: 'Glass Pad',
+    params: { attack: 0.18, decay: 0.4, delaySend: 0.24, reverbSend: 0.48, release: 2.2, sustain: 0.72 },
+    source: { octaveShift: 0, portamento: 0.02, waveform: 'triangle' },
+    volume: -16,
+  },
+  pluck: {
+    color: '#c084fc',
+    name: 'Pulse Pluck',
+    params: { attack: 0.003, decay: 0.16, release: 0.32, sustain: 0.18 },
+    source: { octaveShift: 0, portamento: 0, waveform: 'square' },
+    volume: -14,
+  },
+  fx: {
+    color: '#fb7185',
+    name: 'Motion FX',
+    params: { attack: 0.02, decay: 0.6, delaySend: 0.58, distortion: 0.12, release: 1.4, reverbSend: 0.4, sustain: 0.38 },
+    source: { detune: 18, octaveShift: 1, portamento: 0.07, waveform: 'sawtooth' },
+    volume: -18,
+  },
 };
 
-const DEMO_TRACK_ORDER: InstrumentType[] = ['kick', 'snare', 'hihat', 'bass', 'lead'];
+const DEMO_TRACK_ORDER: InstrumentType[] = ['kick', 'snare', 'hihat', 'bass', 'lead', 'pad'];
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
@@ -176,6 +197,9 @@ const isInstrumentType = (value: unknown): value is InstrumentType => (
   || value === 'hihat'
   || value === 'bass'
   || value === 'lead'
+  || value === 'pad'
+  || value === 'pluck'
+  || value === 'fx'
 );
 
 const isOscillatorShape = (value: unknown): value is OscillatorShape => (
@@ -560,7 +584,7 @@ export const createDemoProject = (projectName: string = 'Night Transit'): Projec
     patternCount: transport.patternCount,
     stepsPerPattern: transport.stepsPerPattern,
   }));
-  const [kickTrack, snareTrack, hihatTrack, bassTrack, leadTrack] = tracks;
+  const [kickTrack, snareTrack, hihatTrack, bassTrack, leadTrack, padTrack] = tracks;
 
   kickTrack.patterns[0][0] = 'C1';
   kickTrack.patterns[0][4] = 'C1';
@@ -616,6 +640,17 @@ export const createDemoProject = (projectName: string = 'Night Transit'): Projec
   leadTrack.patterns[2][10] = 'A4';
   leadTrack.patterns[2][14] = 'C5';
 
+  padTrack.patterns[0][0] = 'C4';
+  padTrack.patterns[0][4] = 'G4';
+  padTrack.patterns[0][8] = 'A4';
+  padTrack.patterns[0][12] = 'G4';
+  padTrack.patterns[1][0] = 'A3';
+  padTrack.patterns[1][4] = 'E4';
+  padTrack.patterns[1][8] = 'G4';
+  padTrack.patterns[1][12] = 'E4';
+  padTrack.patterns[2][0] = 'F4';
+  padTrack.patterns[2][8] = 'C5';
+
   const timestamp = new Date().toISOString();
 
   return {
@@ -625,16 +660,19 @@ export const createDemoProject = (projectName: string = 'Night Transit'): Projec
       createArrangerClip(hihatTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
       createArrangerClip(bassTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
       createArrangerClip(leadTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 8 }),
+      createArrangerClip(padTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
       createArrangerClip(kickTrack.id, transport, { beatLength: 16, patternIndex: 1, startBeat: 16 }),
       createArrangerClip(snareTrack.id, transport, { beatLength: 16, patternIndex: 1, startBeat: 16 }),
       createArrangerClip(hihatTrack.id, transport, { beatLength: 16, patternIndex: 1, startBeat: 16 }),
       createArrangerClip(bassTrack.id, transport, { beatLength: 16, patternIndex: 1, startBeat: 16 }),
       createArrangerClip(leadTrack.id, transport, { beatLength: 16, patternIndex: 1, startBeat: 16 }),
+      createArrangerClip(padTrack.id, transport, { beatLength: 16, patternIndex: 1, startBeat: 16 }),
       createArrangerClip(kickTrack.id, transport, { beatLength: 16, patternIndex: 2, startBeat: 32 }),
       createArrangerClip(snareTrack.id, transport, { beatLength: 16, patternIndex: 2, startBeat: 32 }),
       createArrangerClip(hihatTrack.id, transport, { beatLength: 16, patternIndex: 2, startBeat: 32 }),
       createArrangerClip(bassTrack.id, transport, { beatLength: 16, patternIndex: 2, startBeat: 32 }),
       createArrangerClip(leadTrack.id, transport, { beatLength: 16, patternIndex: 2, startBeat: 32 }),
+      createArrangerClip(padTrack.id, transport, { beatLength: 16, patternIndex: 2, startBeat: 32 }),
     ],
     metadata: {
       createdAt: timestamp,
@@ -687,6 +725,12 @@ export const defaultNoteForTrack = (track: Track): string => {
       return 'C1';
     case 'bass':
       return track.source.octaveShift <= -1 ? 'C2' : 'C3';
+    case 'pad':
+      return 'C4';
+    case 'pluck':
+      return 'E4';
+    case 'fx':
+      return 'G4';
     default:
       return 'C4';
   }

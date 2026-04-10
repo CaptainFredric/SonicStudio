@@ -140,7 +140,7 @@ class ToneEngine {
         (graph.instrument as Tone.MonoSynth).triggerAttackRelease(note || 'C2', '16n', time);
         break;
       default:
-        (graph.instrument as Tone.PolySynth).triggerAttackRelease(note || 'C4', '16n', time);
+        (graph.instrument as Tone.PolySynth).triggerAttackRelease(note || 'C4', track.type === 'pad' ? '8n' : '16n', time);
         break;
     }
   }
@@ -233,6 +233,10 @@ class ToneEngine {
         return new Tone.MetalSynth();
       case 'bass':
         return new Tone.MonoSynth();
+      case 'pad':
+        return new Tone.PolySynth(Tone.AMSynth);
+      case 'fx':
+        return new Tone.PolySynth(Tone.FMSynth);
       default:
         return new Tone.PolySynth(Tone.Synth);
     }
@@ -318,7 +322,7 @@ class ToneEngine {
       return;
     }
 
-    if (track.type === 'lead') {
+    if (track.type === 'lead' || track.type === 'pad' || track.type === 'pluck' || track.type === 'fx') {
       const instrument = graph.instrument as Tone.PolySynth;
       instrument.set({
         detune: noteDetune,
