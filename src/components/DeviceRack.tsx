@@ -1,0 +1,235 @@
+import React from 'react';
+import {
+  Activity,
+  Disc3,
+  Sparkles,
+  Volume2,
+  Waves,
+  Zap,
+} from 'lucide-react';
+
+import { useAudio } from '../context/AudioContext';
+import { Knob } from './Knob';
+import { Visualizer } from './Visualizer';
+
+const WAVEFORM_OPTIONS = ['sine', 'triangle', 'sawtooth', 'square'] as const;
+
+export const DeviceRack = () => {
+  const {
+    isRecording,
+    selectedTrackId,
+    setTrackParams,
+    setTrackSource,
+    toggleRecording,
+    tracks,
+    updateTrackPan,
+    updateTrackVolume,
+  } = useAudio();
+  const track = tracks.find((candidate) => candidate.id === selectedTrackId) ?? null;
+
+  if (!track) {
+    return (
+      <section className="surface-panel flex h-[330px] items-center justify-center">
+        <div className="text-center">
+          <div className="section-label">Device rack</div>
+          <p className="mt-3 text-sm text-[var(--text-secondary)]">Select a track to load its source, tone, and output chain.</p>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="surface-panel h-[330px] overflow-auto p-3">
+      <div className="grid h-full min-w-[1480px] grid-cols-[240px_1fr_0.95fr_0.85fr_0.95fr_1.55fr] gap-3">
+        <div className="surface-panel-strong flex flex-col justify-between p-4">
+          <div>
+            <div className="section-label">Selected track</div>
+            <div className="mt-4 flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center border" style={{ background: `${track.color}12`, borderColor: `${track.color}44`, borderRadius: '4px', color: track.color }}>
+                <Disc3 className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <div className="truncate text-base font-semibold tracking-tight text-[var(--text-primary)]">{track.name}</div>
+                <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.type}</div>
+              </div>
+            </div>
+            <div className="mt-4 rounded-2xl border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
+              <div className="section-label">Character</div>
+              <div className="mt-2 text-sm text-[var(--text-primary)]">{waveformLabel(track.source.waveform)}</div>
+              <div className="mt-1 text-xs text-[var(--text-secondary)]">
+                {track.type === 'bass' || track.type === 'lead'
+                  ? 'Playable synth voice with oscillator shaping and glide.'
+                  : 'Percussive lane with mix and timing control.'}
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="section-label">Channel level</span>
+                <span className="font-mono text-[10px] text-[var(--text-secondary)]">{track.volume.toFixed(1)} dB</span>
+              </div>
+              <input
+                className="mt-3"
+                max="6"
+                min="-60"
+                onChange={(event) => updateTrackVolume(track.id, Number(event.target.value))}
+                step="1"
+                type="range"
+                value={track.volume}
+              />
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="section-label">Pan</span>
+                <span className="font-mono text-[10px] text-[var(--text-secondary)]">{track.pan.toFixed(1)}</span>
+              </div>
+              <input
+                className="mt-3"
+                max="1"
+                min="-1"
+                onChange={(event) => updateTrackPan(track.id, Number(event.target.value))}
+                step="0.1"
+                type="range"
+                value={track.pan}
+              />
+            </div>
+          </div>
+        </div>
+
+        <RackSection icon={<Waves className="h-4 w-4 text-[var(--accent)]" />} title="Source">
+          <div className="grid gap-4">
+            <label className="text-xs text-[var(--text-secondary)]">
+              <span className="section-label mb-2 block">Waveform</span>
+              <select
+                className="control-field h-11 w-full px-3 text-sm"
+                onChange={(event) => setTrackSource(track.id, { waveform: event.target.value as typeof track.source.waveform })}
+                value={track.source.waveform}
+              >
+                {WAVEFORM_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {waveformLabel(option)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="grid grid-cols-3 gap-4">
+              <Knob
+                color="#7dd3fc"
+                label="Octave"
+                max={3}
+                min={-3}
+                onChange={(value) => setTrackSource(track.id, { octaveShift: Math.round(value) })}
+                step={1}
+                value={track.source.octaveShift}
+              />
+              <Knob
+                color="#7dd3fc"
+                label="Detune"
+                max={1200}
+                min={-1200}
+                onChange={(value) => setTrackSource(track.id, { detune: value })}
+                unit="ct"
+                value={track.source.detune}
+              />
+              <Knob
+                color="#7dd3fc"
+                label="Glide"
+                max={0.2}
+                min={0}
+                onChange={(value) => setTrackSource(track.id, { portamento: value })}
+                unit="s"
+                value={track.source.portamento}
+              />
+            </div>
+          </div>
+        </RackSection>
+
+        <RackSection icon={<Sparkles className="h-4 w-4 text-[var(--accent)]" />} title="Envelope">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-5">
+            <Knob label="Attack" max={1} min={0.001} onChange={(value) => setTrackParams(track.id, { attack: value })} unit="s" value={track.params.attack} />
+            <Knob label="Decay" max={2} min={0.01} onChange={(value) => setTrackParams(track.id, { decay: value })} unit="s" value={track.params.decay} />
+            <Knob label="Sustain" max={1} min={0} onChange={(value) => setTrackParams(track.id, { sustain: value })} value={track.params.sustain} />
+            <Knob label="Release" max={4} min={0.01} onChange={(value) => setTrackParams(track.id, { release: value })} unit="s" value={track.params.release} />
+          </div>
+        </RackSection>
+
+        <RackSection icon={<Activity className="h-4 w-4 text-[var(--accent)]" />} title="Filter">
+          <div className="flex h-full items-center justify-around gap-3">
+            <Knob color="#e7a65f" label="Cutoff" max={15000} min={20} onChange={(value) => setTrackParams(track.id, { cutoff: value })} unit="Hz" value={track.params.cutoff} />
+            <Knob color="#e7a65f" label="Res" max={20} min={0.1} onChange={(value) => setTrackParams(track.id, { resonance: value })} value={track.params.resonance} />
+          </div>
+        </RackSection>
+
+        <RackSection icon={<Zap className="h-4 w-4 text-[var(--accent)]" />} title="Drive & space">
+          <div className="grid grid-cols-3 gap-4">
+            <Knob color="#f08f86" label="Drive" max={1} min={0} onChange={(value) => setTrackParams(track.id, { distortion: value })} value={track.params.distortion} />
+            <Knob color="#96b9f3" label="Delay" max={1} min={0} onChange={(value) => setTrackParams(track.id, { delaySend: value })} value={track.params.delaySend} />
+            <Knob color="#96b9f3" label="Reverb" max={1} min={0} onChange={(value) => setTrackParams(track.id, { reverbSend: value })} value={track.params.reverbSend} />
+          </div>
+        </RackSection>
+
+        <div className="surface-panel-strong flex flex-col p-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="section-label">Master output</div>
+              <div className="mt-2 flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                <Volume2 className="h-4 w-4 text-[var(--accent)]" />
+                Spectrum and print monitor
+              </div>
+            </div>
+            <button
+              className={`rounded-full border px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] transition-colors ${isRecording ? 'border-[rgba(240,143,134,0.28)] bg-[rgba(240,143,134,0.16)] text-[var(--danger)]' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
+              onClick={toggleRecording}
+            >
+              {isRecording ? 'Stop print' : 'Print audio'}
+            </button>
+          </div>
+          <div className="mt-4 grid flex-1 gap-4">
+            <div className="rounded-2xl border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
+              <div className="section-label">Source notes</div>
+              <div className="mt-3 space-y-2 text-sm text-[var(--text-secondary)]">
+                <p>{track.type === 'lead' ? 'Lead voices respond best to saw and square shapes, then cutoff for drama.' : 'Bass and drum lanes now carry persistent source settings for deeper sketching.'}</p>
+                <p>Song mode reads clips lane by lane, so the patterns you place in the arranger now drive the actual transport.</p>
+              </div>
+            </div>
+            <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
+              <Visualizer />
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+};
+
+const RackSection = ({
+  children,
+  icon,
+  title,
+}: {
+  children: React.ReactNode;
+  icon: React.ReactNode;
+  title: string;
+}) => (
+  <div className="surface-panel-strong flex flex-col p-4">
+    <div className="flex items-center gap-2">
+      {icon}
+      <span className="section-label">{title}</span>
+    </div>
+    <div className="mt-5 flex-1">{children}</div>
+  </div>
+);
+
+const waveformLabel = (waveform: typeof WAVEFORM_OPTIONS[number]) => {
+  switch (waveform) {
+    case 'sawtooth':
+      return 'Saw';
+    case 'triangle':
+      return 'Triangle';
+    default:
+      return waveform.charAt(0).toUpperCase() + waveform.slice(1);
+  }
+};

@@ -1,0 +1,223 @@
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+:root {
+  --bg-app: #07090d;
+  --bg-panel: rgba(13, 17, 22, 0.88);
+  --bg-panel-strong: rgba(19, 24, 31, 0.96);
+  --bg-panel-muted: rgba(10, 13, 18, 0.8);
+  --bg-control: #0d1116;
+  --border-soft: rgba(175, 185, 197, 0.12);
+  --border-strong: rgba(229, 236, 244, 0.12);
+  --text-primary: #edf1f5;
+  --text-secondary: #9ca7b6;
+  --text-tertiary: #667181;
+  --accent: #94d6cb;
+  --accent-strong: #d2f6ef;
+  --accent-muted: rgba(148, 214, 203, 0.15);
+  --danger: #f19c92;
+  --warning: #d5b472;
+  --shadow-panel: 0 24px 56px rgba(0, 0, 0, 0.34);
+}
+
+@layer base {
+  * {
+    border-color: var(--border-soft);
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply font-sans overflow-hidden select-none;
+    background:
+      radial-gradient(circle at top left, rgba(148, 214, 203, 0.12), transparent 24%),
+      radial-gradient(circle at 82% 0%, rgba(210, 133, 86, 0.08), transparent 20%),
+      radial-gradient(circle at bottom right, rgba(111, 136, 178, 0.08), transparent 26%),
+      linear-gradient(180deg, #07090d 0%, #090c11 45%, #05070a 100%);
+    color: var(--text-primary);
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.012) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.012) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(circle at center, black 42%, transparent 88%);
+    opacity: 0.22;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+
+  ::selection {
+    background: rgba(130, 201, 187, 0.22);
+    color: var(--text-primary);
+  }
+}
+
+.surface-panel {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0) 24%),
+    var(--bg-panel);
+  border: 1px solid var(--border-soft);
+  border-radius: 18px;
+  box-shadow: var(--shadow-panel), inset 0 1px 0 rgba(255,255,255,0.04);
+  backdrop-filter: blur(16px);
+}
+
+.surface-panel-strong {
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.035), rgba(255,255,255,0) 28%),
+    var(--bg-panel-strong);
+  border: 1px solid var(--border-strong);
+  border-radius: 14px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+}
+
+.surface-panel-muted {
+  background: var(--bg-panel-muted);
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+}
+
+.section-label {
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+h1 {
+  @apply font-sans font-bold tracking-tight;
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+h2 {
+  @apply font-sans font-semibold tracking-tight;
+  font-size: 18px;
+  line-height: 1.3;
+}
+
+h3 {
+  @apply font-sans font-semibold;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.control-field {
+  background: var(--bg-control);
+  border: 1px solid var(--border-soft);
+  border-radius: 14px;
+  color: var(--text-primary);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+}
+
+.control-field:focus {
+  outline: none;
+  border-color: rgba(130, 201, 187, 0.45);
+  box-shadow: 0 0 0 1px rgba(130, 201, 187, 0.24);
+}
+
+.control-chip {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  color: var(--text-secondary);
+}
+
+.control-chip[data-active="true"] {
+  background: var(--accent-muted);
+  border-color: rgba(130, 201, 187, 0.26);
+  color: var(--accent-strong);
+}
+
+.ghost-icon-button {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  color: var(--text-secondary);
+}
+
+.ghost-icon-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: var(--border-soft);
+  color: var(--text-primary);
+}
+
+.ghost-icon-button:disabled {
+  color: rgba(109, 120, 135, 0.45);
+  cursor: not-allowed;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(151, 163, 180, 0.22);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(151, 163, 180, 0.3);
+}
+
+/* Horizontal Slider */
+input[type=range] {
+  -webkit-appearance: none;
+  @apply bg-transparent w-full;
+}
+
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  @apply h-4 w-2 rounded-sm cursor-pointer mt-[-6px] shadow-md;
+  background: var(--accent-strong);
+}
+
+input[type=range]::-webkit-slider-runnable-track {
+  @apply w-full h-1 rounded-full;
+  background: rgba(151, 163, 180, 0.16);
+}
+
+input[type=range]:focus {
+  outline: none;
+}
+
+/* Vertical Mixer Fader Fixes */
+.mixer-fader::-webkit-slider-thumb {
+  @apply h-8 w-4 rounded cursor-pointer mt-[-14px] shadow-lg;
+  background: linear-gradient(180deg, #f1f5f9 0%, #cbd5e1 100%);
+  border: 1px solid rgba(226, 232, 240, 0.35);
+}
+
+/* Scroll Snap Utilities */
+.scroll-snap-x-mandatory {
+  scroll-snap-type: x mandatory;
+}
+
+.scroll-snap-align-start {
+  scroll-snap-align: start;
+}
