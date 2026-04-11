@@ -52,6 +52,7 @@ import {
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 type RenderMode = 'mix' | 'stems' | null;
+export type ExportScope = 'pattern' | 'song' | 'clip-window';
 
 interface RenderState {
   active: boolean;
@@ -85,8 +86,8 @@ interface AudioContextType {
   currentPattern: number;
   currentStep: number;
   duplicateArrangerClip: (clipId: string) => void;
-  exportAudioMix: () => Promise<void>;
-  exportTrackStems: () => Promise<void>;
+  exportAudioMix: (scope?: ExportScope) => Promise<void>;
+  exportTrackStems: (scope?: ExportScope) => Promise<void>;
   master: MasterSettings;
   loopArrangerClip: (clipId: string, copies: number) => void;
   makeClipPatternUnique: (clipId: string) => void;
@@ -1876,6 +1877,62 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
     setIsPlaying(false);
   };
 
+  const buildRenderProject = (scope: ExportScope): { fileSuffix: string; label: string; project: Project } | null => {
+    if (scope === 'pattern') {
+      return {
+        fileSuffix: 'pattern',
+        label: `Pattern ${String.fromCharCode(65 + project.transport.currentPattern)}`,
+        project: {
+          ...cloneProject(project),
+          transport: {
+            ...project.transport,
+            mode: 'PATTERN',
+          },
+        },
+      };
+    }
+
+    if (scope === 'song') {
+      return {
+        fileSuffix: 'song',
+        label: 'Full song',
+        project: {
+          ...cloneProject(project),
+          transport: {
+            ...project.transport,
+            mode: 'SONG',
+          },
+        },
+      };
+    }
+
+    const selectedClip = project.arrangerClips.find((clip) => clip.id === selectedArrangerClipId);
+    if (!selectedClip) {
+      return null;
+    }
+
+    const rangeStart = selectedClip.startBeat;
+    const rangeEnd = selectedClip.startBeat + selectedClip.beatLength;
+    const clippedProject = cloneProject(project);
+    clippedProject.arrangerClips = clippedProject.arrangerClips
+      .filter((clip) => clip.startBeat < rangeEnd && clip.startBeat + clip.beatLength > rangeStart)
+      .map((clip) => ({
+        ...clip,
+        beatLength: Math.max(1, Math.min(clip.startBeat + clip.beatLength, rangeEnd) - Math.max(clip.startBeat, rangeStart)),
+        startBeat: Math.max(clip.startBeat, rangeStart) - rangeStart,
+      }));
+    clippedProject.transport = {
+      ...clippedProject.transport,
+      mode: 'SONG',
+    };
+
+    return {
+      fileSuffix: `clip-${selectedClip.patternIndex + 1}`,
+      label: 'Selected clip window',
+      project: clippedProject,
+    };
+  };
+
   const newSession = () => {
     resetTransportState();
     setLastSavedAt(null);
@@ -1967,18 +2024,23 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const exportAudioMix = async () => {
+  const exportAudioMix = async (scope: ExportScope = project.transport.mode === 'SONG' ? 'song' : 'pattern') => {
+    const renderPayload = buildRenderProject(scope);
+    if (!renderPayload) {
+      return;
+    }
+
     setRenderState({
       active: true,
       currentTrackName: null,
       etaSeconds: null,
       mode: 'mix',
-      phase: project.transport.mode === 'SONG' ? 'Printing song mix' : 'Printing pattern mix',
+      phase: `Printing ${renderPayload.label.toLowerCase()}`,
       progress: 0,
     });
 
     try {
-      const recording = await bounceProjectRecording(project, (progress, etaSeconds) => {
+      const recording = await bounceProjectRecording(renderPayload.project, (progress, etaSeconds) => {
         setRenderState((current) => ({
           ...current,
           etaSeconds,
@@ -1998,7 +2060,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       }));
 
       const wavBlob = await convertRecordingBlobToWav(recording);
-      downloadBlob(wavBlob, `${sanitizeExportFileName(project.metadata.name)}-mix.wav`);
+      downloadBlob(wavBlob, `${sanitizeExportFileName(project.metadata.name)}-${renderPayload.fileSuffix}-mix.wav`);
       setRenderState((current) => ({
         ...current,
         phase: 'Mix ready',
@@ -2011,22 +2073,27 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const exportTrackStems = async () => {
+  const exportTrackStems = async (scope: ExportScope = project.transport.mode === 'SONG' ? 'song' : 'pattern') => {
+    const renderPayload = buildRenderProject(scope);
+    if (!renderPayload) {
+      return;
+    }
+
     const baseFileName = sanitizeExportFileName(project.metadata.name);
-    const stemTracks = project.tracks;
+    const stemTracks = renderPayload.project.tracks;
 
     setRenderState({
       active: true,
       currentTrackName: stemTracks[0]?.name ?? null,
       etaSeconds: null,
       mode: 'stems',
-      phase: `Printing stems 1/${stemTracks.length}`,
+      phase: `Printing ${renderPayload.label.toLowerCase()} stems 1/${stemTracks.length}`,
       progress: 0,
     });
 
     try {
       for (const [index, track] of stemTracks.entries()) {
-        const stemProject = cloneProject(project);
+        const stemProject = cloneProject(renderPayload.project);
         stemProject.tracks = stemProject.tracks.map((candidate) => (
           candidate.id === track.id
             ? { ...candidate, muted: false, solo: false }
@@ -2038,7 +2105,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
         setRenderState((current) => ({
           ...current,
           currentTrackName: track.name,
-          phase: `Printing stems ${index + 1}/${stemTracks.length}`,
+          phase: `Printing ${renderPayload.label.toLowerCase()} stems ${index + 1}/${stemTracks.length}`,
           progress: progressBase,
         }));
 
@@ -2065,7 +2132,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
         const wavBlob = await convertRecordingBlobToWav(recording);
         downloadBlob(
           wavBlob,
-          `${baseFileName}-${sanitizeExportFileName(track.name)}-stem.wav`,
+          `${baseFileName}-${renderPayload.fileSuffix}-${sanitizeExportFileName(track.name)}-stem.wav`,
         );
 
         if (typeof window !== 'undefined') {

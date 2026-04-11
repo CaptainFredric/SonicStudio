@@ -15,6 +15,7 @@ import { getStudioReadinessAssessment } from '../utils/readiness';
 
 const PATTERN_OPTIONS = [2, 4, 6, 8];
 const STEP_OPTIONS = [8, 16, 32, 64];
+type BounceScope = 'pattern' | 'song' | 'clip-window';
 
 export const SettingsSidebar = () => {
   const {
@@ -34,6 +35,7 @@ export const SettingsSidebar = () => {
     renameTrack,
     saveProject,
     saveStatus,
+    selectedArrangerClipId,
     selectedTrackId,
     setBpm,
     setMasterSettings,
@@ -53,11 +55,20 @@ export const SettingsSidebar = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
   const [draftTrackName, setDraftTrackName] = useState(selectedTrack?.name ?? '');
+  const [bounceScope, setBounceScope] = useState<BounceScope>(transportMode === 'SONG' ? 'song' : 'pattern');
   const readiness = getStudioReadinessAssessment();
 
   useEffect(() => {
     setDraftTrackName(selectedTrack?.name ?? '');
   }, [selectedTrack?.id, selectedTrack?.name]);
+
+  useEffect(() => {
+    setBounceScope((current) => (
+      current === 'clip-window'
+        ? current
+        : transportMode === 'SONG' ? 'song' : 'pattern'
+    ));
+  }, [transportMode]);
 
   if (!isSettingsOpen) {
     return null;
@@ -148,12 +159,47 @@ export const SettingsSidebar = () => {
               </div>
             </div>
           )}
+          <div className="mt-4">
+            <div className="section-label">Bounce range</div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              <SegmentButton active={bounceScope === 'pattern'} label="Pattern" onClick={() => setBounceScope('pattern')} />
+              <SegmentButton active={bounceScope === 'song'} label="Song" onClick={() => setBounceScope('song')} />
+              <SegmentButton
+                active={bounceScope === 'clip-window'}
+                label="Clip window"
+                onClick={() => {
+                  if (selectedArrangerClipId) {
+                    setBounceScope('clip-window');
+                  }
+                }}
+              />
+            </div>
+            <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
+              {bounceScope === 'clip-window'
+                ? selectedArrangerClipId
+                  ? 'Bounce the currently selected song clip range across the full session mix.'
+                  : 'Select a song clip first if you want to print a focused range.'
+                : bounceScope === 'song'
+                  ? 'Bounce the full arranger timeline as it currently stands.'
+                  : 'Bounce the current pattern bank for rapid iteration.'}
+            </div>
+          </div>
           <div className="mt-4 grid grid-cols-2 gap-2">
             <ActionButton disabled={renderState.active} icon={<Sparkles className="h-3.5 w-3.5" />} label="New session" onClick={newSession} />
             <ActionButton disabled={renderState.active} icon={<Layers3 className="h-3.5 w-3.5" />} label="Save now" onClick={saveProject} />
             <ActionButton disabled={renderState.active} icon={<FolderOpen className="h-3.5 w-3.5" />} label="Load JSON" onClick={() => fileInputRef.current?.click()} />
-            <ActionButton disabled={renderState.active} icon={<Download className="h-3.5 w-3.5" />} label={renderState.mode === 'mix' ? 'Printing mix' : 'Bounce WAV'} onClick={() => void exportAudioMix()} />
-            <ActionButton disabled={renderState.active} icon={<Download className="h-3.5 w-3.5" />} label={renderState.mode === 'stems' ? 'Printing stems' : 'Export stems'} onClick={() => void exportTrackStems()} />
+            <ActionButton
+              disabled={renderState.active || (bounceScope === 'clip-window' && !selectedArrangerClipId)}
+              icon={<Download className="h-3.5 w-3.5" />}
+              label={renderState.mode === 'mix' ? 'Printing mix' : 'Bounce WAV'}
+              onClick={() => void exportAudioMix(bounceScope)}
+            />
+            <ActionButton
+              disabled={renderState.active || (bounceScope === 'clip-window' && !selectedArrangerClipId)}
+              icon={<Download className="h-3.5 w-3.5" />}
+              label={renderState.mode === 'stems' ? 'Printing stems' : 'Export stems'}
+              onClick={() => void exportTrackStems(bounceScope)}
+            />
             <ActionButton disabled={renderState.active} icon={<Layers3 className="h-3.5 w-3.5" />} label="Export JSON" onClick={exportSession} />
           </div>
         </section>

@@ -29,13 +29,13 @@ const READINESS_SLICES: ReadinessSlice[] = [
   },
   {
     label: 'Audio output',
-    score: 67,
-    rationale: 'WAV bounce, stem export, a real master output path, and visible bounce progress now exist with glue, tone, gain, ceiling, and live metering, but offline rendering and more deliberate mastering quality are still missing.',
+    score: 72,
+    rationale: 'WAV bounce, stem export, a real master output path, visible bounce progress, and now targeted bounce scopes for pattern, song, and selected clip range make the print workflow materially more usable, but offline rendering and more deliberate mastering quality are still missing.',
   },
   {
     label: 'Product finish',
-    score: 72,
-    rationale: 'Track management, pinned lane focus, grouped session organization, visible readiness, bounce feedback, and real starter scenes make the studio feel more deliberate on first use and during longer sessions, but trust cues, collaboration, and account-level product features are still early.',
+    score: 73,
+    rationale: 'Track management, pinned lane focus, grouped session organization, visible readiness, bounce feedback, targeted print ranges, and real starter scenes make the studio feel more deliberate on first use and during longer sessions, but trust cues, collaboration, and account-level product features are still early.',
   },
 ];
 
