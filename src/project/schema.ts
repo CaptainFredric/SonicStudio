@@ -7,6 +7,14 @@ export type SourceEngine = 'synth' | 'sample';
 export type SamplePlaybackMode = 'pitched' | 'oneshot';
 export type SampleTriggerMode = 'active-slice' | 'full-source' | 'step-mapped';
 export type SamplePreset = 'kick-thud' | 'snare-crack' | 'hat-air' | 'bass-pluck' | 'lead-glass' | 'pad-haze' | 'pluck-mallet' | 'fx-rise';
+export type SessionTemplateId = 'blank-grid' | 'night-transit' | 'beat-lab' | 'ambient-drift';
+
+export interface SessionTemplateDefinition {
+  description: string;
+  focus: string;
+  id: SessionTemplateId;
+  label: string;
+}
 
 export interface SampleSliceMemory {
   end: number;
@@ -255,6 +263,36 @@ const TRACK_PRESETS: Record<
 };
 
 const DEMO_TRACK_ORDER: InstrumentType[] = ['kick', 'snare', 'hihat', 'bass', 'lead', 'pad'];
+const BLANK_TRACK_ORDER: InstrumentType[] = ['kick', 'bass', 'lead'];
+const BEAT_TRACK_ORDER: InstrumentType[] = ['kick', 'snare', 'hihat', 'bass', 'fx'];
+const AMBIENT_TRACK_ORDER: InstrumentType[] = ['pad', 'pad', 'bass', 'lead', 'fx'];
+
+export const SESSION_TEMPLATE_DEFINITIONS: SessionTemplateDefinition[] = [
+  {
+    description: 'A stripped studio state with only the lanes most sessions need first.',
+    focus: 'Fast blank starting point',
+    id: 'blank-grid',
+    label: 'Blank Grid',
+  },
+  {
+    description: 'A finished starter sketch with arrangement clips, drums, bass, lead, and pads already in motion.',
+    focus: 'Songwriting reference session',
+    id: 'night-transit',
+    label: 'Night Transit',
+  },
+  {
+    description: 'A tighter beat-first layout with sample-driven drums, bass, and FX ready for loop building.',
+    focus: 'Beat writing and loop work',
+    id: 'beat-lab',
+    label: 'Beat Lab',
+  },
+  {
+    description: 'Longer phrases, softer motion, and wide pad space for ambient or score-like writing.',
+    focus: 'Atmosphere and harmony',
+    id: 'ambient-drift',
+    label: 'Ambient Drift',
+  },
+];
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 const clampSampleEdge = (value: number, min: number, max: number) => clamp(value, min, max);
@@ -271,6 +309,77 @@ const clampStepVelocity = (velocity: number) => clamp(velocity, 0.1, 1);
 const clampStepGate = (gate: number) => clamp(gate, 0.25, 4);
 const clampAutomationValue = (value: number) => clamp(value, 0, 1);
 const cloneStep = (step: StepValue): StepValue => step.map((event) => ({ ...event }));
+const buildProjectMetadata = (projectName: string): ProjectMetadata => {
+  const timestamp = new Date().toISOString();
+
+  return {
+    createdAt: timestamp,
+    id: createId('project'),
+    name: projectName,
+    updatedAt: timestamp,
+    version: PROJECT_SCHEMA_VERSION,
+  };
+};
+
+const createProjectFrame = (
+  projectName: string,
+  {
+    bpm,
+    mode,
+    patternCount = DEFAULT_PATTERN_COUNT,
+    stepsPerPattern = DEFAULT_STEPS_PER_PATTERN,
+    trackOrder,
+  }: {
+    bpm: number;
+    mode: TransportMode;
+    patternCount?: number;
+    stepsPerPattern?: number;
+    trackOrder: InstrumentType[];
+  },
+) => {
+  const transport: TransportSettings = {
+    bpm,
+    currentPattern: 0,
+    mode,
+    patternCount,
+    stepsPerPattern,
+  };
+  const tracks = trackOrder.map((type) => createTrack(type, {
+    patternCount: transport.patternCount,
+    stepsPerPattern: transport.stepsPerPattern,
+  }));
+
+  return {
+    buildProject: (arrangerClips: ArrangementClip[]): Project => ({
+      arrangerClips,
+      master: INITIAL_MASTER,
+      metadata: buildProjectMetadata(projectName),
+      tracks,
+      transport,
+    }),
+    tracks,
+    transport,
+  };
+};
+
+const putStep = (
+  track: Track,
+  patternIndex: number,
+  stepIndex: number,
+  note: string,
+  options: Partial<NoteEvent> = {},
+) => {
+  track.patterns[patternIndex][stepIndex] = [createStepEvent(note, options)];
+};
+
+const stackStep = (
+  track: Track,
+  patternIndex: number,
+  stepIndex: number,
+  notes: Array<{ note: string; options?: Partial<NoteEvent> }>,
+) => {
+  track.patterns[patternIndex][stepIndex] = notes.map((entry) => createStepEvent(entry.note, entry.options));
+};
 
 const isInstrumentType = (value: unknown): value is InstrumentType => (
   value === 'kick'
@@ -913,127 +1022,98 @@ export const resizeTrackPatterns = (
 };
 
 export const createDemoProject = (projectName: string = 'Night Transit'): Project => {
-  const transport: TransportSettings = {
+  const { buildProject, tracks, transport } = createProjectFrame(projectName, {
     bpm: 124,
-    currentPattern: 0,
     mode: 'SONG',
-    patternCount: DEFAULT_PATTERN_COUNT,
-    stepsPerPattern: DEFAULT_STEPS_PER_PATTERN,
-  };
-
-  const tracks = DEMO_TRACK_ORDER.map((type) => createTrack(type, {
-    patternCount: transport.patternCount,
-    stepsPerPattern: transport.stepsPerPattern,
-  }));
+    trackOrder: DEMO_TRACK_ORDER,
+  });
   const [kickTrack, snareTrack, hihatTrack, bassTrack, leadTrack, padTrack] = tracks;
-  const put = (
-    track: Track,
-    patternIndex: number,
-    stepIndex: number,
-    note: string,
-    options: Partial<NoteEvent> = {},
-  ) => {
-    track.patterns[patternIndex][stepIndex] = [createStepEvent(note, options)];
-  };
+  putStep(kickTrack, 0, 0, 'C1', { velocity: 0.96 });
+  putStep(kickTrack, 0, 4, 'C1', { velocity: 0.86 });
+  putStep(kickTrack, 0, 8, 'C1', { velocity: 0.94 });
+  putStep(kickTrack, 0, 12, 'C1', { velocity: 0.88 });
+  putStep(kickTrack, 1, 0, 'C1', { velocity: 0.98 });
+  putStep(kickTrack, 1, 6, 'C1', { velocity: 0.82 });
+  putStep(kickTrack, 1, 8, 'C1', { velocity: 0.94 });
+  putStep(kickTrack, 1, 12, 'C1', { velocity: 0.9 });
+  putStep(kickTrack, 2, 0, 'C1', { velocity: 1 });
+  putStep(kickTrack, 2, 4, 'C1', { velocity: 0.86 });
+  putStep(kickTrack, 2, 7, 'C1', { velocity: 0.8 });
+  putStep(kickTrack, 2, 10, 'C1', { velocity: 0.84 });
+  putStep(kickTrack, 2, 12, 'C1', { velocity: 0.96 });
 
-  const stack = (
-    track: Track,
-    patternIndex: number,
-    stepIndex: number,
-    notes: Array<{ note: string; options?: Partial<NoteEvent> }>,
-  ) => {
-    track.patterns[patternIndex][stepIndex] = notes.map((entry) => createStepEvent(entry.note, entry.options));
-  };
-
-  put(kickTrack, 0, 0, 'C1', { velocity: 0.96 });
-  put(kickTrack, 0, 4, 'C1', { velocity: 0.86 });
-  put(kickTrack, 0, 8, 'C1', { velocity: 0.94 });
-  put(kickTrack, 0, 12, 'C1', { velocity: 0.88 });
-  put(kickTrack, 1, 0, 'C1', { velocity: 0.98 });
-  put(kickTrack, 1, 6, 'C1', { velocity: 0.82 });
-  put(kickTrack, 1, 8, 'C1', { velocity: 0.94 });
-  put(kickTrack, 1, 12, 'C1', { velocity: 0.9 });
-  put(kickTrack, 2, 0, 'C1', { velocity: 1 });
-  put(kickTrack, 2, 4, 'C1', { velocity: 0.86 });
-  put(kickTrack, 2, 7, 'C1', { velocity: 0.8 });
-  put(kickTrack, 2, 10, 'C1', { velocity: 0.84 });
-  put(kickTrack, 2, 12, 'C1', { velocity: 0.96 });
-
-  put(snareTrack, 0, 4, 'C1', { velocity: 0.78 });
-  put(snareTrack, 0, 12, 'C1', { velocity: 0.86 });
-  put(snareTrack, 1, 4, 'C1', { velocity: 0.78 });
-  put(snareTrack, 1, 10, 'C1', { velocity: 0.64 });
-  put(snareTrack, 1, 12, 'C1', { velocity: 0.9 });
-  put(snareTrack, 2, 4, 'C1', { velocity: 0.8 });
-  put(snareTrack, 2, 12, 'C1', { velocity: 0.88 });
+  putStep(snareTrack, 0, 4, 'C1', { velocity: 0.78 });
+  putStep(snareTrack, 0, 12, 'C1', { velocity: 0.86 });
+  putStep(snareTrack, 1, 4, 'C1', { velocity: 0.78 });
+  putStep(snareTrack, 1, 10, 'C1', { velocity: 0.64 });
+  putStep(snareTrack, 1, 12, 'C1', { velocity: 0.9 });
+  putStep(snareTrack, 2, 4, 'C1', { velocity: 0.8 });
+  putStep(snareTrack, 2, 12, 'C1', { velocity: 0.88 });
 
   for (const step of [2, 6, 10, 14]) {
-    put(hihatTrack, 0, step, 'C1', { gate: 0.5, velocity: 0.56 });
+    putStep(hihatTrack, 0, step, 'C1', { gate: 0.5, velocity: 0.56 });
   }
   for (const step of [1, 3, 5, 7, 9, 11, 13, 15]) {
-    put(hihatTrack, 1, step, 'C1', { gate: 0.5, velocity: 0.5 });
+    putStep(hihatTrack, 1, step, 'C1', { gate: 0.5, velocity: 0.5 });
   }
   for (const step of [0, 3, 6, 9, 12, 15]) {
-    put(hihatTrack, 2, step, 'C1', { gate: 0.5, velocity: 0.54 });
+    putStep(hihatTrack, 2, step, 'C1', { gate: 0.5, velocity: 0.54 });
   }
 
-  put(bassTrack, 0, 0, 'C2', { gate: 1.5, velocity: 0.78 });
-  put(bassTrack, 0, 8, 'G1', { gate: 1.5, velocity: 0.72 });
-  put(bassTrack, 1, 0, 'A1', { gate: 1.5, velocity: 0.78 });
-  put(bassTrack, 1, 4, 'C2', { gate: 1.25, velocity: 0.7 });
-  put(bassTrack, 1, 8, 'E2', { gate: 1.5, velocity: 0.76 });
-  put(bassTrack, 1, 12, 'G1', { gate: 1.25, velocity: 0.72 });
-  put(bassTrack, 2, 0, 'F1', { gate: 1.75, velocity: 0.8 });
-  put(bassTrack, 2, 8, 'G1', { gate: 1.5, velocity: 0.76 });
+  putStep(bassTrack, 0, 0, 'C2', { gate: 1.5, velocity: 0.78 });
+  putStep(bassTrack, 0, 8, 'G1', { gate: 1.5, velocity: 0.72 });
+  putStep(bassTrack, 1, 0, 'A1', { gate: 1.5, velocity: 0.78 });
+  putStep(bassTrack, 1, 4, 'C2', { gate: 1.25, velocity: 0.7 });
+  putStep(bassTrack, 1, 8, 'E2', { gate: 1.5, velocity: 0.76 });
+  putStep(bassTrack, 1, 12, 'G1', { gate: 1.25, velocity: 0.72 });
+  putStep(bassTrack, 2, 0, 'F1', { gate: 1.75, velocity: 0.8 });
+  putStep(bassTrack, 2, 8, 'G1', { gate: 1.5, velocity: 0.76 });
 
-  put(leadTrack, 0, 0, 'C4', { gate: 1.25, velocity: 0.82 });
-  put(leadTrack, 0, 3, 'D#4', { gate: 1, velocity: 0.76 });
-  put(leadTrack, 0, 8, 'G4', { gate: 1.25, velocity: 0.88 });
-  put(leadTrack, 0, 14, 'F4', { gate: 1, velocity: 0.72 });
-  put(leadTrack, 1, 0, 'A4', { gate: 1.25, velocity: 0.86 });
-  put(leadTrack, 1, 4, 'C5', { gate: 1.25, velocity: 0.8 });
-  put(leadTrack, 1, 8, 'E5', { gate: 1.25, velocity: 0.92 });
-  put(leadTrack, 1, 12, 'G4', { gate: 1, velocity: 0.74 });
-  put(leadTrack, 2, 2, 'F4', { gate: 1, velocity: 0.74 });
-  put(leadTrack, 2, 6, 'G4', { gate: 1, velocity: 0.78 });
-  put(leadTrack, 2, 10, 'A4', { gate: 1, velocity: 0.84 });
-  put(leadTrack, 2, 14, 'C5', { gate: 1.25, velocity: 0.9 });
+  putStep(leadTrack, 0, 0, 'C4', { gate: 1.25, velocity: 0.82 });
+  putStep(leadTrack, 0, 3, 'D#4', { gate: 1, velocity: 0.76 });
+  putStep(leadTrack, 0, 8, 'G4', { gate: 1.25, velocity: 0.88 });
+  putStep(leadTrack, 0, 14, 'F4', { gate: 1, velocity: 0.72 });
+  putStep(leadTrack, 1, 0, 'A4', { gate: 1.25, velocity: 0.86 });
+  putStep(leadTrack, 1, 4, 'C5', { gate: 1.25, velocity: 0.8 });
+  putStep(leadTrack, 1, 8, 'E5', { gate: 1.25, velocity: 0.92 });
+  putStep(leadTrack, 1, 12, 'G4', { gate: 1, velocity: 0.74 });
+  putStep(leadTrack, 2, 2, 'F4', { gate: 1, velocity: 0.74 });
+  putStep(leadTrack, 2, 6, 'G4', { gate: 1, velocity: 0.78 });
+  putStep(leadTrack, 2, 10, 'A4', { gate: 1, velocity: 0.84 });
+  putStep(leadTrack, 2, 14, 'C5', { gate: 1.25, velocity: 0.9 });
 
-  stack(padTrack, 0, 0, [
+  stackStep(padTrack, 0, 0, [
     { note: 'C4', options: { gate: 2.5, velocity: 0.62 } },
     { note: 'E4', options: { gate: 2.5, velocity: 0.56 } },
     { note: 'G4', options: { gate: 2.5, velocity: 0.58 } },
   ]);
-  stack(padTrack, 0, 8, [
+  stackStep(padTrack, 0, 8, [
     { note: 'A3', options: { gate: 2.25, velocity: 0.56 } },
     { note: 'C4', options: { gate: 2.25, velocity: 0.54 } },
     { note: 'E4', options: { gate: 2.25, velocity: 0.52 } },
   ]);
-  stack(padTrack, 1, 0, [
+  stackStep(padTrack, 1, 0, [
     { note: 'A3', options: { gate: 2.5, velocity: 0.6 } },
     { note: 'C4', options: { gate: 2.5, velocity: 0.54 } },
     { note: 'E4', options: { gate: 2.5, velocity: 0.56 } },
   ]);
-  stack(padTrack, 1, 8, [
+  stackStep(padTrack, 1, 8, [
     { note: 'G3', options: { gate: 2.25, velocity: 0.58 } },
     { note: 'B3', options: { gate: 2.25, velocity: 0.52 } },
     { note: 'D4', options: { gate: 2.25, velocity: 0.54 } },
   ]);
-  stack(padTrack, 2, 0, [
+  stackStep(padTrack, 2, 0, [
     { note: 'F3', options: { gate: 3, velocity: 0.62 } },
     { note: 'A3', options: { gate: 3, velocity: 0.56 } },
     { note: 'C4', options: { gate: 3, velocity: 0.58 } },
   ]);
-  stack(padTrack, 2, 8, [
+  stackStep(padTrack, 2, 8, [
     { note: 'G3', options: { gate: 3, velocity: 0.58 } },
     { note: 'B3', options: { gate: 3, velocity: 0.54 } },
     { note: 'D4', options: { gate: 3, velocity: 0.56 } },
   ]);
 
-  const timestamp = new Date().toISOString();
-
-  return {
-    arrangerClips: [
+  return buildProject([
       createArrangerClip(kickTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
       createArrangerClip(snareTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
       createArrangerClip(hihatTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
@@ -1052,18 +1132,149 @@ export const createDemoProject = (projectName: string = 'Night Transit'): Projec
       createArrangerClip(bassTrack.id, transport, { beatLength: 16, patternIndex: 2, startBeat: 32 }),
       createArrangerClip(leadTrack.id, transport, { beatLength: 16, patternIndex: 2, startBeat: 32 }),
       createArrangerClip(padTrack.id, transport, { beatLength: 16, patternIndex: 2, startBeat: 32 }),
-    ],
-    master: INITIAL_MASTER,
-    metadata: {
-      createdAt: timestamp,
-      id: createId('project'),
-      name: projectName,
-      updatedAt: timestamp,
-      version: PROJECT_SCHEMA_VERSION,
-    },
-    tracks,
-    transport,
-  };
+    ]);
+};
+
+export const createBlankProject = (projectName: string = 'Blank Grid'): Project => {
+  const { buildProject, tracks, transport } = createProjectFrame(projectName, {
+    bpm: 120,
+    mode: 'PATTERN',
+    trackOrder: BLANK_TRACK_ORDER,
+  });
+  const [kickTrack, bassTrack, leadTrack] = tracks;
+
+  putStep(kickTrack, 0, 0, 'C1', { velocity: 0.9 });
+  putStep(kickTrack, 0, 8, 'C1', { velocity: 0.86 });
+  putStep(bassTrack, 0, 0, 'C2', { gate: 1.5, velocity: 0.72 });
+  putStep(leadTrack, 0, 8, 'G4', { gate: 1, velocity: 0.74 });
+
+  return buildProject([
+    createArrangerClip(kickTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(bassTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(leadTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+  ]);
+};
+
+export const createBeatLabProject = (projectName: string = 'Beat Lab'): Project => {
+  const { buildProject, tracks, transport } = createProjectFrame(projectName, {
+    bpm: 136,
+    mode: 'SONG',
+    trackOrder: BEAT_TRACK_ORDER,
+  });
+  const [kickTrack, snareTrack, hihatTrack, bassTrack, fxTrack] = tracks;
+
+  for (const step of [0, 3, 8, 11]) {
+    putStep(kickTrack, 0, step, 'C1', { velocity: step === 0 || step === 8 ? 0.96 : 0.78 });
+  }
+  for (const step of [4, 12]) {
+    putStep(snareTrack, 0, step, 'C1', { velocity: 0.84 });
+    putStep(snareTrack, 1, step, 'C1', { velocity: 0.88 });
+  }
+  for (const step of [1, 5, 9, 13]) {
+    putStep(hihatTrack, 0, step, 'C1', { gate: 0.5, velocity: 0.52, sampleSliceIndex: 0 });
+  }
+  for (const step of [2, 6, 10, 14]) {
+    putStep(hihatTrack, 0, step, 'C1', { gate: 0.5, velocity: 0.62, sampleSliceIndex: 1 });
+  }
+  putStep(bassTrack, 0, 0, 'C2', { gate: 1.5, velocity: 0.76 });
+  putStep(bassTrack, 0, 6, 'D#2', { gate: 1, velocity: 0.7 });
+  putStep(bassTrack, 0, 8, 'F2', { gate: 1.25, velocity: 0.74 });
+  putStep(bassTrack, 0, 14, 'G2', { gate: 1.25, velocity: 0.68 });
+  putStep(fxTrack, 1, 12, 'G4', { gate: 2, velocity: 0.7 });
+
+  hihatTrack.source.engine = 'sample';
+  hihatTrack.source.sampleTriggerMode = 'step-mapped';
+  hihatTrack.source.samplePlayback = 'oneshot';
+  hihatTrack.source.sampleSlices = [
+    { end: 0.22, gain: 0.94, label: 'Hat Tight', reverse: false, start: 0 },
+    { end: 0.5, gain: 1, label: 'Hat Body', reverse: false, start: 0.22 },
+    { end: 1, gain: 1.04, label: 'Hat Tail', reverse: false, start: 0.5 },
+  ];
+  hihatTrack.source.activeSampleSlice = 1;
+  fxTrack.source.engine = 'sample';
+  fxTrack.source.samplePlayback = 'oneshot';
+
+  return buildProject([
+    createArrangerClip(kickTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(snareTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(hihatTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(bassTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(kickTrack.id, transport, { beatLength: 16, patternIndex: 1, startBeat: 16 }),
+    createArrangerClip(snareTrack.id, transport, { beatLength: 16, patternIndex: 1, startBeat: 16 }),
+    createArrangerClip(hihatTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 16 }),
+    createArrangerClip(bassTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 16 }),
+    createArrangerClip(fxTrack.id, transport, { beatLength: 16, patternIndex: 1, startBeat: 16 }),
+  ]);
+};
+
+export const createAmbientProject = (projectName: string = 'Ambient Drift'): Project => {
+  const { buildProject, tracks, transport } = createProjectFrame(projectName, {
+    bpm: 94,
+    mode: 'SONG',
+    trackOrder: AMBIENT_TRACK_ORDER,
+  });
+  const [padTrackA, padTrackB, bassTrack, leadTrack, fxTrack] = tracks;
+
+  stackStep(padTrackA, 0, 0, [
+    { note: 'C4', options: { gate: 4, velocity: 0.48 } },
+    { note: 'G4', options: { gate: 4, velocity: 0.42 } },
+    { note: 'D5', options: { gate: 4, velocity: 0.4 } },
+  ]);
+  stackStep(padTrackA, 1, 0, [
+    { note: 'A3', options: { gate: 4, velocity: 0.46 } },
+    { note: 'E4', options: { gate: 4, velocity: 0.42 } },
+    { note: 'B4', options: { gate: 4, velocity: 0.38 } },
+  ]);
+  stackStep(padTrackB, 0, 8, [
+    { note: 'E4', options: { gate: 3, velocity: 0.42 } },
+    { note: 'A4', options: { gate: 3, velocity: 0.38 } },
+  ]);
+  stackStep(padTrackB, 1, 8, [
+    { note: 'D4', options: { gate: 3, velocity: 0.4 } },
+    { note: 'G4', options: { gate: 3, velocity: 0.36 } },
+  ]);
+  putStep(bassTrack, 0, 0, 'C2', { gate: 3.5, velocity: 0.56 });
+  putStep(bassTrack, 1, 0, 'A1', { gate: 3.5, velocity: 0.52 });
+  putStep(leadTrack, 0, 12, 'G4', { gate: 1.75, velocity: 0.62 });
+  putStep(leadTrack, 1, 12, 'A4', { gate: 1.75, velocity: 0.6 });
+  putStep(fxTrack, 0, 15, 'C5', { gate: 2.5, velocity: 0.5 });
+
+  padTrackA.params.reverbSend = 0.62;
+  padTrackA.params.delaySend = 0.34;
+  padTrackB.params.reverbSend = 0.72;
+  padTrackB.params.chorusSend = 0.32;
+  fxTrack.source.engine = 'sample';
+  fxTrack.source.samplePlayback = 'oneshot';
+  fxTrack.source.sampleTriggerMode = 'active-slice';
+
+  return buildProject([
+    createArrangerClip(padTrackA.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(padTrackB.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(bassTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(leadTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(fxTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(padTrackA.id, transport, { beatLength: 16, patternIndex: 1, startBeat: 16 }),
+    createArrangerClip(padTrackB.id, transport, { beatLength: 16, patternIndex: 1, startBeat: 16 }),
+    createArrangerClip(bassTrack.id, transport, { beatLength: 16, patternIndex: 1, startBeat: 16 }),
+    createArrangerClip(leadTrack.id, transport, { beatLength: 16, patternIndex: 1, startBeat: 16 }),
+    createArrangerClip(fxTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 16 }),
+  ]);
+};
+
+export const createProjectFromTemplate = (
+  templateId: SessionTemplateId,
+): Project => {
+  switch (templateId) {
+    case 'blank-grid':
+      return createBlankProject();
+    case 'beat-lab':
+      return createBeatLabProject();
+    case 'ambient-drift':
+      return createAmbientProject();
+    case 'night-transit':
+    default:
+      return createDemoProject();
+  }
 };
 
 export const normalizeProject = (input: unknown): Project | null => {

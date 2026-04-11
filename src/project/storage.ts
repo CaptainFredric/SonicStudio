@@ -1,5 +1,6 @@
 import {
-  createDemoProject,
+  createProjectFromTemplate,
+  type SessionTemplateId,
   normalizeProject,
   type AppView,
   type Project,
@@ -80,8 +81,10 @@ export const hydrateSessionPayload = (value: unknown): StudioSession | null => {
   };
 };
 
-export const createDefaultSession = (): StudioSession => {
-  const project = createDemoProject();
+export const createDefaultSession = (
+  templateId: SessionTemplateId = 'night-transit',
+): StudioSession => {
+  const project = createProjectFromTemplate(templateId);
 
   return {
     project,
@@ -93,6 +96,10 @@ export const createDefaultSession = (): StudioSession => {
     },
   };
 };
+
+export const createSessionFromTemplate = (
+  templateId: SessionTemplateId,
+): StudioSession => createDefaultSession(templateId);
 
 export const loadPersistedSession = (): StudioSession | null => {
   if (typeof window === 'undefined') {

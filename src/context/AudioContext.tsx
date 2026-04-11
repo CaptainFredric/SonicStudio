@@ -29,6 +29,7 @@ import {
   type NoteEvent,
   type Project,
   type SampleSliceMemory,
+  type SessionTemplateId,
   type StudioSession,
   type StudioUIState,
   type SynthParams,
@@ -37,6 +38,7 @@ import {
   type TransportMode,
 } from '../project/schema';
 import {
+  createSessionFromTemplate,
   createDefaultSession,
   hydrateSessionPayload,
   loadPersistedSession,
@@ -97,6 +99,7 @@ interface AudioContextType {
   isRecording: boolean;
   isSettingsOpen: boolean;
   lastSavedAt: string | null;
+  loadSessionTemplate: (templateId: SessionTemplateId) => void;
   newSession: () => void;
   patternCount: number;
   previewTrack: (trackId: string, note?: string, sampleSliceIndex?: number) => Promise<void>;
@@ -1843,6 +1846,13 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
     dispatch({ type: 'HYDRATE_SESSION', session: createDefaultSession() });
   };
 
+  const loadSessionTemplate = (templateId: SessionTemplateId) => {
+    resetTransportState();
+    setLastSavedAt(null);
+    setSaveStatus('idle');
+    dispatch({ type: 'HYDRATE_SESSION', session: createSessionFromTemplate(templateId) });
+  };
+
   const exportSession = () => {
     if (typeof window === 'undefined') {
       return;
@@ -2090,6 +2100,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       isRecording,
       isSettingsOpen: editorState.ui.isSettingsOpen,
       lastSavedAt,
+      loadSessionTemplate,
       master: project.master,
       newSession,
       patternCount: project.transport.patternCount,

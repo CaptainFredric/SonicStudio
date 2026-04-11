@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 
 import { useAudio } from '../context/AudioContext';
+import { SESSION_TEMPLATE_DEFINITIONS } from '../project/schema';
 import { getStudioReadinessAssessment } from '../utils/readiness';
 
 const PATTERN_OPTIONS = [2, 4, 6, 8];
@@ -25,6 +26,7 @@ export const SettingsSidebar = () => {
     importSession,
     isSettingsOpen,
     lastSavedAt,
+    loadSessionTemplate,
     master,
     newSession,
     patternCount,
@@ -104,6 +106,29 @@ export const SettingsSidebar = () => {
             <MetricCell label="Tracks" value={String(tracks.length)} />
             <MetricCell label="Clips" value={String(arrangerClips.length)} />
             <MetricCell label="Status" value={renderState.active ? renderState.phase : formatSaveLabel(saveStatus, lastSavedAt)} />
+          </div>
+          <div className="mt-4">
+            <div className="section-label">Starter scenes</div>
+            <div className="mt-3 grid gap-3">
+              {SESSION_TEMPLATE_DEFINITIONS.map((template) => (
+                <button
+                  key={template.id}
+                  className="rounded-2xl border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-4 py-3 text-left transition-colors hover:border-[rgba(114,217,255,0.28)] hover:bg-[rgba(114,217,255,0.05)]"
+                  disabled={renderState.active}
+                  onClick={() => loadSessionTemplate(template.id)}
+                  type="button"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-semibold text-[var(--text-primary)]">{template.label}</span>
+                    <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--accent-strong)]">{template.focus}</span>
+                  </div>
+                  <div className="mt-2 text-[12px] leading-5 text-[var(--text-secondary)]">{template.description}</div>
+                </button>
+              ))}
+            </div>
+            <div className="mt-3 text-[11px] leading-5 text-[var(--text-secondary)]">
+              These scenes replace the current session immediately, so they are meant for fast starts, not as presets layered onto an existing song.
+            </div>
           </div>
           {renderState.active && (
             <div className="mt-4 rounded-2xl border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
