@@ -55,6 +55,7 @@ interface AudioContextType {
   bpm: number;
   canRedo: boolean;
   canUndo: boolean;
+  clearPatternAt: (trackId: string, patternIndex: number) => void;
   clearTrack: (trackId: string) => void;
   createTrack: (trackType: InstrumentType) => void;
   currentPattern: number;
@@ -95,17 +96,20 @@ interface AudioContextType {
   setTrackParams: (id: string, params: Partial<SynthParams>) => void;
   setTrackSource: (id: string, source: Partial<TrackSource>) => void;
   setTransportMode: (mode: TransportMode) => void;
+  shiftPatternAt: (trackId: string, patternIndex: number, direction: 'left' | 'right') => void;
   songLengthInBeats: number;
   splitArrangerClip: (clipId: string) => void;
   stepsPerPattern: number;
   stop: () => void;
   toggleMute: (trackId: string) => void;
   togglePlay: () => void;
+  togglePatternStep: (trackId: string, patternIndex: number, stepIndex: number, note?: string) => void;
   toggleRecording: () => Promise<void>;
   toggleSettings: () => void;
   toggleSolo: (trackId: string) => void;
   toggleStep: (trackId: string, stepIndex: number, note?: string) => void;
   tracks: Track[];
+  transposePatternAt: (trackId: string, patternIndex: number, semitones: number) => void;
   transposePattern: (trackId: string, semitones: number) => void;
   transportMode: TransportMode;
   undo: () => void;
@@ -129,6 +133,7 @@ interface EditorState {
 type EditorAction =
   | { type: 'ADD_ARRANGER_CLIP'; trackId?: string }
   | { type: 'CLEAR_TRACK'; trackId: string }
+  | { type: 'CLEAR_PATTERN_AT'; trackId: string; patternIndex: number }
   | { type: 'CREATE_TRACK'; trackType: InstrumentType }
   | { type: 'DUPLICATE_ARRANGER_CLIP'; clipId: string }
   | { type: 'LOOP_ARRANGER_CLIP'; clipId: string; copies: number }
@@ -140,6 +145,7 @@ type EditorAction =
   | { type: 'REMOVE_ARRANGER_CLIP'; clipId: string }
   | { type: 'REMOVE_TRACK'; trackId: string }
   | { type: 'SHIFT_PATTERN'; direction: 'left' | 'right'; trackId: string }
+  | { type: 'SHIFT_PATTERN_AT'; direction: 'left' | 'right'; trackId: string; patternIndex: number }
   | { type: 'SET_ACTIVE_VIEW'; view: AppView }
   | { type: 'SET_BPM'; bpm: number }
   | { type: 'SET_CURRENT_PATTERN'; pattern: number }
@@ -156,8 +162,10 @@ type EditorAction =
   | { type: 'TOGGLE_SETTINGS' }
   | { type: 'TOGGLE_SOLO'; trackId: string }
   | { type: 'TOGGLE_STEP'; note?: string; stepIndex: number; trackId: string }
+  | { type: 'TOGGLE_PATTERN_STEP'; note?: string; stepIndex: number; trackId: string; patternIndex: number }
   | { type: 'TOGGLE_VOLUME'; trackId: string; volume: number }
   | { type: 'TRANSPOSE_PATTERN'; semitones: number; trackId: string }
+  | { type: 'TRANSPOSE_PATTERN_AT'; semitones: number; trackId: string; patternIndex: number }
   | { type: 'UNDO' }
   | { type: 'UPDATE_ARRANGER_CLIP'; clipId: string; updates: Partial<ArrangementClip> }
   | { type: 'UPDATE_STEP_EVENT'; noteIndex: number; stepIndex: number; trackId: string; updates: Partial<NoteEvent> };
@@ -340,6 +348,24 @@ const resizeProjectTransport = (
   };
 };
 
+const updatePatternSteps = (
+  track: Track,
+  patternIndex: number,
+  stepsPerPattern: number,
+  updater: (pattern: NoteEvent[][]) => NoteEvent[][],
+): Track => {
+  const currentPattern = track.patterns[patternIndex] ?? createEmptyPattern(stepsPerPattern);
+  const nextPattern = updater(currentPattern.map(cloneStepEvents));
+
+  return {
+    ...track,
+    patterns: {
+      ...track.patterns,
+      [patternIndex]: nextPattern,
+    },
+  };
+};
+
 const editorReducer = (state: EditorState, action: EditorAction): EditorState => {
   const { present } = state.history;
 
@@ -469,62 +495,91 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
     case 'TOGGLE_STEP': {
       const nextProject = updateTrack(present, action.trackId, (track) => {
         const patternId = present.transport.currentPattern;
-        const existingSteps = track.patterns[patternId] ?? createEmptyPattern(present.transport.stepsPerPattern);
-        const nextSteps = [...existingSteps];
-        const existingStep = cloneStepEvents(nextSteps[action.stepIndex] ?? []);
+        return updatePatternSteps(track, patternId, present.transport.stepsPerPattern, (nextSteps) => {
+          const existingStep = cloneStepEvents(nextSteps[action.stepIndex] ?? []);
 
-        if (!action.note) {
-          nextSteps[action.stepIndex] = existingStep.length > 0
-            ? []
-            : [createStepEvent(defaultNoteForTrack(track))];
-        } else {
+          if (!action.note) {
+            nextSteps[action.stepIndex] = existingStep.length > 0
+              ? []
+              : [createStepEvent(defaultNoteForTrack(track))];
+            return nextSteps;
+          }
+
           const existingNoteIndex = existingStep.findIndex((step) => step.note === action.note);
 
           if (existingNoteIndex >= 0) {
-            const reducedStep = existingStep.filter((_, noteIndex) => noteIndex !== existingNoteIndex);
-            nextSteps[action.stepIndex] = reducedStep;
-          } else {
-            const templateEvent = existingStep.at(-1);
-            nextSteps[action.stepIndex] = [
-              ...existingStep,
-              createStepEvent(action.note, templateEvent ?? {}),
-            ].sort((left, right) => compareNotesDescending(left.note, right.note));
+            nextSteps[action.stepIndex] = existingStep.filter((_, noteIndex) => noteIndex !== existingNoteIndex);
+            return nextSteps;
           }
-        }
 
-        return {
-          ...track,
-          patterns: {
-            ...track.patterns,
-            [patternId]: nextSteps,
-          },
-        };
+          const templateEvent = existingStep.at(-1);
+          nextSteps[action.stepIndex] = [
+            ...existingStep,
+            createStepEvent(action.note, templateEvent ?? {}),
+          ].sort((left, right) => compareNotesDescending(left.note, right.note));
+
+          return nextSteps;
+        });
       });
 
       return commitProject(state, nextProject);
     }
 
+    case 'TOGGLE_PATTERN_STEP':
+      return commitProject(state, updateTrack(present, action.trackId, (track) => (
+        updatePatternSteps(track, action.patternIndex, present.transport.stepsPerPattern, (nextSteps) => {
+          const existingStep = cloneStepEvents(nextSteps[action.stepIndex] ?? []);
+
+          if (!action.note) {
+            nextSteps[action.stepIndex] = existingStep.length > 0
+              ? []
+              : [createStepEvent(defaultNoteForTrack(track))];
+            return nextSteps;
+          }
+
+          const existingNoteIndex = existingStep.findIndex((step) => step.note === action.note);
+
+          if (existingNoteIndex >= 0) {
+            nextSteps[action.stepIndex] = existingStep.filter((_, noteIndex) => noteIndex !== existingNoteIndex);
+            return nextSteps;
+          }
+
+          const templateEvent = existingStep.at(-1);
+          nextSteps[action.stepIndex] = [
+            ...existingStep,
+            createStepEvent(action.note, templateEvent ?? {}),
+          ].sort((left, right) => compareNotesDescending(left.note, right.note));
+
+          return nextSteps;
+        })
+      )));
+
     case 'SHIFT_PATTERN':
       return commitProject(state, updateTrack(present, action.trackId, (track) => {
         const patternId = present.transport.currentPattern;
-        const currentPattern = track.patterns[patternId] ?? createEmptyPattern(present.transport.stepsPerPattern);
+        return updatePatternSteps(track, patternId, present.transport.stepsPerPattern, (currentPattern) => {
+          if (currentPattern.every((step) => step.length === 0)) {
+            return currentPattern;
+          }
 
-        if (currentPattern.every((step) => step.length === 0)) {
-          return track;
-        }
-
-        const nextSteps = action.direction === 'left'
-          ? [...currentPattern.slice(1).map(cloneStepEvents), []]
-          : [[], ...currentPattern.slice(0, -1).map(cloneStepEvents)];
-
-        return {
-          ...track,
-          patterns: {
-            ...track.patterns,
-            [patternId]: nextSteps,
-          },
-        };
+          return action.direction === 'left'
+            ? [...currentPattern.slice(1).map(cloneStepEvents), []]
+            : [[], ...currentPattern.slice(0, -1).map(cloneStepEvents)];
+        });
       }));
+
+    case 'SHIFT_PATTERN_AT':
+      return commitProject(state, updateTrack(present, action.trackId, (track) => (
+        updatePatternSteps(track, action.patternIndex, present.transport.stepsPerPattern, (currentPattern) => {
+          if (currentPattern.every((step) => step.length === 0)) {
+            return currentPattern;
+          }
+
+          return action.direction === 'left'
+            ? [...currentPattern.slice(1).map(cloneStepEvents), []]
+            : [[], ...currentPattern.slice(0, -1).map(cloneStepEvents)];
+        })
+      )));
 
     case 'TRANSPOSE_PATTERN':
       return commitProject(state, updateTrack(present, action.trackId, (track) => {
@@ -533,18 +588,24 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
         }
 
         const patternId = present.transport.currentPattern;
-        const currentPattern = track.patterns[patternId] ?? createEmptyPattern(present.transport.stepsPerPattern);
-        const nextSteps = currentPattern.map((step) => (
-          step.map((event) => ({ ...event, note: transposeNote(event.note, action.semitones) }))
+        return updatePatternSteps(track, patternId, present.transport.stepsPerPattern, (currentPattern) => (
+          currentPattern.map((step) => (
+            step.map((event) => ({ ...event, note: transposeNote(event.note, action.semitones) }))
+          ))
         ));
+      }));
 
-        return {
-          ...track,
-          patterns: {
-            ...track.patterns,
-            [patternId]: nextSteps,
-          },
-        };
+    case 'TRANSPOSE_PATTERN_AT':
+      return commitProject(state, updateTrack(present, action.trackId, (track) => {
+        if (track.type === 'kick' || track.type === 'snare' || track.type === 'hihat') {
+          return track;
+        }
+
+        return updatePatternSteps(track, action.patternIndex, present.transport.stepsPerPattern, (currentPattern) => (
+          currentPattern.map((step) => (
+            step.map((event) => ({ ...event, note: transposeNote(event.note, action.semitones) }))
+          ))
+        ));
       }));
 
     case 'TOGGLE_VOLUME':
@@ -574,21 +635,21 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
     case 'CLEAR_TRACK':
       return commitProject(state, updateTrack(present, action.trackId, (track) => {
         const patternId = present.transport.currentPattern;
-        const currentPattern = track.patterns[patternId] ?? createEmptyPattern(present.transport.stepsPerPattern);
-        const hasActiveSteps = currentPattern.some((step) => step.length > 0);
-
-        if (!hasActiveSteps) {
-          return track;
-        }
-
-        return {
-          ...track,
-          patterns: {
-            ...track.patterns,
-            [patternId]: createEmptyPattern(present.transport.stepsPerPattern),
-          },
-        };
+        return updatePatternSteps(track, patternId, present.transport.stepsPerPattern, (currentPattern) => (
+          currentPattern.some((step) => step.length > 0)
+            ? createEmptyPattern(present.transport.stepsPerPattern)
+            : currentPattern
+        ));
       }));
+
+    case 'CLEAR_PATTERN_AT':
+      return commitProject(state, updateTrack(present, action.trackId, (track) => (
+        updatePatternSteps(track, action.patternIndex, present.transport.stepsPerPattern, (currentPattern) => (
+          currentPattern.some((step) => step.length > 0)
+            ? createEmptyPattern(present.transport.stepsPerPattern)
+            : currentPattern
+        ))
+      )));
 
     case 'UPDATE_STEP_EVENT':
       return commitProject(state, updateTrack(present, action.trackId, (track) => {
@@ -1247,6 +1308,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       bpm: project.transport.bpm,
       canRedo: editorState.history.future.length > 0,
       canUndo: editorState.history.past.length > 0,
+      clearPatternAt: (trackId, patternIndex) => dispatch({ type: 'CLEAR_PATTERN_AT', trackId, patternIndex }),
       clearTrack: (trackId) => dispatch({ type: 'CLEAR_TRACK', trackId }),
       createTrack: (trackType) => dispatch({ type: 'CREATE_TRACK', trackType }),
       currentPattern: project.transport.currentPattern,
@@ -1277,6 +1339,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       saveProject,
       saveStatus,
       selectedTrackId,
+      shiftPatternAt: (trackId, patternIndex, direction) => dispatch({ type: 'SHIFT_PATTERN_AT', direction, trackId, patternIndex }),
       shiftPattern: (trackId, direction) => dispatch({ type: 'SHIFT_PATTERN', direction, trackId }),
       setActiveView: (view) => dispatch({ type: 'SET_ACTIVE_VIEW', view }),
       setBpm: (bpm) => dispatch({ type: 'SET_BPM', bpm }),
@@ -1293,11 +1356,13 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       stop,
       toggleMute: (trackId) => dispatch({ type: 'TOGGLE_MUTE', trackId }),
       togglePlay,
+      togglePatternStep: (trackId, patternIndex, stepIndex, note) => dispatch({ type: 'TOGGLE_PATTERN_STEP', note, patternIndex, stepIndex, trackId }),
       toggleRecording,
       toggleSettings: () => dispatch({ type: 'TOGGLE_SETTINGS' }),
       toggleSolo: (trackId) => dispatch({ type: 'TOGGLE_SOLO', trackId }),
       toggleStep: (trackId, stepIndex, note) => dispatch({ type: 'TOGGLE_STEP', note, stepIndex, trackId }),
       tracks: project.tracks,
+      transposePatternAt: (trackId, patternIndex, semitones) => dispatch({ type: 'TRANSPOSE_PATTERN_AT', semitones, trackId, patternIndex }),
       transposePattern: (trackId, semitones) => dispatch({ type: 'TRANSPOSE_PATTERN', semitones, trackId }),
       transportMode: project.transport.mode,
       undo: () => dispatch({ type: 'UNDO' }),

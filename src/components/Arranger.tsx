@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Copy, Layers3, MoveHorizontal, Plus, Scissors, StretchHorizontal, Trash2 } from 'lucide-react';
+import { Copy, Eraser, Layers3, Minus, MoveHorizontal, Plus, Scissors, StretchHorizontal, Trash2 } from 'lucide-react';
 
 import { useAudio } from '../context/AudioContext';
-import type { ArrangementClip } from '../project/schema';
+import { defaultNoteForTrack, type ArrangementClip, type Track } from '../project/schema';
 
 const PIXELS_PER_STEP = 22;
 const CLIP_SNAP = 4;
@@ -24,11 +24,16 @@ const snapStepDelta = (offsetPx: number) => (
   Math.round(offsetPx / PIXELS_PER_STEP / CLIP_SNAP) * CLIP_SNAP
 );
 
+const isDrumTrack = (track: Track) => (
+  track.type === 'kick' || track.type === 'snare' || track.type === 'hihat'
+);
+
 export const Arranger = () => {
   const {
     addArrangerClip,
     arrangerClips,
     bpm,
+    clearPatternAt,
     currentStep,
     currentPattern,
     duplicateArrangerClip,
@@ -41,13 +46,18 @@ export const Arranger = () => {
     selectedTrackId,
     setCurrentPattern,
     setSelectedTrackId,
+    shiftPatternAt,
     songLengthInBeats,
+    stepsPerPattern,
+    togglePatternStep,
     tracks,
+    transposePatternAt,
     transportMode,
     updateArrangerClip,
   } = useAudio();
   const [selectedClipId, setSelectedClipId] = useState<string | null>(arrangerClips[0]?.id ?? null);
   const [dragState, setDragState] = useState<DragState | null>(null);
+  const [selectedPhraseStepIndex, setSelectedPhraseStepIndex] = useState(0);
 
   useEffect(() => {
     if (selectedClipId && arrangerClips.some((clip) => clip.id === selectedClipId)) {
@@ -56,6 +66,10 @@ export const Arranger = () => {
 
     setSelectedClipId(arrangerClips[0]?.id ?? null);
   }, [arrangerClips, selectedClipId]);
+
+  useEffect(() => {
+    setSelectedPhraseStepIndex(0);
+  }, [selectedClipId]);
 
   useEffect(() => {
     if (!dragState) {
@@ -140,6 +154,13 @@ export const Arranger = () => {
         ))
       ))
     : false;
+  const selectedClipPattern = selectedClip && selectedClipTrack
+    ? selectedClipTrack.patterns[selectedClip.patternIndex] ?? Array.from({ length: stepsPerPattern }, () => [])
+    : [];
+  const selectedPhraseStep = selectedClipPattern[selectedPhraseStepIndex] ?? [];
+  const selectedPhraseActiveSteps = selectedClipPattern.filter((step) => step.length > 0).length;
+  const selectedPhraseNoteCount = selectedClipPattern.reduce((sum, step) => sum + step.length, 0);
+  const selectedPhraseLeadNote = selectedPhraseStep[0]?.note ?? null;
   const timelineSteps = Math.max(songLengthInBeats, 32);
   const timelineWidth = timelineSteps * PIXELS_PER_STEP;
   const totalDurationSeconds = songLengthInBeats * (60 / bpm) * 0.25;
@@ -381,6 +402,120 @@ export const Arranger = () => {
                   </div>
                 </div>
               </div>
+
+              {selectedClip && selectedClipTrack && (
+                <div className="rounded-[16px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="section-label">Phrase sketch</div>
+                      <div className="mt-2 text-sm text-[var(--text-secondary)]">
+                        Edit pattern {String.fromCharCode(65 + selectedClip.patternIndex)} directly from song view. Click steps to add or clear notes, then use the piano roll for finer note shaping.
+                      </div>
+                    </div>
+                    <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+                      {selectedPhraseActiveSteps} active · {selectedPhraseNoteCount} notes
+                    </div>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <button
+                      className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                      onClick={() => shiftPatternAt(selectedClip.trackId, selectedClip.patternIndex, 'left')}
+                    >
+                      Shift left
+                    </button>
+                    <button
+                      className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                      onClick={() => shiftPatternAt(selectedClip.trackId, selectedClip.patternIndex, 'right')}
+                    >
+                      Shift right
+                    </button>
+                    {!isDrumTrack(selectedClipTrack) && (
+                      <>
+                        <button
+                          className="control-chip flex items-center justify-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                          onClick={() => transposePatternAt(selectedClip.trackId, selectedClip.patternIndex, -1)}
+                        >
+                          <Minus className="h-3.5 w-3.5" />
+                          Down 1
+                        </button>
+                        <button
+                          className="control-chip flex items-center justify-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                          onClick={() => transposePatternAt(selectedClip.trackId, selectedClip.patternIndex, 1)}
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          Up 1
+                        </button>
+                      </>
+                    )}
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-4 gap-2">
+                    {selectedClipPattern.map((step, stepIndex) => {
+                      const isSelectedStep = selectedPhraseStepIndex === stepIndex;
+                      const isActiveStep = step.length > 0;
+                      const leadNote = step[0]?.note ?? null;
+
+                      return (
+                        <button
+                          className={`rounded-[12px] border px-2 py-3 text-left transition-colors ${isSelectedStep ? 'border-[rgba(125,211,252,0.34)] bg-[rgba(125,211,252,0.12)]' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.04)]'}`}
+                          key={`${selectedClip.id}-${stepIndex}`}
+                          onClick={() => {
+                            setSelectedPhraseStepIndex(stepIndex);
+                            togglePatternStep(
+                              selectedClip.trackId,
+                              selectedClip.patternIndex,
+                              stepIndex,
+                              step.length > 0 ? undefined : defaultNoteForTrack(selectedClipTrack),
+                            );
+                          }}
+                        >
+                          <div className="font-mono text-[10px] text-[var(--text-tertiary)]">{stepIndex + 1}</div>
+                          <div className={`mt-2 text-xs font-semibold ${isActiveStep ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'}`}>
+                            {isDrumTrack(selectedClipTrack) ? (isActiveStep ? 'TRIG' : 'Rest') : (leadNote ?? 'Rest')}
+                          </div>
+                          <div className="mt-1 font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+                            {step.length > 1 ? `${step.length} notes` : isActiveStep ? '1 note' : 'empty'}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-4 flex items-center justify-between gap-3 rounded-[14px] border border-[var(--border-soft)] bg-[rgba(0,0,0,0.14)] px-3 py-3">
+                    <div className="min-w-0">
+                      <div className="section-label">Selected step</div>
+                      <div className="mt-2 text-sm text-[var(--text-primary)]">
+                        Step {selectedPhraseStepIndex + 1}{selectedPhraseLeadNote ? ` · ${selectedPhraseLeadNote}` : ' · Rest'}
+                      </div>
+                      <div className="mt-1 text-xs text-[var(--text-secondary)]">
+                        {selectedPhraseStep.length > 0
+                          ? `${selectedPhraseStep.length} note${selectedPhraseStep.length === 1 ? '' : 's'} in this step`
+                          : 'Click a step to place the default note for this track'}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                        onClick={() => clearPatternAt(selectedClip.trackId, selectedClip.patternIndex)}
+                      >
+                        <Eraser className="h-3.5 w-3.5" />
+                        Clear phrase
+                      </button>
+                      <button
+                        className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                        onClick={() => {
+                          setSelectedTrackId(selectedClip.trackId);
+                          setCurrentPattern(selectedClip.patternIndex);
+                          setActiveView('PIANO_ROLL');
+                        }}
+                      >
+                        Deep edit
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div className="rounded-[16px] border border-dashed border-[var(--border-soft)] p-4 text-sm text-[var(--text-secondary)]">
