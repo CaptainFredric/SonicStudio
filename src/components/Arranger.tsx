@@ -3,6 +3,7 @@ import {
   Braces,
   Copy,
   Eraser,
+  Focus,
   Layers3,
   Minus,
   MoveHorizontal,
@@ -10,6 +11,7 @@ import {
   Plus,
   Scissors,
   Trash2,
+  VolumeX,
   Wand2,
 } from 'lucide-react';
 
@@ -25,6 +27,7 @@ type DragMode = 'move' | 'trim-start' | 'trim-end';
 type SnapSize = 1 | 2 | 4 | 8 | 16;
 type ZoomPreset = 'PHRASE' | 'SECTION' | 'SONG';
 type PaintMode = 'add' | 'remove';
+type LaneScope = 'ALL' | 'ACTIVE' | 'FOCUSED' | 'DRUMS' | 'MUSICAL';
 
 interface DragState {
   clipId: string;
@@ -179,6 +182,8 @@ export const Arranger = () => {
     splitArrangerClip,
     stepsPerPattern,
     toggleClipPatternStep,
+    toggleMute,
+    toggleSolo,
     tracks,
     transformClipPattern,
     transportMode,
@@ -192,6 +197,8 @@ export const Arranger = () => {
   const [selectedPhraseNoteIndex, setSelectedPhraseNoteIndex] = useState<number | null>(null);
   const [snapSize, setSnapSize] = useState<SnapSize>(DEFAULT_SNAP);
   const [followPlayhead, setFollowPlayhead] = useState(true);
+  const [laneScope, setLaneScope] = useState<LaneScope>('ALL');
+  const [compactLaneView, setCompactLaneView] = useState(false);
   const [zoomPreset, setZoomPreset] = useState<ZoomPreset>('SECTION');
   const [viewportWidth, setViewportWidth] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
@@ -253,8 +260,24 @@ export const Arranger = () => {
     tracks.map((track) => ({
       clips: arrangerClips.filter((clip) => clip.trackId === track.id),
       track,
-    }))
-  ), [arrangerClips, tracks]);
+    })).filter(({ clips, track }) => {
+      switch (laneScope) {
+        case 'ACTIVE':
+          return clips.length > 0;
+        case 'FOCUSED':
+          return track.id === selectedTrackId;
+        case 'DRUMS':
+          return isDrumTrack(track);
+        case 'MUSICAL':
+          return !isDrumTrack(track);
+        default:
+          return true;
+      }
+    })
+  ), [arrangerClips, laneScope, selectedTrackId, tracks]);
+  const laneLabelWidth = compactLaneView ? 184 : 220;
+  const laneHeightClass = compactLaneView ? 'h-16' : 'h-20';
+  const clipHeightClass = compactLaneView ? 'h-12' : 'h-14';
 
   useEffect(() => {
     if (selectedArrangerClipId && arrangerClips.some((clip) => clip.id === selectedArrangerClipId)) {
@@ -752,6 +775,26 @@ export const Arranger = () => {
                 Start {selectedClip.startBeat + 1} · Length {selectedClip.beatLength} · Snap {snapSize}
               </div>
             )}
+          </div>
+        </div>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          {(['ALL', 'ACTIVE', 'FOCUSED', 'DRUMS', 'MUSICAL'] as LaneScope[]).map((scope) => (
+            <div key={scope}>
+              <ZoomButton
+                active={laneScope === scope}
+                label={scope === 'ALL' ? 'All lanes' : scope === 'ACTIVE' ? 'Active' : scope === 'FOCUSED' ? 'Focused' : scope === 'DRUMS' ? 'Drums' : 'Musical'}
+                onClick={() => setLaneScope(scope)}
+              />
+            </div>
+          ))}
+          <ZoomButton
+            active={compactLaneView}
+            label={compactLaneView ? 'Compact on' : 'Compact off'}
+            onClick={() => setCompactLaneView((current) => !current)}
+          />
+          <div className="ml-auto font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+            {laneData.length} visible lanes
           </div>
         </div>
       </div>
@@ -1347,8 +1390,8 @@ export const Arranger = () => {
 
           <div className="min-h-0 flex-1 overflow-auto rounded-[18px] border border-[var(--border-soft)] bg-[rgba(0,0,0,0.24)]" ref={timelineRef}>
             <div className="min-h-full p-4" style={{ minWidth: `${timelineWidth}px` }}>
-              <div className="grid" style={{ gridTemplateColumns: '220px minmax(0, 1fr)' }}>
-                <div className="sticky left-0 z-10 border-b border-r border-[var(--border-soft)] bg-[rgba(8,12,17,0.96)] px-4 py-3 backdrop-blur">
+              <div className="grid" style={{ gridTemplateColumns: `${laneLabelWidth}px minmax(0, 1fr)` }}>
+                <div className="sticky left-0 z-10 border-b border-r border-[var(--border-soft)] bg-[rgba(8,12,17,0.96)] px-4 py-3 backdrop-blur" style={{ width: `${laneLabelWidth}px` }}>
                   <div className="section-label">Track lanes</div>
                 </div>
                 <div className="relative border-b border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]">
@@ -1371,7 +1414,11 @@ export const Arranger = () => {
                   />
                 </div>
 
-                {laneData.map(({ clips, track }) => {
+                {laneData.length === 0 ? (
+                  <div className="col-span-2 flex items-center justify-center px-6 py-10 text-center text-sm text-[var(--text-secondary)]">
+                    No arranger lanes match the current scope. Change the lane filter or add clips to the song view.
+                  </div>
+                ) : laneData.map(({ clips, track }) => {
                   const isSelectedTrack = selectedTrackId === track.id;
 
                   return (
@@ -1379,11 +1426,36 @@ export const Arranger = () => {
                       <button
                         className={`sticky left-0 z-10 flex items-center gap-3 border-b border-r border-[var(--border-soft)] px-4 py-4 text-left transition-colors ${isSelectedTrack ? 'bg-[rgba(124,211,252,0.09)]' : 'bg-[rgba(8,12,17,0.96)] hover:bg-[rgba(255,255,255,0.03)]'}`}
                         onClick={() => setSelectedTrackId(track.id)}
+                        style={{ width: `${laneLabelWidth}px` }}
                       >
                         <span className="h-3 w-3 rounded-full" style={{ backgroundColor: track.color }} />
                         <div className="min-w-0">
                           <div className="truncate text-sm font-semibold text-[var(--text-primary)]">{track.name}</div>
-                          <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.type}</div>
+                          <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+                            {track.type} · {clips.length} clip{clips.length === 1 ? '' : 's'}
+                          </div>
+                        </div>
+                        <div className="ml-auto flex items-center gap-1">
+                          <LaneStateButton
+                            active={track.muted}
+                            label={track.muted ? 'Unmute track lane' : 'Mute track lane'}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              toggleMute(track.id);
+                            }}
+                          >
+                            <VolumeX className="h-3.5 w-3.5" />
+                          </LaneStateButton>
+                          <LaneStateButton
+                            active={track.solo}
+                            label={track.solo ? 'Release solo track lane' : 'Solo track lane'}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              toggleSolo(track.id);
+                            }}
+                          >
+                            <Focus className="h-3.5 w-3.5" />
+                          </LaneStateButton>
                         </div>
                       </button>
                       <div className="relative border-b border-[var(--border-soft)] py-3">
@@ -1403,14 +1475,14 @@ export const Arranger = () => {
                           className="pointer-events-none absolute bottom-0 top-0 z-[1] w-[2px] bg-[rgba(124,211,252,0.8)]"
                           style={{ left: `${currentStep * pixelsPerStep}px` }}
                         />
-                        <div className="relative z-[2] flex h-20 items-center">
+                        <div className={`relative z-[2] flex ${laneHeightClass} items-center`}>
                           {clips.map((clip) => {
                             const isSelectedClip = selectedArrangerClipId === clip.id;
                             const frame = getRenderedClipFrame(clip);
 
                             return (
                               <div
-                                className={`group absolute top-1/2 flex h-14 -translate-y-1/2 overflow-hidden border px-3 py-2 shadow-[0_12px_24px_rgba(0,0,0,0.24)] transition-all ${isSelectedClip ? 'ring-1 ring-[rgba(255,255,255,0.28)]' : ''}`}
+                                className={`group absolute top-1/2 flex ${clipHeightClass} -translate-y-1/2 overflow-hidden border px-3 py-2 shadow-[0_12px_24px_rgba(0,0,0,0.24)] transition-all ${isSelectedClip ? 'ring-1 ring-[rgba(255,255,255,0.28)]' : ''}`}
                                 key={clip.id}
                                 onClick={() => selectClip(clip.id)}
                                 onKeyDown={(event) => {
@@ -1531,6 +1603,26 @@ const OperationButton = ({
   >
     {icon}
     {label}
+  </button>
+);
+
+const LaneStateButton = ({
+  active,
+  children,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  children: React.ReactNode;
+  label: string;
+  onClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
+}) => (
+  <button
+    aria-label={label}
+    className={`ghost-icon-button flex h-8 w-8 items-center justify-center ${active ? 'border-[rgba(124,211,252,0.3)] bg-[rgba(124,211,252,0.1)] text-[var(--accent-strong)]' : ''}`}
+    onClick={onClick}
+  >
+    {children}
   </button>
 );
 

@@ -3,6 +3,7 @@ import * as Tone from 'tone';
 import { getSamplePresetMeta, getSampleUrl } from './sampleLibrary';
 import type {
   ArrangementClip,
+  MasterSettings,
   NoteEvent,
   PatternAutomation,
   Project,
@@ -41,7 +42,16 @@ class ToneEngine {
   private arrangerClips: ArrangementClip[] = [];
   private isInitialized = false;
   private masterCompressor: Tone.Compressor | null = null;
+  private masterEq: Tone.EQ3 | null = null;
+  private masterGain: Tone.Gain | null = null;
   private masterLimiter: Tone.Limiter | null = null;
+  private masterMeter: Tone.Meter | null = null;
+  private masterSettings: MasterSettings = {
+    glueCompression: 0.42,
+    limiterCeiling: -0.2,
+    outputGain: 0,
+    tone: 0.55,
+  };
   private stepCallbacks: ((step: number, pattern: number) => void)[] = [];
   private stepsPerPattern = 16;
   private trackGraphs: Record<string, TrackGraph> = {};
@@ -61,11 +71,18 @@ class ToneEngine {
     await Tone.start();
 
     this.masterCompressor = new Tone.Compressor({ ratio: 4, threshold: -24 }).toDestination();
-    this.masterLimiter = new Tone.Limiter(-0.1).connect(this.masterCompressor);
+    this.masterLimiter = new Tone.Limiter(-0.1);
+    this.masterEq = new Tone.EQ3({ high: 0, low: 0, mid: 0 });
+    this.masterGain = new Tone.Gain(1);
+    this.masterMeter = new Tone.Meter();
     this.analyzer = new Tone.Analyser('fft', 256);
     this.recorder = new Tone.Recorder();
-    this.masterLimiter.connect(this.analyzer);
-    this.masterLimiter.connect(this.recorder);
+    this.masterLimiter.connect(this.masterEq);
+    this.masterEq.connect(this.masterGain);
+    this.masterGain.connect(this.masterCompressor);
+    this.masterGain.connect(this.masterMeter);
+    this.masterCompressor.connect(this.analyzer);
+    this.masterCompressor.connect(this.recorder);
 
     Tone.Transport.scheduleRepeat((time) => {
       this.playStep(time);
@@ -79,9 +96,14 @@ class ToneEngine {
     return this.trackGraphs[id] ? (this.trackGraphs[id].meter.getValue() as number) : -100;
   }
 
+  public getMasterMeterValue(): number {
+    return this.masterMeter ? (this.masterMeter.getValue() as number) : -100;
+  }
+
   public syncProject(project: Project) {
     this.arrangerClips = project.arrangerClips;
     this.currentPattern = project.transport.currentPattern;
+    this.masterSettings = project.master;
     this.stepsPerPattern = project.transport.stepsPerPattern;
     this.tracksState = project.tracks;
     this.transportMode = project.transport.mode;
@@ -94,6 +116,22 @@ class ToneEngine {
     }
 
     this.syncTrackGraphs();
+    this.applyMasterSettings();
+  }
+
+  private applyMasterSettings() {
+    if (!this.masterCompressor || !this.masterLimiter || !this.masterEq || !this.masterGain) {
+      return;
+    }
+
+    const glue = this.masterSettings.glueCompression;
+    this.masterCompressor.ratio.value = 1 + (glue * 7);
+    this.masterCompressor.threshold.value = -12 - (glue * 18);
+    this.masterLimiter.threshold.value = this.masterSettings.limiterCeiling;
+    this.masterGain.gain.value = Tone.dbToGain(this.masterSettings.outputGain);
+    this.masterEq.low.value = (0.5 - this.masterSettings.tone) * 10;
+    this.masterEq.high.value = (this.masterSettings.tone - 0.5) * 10;
+    this.masterEq.mid.value = (this.masterSettings.tone - 0.5) * 2;
   }
 
   private getLoopLength() {

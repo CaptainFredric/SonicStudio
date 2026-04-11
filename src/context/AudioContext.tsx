@@ -25,6 +25,7 @@ import {
   type ArrangementClip,
   type AppView,
   type InstrumentType,
+  type MasterSettings,
   type NoteEvent,
   type Project,
   type SampleSliceMemory,
@@ -65,6 +66,7 @@ interface AudioContextType {
   duplicateArrangerClip: (clipId: string) => void;
   exportAudioMix: () => Promise<void>;
   exportTrackStems: () => Promise<void>;
+  master: MasterSettings;
   loopArrangerClip: (clipId: string, copies: number) => void;
   makeClipPatternUnique: (clipId: string) => void;
   duplicateTrack: (trackId: string) => void;
@@ -93,6 +95,7 @@ interface AudioContextType {
   shiftPattern: (trackId: string, direction: 'left' | 'right') => void;
   setActiveView: (view: AppView) => void;
   setBpm: (bpm: number) => void;
+  setMasterSettings: (settings: Partial<MasterSettings>) => void;
   setCurrentPattern: (pattern: number) => void;
   setPatternCount: (patternCount: number) => void;
   setSelectedTrackId: (id: string | null) => void;
@@ -165,6 +168,7 @@ type EditorAction =
   | { type: 'SHIFT_PATTERN_AT'; direction: 'left' | 'right'; trackId: string; patternIndex: number }
   | { type: 'SET_ACTIVE_VIEW'; view: AppView }
   | { type: 'SET_BPM'; bpm: number }
+  | { type: 'SET_MASTER_SETTINGS'; settings: Partial<MasterSettings> }
   | { type: 'SET_CURRENT_PATTERN'; pattern: number }
   | { type: 'SET_PATTERN_COUNT'; patternCount: number }
   | { type: 'SET_PROJECT_NAME'; name: string }
@@ -706,6 +710,15 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
         },
       });
     }
+
+    case 'SET_MASTER_SETTINGS':
+      return commitProject(state, {
+        ...present,
+        master: {
+          ...present.master,
+          ...action.settings,
+        },
+      });
 
     case 'SET_PATTERN_COUNT':
       return commitProject(state, resizeProjectTransport(present, action.patternCount, present.transport.stepsPerPattern));
@@ -1961,6 +1974,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       isRecording,
       isSettingsOpen: editorState.ui.isSettingsOpen,
       lastSavedAt,
+      master: project.master,
       newSession,
       patternCount: project.transport.patternCount,
       previewTrack,
@@ -1979,6 +1993,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       shiftPattern: (trackId, direction) => dispatch({ type: 'SHIFT_PATTERN', direction, trackId }),
       setActiveView: (view) => dispatch({ type: 'SET_ACTIVE_VIEW', view }),
       setBpm: (bpm) => dispatch({ type: 'SET_BPM', bpm }),
+      setMasterSettings: (settings) => dispatch({ type: 'SET_MASTER_SETTINGS', settings }),
       setCurrentPattern: (pattern) => dispatch({ type: 'SET_CURRENT_PATTERN', pattern }),
       setPatternCount: (patternCount) => dispatch({ type: 'SET_PATTERN_COUNT', patternCount }),
       setClipPatternStepSlice: (clipId, stepIndex, sliceIndex, note) => dispatch({ type: 'SET_CLIP_PATTERN_STEP_SLICE', clipId, note, sliceIndex, stepIndex }),

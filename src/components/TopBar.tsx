@@ -27,6 +27,7 @@ export const TopBar = () => {
     isPlaying,
     isRecording,
     lastSavedAt,
+    master,
     patternCount,
     projectName,
     redo,
@@ -251,6 +252,16 @@ export const TopBar = () => {
             <MiniStat
               label="Clip"
               value={selectedArrangerClipId ? 'Selected' : 'None'}
+            />
+          </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <MiniStat
+              label="Master"
+              value={`${master.outputGain.toFixed(1)} dB`}
+            />
+            <MiniStat
+              label="Glue"
+              value={`${Math.round(master.glueCompression * 100)}%`}
             />
           </div>
           <div className="mt-3 text-[11px] leading-5 text-[var(--text-secondary)]">

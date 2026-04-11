@@ -25,6 +25,7 @@ export const SettingsSidebar = () => {
     importSession,
     isSettingsOpen,
     lastSavedAt,
+    master,
     newSession,
     patternCount,
     renameTrack,
@@ -32,6 +33,7 @@ export const SettingsSidebar = () => {
     saveStatus,
     selectedTrackId,
     setBpm,
+    setMasterSettings,
     setPatternCount,
     setStepsPerPattern,
     setTransportMode,
@@ -270,6 +272,85 @@ export const SettingsSidebar = () => {
             <ShortcutRow command="Cmd/Ctrl+Z" description="Undo" />
             <ShortcutRow command="Shift+Cmd/Ctrl+Z" description="Redo" />
             <ShortcutRow command="1-8" description="Switch pattern bank" />
+          </div>
+        </section>
+
+        <section className="surface-panel-strong p-4">
+          <div className="flex items-center gap-2 text-[var(--text-primary)]">
+            <SlidersHorizontal className="h-4 w-4 text-[var(--accent)]" />
+            <span className="section-label">Master Output</span>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <MetricCell label="Output" value={`${master.outputGain.toFixed(1)} dB`} />
+            <MetricCell label="Ceiling" value={`${master.limiterCeiling.toFixed(1)} dB`} />
+          </div>
+          <div className="mt-4 space-y-4">
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="section-label">Glue compression</span>
+                <span className="font-mono text-xs text-[var(--text-secondary)]">{Math.round(master.glueCompression * 100)}</span>
+              </div>
+              <input
+                className="mt-3"
+                max="1"
+                min="0"
+                onChange={(event) => setMasterSettings({ glueCompression: Number(event.target.value) })}
+                step="0.01"
+                type="range"
+                value={master.glueCompression}
+              />
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="section-label">Tone</span>
+                <span className="font-mono text-xs text-[var(--text-secondary)]">{Math.round(master.tone * 100)}</span>
+              </div>
+              <input
+                className="mt-3"
+                max="1"
+                min="0"
+                onChange={(event) => setMasterSettings({ tone: Number(event.target.value) })}
+                step="0.01"
+                type="range"
+                value={master.tone}
+              />
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="section-label">Output gain</span>
+                <span className="font-mono text-xs text-[var(--text-secondary)]">{master.outputGain.toFixed(1)} dB</span>
+              </div>
+              <input
+                className="mt-3"
+                max="12"
+                min="-12"
+                onChange={(event) => setMasterSettings({ outputGain: Number(event.target.value) })}
+                step="0.5"
+                type="range"
+                value={master.outputGain}
+              />
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between">
+                <span className="section-label">Limiter ceiling</span>
+                <span className="font-mono text-xs text-[var(--text-secondary)]">{master.limiterCeiling.toFixed(1)} dB</span>
+              </div>
+              <input
+                className="mt-3"
+                max="0"
+                min="-1.2"
+                onChange={(event) => setMasterSettings({ limiterCeiling: Number(event.target.value) })}
+                step="0.05"
+                type="range"
+                value={master.limiterCeiling}
+              />
+            </div>
+          </div>
+          <div className="mt-4 text-[11px] leading-5 text-[var(--text-secondary)]">
+            Bounce uses these master settings, so the output path is visible before you print a mix or stems.
           </div>
         </section>
 

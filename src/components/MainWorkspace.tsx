@@ -3,10 +3,12 @@ import {
   ArrowLeftRight,
   Copy,
   Eraser,
+  Focus,
   Music2,
   Play,
   SlidersHorizontal,
   Trash2,
+  VolumeX,
 } from 'lucide-react';
 
 import { getSamplePresetMeta } from '../audio/sampleLibrary';
@@ -38,11 +40,15 @@ export const MainWorkspace = () => {
     shiftPattern,
     stepsPerPattern,
     toggleStep,
+    toggleMute,
+    toggleSolo,
     tracks,
     transposePattern,
     updateStepEvent,
   } = useAudio();
   const [selectedStepIndex, setSelectedStepIndex] = useState(0);
+  const [laneScope, setLaneScope] = useState<'ALL' | 'ACTIVE' | 'FOCUSED' | 'DRUMS' | 'MUSICAL'>('ALL');
+  const [compactLanes, setCompactLanes] = useState(false);
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
   const selectedTrackPattern = selectedTrack?.patterns[currentPattern] ?? Array.from({ length: stepsPerPattern }, () => []);
   const selectedStep = selectedTrackPattern[selectedStepIndex] ?? [];
@@ -51,6 +57,25 @@ export const MainWorkspace = () => {
   const melodicTrackCount = useMemo(() => (
     tracks.filter((track) => !['kick', 'snare', 'hihat'].includes(track.type)).length
   ), [tracks]);
+  const visibleTracks = useMemo(() => tracks.filter((track) => {
+    const hasActivePattern = (track.patterns[currentPattern] ?? []).some((step) => step.length > 0);
+
+    switch (laneScope) {
+      case 'ACTIVE':
+        return hasActivePattern;
+      case 'FOCUSED':
+        return track.id === selectedTrackId;
+      case 'DRUMS':
+        return ['kick', 'snare', 'hihat'].includes(track.type);
+      case 'MUSICAL':
+        return !['kick', 'snare', 'hihat'].includes(track.type);
+      default:
+        return true;
+    }
+  }), [currentPattern, laneScope, selectedTrackId, tracks]);
+  const laneHeaderWidthClass = compactLanes ? 'w-[252px]' : 'w-[284px]';
+  const laneHeaderPaddingClass = compactLanes ? 'px-4 py-3' : 'px-5 py-4';
+  const laneGridPaddingClass = compactLanes ? 'px-2 py-1.5' : 'px-2 py-2';
 
   useEffect(() => {
     if (!selectedTrack) {
@@ -98,30 +123,46 @@ export const MainWorkspace = () => {
                     : `${tracks.length} total tracks · ${melodicTrackCount} melodic lanes ready for note editing`}
                 </div>
               </div>
-              {selectedTrack && (
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                    onClick={() => void previewTrack(selectedTrack.id)}
-                  >
-                    <Play className="h-3.5 w-3.5" />
-                    Audition
-                  </button>
-                  <button
-                    className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                    onClick={() => setActiveView(isSelectedTrackDrum ? 'ARRANGER' : 'PIANO_ROLL')}
-                  >
-                    <SlidersHorizontal className="h-3.5 w-3.5" />
-                    {isSelectedTrackDrum ? 'Song tools' : 'Deep edit'}
-                  </button>
-                </div>
-              )}
+              <div className="flex flex-wrap gap-2">
+                {(['ALL', 'ACTIVE', 'FOCUSED', 'DRUMS', 'MUSICAL'] as const).map((scope) => (
+                  <div key={scope}>
+                    <ScopeChip
+                      active={laneScope === scope}
+                      label={scope === 'ALL' ? 'All lanes' : scope === 'ACTIVE' ? 'Active' : scope === 'FOCUSED' ? 'Focused' : scope === 'DRUMS' ? 'Drums' : 'Musical'}
+                      onClick={() => setLaneScope(scope)}
+                    />
+                  </div>
+                ))}
+                <ScopeChip
+                  active={compactLanes}
+                  label={compactLanes ? 'Compact on' : 'Compact off'}
+                  onClick={() => setCompactLanes((current) => !current)}
+                />
+                {selectedTrack && (
+                  <>
+                    <button
+                      className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                      onClick={() => void previewTrack(selectedTrack.id)}
+                    >
+                      <Play className="h-3.5 w-3.5" />
+                      Audition
+                    </button>
+                    <button
+                      className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                      onClick={() => setActiveView(isSelectedTrackDrum ? 'ARRANGER' : 'PIANO_ROLL')}
+                    >
+                      <SlidersHorizontal className="h-3.5 w-3.5" />
+                      {isSelectedTrackDrum ? 'Song tools' : 'Deep edit'}
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <div className="flex h-12 border-b border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]">
-              <div className="w-[284px] shrink-0 border-r border-[var(--border-soft)] px-5 py-3">
+              <div className={`${laneHeaderWidthClass} shrink-0 border-r border-[var(--border-soft)] px-5 py-3`}>
                 <div className="flex items-center gap-2">
                   <Music2 className="h-4 w-4 text-[var(--accent)]" />
                   <span className="section-label">Tracks</span>
@@ -143,7 +184,11 @@ export const MainWorkspace = () => {
             </div>
 
             <div className="flex-1 overflow-auto">
-              {tracks.map((track) => {
+              {visibleTracks.length === 0 ? (
+                <div className="flex h-full items-center justify-center px-6 py-10 text-center text-sm text-[var(--text-secondary)]">
+                  No lanes match the current scope. Change the filter or add activity to the current pattern.
+                </div>
+              ) : visibleTracks.map((track) => {
                 const patternSteps = track.patterns[currentPattern] || Array.from({ length: stepsPerPattern }, () => []);
                 const selected = selectedTrackId === track.id;
                 const sourceLabel = track.source.engine === 'sample'
@@ -156,7 +201,7 @@ export const MainWorkspace = () => {
                     key={track.id}
                   >
                     <div
-                      className="group relative w-[284px] shrink-0 border-r border-[var(--border-soft)] px-5 py-4 text-left cursor-pointer"
+                      className={`group relative ${laneHeaderWidthClass} shrink-0 border-r border-[var(--border-soft)] ${laneHeaderPaddingClass} text-left cursor-pointer`}
                       onClick={() => setSelectedTrackId(track.id)}
                       onKeyDown={(event) => {
                         if (event.key === 'Enter' || event.key === ' ') {
@@ -184,7 +229,27 @@ export const MainWorkspace = () => {
                             </span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                        <div className="flex items-center gap-1">
+                          <StateActionBtn
+                            active={track.muted}
+                            label={track.muted ? 'Unmute lane' : 'Mute lane'}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              toggleMute(track.id);
+                            }}
+                          >
+                            <VolumeX className="h-3.5 w-3.5" />
+                          </StateActionBtn>
+                          <StateActionBtn
+                            active={track.solo}
+                            label={track.solo ? 'Release solo' : 'Solo lane'}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              toggleSolo(track.id);
+                            }}
+                          >
+                            <Focus className="h-3.5 w-3.5" />
+                          </StateActionBtn>
                           <RowActionBtn label="Duplicate track" onClick={(event) => {
                             event.stopPropagation();
                             duplicateTrack(track.id);
@@ -207,7 +272,7 @@ export const MainWorkspace = () => {
                       </div>
                     </div>
 
-                    <div className="flex flex-1 gap-[2px] px-2 py-2">
+                    <div className={`flex flex-1 gap-[2px] ${laneGridPaddingClass}`}>
                       {patternSteps.map((value, stepIndex) => {
                         const isActive = value.length > 0;
                         const isCurrent = currentStep === stepIndex;
@@ -218,7 +283,7 @@ export const MainWorkspace = () => {
 
                         return (
                           <button
-                            className={`relative flex-1 border transition-colors ${isActive ? 'border-transparent' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.05)]'} ${isCurrent ? 'ring-1 ring-inset ring-[rgba(255,255,255,0.08)]' : ''} ${isSelectedStep ? 'outline outline-1 outline-offset-0 outline-[rgba(125,211,252,0.26)]' : ''}`}
+                            className={`relative flex-1 border transition-colors ${compactLanes ? 'min-h-[38px]' : 'min-h-[48px]'} ${isActive ? 'border-transparent' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.05)]'} ${isCurrent ? 'ring-1 ring-inset ring-[rgba(255,255,255,0.08)]' : ''} ${isSelectedStep ? 'outline outline-1 outline-offset-0 outline-[rgba(125,211,252,0.26)]' : ''}`}
                             key={`${track.id}-${stepIndex}`}
                             onClick={() => {
                               setSelectedTrackId(track.id);
@@ -285,6 +350,21 @@ export const MainWorkspace = () => {
                     <SlidersHorizontal className="h-3.5 w-3.5" />
                     {isSelectedTrackDrum ? 'Song tools' : 'Deep edit'}
                   </button>
+                </div>
+                <div className="mt-3 flex items-center gap-2">
+                  <StateInspectorButton
+                    active={selectedTrack.muted}
+                    label={selectedTrack.muted ? 'Muted' : 'Mute'}
+                    onClick={() => toggleMute(selectedTrack.id)}
+                  />
+                  <StateInspectorButton
+                    active={selectedTrack.solo}
+                    label={selectedTrack.solo ? 'Soloed' : 'Solo'}
+                    onClick={() => toggleSolo(selectedTrack.id)}
+                  />
+                  <div className="ml-auto font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+                    {visibleTracks.length} visible
+                  </div>
                 </div>
               </div>
 
@@ -413,6 +493,60 @@ const RowActionBtn = ({
     onClick={onClick}
   >
     {children}
+  </button>
+);
+
+const ScopeChip = ({
+  active,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}) => (
+  <button
+    className={`control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] ${active ? 'text-[var(--accent-strong)]' : ''}`}
+    onClick={onClick}
+  >
+    {label}
+  </button>
+);
+
+const StateActionBtn = ({
+  active,
+  children,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  children: React.ReactNode;
+  label: string;
+  onClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
+}) => (
+  <button
+    aria-label={label}
+    className={`ghost-icon-button flex h-8 w-8 items-center justify-center ${active ? 'border-[rgba(124,211,252,0.3)] bg-[rgba(124,211,252,0.1)] text-[var(--accent-strong)]' : ''}`}
+    onClick={onClick}
+  >
+    {children}
+  </button>
+);
+
+const StateInspectorButton = ({
+  active,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}) => (
+  <button
+    className={`control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] ${active ? 'text-[var(--accent-strong)]' : ''}`}
+    onClick={onClick}
+  >
+    {label}
   </button>
 );
 

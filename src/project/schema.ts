@@ -113,7 +113,15 @@ export interface TransportSettings {
   stepsPerPattern: number;
 }
 
+export interface MasterSettings {
+  glueCompression: number;
+  limiterCeiling: number;
+  outputGain: number;
+  tone: number;
+}
+
 export interface Project {
+  master: MasterSettings;
   metadata: ProjectMetadata;
   transport: TransportSettings;
   tracks: Track[];
@@ -139,6 +147,13 @@ export const MAX_STEPS_PER_PATTERN = 64;
 export const MIN_PATTERN_COUNT = 1;
 export const MIN_STEPS_PER_PATTERN = 8;
 export const PROJECT_SCHEMA_VERSION = 9;
+
+export const INITIAL_MASTER: MasterSettings = {
+  glueCompression: 0.42,
+  limiterCeiling: -0.2,
+  outputGain: 0,
+  tone: 0.55,
+};
 
 export const INITIAL_PARAMS: SynthParams = {
   cutoff: 2000,
@@ -615,6 +630,33 @@ const normalizeTransport = (transport: unknown): TransportSettings => {
   };
 };
 
+const normalizeMaster = (master: unknown): MasterSettings => {
+  const candidate = isRecord(master) ? master : {};
+
+  return {
+    glueCompression: clamp(
+      typeof candidate.glueCompression === 'number' ? candidate.glueCompression : INITIAL_MASTER.glueCompression,
+      0,
+      1,
+    ),
+    limiterCeiling: clamp(
+      typeof candidate.limiterCeiling === 'number' ? candidate.limiterCeiling : INITIAL_MASTER.limiterCeiling,
+      -1.2,
+      0,
+    ),
+    outputGain: clamp(
+      typeof candidate.outputGain === 'number' ? candidate.outputGain : INITIAL_MASTER.outputGain,
+      -12,
+      12,
+    ),
+    tone: clamp(
+      typeof candidate.tone === 'number' ? candidate.tone : INITIAL_MASTER.tone,
+      0,
+      1,
+    ),
+  };
+};
+
 const normalizeTrack = (
   track: unknown,
   transport: TransportSettings,
@@ -1011,6 +1053,7 @@ export const createDemoProject = (projectName: string = 'Night Transit'): Projec
       createArrangerClip(leadTrack.id, transport, { beatLength: 16, patternIndex: 2, startBeat: 32 }),
       createArrangerClip(padTrack.id, transport, { beatLength: 16, patternIndex: 2, startBeat: 32 }),
     ],
+    master: INITIAL_MASTER,
     metadata: {
       createdAt: timestamp,
       id: createId('project'),
@@ -1042,6 +1085,7 @@ export const normalizeProject = (input: unknown): Project | null => {
     arrangerClips: arrangerClips.length > 0
       ? arrangerClips
       : legacySectionsToClips(input.arranger, tracks, transport),
+    master: normalizeMaster(input.master),
     metadata: {
       createdAt,
       id: typeof metadata.id === 'string' && metadata.id ? metadata.id : createId('project'),

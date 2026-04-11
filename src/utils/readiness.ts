@@ -24,18 +24,18 @@ const READINESS_SLICES: ReadinessSlice[] = [
   },
   {
     label: 'Editing ergonomics',
-    score: 83,
-    rationale: 'The arranger now handles longer sessions better with snap control, reveal and jump actions, follow-playhead behavior, and a navigable overview strip, so the song view is substantially easier to stay inside.',
+    score: 86,
+    rationale: 'The sequencer and arranger now expose lane scope filters, compact density, visible mute and solo controls, and stronger timeline navigation, so larger sessions are materially easier to scan and manage without falling out of the writing flow.',
   },
   {
     label: 'Audio output',
-    score: 52,
-    rationale: 'WAV bounce and stem export are real, but offline rendering, stronger mastering flow, and broader export options are still missing.',
+    score: 64,
+    rationale: 'WAV bounce, stem export, and a real master output path now exist with glue, tone, gain, ceiling, and live metering, but offline rendering and more deliberate mastering quality are still missing.',
   },
   {
     label: 'Product finish',
-    score: 56,
-    rationale: 'Focus handling and song navigation are more deliberate now, but onboarding, trust cues, collaboration, and account level product features are still early.',
+    score: 60,
+    rationale: 'Track management, focus handling, and output shaping feel more deliberate now, but onboarding, trust cues, collaboration, and account level product features are still early.',
   },
 ];
 

@@ -81,7 +81,20 @@ const VUChannel: React.FC<{ track: Track }> = ({ track }) => {
 };
 
 export const Mixer = () => {
-  const { tracks } = useAudio();
+  const { master, setMasterSettings, tracks } = useAudio();
+  const [masterLevel, setMasterLevel] = useState(-100);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setMasterLevel(engine.getMasterMeterValue());
+    }, 50);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, []);
+
+  const masterLevelHeight = Math.max(0, Math.min(100, ((masterLevel + 60) / 60) * 100));
 
   return (
     <section className="surface-panel flex flex-1 min-h-0 flex-col overflow-hidden">
@@ -98,6 +111,93 @@ export const Mixer = () => {
 
       <div className="flex-1 overflow-x-auto overflow-y-hidden p-5 [scroll-behavior:smooth] [-webkit-overflow-scrolling:touch]">
         <div className="flex h-full min-h-[560px] gap-4 scroll-snap-x-mandatory">
+          <div className="scroll-snap-align-start">
+            <div className="surface-panel-strong flex h-full min-h-[560px] w-[184px] shrink-0 flex-col p-4">
+              <div className="flex items-center gap-3">
+                <div className="h-2.5 w-2.5 rounded-full bg-[var(--accent)]" />
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-semibold tracking-tight text-[var(--text-primary)]">Master</div>
+                  <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">Output chain</div>
+                </div>
+              </div>
+
+              <div className="mt-5 grid gap-4">
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="section-label">Glue</span>
+                    <span className="font-mono text-[10px] text-[var(--text-secondary)]">{Math.round(master.glueCompression * 100)}</span>
+                  </div>
+                  <input
+                    className="mt-3"
+                    max="1"
+                    min="0"
+                    onChange={(event) => setMasterSettings({ glueCompression: Number(event.target.value) })}
+                    step="0.01"
+                    type="range"
+                    value={master.glueCompression}
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="section-label">Tone</span>
+                    <span className="font-mono text-[10px] text-[var(--text-secondary)]">{Math.round(master.tone * 100)}</span>
+                  </div>
+                  <input
+                    className="mt-3"
+                    max="1"
+                    min="0"
+                    onChange={(event) => setMasterSettings({ tone: Number(event.target.value) })}
+                    step="0.01"
+                    type="range"
+                    value={master.tone}
+                  />
+                </div>
+              </div>
+
+              <div className="mt-6 flex flex-1 items-center justify-center gap-5">
+                <div className="relative h-[220px] w-3 overflow-hidden rounded-full border border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)]">
+                  <div
+                    className="absolute bottom-0 left-0 right-0 rounded-full transition-all duration-75"
+                    style={{
+                      height: `${masterLevelHeight}%`,
+                      background: 'linear-gradient(180deg, rgba(125,211,252,0.92) 0%, rgba(130,201,187,0.96) 65%)',
+                    }}
+                  />
+                </div>
+
+                <VerticalFader
+                  max={12}
+                  min={-12}
+                  onChange={(value) => setMasterSettings({ outputGain: value })}
+                  step={0.5}
+                  value={master.outputGain}
+                />
+              </div>
+
+              <div className="mt-4 grid gap-3">
+                <div className="flex items-center justify-between border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-2">
+                  <span className="section-label">Output</span>
+                  <span className="font-mono text-xs text-[var(--text-primary)]">{master.outputGain.toFixed(1)} dB</span>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="section-label">Limiter ceiling</span>
+                    <span className="font-mono text-[10px] text-[var(--text-secondary)]">{master.limiterCeiling.toFixed(1)} dB</span>
+                  </div>
+                  <input
+                    className="mt-3"
+                    max="0"
+                    min="-1.2"
+                    onChange={(event) => setMasterSettings({ limiterCeiling: Number(event.target.value) })}
+                    step="0.05"
+                    type="range"
+                    value={master.limiterCeiling}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
           {tracks.map((track) => (
             <div key={track.id} className="scroll-snap-align-start">
               <VUChannel track={track} />
