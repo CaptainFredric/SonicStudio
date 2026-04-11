@@ -30,6 +30,7 @@ export const TopBar = () => {
     lastSavedAt,
     master,
     patternCount,
+    pinnedTrackIds,
     projectName,
     redo,
     renderState,
@@ -279,6 +280,16 @@ export const TopBar = () => {
             <MiniStat
               label="Monetization"
               value={`${readiness.monetizationScore}%`}
+            />
+          </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <MiniStat
+              label="Pinned lanes"
+              value={String(pinnedTrackIds.length)}
+            />
+            <MiniStat
+              label="Active groups"
+              value={tracks.length > 10 ? 'Large session' : 'Focused session'}
             />
           </div>
           {renderState.active && (

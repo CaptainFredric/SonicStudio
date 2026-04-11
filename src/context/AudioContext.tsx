@@ -112,6 +112,7 @@ interface AudioContextType {
   renameTrack: (trackId: string, name: string) => void;
   saveProject: () => void;
   saveStatus: SaveStatus;
+  pinnedTrackIds: string[];
   selectedArrangerClipId: string | null;
   selectedTrackId: string | null;
   setSelectedArrangerClipId: (id: string | null) => void;
@@ -142,6 +143,7 @@ interface AudioContextType {
   toggleSolo: (trackId: string) => void;
   toggleStep: (trackId: string, stepIndex: number, note?: string) => void;
   tracks: Track[];
+  togglePinnedTrack: (trackId: string) => void;
   transformClipPattern: (clipId: string, transform: 'clear' | 'double-density' | 'halve-density' | 'randomize-velocity' | 'reset-automation' | 'shift-left' | 'shift-right' | 'transpose', value?: number) => void;
   transposePatternAt: (trackId: string, patternIndex: number, semitones: number) => void;
   transposePattern: (trackId: string, semitones: number) => void;
@@ -187,6 +189,7 @@ type EditorAction =
   | { type: 'REMOVE_ARRANGER_CLIP'; clipId: string }
   | { type: 'REMOVE_TRACK'; trackId: string }
   | { type: 'SET_SELECTED_ARRANGER_CLIP'; clipId: string | null }
+  | { type: 'TOGGLE_PINNED_TRACK'; trackId: string }
   | { type: 'SHIFT_PATTERN'; direction: 'left' | 'right'; trackId: string }
   | { type: 'SHIFT_PATTERN_AT'; direction: 'left' | 'right'; trackId: string; patternIndex: number }
   | { type: 'SET_ACTIVE_VIEW'; view: AppView }
@@ -324,6 +327,13 @@ const ensureSelectedArrangerClipId = (project: Project, selectedArrangerClipId: 
   return project.arrangerClips[0]?.id ?? null;
 };
 
+const ensurePinnedTrackIds = (project: Project, pinnedTrackIds: string[]) => (
+  pinnedTrackIds.filter((trackId, index) => (
+    project.tracks.some((track) => track.id === trackId)
+    && pinnedTrackIds.indexOf(trackId) === index
+  ))
+);
+
 const stampProjectUpdate = (project: Project): Project => ({
   ...project,
   metadata: {
@@ -352,6 +362,7 @@ const commitProject = (
     },
     ui: {
       ...state.ui,
+      pinnedTrackIds: ensurePinnedTrackIds(nextProject, state.ui.pinnedTrackIds),
       selectedArrangerClipId: ensureSelectedArrangerClipId(nextProject, selectedArrangerClipId),
       selectedTrackId: ensureSelectedTrackId(nextProject, selectedTrackId),
     },
@@ -648,6 +659,7 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
         },
         ui: {
           ...action.session.ui,
+          pinnedTrackIds: ensurePinnedTrackIds(action.session.project, action.session.ui.pinnedTrackIds),
           selectedArrangerClipId: ensureSelectedArrangerClipId(action.session.project, action.session.ui.selectedArrangerClipId),
           selectedTrackId: ensureSelectedTrackId(action.session.project, action.session.ui.selectedTrackId),
         },
@@ -673,6 +685,24 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
       return nextSelectedClipId === state.ui.selectedArrangerClipId
         ? state
         : { ...state, ui: { ...state.ui, selectedArrangerClipId: nextSelectedClipId } };
+    }
+
+    case 'TOGGLE_PINNED_TRACK': {
+      if (!present.tracks.some((track) => track.id === action.trackId)) {
+        return state;
+      }
+
+      const pinnedTrackIds = state.ui.pinnedTrackIds.includes(action.trackId)
+        ? state.ui.pinnedTrackIds.filter((trackId) => trackId !== action.trackId)
+        : [...state.ui.pinnedTrackIds, action.trackId];
+
+      return {
+        ...state,
+        ui: {
+          ...state.ui,
+          pinnedTrackIds,
+        },
+      };
     }
 
     case 'SET_PROJECT_NAME': {
@@ -1615,6 +1645,7 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
         },
         ui: {
           ...state.ui,
+          pinnedTrackIds: ensurePinnedTrackIds(previous, state.ui.pinnedTrackIds),
           selectedTrackId: ensureSelectedTrackId(previous, state.ui.selectedTrackId),
         },
       };
@@ -1636,6 +1667,7 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
         },
         ui: {
           ...state.ui,
+          pinnedTrackIds: ensurePinnedTrackIds(restoredProject, state.ui.pinnedTrackIds),
           selectedTrackId: ensureSelectedTrackId(restoredProject, state.ui.selectedTrackId),
         },
       };
@@ -1666,7 +1698,12 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
 
   const project = editorState.history.present;
-  const { activeView, selectedArrangerClipId, selectedTrackId } = editorState.ui;
+  const {
+    activeView,
+    pinnedTrackIds,
+    selectedArrangerClipId,
+    selectedTrackId,
+  } = editorState.ui;
   const arrangerClips = project.arrangerClips ?? [];
   const songLengthInBeats = arrangerClips.reduce(
     (maxBeat, clip) => Math.max(maxBeat, clip.startBeat + clip.beatLength),
@@ -2104,6 +2141,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       master: project.master,
       newSession,
       patternCount: project.transport.patternCount,
+      pinnedTrackIds,
       previewTrack,
       projectName: project.metadata.name,
       redo: () => dispatch({ type: 'REDO' }),
@@ -2144,6 +2182,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       toggleSolo: (trackId) => dispatch({ type: 'TOGGLE_SOLO', trackId }),
       toggleStep: (trackId, stepIndex, note) => dispatch({ type: 'TOGGLE_STEP', note, stepIndex, trackId }),
       tracks: project.tracks,
+      togglePinnedTrack: (trackId) => dispatch({ type: 'TOGGLE_PINNED_TRACK', trackId }),
       transformClipPattern: (clipId, transform, value) => dispatch({ type: 'TRANSFORM_CLIP_PATTERN', clipId, transform, value }),
       transposePatternAt: (trackId, patternIndex, semitones) => dispatch({ type: 'TRANSPOSE_PATTERN_AT', semitones, trackId, patternIndex }),
       transposePattern: (trackId, semitones) => dispatch({ type: 'TRANSPOSE_PATTERN', semitones, trackId }),

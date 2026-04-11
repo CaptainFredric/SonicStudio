@@ -139,6 +139,7 @@ export interface Project {
 export interface StudioUIState {
   activeView: AppView;
   isSettingsOpen: boolean;
+  pinnedTrackIds: string[];
   selectedArrangerClipId: string | null;
   selectedTrackId: string | null;
 }

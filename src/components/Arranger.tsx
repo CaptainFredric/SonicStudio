@@ -8,6 +8,7 @@ import {
   Minus,
   MoveHorizontal,
   PencilLine,
+  Pin,
   Plus,
   Scissors,
   Trash2,
@@ -27,8 +28,9 @@ type DragMode = 'move' | 'trim-start' | 'trim-end';
 type SnapSize = 1 | 2 | 4 | 8 | 16;
 type ZoomPreset = 'PHRASE' | 'SECTION' | 'SONG';
 type PaintMode = 'add' | 'remove';
-type LaneScope = 'ALL' | 'ACTIVE' | 'FOCUSED' | 'DRUMS' | 'MUSICAL';
+type LaneScope = 'ALL' | 'ACTIVE' | 'FOCUSED' | 'PINNED' | 'DRUMS' | 'MUSICAL';
 type LaneGroupKey = 'RHYTHM' | 'MUSICAL' | 'TEXTURE';
+type LaneSectionKey = LaneGroupKey | 'PINNED';
 
 interface DragState {
   clipId: string;
@@ -188,6 +190,7 @@ export const Arranger = () => {
     loopArrangerClip,
     makeClipPatternUnique,
     patternCount,
+    pinnedTrackIds,
     removeArrangerClip,
     selectSampleSlice,
     selectedArrangerClipId,
@@ -202,6 +205,7 @@ export const Arranger = () => {
     stepsPerPattern,
     toggleClipPatternStep,
     toggleMute,
+    togglePinnedTrack,
     toggleSolo,
     tracks,
     transformClipPattern,
@@ -217,8 +221,9 @@ export const Arranger = () => {
   const [snapSize, setSnapSize] = useState<SnapSize>(DEFAULT_SNAP);
   const [followPlayhead, setFollowPlayhead] = useState(true);
   const [laneScope, setLaneScope] = useState<LaneScope>('ALL');
-  const [collapsedGroups, setCollapsedGroups] = useState<Record<LaneGroupKey, boolean>>({
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<LaneSectionKey, boolean>>({
     MUSICAL: false,
+    PINNED: false,
     RHYTHM: false,
     TEXTURE: false,
   });
@@ -288,24 +293,50 @@ export const Arranger = () => {
       switch (laneScope) {
         case 'ACTIVE':
           return clips.length > 0;
-        case 'FOCUSED':
-          return track.id === selectedTrackId;
-        case 'DRUMS':
-          return isDrumTrack(track);
+      case 'FOCUSED':
+        return track.id === selectedTrackId;
+      case 'PINNED':
+        return pinnedTrackIds.includes(track.id);
+      case 'DRUMS':
+        return isDrumTrack(track);
         case 'MUSICAL':
           return !isDrumTrack(track);
-        default:
-          return true;
+      default:
+        return true;
       }
     })
-  ), [arrangerClips, laneScope, selectedTrackId, tracks]);
-  const groupedLaneData = useMemo(() => (
-    (['RHYTHM', 'MUSICAL', 'TEXTURE'] as LaneGroupKey[]).map((groupKey) => ({
+  ), [arrangerClips, laneScope, pinnedTrackIds, selectedTrackId, tracks]);
+  const pinnedLaneData = useMemo(() => (
+    laneScope === 'PINNED'
+      ? []
+      : laneData.filter(({ track }) => pinnedTrackIds.includes(track.id))
+  ), [laneData, laneScope, pinnedTrackIds]);
+  const groupedLaneData = useMemo(() => {
+    const remainingLaneData = laneScope === 'PINNED'
+      ? laneData
+      : laneData.filter(({ track }) => !pinnedTrackIds.includes(track.id));
+
+    return (
+      (['RHYTHM', 'MUSICAL', 'TEXTURE'] as LaneGroupKey[]).map((groupKey) => ({
       groupKey,
       label: LANE_GROUP_LABELS[groupKey],
-      lanes: laneData.filter(({ track }) => getLaneGroup(track) === groupKey),
+        lanes: remainingLaneData.filter(({ track }) => getLaneGroup(track) === groupKey),
     })).filter((group) => group.lanes.length > 0)
-  ), [laneData]);
+    );
+  }, [laneData, laneScope, pinnedTrackIds]);
+  const laneSections = useMemo(() => {
+    const sections: Array<{ key: LaneSectionKey; label: string; lanes: typeof laneData }> = [];
+
+    if (pinnedLaneData.length > 0) {
+      sections.push({ key: 'PINNED', label: 'Pinned', lanes: pinnedLaneData });
+    }
+
+    groupedLaneData.forEach((group) => {
+      sections.push({ key: group.groupKey, label: group.label, lanes: group.lanes });
+    });
+
+    return sections;
+  }, [groupedLaneData, pinnedLaneData]);
   const laneLabelWidth = compactLaneView ? 184 : 220;
   const laneHeightClass = compactLaneView ? 'h-16' : 'h-20';
   const clipHeightClass = compactLaneView ? 'h-12' : 'h-14';
@@ -810,11 +841,11 @@ export const Arranger = () => {
         </div>
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
-          {(['ALL', 'ACTIVE', 'FOCUSED', 'DRUMS', 'MUSICAL'] as LaneScope[]).map((scope) => (
+          {(['ALL', 'ACTIVE', 'FOCUSED', 'PINNED', 'DRUMS', 'MUSICAL'] as LaneScope[]).map((scope) => (
             <div key={scope}>
               <ZoomButton
                 active={laneScope === scope}
-                label={scope === 'ALL' ? 'All lanes' : scope === 'ACTIVE' ? 'Active' : scope === 'FOCUSED' ? 'Focused' : scope === 'DRUMS' ? 'Drums' : 'Musical'}
+                label={scope === 'ALL' ? 'All lanes' : scope === 'ACTIVE' ? 'Active' : scope === 'FOCUSED' ? 'Focused' : scope === 'PINNED' ? 'Pinned' : scope === 'DRUMS' ? 'Drums' : 'Musical'}
                 onClick={() => setLaneScope(scope)}
               />
             </div>
@@ -829,13 +860,13 @@ export const Arranger = () => {
           </div>
         </div>
         <div className="mt-2 flex flex-wrap items-center gap-2">
-          {groupedLaneData.map(({ groupKey, label, lanes }) => (
+          {laneSections.map(({ key, label, lanes }) => (
             <button
               className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-              key={groupKey}
-              onClick={() => setCollapsedGroups((current) => ({ ...current, [groupKey]: !current[groupKey] }))}
+              key={key}
+              onClick={() => setCollapsedGroups((current) => ({ ...current, [key]: !current[key] }))}
             >
-              {collapsedGroups[groupKey] ? `Show ${label}` : `Hide ${label}`} · {lanes.length}
+              {collapsedGroups[key] ? `Show ${label}` : `Hide ${label}`} · {lanes.length}
             </button>
           ))}
         </div>
@@ -1460,16 +1491,16 @@ export const Arranger = () => {
                   <div className="col-span-2 flex items-center justify-center px-6 py-10 text-center text-sm text-[var(--text-secondary)]">
                     No arranger lanes match the current scope. Change the lane filter or add clips to the song view.
                   </div>
-                ) : groupedLaneData.map(({ groupKey, label, lanes }) => (
-                  <React.Fragment key={groupKey}>
+                ) : laneSections.map(({ key, label, lanes }) => (
+                  <React.Fragment key={key}>
                     <div className="sticky left-0 z-10 border-b border-r border-[var(--border-soft)] bg-[rgba(12,16,22,0.98)] px-4 py-3" style={{ width: `${laneLabelWidth}px` }}>
                       <div className="flex items-center justify-between gap-3">
                         <span className="section-label">{label}</span>
                         <button
                           className="font-mono text-xs text-[var(--text-secondary)]"
-                          onClick={() => setCollapsedGroups((current) => ({ ...current, [groupKey]: !current[groupKey] }))}
+                          onClick={() => setCollapsedGroups((current) => ({ ...current, [key]: !current[key] }))}
                         >
-                          {collapsedGroups[groupKey] ? '+' : '−'}
+                          {collapsedGroups[key] ? '+' : '−'}
                         </button>
                       </div>
                     </div>
@@ -1478,8 +1509,9 @@ export const Arranger = () => {
                         {lanes.length} lane{lanes.length === 1 ? '' : 's'}
                       </div>
                     </div>
-                    {!collapsedGroups[groupKey] && lanes.map(({ clips, track }) => {
+                    {!collapsedGroups[key] && lanes.map(({ clips, track }) => {
                       const isSelectedTrack = selectedTrackId === track.id;
+                      const pinned = pinnedTrackIds.includes(track.id);
 
                       return (
                         <React.Fragment key={track.id}>
@@ -1492,7 +1524,7 @@ export const Arranger = () => {
                             <div className="min-w-0">
                               <div className="truncate text-sm font-semibold text-[var(--text-primary)]">{track.name}</div>
                               <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-                                {track.type} · {clips.length} clip{clips.length === 1 ? '' : 's'}
+                                {track.type} · {clips.length} clip{clips.length === 1 ? '' : 's'}{pinned ? ' · pinned' : ''}
                               </div>
                             </div>
                             <div className="ml-auto flex items-center gap-1">
@@ -1515,6 +1547,16 @@ export const Arranger = () => {
                                 }}
                               >
                                 <Focus className="h-3.5 w-3.5" />
+                              </LaneStateButton>
+                              <LaneStateButton
+                                active={pinned}
+                                label={pinned ? 'Unpin track lane' : 'Pin track lane'}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  togglePinnedTrack(track.id);
+                                }}
+                              >
+                                <Pin className="h-3.5 w-3.5" />
                               </LaneStateButton>
                             </div>
                           </button>

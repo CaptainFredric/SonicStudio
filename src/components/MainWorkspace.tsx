@@ -5,6 +5,7 @@ import {
   Eraser,
   Focus,
   Music2,
+  Pin,
   Play,
   SlidersHorizontal,
   Trash2,
@@ -26,6 +27,7 @@ const TRACK_BUTTONS = [
 ];
 
 type LaneGroupKey = 'RHYTHM' | 'MUSICAL' | 'TEXTURE';
+type LaneSectionKey = LaneGroupKey | 'PINNED';
 
 const LANE_GROUP_LABELS: Record<LaneGroupKey, string> = {
   RHYTHM: 'Rhythm',
@@ -52,6 +54,7 @@ export const MainWorkspace = () => {
     currentStep,
     currentPattern,
     duplicateTrack,
+    pinnedTrackIds,
     previewTrack,
     removeTrack,
     selectedTrackId,
@@ -61,16 +64,18 @@ export const MainWorkspace = () => {
     stepsPerPattern,
     toggleStep,
     toggleMute,
+    togglePinnedTrack,
     toggleSolo,
     tracks,
     transposePattern,
     updateStepEvent,
   } = useAudio();
   const [selectedStepIndex, setSelectedStepIndex] = useState(0);
-  const [laneScope, setLaneScope] = useState<'ALL' | 'ACTIVE' | 'FOCUSED' | 'DRUMS' | 'MUSICAL'>('ALL');
+  const [laneScope, setLaneScope] = useState<'ALL' | 'ACTIVE' | 'FOCUSED' | 'PINNED' | 'DRUMS' | 'MUSICAL'>('ALL');
   const [compactLanes, setCompactLanes] = useState(false);
-  const [collapsedGroups, setCollapsedGroups] = useState<Record<LaneGroupKey, boolean>>({
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<LaneSectionKey, boolean>>({
     MUSICAL: false,
+    PINNED: false,
     RHYTHM: false,
     TEXTURE: false,
   });
@@ -90,6 +95,8 @@ export const MainWorkspace = () => {
         return hasActivePattern;
       case 'FOCUSED':
         return track.id === selectedTrackId;
+      case 'PINNED':
+        return pinnedTrackIds.includes(track.id);
       case 'DRUMS':
         return ['kick', 'snare', 'hihat'].includes(track.type);
       case 'MUSICAL':
@@ -97,17 +104,41 @@ export const MainWorkspace = () => {
       default:
         return true;
     }
-  }), [currentPattern, laneScope, selectedTrackId, tracks]);
+  }), [currentPattern, laneScope, pinnedTrackIds, selectedTrackId, tracks]);
   const laneHeaderWidthClass = compactLanes ? 'w-[252px]' : 'w-[284px]';
   const laneHeaderPaddingClass = compactLanes ? 'px-4 py-3' : 'px-5 py-4';
   const laneGridPaddingClass = compactLanes ? 'px-2 py-1.5' : 'px-2 py-2';
-  const groupedVisibleTracks = useMemo(() => (
-    (['RHYTHM', 'MUSICAL', 'TEXTURE'] as LaneGroupKey[]).map((groupKey) => ({
+  const pinnedVisibleTracks = useMemo(() => (
+    laneScope === 'PINNED'
+      ? []
+      : visibleTracks.filter((track) => pinnedTrackIds.includes(track.id))
+  ), [laneScope, pinnedTrackIds, visibleTracks]);
+  const groupedVisibleTracks = useMemo(() => {
+    const remainingTracks = laneScope === 'PINNED'
+      ? visibleTracks
+      : visibleTracks.filter((track) => !pinnedTrackIds.includes(track.id));
+
+    return (
+      (['RHYTHM', 'MUSICAL', 'TEXTURE'] as LaneGroupKey[]).map((groupKey) => ({
       groupKey,
       label: LANE_GROUP_LABELS[groupKey],
-      tracks: visibleTracks.filter((track) => getLaneGroup(track.type) === groupKey),
+        tracks: remainingTracks.filter((track) => getLaneGroup(track.type) === groupKey),
     })).filter((group) => group.tracks.length > 0)
-  ), [visibleTracks]);
+    );
+  }, [laneScope, pinnedTrackIds, visibleTracks]);
+  const visibleTrackSections = useMemo(() => {
+    const sections: Array<{ key: LaneSectionKey; label: string; tracks: typeof visibleTracks }> = [];
+
+    if (pinnedVisibleTracks.length > 0) {
+      sections.push({ key: 'PINNED', label: 'Pinned', tracks: pinnedVisibleTracks });
+    }
+
+    groupedVisibleTracks.forEach((group) => {
+      sections.push({ key: group.groupKey, label: group.label, tracks: group.tracks });
+    });
+
+    return sections;
+  }, [groupedVisibleTracks, pinnedVisibleTracks]);
 
   useEffect(() => {
     if (!selectedTrack) {
@@ -156,11 +187,11 @@ export const MainWorkspace = () => {
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
-                {(['ALL', 'ACTIVE', 'FOCUSED', 'DRUMS', 'MUSICAL'] as const).map((scope) => (
+                {(['ALL', 'ACTIVE', 'FOCUSED', 'PINNED', 'DRUMS', 'MUSICAL'] as const).map((scope) => (
                   <div key={scope}>
                     <ScopeChip
                       active={laneScope === scope}
-                      label={scope === 'ALL' ? 'All lanes' : scope === 'ACTIVE' ? 'Active' : scope === 'FOCUSED' ? 'Focused' : scope === 'DRUMS' ? 'Drums' : 'Musical'}
+                      label={scope === 'ALL' ? 'All lanes' : scope === 'ACTIVE' ? 'Active' : scope === 'FOCUSED' ? 'Focused' : scope === 'PINNED' ? 'Pinned' : scope === 'DRUMS' ? 'Drums' : 'Musical'}
                       onClick={() => setLaneScope(scope)}
                     />
                   </div>
@@ -220,11 +251,11 @@ export const MainWorkspace = () => {
                 <div className="flex h-full items-center justify-center px-6 py-10 text-center text-sm text-[var(--text-secondary)]">
                   No lanes match the current scope. Change the filter or add activity to the current pattern.
                 </div>
-              ) : groupedVisibleTracks.map(({ groupKey, label, tracks: groupedTracks }) => (
-                <div key={groupKey}>
+              ) : visibleTrackSections.map(({ key, label, tracks: groupedTracks }) => (
+                <div key={key}>
                   <button
                     className="flex w-full items-center justify-between border-b border-[var(--border-soft)] bg-[rgba(255,255,255,0.025)] px-4 py-3 text-left"
-                    onClick={() => setCollapsedGroups((current) => ({ ...current, [groupKey]: !current[groupKey] }))}
+                    onClick={() => setCollapsedGroups((current) => ({ ...current, [key]: !current[key] }))}
                   >
                     <div className="flex items-center gap-3">
                       <span className="section-label">{label}</span>
@@ -232,11 +263,12 @@ export const MainWorkspace = () => {
                         {groupedTracks.length} lane{groupedTracks.length === 1 ? '' : 's'}
                       </span>
                     </div>
-                    <span className="font-mono text-xs text-[var(--text-secondary)]">{collapsedGroups[groupKey] ? '+' : '−'}</span>
+                    <span className="font-mono text-xs text-[var(--text-secondary)]">{collapsedGroups[key] ? '+' : '−'}</span>
                   </button>
-                  {!collapsedGroups[groupKey] && groupedTracks.map((track) => {
+                  {!collapsedGroups[key] && groupedTracks.map((track) => {
                     const patternSteps = track.patterns[currentPattern] || Array.from({ length: stepsPerPattern }, () => []);
                     const selected = selectedTrackId === track.id;
+                    const pinned = pinnedTrackIds.includes(track.id);
                     const sourceLabel = track.source.engine === 'sample'
                       ? track.source.customSampleName ?? getSamplePresetMeta(track.source.samplePreset).label
                       : waveformLabel(track.source.waveform);
@@ -267,6 +299,7 @@ export const MainWorkspace = () => {
                               </div>
                               <div className="mt-2 flex items-center gap-3">
                                 <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.type}</span>
+                                {pinned && <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--accent-strong)]">Pinned</span>}
                                 <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.source.engine}</span>
                                 <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{sourceLabel}</span>
                                 <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.volume.toFixed(0)} dB</span>
@@ -295,6 +328,16 @@ export const MainWorkspace = () => {
                                 }}
                               >
                                 <Focus className="h-3.5 w-3.5" />
+                              </StateActionBtn>
+                              <StateActionBtn
+                                active={pinned}
+                                label={pinned ? 'Unpin lane' : 'Pin lane'}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  togglePinnedTrack(track.id);
+                                }}
+                              >
+                                <Pin className="h-3.5 w-3.5" />
                               </StateActionBtn>
                               <RowActionBtn label="Duplicate track" onClick={(event) => {
                                 event.stopPropagation();
