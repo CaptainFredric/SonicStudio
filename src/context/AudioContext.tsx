@@ -30,6 +30,7 @@ import {
   type Project,
   type SampleSliceMemory,
   type SessionTemplateId,
+  type SongMarker,
   type StudioSession,
   type StudioUIState,
   type SynthParams,
@@ -108,6 +109,7 @@ interface AudioContextType {
   redo: () => void;
   renderState: RenderState;
   removeArrangerClip: (clipId: string) => void;
+  removeSongMarker: (markerId: string) => void;
   removeTrack: (trackId: string) => void;
   renameProject: (name: string) => void;
   renameTrack: (trackId: string, name: string) => void;
@@ -127,6 +129,7 @@ interface AudioContextType {
   setStepsPerPattern: (stepsPerPattern: number) => void;
   setTrackParams: (id: string, params: Partial<SynthParams>) => void;
   setTrackSource: (id: string, source: Partial<TrackSource>) => void;
+  songMarkers: SongMarker[];
   setClipPatternStepSlice: (clipId: string, stepIndex: number, sliceIndex: number | null, note?: string) => void;
   selectSampleSlice: (trackId: string, sliceIndex: number | null) => void;
   setTransportMode: (mode: TransportMode) => void;
@@ -144,6 +147,7 @@ interface AudioContextType {
   toggleSolo: (trackId: string) => void;
   toggleStep: (trackId: string, stepIndex: number, note?: string) => void;
   tracks: Track[];
+  createSongMarker: (beat: number, name?: string) => void;
   togglePinnedTrack: (trackId: string) => void;
   transformClipPattern: (clipId: string, transform: 'clear' | 'double-density' | 'halve-density' | 'randomize-velocity' | 'reset-automation' | 'shift-left' | 'shift-right' | 'transpose', value?: number) => void;
   transposePatternAt: (trackId: string, patternIndex: number, semitones: number) => void;
@@ -156,6 +160,7 @@ interface AudioContextType {
   updatePatternAutomationStep: (trackId: string, patternIndex: number, stepIndex: number, lane: 'level' | 'tone', value: number) => void;
   updatePatternStepEvent: (trackId: string, patternIndex: number, stepIndex: number, noteIndex: number, updates: Partial<NoteEvent>) => void;
   updateStepEvent: (trackId: string, stepIndex: number, noteIndex: number, updates: Partial<NoteEvent>) => void;
+  updateSongMarker: (markerId: string, updates: Partial<Omit<SongMarker, 'id'>>) => void;
   updateSampleSlice: (trackId: string, sliceIndex: number, updates: Partial<SampleSliceMemory>) => void;
   updateTrackPan: (trackId: string, pan: number) => void;
   updateTrackVolume: (trackId: string, volume: number) => void;
@@ -177,6 +182,7 @@ type EditorAction =
   | { type: 'ADD_ARRANGER_CLIP'; trackId?: string }
   | { type: 'CLEAR_TRACK'; trackId: string }
   | { type: 'CLEAR_PATTERN_AT'; trackId: string; patternIndex: number }
+  | { type: 'CREATE_SONG_MARKER'; beat: number; name?: string }
   | { type: 'CREATE_TRACK'; trackType: InstrumentType }
   | { type: 'CREATE_SAMPLE_SLICE'; trackId: string; slice?: Partial<SampleSliceMemory> }
   | { type: 'DELETE_SAMPLE_SLICE'; trackId: string; sliceIndex: number }
@@ -188,6 +194,7 @@ type EditorAction =
   | { type: 'HYDRATE_SESSION'; session: StudioSession }
   | { type: 'REDO' }
   | { type: 'REMOVE_ARRANGER_CLIP'; clipId: string }
+  | { type: 'REMOVE_SONG_MARKER'; markerId: string }
   | { type: 'REMOVE_TRACK'; trackId: string }
   | { type: 'SET_SELECTED_ARRANGER_CLIP'; clipId: string | null }
   | { type: 'TOGGLE_PINNED_TRACK'; trackId: string }
@@ -224,6 +231,7 @@ type EditorAction =
   | { type: 'UPDATE_CLIP_PATTERN_STEP_EVENT'; clipId: string; noteIndex: number; stepIndex: number; updates: Partial<NoteEvent> }
   | { type: 'UPDATE_PATTERN_AUTOMATION_STEP'; trackId: string; patternIndex: number; stepIndex: number; lane: 'level' | 'tone'; value: number }
   | { type: 'UPDATE_PATTERN_STEP_EVENT'; noteIndex: number; stepIndex: number; trackId: string; patternIndex: number; updates: Partial<NoteEvent> }
+  | { type: 'UPDATE_SONG_MARKER'; markerId: string; updates: Partial<Omit<SongMarker, 'id'>> }
   | { type: 'UPDATE_SAMPLE_SLICE'; trackId: string; sliceIndex: number; updates: Partial<SampleSliceMemory> }
   | { type: 'UPDATE_STEP_EVENT'; noteIndex: number; stepIndex: number; trackId: string; updates: Partial<NoteEvent> };
 
@@ -299,6 +307,19 @@ const syncArrangerClips = (
     });
 };
 
+const syncSongMarkers = (
+  markers: SongMarker[],
+  maxBeat: number,
+): SongMarker[] => (
+  markers
+    .map((marker, index) => ({
+      ...marker,
+      beat: clamp(Math.round(marker.beat || 0), 0, Math.max(maxBeat, 0)),
+      name: marker.name.trim() ? marker.name.trim().slice(0, 24) : `Marker ${index + 1}`,
+    }))
+    .sort((left, right) => left.beat - right.beat)
+);
+
 const createInitialEditorState = (): EditorState => {
   const session = loadPersistedSession() ?? createDefaultSession();
 
@@ -333,6 +354,13 @@ const ensurePinnedTrackIds = (project: Project, pinnedTrackIds: string[]) => (
     project.tracks.some((track) => track.id === trackId)
     && pinnedTrackIds.indexOf(trackId) === index
   ))
+);
+
+const songLengthFromProject = (project: Project) => (
+  project.arrangerClips.reduce(
+    (maxBeat, clip) => Math.max(maxBeat, clip.startBeat + clip.beatLength),
+    project.transport.stepsPerPattern,
+  )
 );
 
 const stampProjectUpdate = (project: Project): Project => ({
@@ -720,6 +748,44 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
         },
       });
     }
+
+    case 'CREATE_SONG_MARKER': {
+      const nextMarker: SongMarker = {
+        beat: clamp(Math.round(action.beat), 0, Math.max(
+          present.arrangerClips.reduce((maxBeat, clip) => Math.max(maxBeat, clip.startBeat + clip.beatLength), present.transport.stepsPerPattern),
+          present.transport.stepsPerPattern,
+        )),
+        id: `marker_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        name: action.name?.trim() ? action.name.trim().slice(0, 24) : `Marker ${present.markers.length + 1}`,
+      };
+
+      return commitProject(state, {
+        ...present,
+        markers: syncSongMarkers([...present.markers, nextMarker], Math.max(songLengthFromProject(present), nextMarker.beat)),
+      });
+    }
+
+    case 'UPDATE_SONG_MARKER':
+      return commitProject(state, {
+        ...present,
+        markers: syncSongMarkers(
+          present.markers.map((marker) => (
+            marker.id === action.markerId
+              ? {
+                  ...marker,
+                  ...action.updates,
+                }
+              : marker
+          )),
+          songLengthFromProject(present),
+        ),
+      });
+
+    case 'REMOVE_SONG_MARKER':
+      return commitProject(state, {
+        ...present,
+        markers: present.markers.filter((marker) => marker.id !== action.markerId),
+      });
 
     case 'SET_TRANSPORT_MODE': {
       if (present.transport.mode === action.mode) {
@@ -1706,10 +1772,8 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
     selectedTrackId,
   } = editorState.ui;
   const arrangerClips = project.arrangerClips ?? [];
-  const songLengthInBeats = arrangerClips.reduce(
-    (maxBeat, clip) => Math.max(maxBeat, clip.startBeat + clip.beatLength),
-    project.transport.stepsPerPattern,
-  );
+  const songMarkers = project.markers ?? [];
+  const songLengthInBeats = songLengthFromProject(project);
 
   useEffect(() => {
     engine.syncProject(project);
@@ -2195,6 +2259,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       exportTrackStems,
       loopArrangerClip: (clipId, copies) => dispatch({ type: 'LOOP_ARRANGER_CLIP', clipId, copies }),
       makeClipPatternUnique: (clipId) => dispatch({ type: 'MAKE_CLIP_PATTERN_UNIQUE', clipId }),
+      createSongMarker: (beat, name) => dispatch({ type: 'CREATE_SONG_MARKER', beat, name }),
       duplicateTrack: (trackId) => dispatch({ type: 'DUPLICATE_TRACK', trackId }),
       exportSession,
       importSession,
@@ -2214,6 +2279,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       redo: () => dispatch({ type: 'REDO' }),
       renderState,
       removeArrangerClip: (clipId) => dispatch({ type: 'REMOVE_ARRANGER_CLIP', clipId }),
+      removeSongMarker: (markerId) => dispatch({ type: 'REMOVE_SONG_MARKER', markerId }),
       removeTrack: (trackId) => dispatch({ type: 'REMOVE_TRACK', trackId }),
       renameProject: (name) => dispatch({ type: 'SET_PROJECT_NAME', name }),
       renameTrack: (trackId, name) => dispatch({ type: 'SET_TRACK_NAME', name, trackId }),
@@ -2236,6 +2302,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       setTrackParams: (trackId, params) => dispatch({ type: 'SET_TRACK_PARAMS', params, trackId }),
       setTrackSource: (trackId, source) => dispatch({ type: 'SET_TRACK_SOURCE', source, trackId }),
       setTransportMode: (mode) => dispatch({ type: 'SET_TRANSPORT_MODE', mode }),
+      songMarkers,
       songLengthInBeats,
       splitArrangerClip: (clipId, splitAtBeat) => dispatch({ type: 'SPLIT_ARRANGER_CLIP', clipId, splitAtBeat }),
       stepsPerPattern: project.transport.stepsPerPattern,
@@ -2260,6 +2327,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       updateClipPatternStepEvent: (clipId, stepIndex, noteIndex, updates) => dispatch({ type: 'UPDATE_CLIP_PATTERN_STEP_EVENT', clipId, noteIndex, stepIndex, updates }),
       updatePatternAutomationStep: (trackId, patternIndex, stepIndex, lane, value) => dispatch({ type: 'UPDATE_PATTERN_AUTOMATION_STEP', trackId, patternIndex, stepIndex, lane, value }),
       updatePatternStepEvent: (trackId, patternIndex, stepIndex, noteIndex, updates) => dispatch({ type: 'UPDATE_PATTERN_STEP_EVENT', noteIndex, stepIndex, trackId, patternIndex, updates }),
+      updateSongMarker: (markerId, updates) => dispatch({ type: 'UPDATE_SONG_MARKER', markerId, updates }),
       updateSampleSlice: (trackId, sliceIndex, updates) => dispatch({ type: 'UPDATE_SAMPLE_SLICE', sliceIndex, trackId, updates }),
       updateStepEvent: (trackId, stepIndex, noteIndex, updates) => dispatch({ type: 'UPDATE_STEP_EVENT', noteIndex, stepIndex, trackId, updates }),
       updateTrackPan: (trackId, pan) => dispatch({ type: 'TOGGLE_PAN', pan, trackId }),

@@ -43,6 +43,7 @@ export const TopBar = () => {
     setBpm,
     setCurrentPattern,
     setTransportMode,
+    songMarkers,
     songLengthInBeats,
     stop,
     togglePlay,
@@ -288,8 +289,8 @@ export const TopBar = () => {
               value={String(pinnedTrackIds.length)}
             />
             <MiniStat
-              label="Active groups"
-              value={tracks.length > 10 ? 'Large session' : 'Focused session'}
+              label="Sections"
+              value={String(songMarkers.length)}
             />
           </div>
           {renderState.active && (

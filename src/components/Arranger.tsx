@@ -185,6 +185,7 @@ export const Arranger = () => {
     addArrangerClip,
     arrangerClips,
     bpm,
+    createSongMarker,
     currentStep,
     duplicateArrangerClip,
     loopArrangerClip,
@@ -200,6 +201,7 @@ export const Arranger = () => {
     setCurrentPattern,
     setSelectedArrangerClipId,
     setSelectedTrackId,
+    songMarkers,
     songLengthInBeats,
     splitArrangerClip,
     stepsPerPattern,
@@ -213,6 +215,8 @@ export const Arranger = () => {
     updateArrangerClip,
     updateClipPatternAutomationStep,
     updateClipPatternStepEvent,
+    updateSongMarker,
+    removeSongMarker,
   } = useAudio();
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [paintState, setPaintState] = useState<PaintState | null>(null);
@@ -284,6 +288,7 @@ export const Arranger = () => {
   const selectedAutomationLevel = selectedClipAutomation.level[selectedPhraseStepIndex] ?? 0.5;
   const selectedAutomationTone = selectedClipAutomation.tone[selectedPhraseStepIndex] ?? 0.5;
   const selectedPhraseSliceIndex = selectedPhraseStep[0]?.sampleSliceIndex ?? null;
+  const markerCount = songMarkers.length;
 
   const laneData = useMemo(() => (
     tracks.map((track) => ({
@@ -765,10 +770,41 @@ export const Arranger = () => {
                   />
                 );
               })}
+              {songMarkers.map((marker) => (
+                <button
+                  className="absolute inset-y-0 z-[2] w-0.5 bg-[rgba(255,255,255,0.9)]"
+                  key={marker.id}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    jumpToBoundary(marker.beat);
+                  }}
+                  style={{ left: `${(marker.beat / timelineSteps) * 100}%` }}
+                  title={marker.name}
+                />
+              ))}
               <div
                 className="pointer-events-none absolute inset-y-0 w-[2px] bg-[rgba(255,255,255,0.85)]"
                 style={{ left: `${(currentStep / timelineSteps) * 100}%` }}
               />
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                onClick={() => createSongMarker(currentStep, `Step ${currentStep + 1}`)}
+              >
+                Mark playhead
+              </button>
+              {selectedClip && (
+                <button
+                  className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                  onClick={() => createSongMarker(selectedClip.startBeat, `Clip ${selectedClip.patternIndex + 1}`)}
+                >
+                  Mark clip start
+                </button>
+              )}
+              <div className="ml-auto font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+                {markerCount} section marker{markerCount === 1 ? '' : 's'}
+              </div>
             </div>
           </div>
 
@@ -837,6 +873,45 @@ export const Arranger = () => {
                 Start {selectedClip.startBeat + 1} · Length {selectedClip.beatLength} · Snap {snapSize}
               </div>
             )}
+            <div className="mt-4 space-y-2">
+              {songMarkers.length === 0 ? (
+                <div className="text-[11px] leading-5 text-[var(--text-secondary)]">
+                  Add section markers from the playhead or selected clip to keep longer arrangements legible.
+                </div>
+              ) : songMarkers.map((marker) => (
+                <div key={marker.id} className="rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+                  <div className="flex items-center gap-2">
+                    <input
+                      className="control-field h-9 flex-1 px-3 text-xs font-medium"
+                      onChange={(event) => updateSongMarker(marker.id, { name: event.target.value })}
+                      value={marker.name}
+                    />
+                    <button
+                      className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                      onClick={() => jumpToBoundary(marker.beat)}
+                    >
+                      Jump
+                    </button>
+                    <button
+                      className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--danger)]"
+                      onClick={() => removeSongMarker(marker.id)}
+                    >
+                      Drop
+                    </button>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between gap-3 text-[11px] text-[var(--text-secondary)]">
+                    <span>Step {marker.beat + 1}</span>
+                    <input
+                      className="control-field h-8 w-24 px-2 text-right font-mono text-xs"
+                      min={0}
+                      onChange={(event) => updateSongMarker(marker.id, { beat: Number(event.target.value) })}
+                      type="number"
+                      value={marker.beat}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
 

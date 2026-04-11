@@ -49,6 +49,12 @@ export interface ArrangementClip {
   beatLength: number;
 }
 
+export interface SongMarker {
+  beat: number;
+  id: string;
+  name: string;
+}
+
 export interface PatternAutomation {
   level: number[];
   tone: number[];
@@ -134,6 +140,7 @@ export interface Project {
   transport: TransportSettings;
   tracks: Track[];
   arrangerClips: ArrangementClip[];
+  markers: SongMarker[];
 }
 
 export interface StudioUIState {
@@ -351,9 +358,10 @@ const createProjectFrame = (
   }));
 
   return {
-    buildProject: (arrangerClips: ArrangementClip[]): Project => ({
+    buildProject: (arrangerClips: ArrangementClip[], markers: SongMarker[] = []): Project => ({
       arrangerClips,
       master: INITIAL_MASTER,
+      markers,
       metadata: buildProjectMetadata(projectName),
       tracks,
       transport,
@@ -361,6 +369,36 @@ const createProjectFrame = (
     tracks,
     transport,
   };
+};
+
+const normalizeSongMarkers = (
+  input: unknown,
+  fallbackMaxBeat: number,
+): SongMarker[] => {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+
+  return input
+    .map((marker, index) => {
+      if (!isRecord(marker)) {
+        return null;
+      }
+
+      return {
+        beat: clamp(
+          typeof marker.beat === 'number' ? Math.round(marker.beat) : 0,
+          0,
+          Math.max(fallbackMaxBeat, 0),
+        ),
+        id: typeof marker.id === 'string' && marker.id ? marker.id : createId('marker'),
+        name: typeof marker.name === 'string' && marker.name.trim()
+          ? marker.name.trim().slice(0, 24)
+          : `Marker ${index + 1}`,
+      } satisfies SongMarker;
+    })
+    .filter((marker): marker is SongMarker => marker !== null)
+    .sort((left, right) => left.beat - right.beat);
 };
 
 const putStep = (
@@ -1133,6 +1171,10 @@ export const createDemoProject = (projectName: string = 'Night Transit'): Projec
       createArrangerClip(bassTrack.id, transport, { beatLength: 16, patternIndex: 2, startBeat: 32 }),
       createArrangerClip(leadTrack.id, transport, { beatLength: 16, patternIndex: 2, startBeat: 32 }),
       createArrangerClip(padTrack.id, transport, { beatLength: 16, patternIndex: 2, startBeat: 32 }),
+    ], [
+      { beat: 0, id: createId('marker'), name: 'Intro' },
+      { beat: 16, id: createId('marker'), name: 'Lift' },
+      { beat: 32, id: createId('marker'), name: 'Drive' },
     ]);
 };
 
@@ -1205,6 +1247,9 @@ export const createBeatLabProject = (projectName: string = 'Beat Lab'): Project 
     createArrangerClip(hihatTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 16 }),
     createArrangerClip(bassTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 16 }),
     createArrangerClip(fxTrack.id, transport, { beatLength: 16, patternIndex: 1, startBeat: 16 }),
+  ], [
+    { beat: 0, id: createId('marker'), name: 'Drop seed' },
+    { beat: 16, id: createId('marker'), name: 'Variation' },
   ]);
 };
 
@@ -1259,6 +1304,9 @@ export const createAmbientProject = (projectName: string = 'Ambient Drift'): Pro
     createArrangerClip(bassTrack.id, transport, { beatLength: 16, patternIndex: 1, startBeat: 16 }),
     createArrangerClip(leadTrack.id, transport, { beatLength: 16, patternIndex: 1, startBeat: 16 }),
     createArrangerClip(fxTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 16 }),
+  ], [
+    { beat: 0, id: createId('marker'), name: 'Bloom' },
+    { beat: 16, id: createId('marker'), name: 'Drift' },
   ]);
 };
 
@@ -1292,12 +1340,18 @@ export const normalizeProject = (input: unknown): Project | null => {
   const createdAt = typeof metadata.createdAt === 'string' ? metadata.createdAt : new Date().toISOString();
   const updatedAt = typeof metadata.updatedAt === 'string' ? metadata.updatedAt : createdAt;
   const arrangerClips = normalizeArrangerClips(input.arrangerClips, tracks, transport);
+  const resolvedArrangerClips = arrangerClips.length > 0
+    ? arrangerClips
+    : legacySectionsToClips(input.arranger, tracks, transport);
+  const maxMarkerBeat = resolvedArrangerClips.reduce(
+    (maxBeat, clip) => Math.max(maxBeat, clip.startBeat + clip.beatLength),
+    transport.stepsPerPattern,
+  );
 
   return {
-    arrangerClips: arrangerClips.length > 0
-      ? arrangerClips
-      : legacySectionsToClips(input.arranger, tracks, transport),
+    arrangerClips: resolvedArrangerClips,
     master: normalizeMaster(input.master),
+    markers: normalizeSongMarkers(input.markers, maxMarkerBeat),
     metadata: {
       createdAt,
       id: typeof metadata.id === 'string' && metadata.id ? metadata.id : createId('project'),
