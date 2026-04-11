@@ -25,6 +25,26 @@ const TRACK_BUTTONS = [
   { label: 'FX', type: 'fx' as const },
 ];
 
+type LaneGroupKey = 'RHYTHM' | 'MUSICAL' | 'TEXTURE';
+
+const LANE_GROUP_LABELS: Record<LaneGroupKey, string> = {
+  RHYTHM: 'Rhythm',
+  MUSICAL: 'Musical',
+  TEXTURE: 'Texture',
+};
+
+const getLaneGroup = (trackType: typeof TRACK_BUTTONS[number]['type']): LaneGroupKey => {
+  if (trackType === 'kick' || trackType === 'snare' || trackType === 'hihat') {
+    return 'RHYTHM';
+  }
+
+  if (trackType === 'fx') {
+    return 'TEXTURE';
+  }
+
+  return 'MUSICAL';
+};
+
 export const MainWorkspace = () => {
   const {
     clearTrack,
@@ -49,6 +69,11 @@ export const MainWorkspace = () => {
   const [selectedStepIndex, setSelectedStepIndex] = useState(0);
   const [laneScope, setLaneScope] = useState<'ALL' | 'ACTIVE' | 'FOCUSED' | 'DRUMS' | 'MUSICAL'>('ALL');
   const [compactLanes, setCompactLanes] = useState(false);
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<LaneGroupKey, boolean>>({
+    MUSICAL: false,
+    RHYTHM: false,
+    TEXTURE: false,
+  });
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
   const selectedTrackPattern = selectedTrack?.patterns[currentPattern] ?? Array.from({ length: stepsPerPattern }, () => []);
   const selectedStep = selectedTrackPattern[selectedStepIndex] ?? [];
@@ -76,6 +101,13 @@ export const MainWorkspace = () => {
   const laneHeaderWidthClass = compactLanes ? 'w-[252px]' : 'w-[284px]';
   const laneHeaderPaddingClass = compactLanes ? 'px-4 py-3' : 'px-5 py-4';
   const laneGridPaddingClass = compactLanes ? 'px-2 py-1.5' : 'px-2 py-2';
+  const groupedVisibleTracks = useMemo(() => (
+    (['RHYTHM', 'MUSICAL', 'TEXTURE'] as LaneGroupKey[]).map((groupKey) => ({
+      groupKey,
+      label: LANE_GROUP_LABELS[groupKey],
+      tracks: visibleTracks.filter((track) => getLaneGroup(track.type) === groupKey),
+    })).filter((group) => group.tracks.length > 0)
+  ), [visibleTracks]);
 
   useEffect(() => {
     if (!selectedTrack) {
@@ -188,140 +220,156 @@ export const MainWorkspace = () => {
                 <div className="flex h-full items-center justify-center px-6 py-10 text-center text-sm text-[var(--text-secondary)]">
                   No lanes match the current scope. Change the filter or add activity to the current pattern.
                 </div>
-              ) : visibleTracks.map((track) => {
-                const patternSteps = track.patterns[currentPattern] || Array.from({ length: stepsPerPattern }, () => []);
-                const selected = selectedTrackId === track.id;
-                const sourceLabel = track.source.engine === 'sample'
-                  ? track.source.customSampleName ?? getSamplePresetMeta(track.source.samplePreset).label
-                  : waveformLabel(track.source.waveform);
-
-                return (
-                  <div
-                    className={`flex border-b border-[var(--border-soft)] transition-colors ${selected ? 'bg-[rgba(125,211,252,0.06)]' : 'bg-transparent hover:bg-[rgba(255,255,255,0.02)]'}`}
-                    key={track.id}
+              ) : groupedVisibleTracks.map(({ groupKey, label, tracks: groupedTracks }) => (
+                <div key={groupKey}>
+                  <button
+                    className="flex w-full items-center justify-between border-b border-[var(--border-soft)] bg-[rgba(255,255,255,0.025)] px-4 py-3 text-left"
+                    onClick={() => setCollapsedGroups((current) => ({ ...current, [groupKey]: !current[groupKey] }))}
                   >
-                    <div
-                      className={`group relative ${laneHeaderWidthClass} shrink-0 border-r border-[var(--border-soft)] ${laneHeaderPaddingClass} text-left cursor-pointer`}
-                      onClick={() => setSelectedTrackId(track.id)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault();
-                          setSelectedTrackId(track.id);
-                        }
-                      }}
-                      role="button"
-                      tabIndex={0}
-                    >
-                      {selected && <div className="absolute left-0 top-3 bottom-3 w-[2px] rounded-full" style={{ backgroundColor: track.color }} />}
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-3">
-                            <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: track.color }} />
-                            <span className="truncate text-sm font-semibold tracking-tight text-[var(--text-primary)]">{track.name}</span>
-                          </div>
-                          <div className="mt-2 flex items-center gap-3">
-                            <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.type}</span>
-                            <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.source.engine}</span>
-                            <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{sourceLabel}</span>
-                            <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.volume.toFixed(0)} dB</span>
-                            <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-                              {patternSteps.reduce((sum, step) => sum + step.length, 0)} notes
-                            </span>
+                    <div className="flex items-center gap-3">
+                      <span className="section-label">{label}</span>
+                      <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+                        {groupedTracks.length} lane{groupedTracks.length === 1 ? '' : 's'}
+                      </span>
+                    </div>
+                    <span className="font-mono text-xs text-[var(--text-secondary)]">{collapsedGroups[groupKey] ? '+' : '−'}</span>
+                  </button>
+                  {!collapsedGroups[groupKey] && groupedTracks.map((track) => {
+                    const patternSteps = track.patterns[currentPattern] || Array.from({ length: stepsPerPattern }, () => []);
+                    const selected = selectedTrackId === track.id;
+                    const sourceLabel = track.source.engine === 'sample'
+                      ? track.source.customSampleName ?? getSamplePresetMeta(track.source.samplePreset).label
+                      : waveformLabel(track.source.waveform);
+
+                    return (
+                      <div
+                        className={`flex border-b border-[var(--border-soft)] transition-colors ${selected ? 'bg-[rgba(125,211,252,0.06)]' : 'bg-transparent hover:bg-[rgba(255,255,255,0.02)]'}`}
+                        key={track.id}
+                      >
+                        <div
+                          className={`group relative ${laneHeaderWidthClass} shrink-0 border-r border-[var(--border-soft)] ${laneHeaderPaddingClass} text-left cursor-pointer`}
+                          onClick={() => setSelectedTrackId(track.id)}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Enter' || event.key === ' ') {
+                              event.preventDefault();
+                              setSelectedTrackId(track.id);
+                            }
+                          }}
+                          role="button"
+                          tabIndex={0}
+                        >
+                          {selected && <div className="absolute left-0 top-3 bottom-3 w-[2px] rounded-full" style={{ backgroundColor: track.color }} />}
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-3">
+                                <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: track.color }} />
+                                <span className="truncate text-sm font-semibold tracking-tight text-[var(--text-primary)]">{track.name}</span>
+                              </div>
+                              <div className="mt-2 flex items-center gap-3">
+                                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.type}</span>
+                                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.source.engine}</span>
+                                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{sourceLabel}</span>
+                                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.volume.toFixed(0)} dB</span>
+                                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+                                  {patternSteps.reduce((sum, step) => sum + step.length, 0)} notes
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <StateActionBtn
+                                active={track.muted}
+                                label={track.muted ? 'Unmute lane' : 'Mute lane'}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  toggleMute(track.id);
+                                }}
+                              >
+                                <VolumeX className="h-3.5 w-3.5" />
+                              </StateActionBtn>
+                              <StateActionBtn
+                                active={track.solo}
+                                label={track.solo ? 'Release solo' : 'Solo lane'}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  toggleSolo(track.id);
+                                }}
+                              >
+                                <Focus className="h-3.5 w-3.5" />
+                              </StateActionBtn>
+                              <RowActionBtn label="Duplicate track" onClick={(event) => {
+                                event.stopPropagation();
+                                duplicateTrack(track.id);
+                              }}>
+                                <Copy className="h-3.5 w-3.5" />
+                              </RowActionBtn>
+                              <RowActionBtn label="Clear pattern" onClick={(event) => {
+                                event.stopPropagation();
+                                clearTrack(track.id);
+                              }}>
+                                <Eraser className="h-3.5 w-3.5" />
+                              </RowActionBtn>
+                              <RowActionBtn label="Delete track" onClick={(event) => {
+                                event.stopPropagation();
+                                removeTrack(track.id);
+                              }}>
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </RowActionBtn>
+                            </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <StateActionBtn
-                            active={track.muted}
-                            label={track.muted ? 'Unmute lane' : 'Mute lane'}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              toggleMute(track.id);
-                            }}
-                          >
-                            <VolumeX className="h-3.5 w-3.5" />
-                          </StateActionBtn>
-                          <StateActionBtn
-                            active={track.solo}
-                            label={track.solo ? 'Release solo' : 'Solo lane'}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              toggleSolo(track.id);
-                            }}
-                          >
-                            <Focus className="h-3.5 w-3.5" />
-                          </StateActionBtn>
-                          <RowActionBtn label="Duplicate track" onClick={(event) => {
-                            event.stopPropagation();
-                            duplicateTrack(track.id);
-                          }}>
-                            <Copy className="h-3.5 w-3.5" />
-                          </RowActionBtn>
-                          <RowActionBtn label="Clear pattern" onClick={(event) => {
-                            event.stopPropagation();
-                            clearTrack(track.id);
-                          }}>
-                            <Eraser className="h-3.5 w-3.5" />
-                          </RowActionBtn>
-                          <RowActionBtn label="Delete track" onClick={(event) => {
-                            event.stopPropagation();
-                            removeTrack(track.id);
-                          }}>
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </RowActionBtn>
+
+                        <div className={`flex flex-1 gap-[2px] ${laneGridPaddingClass}`}>
+                          {patternSteps.map((value, stepIndex) => {
+                            const isActive = value.length > 0;
+                            const isCurrent = currentStep === stepIndex;
+                            const isSelectedStep = selectedStepIndex === stepIndex;
+                            const leadEvent = value[0];
+                            const extraNotes = Math.max(0, value.length - 1);
+                            const maxGate = value.reduce((gate, event) => Math.max(gate, event.gate), 0);
+
+                            return (
+                              <button
+                                className={`relative flex-1 border transition-colors ${compactLanes ? 'min-h-[38px]' : 'min-h-[48px]'} ${isActive ? 'border-transparent' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.05)]'} ${isCurrent ? 'ring-1 ring-inset ring-[rgba(255,255,255,0.08)]' : ''} ${isSelectedStep ? 'outline outline-1 outline-offset-0 outline-[rgba(125,211,252,0.26)]' : ''}`}
+                                key={`${track.id}-${stepIndex}`}
+                                onClick={() => {
+                                  setSelectedTrackId(track.id);
+                                  setSelectedStepIndex(stepIndex);
+                                  toggleStep(track.id, stepIndex);
+                                }}
+                                style={isActive
+                                  ? {
+                                      background: isCurrent ? track.color : `${track.color}cc`,
+                                      boxShadow: 'inset 0 0 0 1px rgba(15, 23, 42, 0.12)',
+                                    }
+                                  : undefined}
+                              >
+                                {isActive && !['kick', 'snare', 'hihat'].includes(track.type) && leadEvent && (
+                                  <span className="absolute bottom-1 right-1 font-mono text-[9px] font-medium text-black/60">
+                                    {leadEvent.note}
+                                    {extraNotes > 0 ? ` +${extraNotes}` : ''}
+                                  </span>
+                                )}
+                                {isActive && (
+                                  <span
+                                    className="absolute bottom-1 left-1 rounded-full bg-black/20"
+                                    style={{ height: '3px', width: `${Math.max(6, Math.min(20, maxGate * 6))}px` }}
+                                  />
+                                )}
+                                {extraNotes > 0 && (
+                                  <span className="absolute left-1 top-1 rounded-sm bg-black/20 px-1 font-mono text-[8px] text-white/80">
+                                    {value.length}
+                                  </span>
+                                )}
+                                {isCurrent && <span className="absolute inset-y-1 left-1 w-[2px] rounded-full bg-white/50" />}
+                              </button>
+                            );
+                          })}
                         </div>
                       </div>
-                    </div>
-
-                    <div className={`flex flex-1 gap-[2px] ${laneGridPaddingClass}`}>
-                      {patternSteps.map((value, stepIndex) => {
-                        const isActive = value.length > 0;
-                        const isCurrent = currentStep === stepIndex;
-                        const isSelectedStep = selectedStepIndex === stepIndex;
-                        const leadEvent = value[0];
-                        const extraNotes = Math.max(0, value.length - 1);
-                        const maxGate = value.reduce((gate, event) => Math.max(gate, event.gate), 0);
-
-                        return (
-                          <button
-                            className={`relative flex-1 border transition-colors ${compactLanes ? 'min-h-[38px]' : 'min-h-[48px]'} ${isActive ? 'border-transparent' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.05)]'} ${isCurrent ? 'ring-1 ring-inset ring-[rgba(255,255,255,0.08)]' : ''} ${isSelectedStep ? 'outline outline-1 outline-offset-0 outline-[rgba(125,211,252,0.26)]' : ''}`}
-                            key={`${track.id}-${stepIndex}`}
-                            onClick={() => {
-                              setSelectedTrackId(track.id);
-                              setSelectedStepIndex(stepIndex);
-                              toggleStep(track.id, stepIndex);
-                            }}
-                            style={isActive
-                              ? {
-                                  background: isCurrent ? track.color : `${track.color}cc`,
-                                  boxShadow: 'inset 0 0 0 1px rgba(15, 23, 42, 0.12)',
-                                }
-                              : undefined}
-                          >
-                            {isActive && !['kick', 'snare', 'hihat'].includes(track.type) && leadEvent && (
-                              <span className="absolute bottom-1 right-1 font-mono text-[9px] font-medium text-black/60">
-                                {leadEvent.note}
-                                {extraNotes > 0 ? ` +${extraNotes}` : ''}
-                              </span>
-                            )}
-                            {isActive && (
-                              <span
-                                className="absolute bottom-1 left-1 rounded-full bg-black/20"
-                                style={{ height: '3px', width: `${Math.max(6, Math.min(20, maxGate * 6))}px` }}
-                              />
-                            )}
-                            {extraNotes > 0 && (
-                              <span className="absolute left-1 top-1 rounded-sm bg-black/20 px-1 font-mono text-[8px] text-white/80">
-                                {value.length}
-                              </span>
-                            )}
-                            {isCurrent && <span className="absolute inset-y-1 left-1 w-[2px] rounded-full bg-white/50" />}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
+                    );
+                  })}
+                </div>
+              ))}
             </div>
           </div>
         </div>

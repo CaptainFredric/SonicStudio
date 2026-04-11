@@ -24,8 +24,8 @@ const READINESS_SLICES: ReadinessSlice[] = [
   },
   {
     label: 'Editing ergonomics',
-    score: 86,
-    rationale: 'The sequencer and arranger now expose lane scope filters, compact density, visible mute and solo controls, and stronger timeline navigation, so larger sessions are materially easier to scan and manage without falling out of the writing flow.',
+    score: 87,
+    rationale: 'The sequencer and arranger now expose lane scope filters, group collapse, compact density, visible mute and solo controls, and stronger timeline navigation, so larger sessions are materially easier to scan and manage without falling out of the writing flow.',
   },
   {
     label: 'Audio output',
@@ -34,8 +34,8 @@ const READINESS_SLICES: ReadinessSlice[] = [
   },
   {
     label: 'Product finish',
-    score: 62,
-    rationale: 'Track management, focus handling, visible readiness, and output shaping feel more deliberate now, but onboarding, trust cues, collaboration, and account level product features are still early.',
+    score: 63,
+    rationale: 'Track management, grouped session organization, focus handling, visible readiness, and output shaping feel more deliberate now, but onboarding, trust cues, collaboration, and account level product features are still early.',
   },
 ];
 
