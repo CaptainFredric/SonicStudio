@@ -59,7 +59,11 @@ export interface TrackSource {
   engine: SourceEngine;
   octaveShift: number;
   portamento: number;
+  sampleEnd: number;
+  sampleGain: number;
   samplePreset: SamplePreset;
+  sampleReverse: boolean;
+  sampleStart: number;
   waveform: OscillatorShape;
 }
 
@@ -142,7 +146,11 @@ export const INITIAL_SOURCE: TrackSource = {
   engine: 'synth',
   octaveShift: 0,
   portamento: 0,
+  sampleEnd: 1,
+  sampleGain: 1,
   samplePreset: 'lead-glass',
+  sampleReverse: false,
+  sampleStart: 0,
   waveform: 'sawtooth',
 };
 
@@ -278,6 +286,19 @@ const normalizeSource = (
 ): TrackSource => {
   const presetSource = TRACK_PRESETS[type].source;
   const candidate = isRecord(source) ? source : {};
+  const sampleStart = clamp(
+    typeof candidate.sampleStart === 'number' ? candidate.sampleStart : presetSource?.sampleStart ?? INITIAL_SOURCE.sampleStart,
+    0,
+    0.95,
+  );
+  const sampleEnd = Math.max(
+    sampleStart + 0.05,
+    clamp(
+      typeof candidate.sampleEnd === 'number' ? candidate.sampleEnd : presetSource?.sampleEnd ?? INITIAL_SOURCE.sampleEnd,
+      0.05,
+      1,
+    ),
+  );
 
   return {
     customSampleDataUrl: typeof candidate.customSampleDataUrl === 'string' && candidate.customSampleDataUrl.startsWith('data:audio/')
@@ -304,9 +325,17 @@ const normalizeSource = (
       0,
       0.2,
     ),
+    sampleEnd,
+    sampleGain: clamp(
+      typeof candidate.sampleGain === 'number' ? candidate.sampleGain : presetSource?.sampleGain ?? INITIAL_SOURCE.sampleGain,
+      0.25,
+      2,
+    ),
     samplePreset: isSamplePreset(candidate.samplePreset)
       ? candidate.samplePreset
       : presetSource?.samplePreset ?? INITIAL_SOURCE.samplePreset,
+    sampleReverse: Boolean(candidate.sampleReverse),
+    sampleStart,
     waveform: isOscillatorShape(candidate.waveform)
       ? candidate.waveform
       : presetSource?.waveform ?? INITIAL_SOURCE.waveform,

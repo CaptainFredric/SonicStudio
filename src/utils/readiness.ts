@@ -19,13 +19,13 @@ const READINESS_SLICES: ReadinessSlice[] = [
   },
   {
     label: 'Sound design',
-    score: 67,
-    rationale: 'The rack is expressive and now more focused, but it still lacks richer instrument depth, sample slicing, and stronger mixing tools.',
+    score: 71,
+    rationale: 'The rack is expressive, more focused, and now supports real sample window shaping, but it still lacks sample slicing and stronger mixing tools.',
   },
   {
     label: 'Editing ergonomics',
     score: 70,
-    rationale: 'The main edit loop is materially clearer now, especially in the sequencer, but advanced note editing, drag operations, and dense session navigation still trail mature DAWs.',
+    rationale: 'The main edit loop is materially clearer now, especially in the sequencer and rack, but advanced note editing, drag operations, and dense session navigation still trail mature DAWs.',
   },
   {
     label: 'Audio output',
@@ -34,7 +34,7 @@ const READINESS_SLICES: ReadinessSlice[] = [
   },
   {
     label: 'Product finish',
-    score: 50,
+    score: 51,
     rationale: 'The shell is more stable and easier to read, but onboarding, trust cues, collaboration, and account level product features are still early.',
   },
 ];

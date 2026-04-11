@@ -17,7 +17,7 @@ type TrackInstrument =
   | Tone.MetalSynth
   | Tone.MonoSynth
   | Tone.PolySynth
-  | Tone.Sampler;
+  | Tone.Gain;
 
 interface TrackGraph {
   channel: Tone.Channel;
@@ -29,6 +29,8 @@ interface TrackGraph {
   instrument: TrackInstrument;
   meter: Tone.Meter;
   reverb: Tone.Freeverb;
+  sampleBuffer: Tone.ToneAudioBuffer | null;
+  sampleRootNote: string | null;
   type: Track['type'];
   vibrato: Tone.Vibrato;
   voiceSignature: string;
@@ -168,8 +170,7 @@ class ToneEngine {
     const duration = Tone.Time('16n').toSeconds() * step.gate;
 
     if (track.source.engine === 'sample') {
-      const instrument = graph.instrument as Tone.Sampler;
-      instrument.triggerAttackRelease(this.resolvePlayableNote(track, step.note), duration, time, step.velocity);
+      this.triggerSampleTrack(graph, track, step, time, duration);
       return;
     }
 
@@ -344,18 +345,69 @@ class ToneEngine {
       : `${track.type}:synth`;
   }
 
+  private noteToMidi(note: string) {
+    const match = note.match(/^([A-G]#?)(-?\d+)$/);
+    if (!match) {
+      return null;
+    }
+
+    const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const pitchClass = noteNames.indexOf(match[1]);
+    if (pitchClass === -1) {
+      return null;
+    }
+
+    return (Number(match[2]) + 1) * 12 + pitchClass;
+  }
+
+  private getSamplePlaybackRate(track: Track, note: string, rootNote: string) {
+    const targetMidi = this.noteToMidi(this.resolvePlayableNote(track, note));
+    const rootMidi = this.noteToMidi(rootNote);
+
+    if (targetMidi === null || rootMidi === null) {
+      return 1;
+    }
+
+    return Math.pow(2, (targetMidi - rootMidi) / 12);
+  }
+
+  private triggerSampleTrack(
+    graph: TrackGraph,
+    track: Track,
+    step: NoteEvent,
+    time: number,
+    duration: number,
+  ) {
+    if (!graph.sampleBuffer?.loaded || !graph.sampleRootNote) {
+      return;
+    }
+
+    const sampleDuration = graph.sampleBuffer.duration;
+    const windowStart = sampleDuration * track.source.sampleStart;
+    const windowEnd = sampleDuration * track.source.sampleEnd;
+    const playbackRate = this.getSamplePlaybackRate(track, step.note, graph.sampleRootNote);
+    const trimmedDuration = Math.max(0.02, windowEnd - windowStart);
+    const scheduledDuration = Math.min(trimmedDuration, Math.max(0.02, duration * playbackRate));
+    const player = new Tone.Player({
+      fadeOut: Math.min(0.05, scheduledDuration * 0.25),
+      loop: false,
+      playbackRate,
+      reverse: track.source.sampleReverse,
+      url: graph.sampleBuffer,
+    });
+
+    player.volume.value = Tone.gainToDb(Math.max(0.0001, step.velocity * track.source.sampleGain));
+    player.connect(graph.vibrato);
+    player.start(time, windowStart, scheduledDuration);
+    player.stop(time + scheduledDuration + 0.06);
+    player.onstop = () => {
+      player.dispose();
+    };
+  }
+
   private createInstrument(track: Track): TrackInstrument {
     if (track.source.engine === 'sample') {
-      const preset = getSamplePresetMeta(track.source.samplePreset);
-      const sampleUrl = track.source.customSampleDataUrl ?? getSampleUrl(track.source.samplePreset);
-
-      return new Tone.Sampler({
-        attack: 0,
-        release: 1,
-        urls: {
-          [preset.rootNote]: sampleUrl,
-        },
-      });
+      return new Tone.Gain();
     }
 
     const type = track.type;
@@ -388,6 +440,10 @@ class ToneEngine {
     const dist = new Tone.Distortion(0);
     const vibrato = new Tone.Vibrato(4, 0);
     const instrument = this.createInstrument(track);
+    const sampleMeta = track.source.engine === 'sample' ? getSamplePresetMeta(track.source.samplePreset) : null;
+    const sampleBuffer = track.source.engine === 'sample'
+      ? new Tone.ToneAudioBuffer(track.source.customSampleDataUrl ?? getSampleUrl(track.source.samplePreset))
+      : null;
 
     channel.connect(this.masterLimiter!);
     channel.connect(meter);
@@ -416,6 +472,8 @@ class ToneEngine {
       instrument,
       meter,
       reverb,
+      sampleBuffer,
+      sampleRootNote: sampleMeta?.rootNote ?? null,
       type: track.type,
       vibrato,
       voiceSignature: this.buildVoiceSignature(track),
@@ -517,11 +575,7 @@ class ToneEngine {
 
       this.applySourceShape(graph, track);
 
-      if (track.source.engine === 'sample') {
-        (graph.instrument as Tone.Sampler).set({
-          release: track.params.release,
-        });
-      } else {
+      if (track.source.engine !== 'sample') {
         graph.instrument.set({
           envelope: {
             attack: track.params.attack,

@@ -138,7 +138,12 @@ export const DeviceRack = () => {
               <StatusCell label="Voice" value={track.source.engine === 'sample' ? track.source.customSampleName ?? activeSampleMeta?.label ?? 'Preset' : waveformLabel(track.source.waveform)} />
               <StatusCell label="Filter" value={filterLabel(track.params.filterMode)} />
               <StatusCell label="Pattern notes" value={`${track.patterns[currentPattern]?.reduce((sum, step) => sum + step.length, 0) ?? 0}`} />
-              <StatusCell label="Motion" value={`${track.params.vibratoDepth.toFixed(2)} depth`} />
+              <StatusCell
+                label={track.source.engine === 'sample' ? 'Window' : 'Motion'}
+                value={track.source.engine === 'sample'
+                  ? `${Math.round((track.source.sampleEnd - track.source.sampleStart) * 100)}%`
+                  : `${track.params.vibratoDepth.toFixed(2)} depth`}
+              />
             </div>
           </div>
         </div>
@@ -291,6 +296,65 @@ export const DeviceRack = () => {
                             ref={fileInputRef}
                             type="file"
                           />
+                        </div>
+
+                        <div className="rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
+                          <div className="section-label">Playback window</div>
+                          <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
+                            Trim the sample, flip playback, and rebalance source loudness before it hits the rack.
+                          </div>
+                          <div className="mt-4 space-y-3">
+                            <InlineSlider
+                              label="Start"
+                              max={0.95}
+                              min={0}
+                              onChange={(value) => setTrackSource(track.id, {
+                                sampleEnd: Math.max(value + 0.05, track.source.sampleEnd),
+                                sampleStart: value,
+                              })}
+                              step={0.01}
+                              value={track.source.sampleStart}
+                            />
+                            <InlineSlider
+                              label="End"
+                              max={1}
+                              min={0.05}
+                              onChange={(value) => setTrackSource(track.id, {
+                                sampleEnd: value,
+                                sampleStart: Math.min(track.source.sampleStart, value - 0.05),
+                              })}
+                              step={0.01}
+                              value={track.source.sampleEnd}
+                            />
+                            <InlineSlider
+                              label="Source gain"
+                              max={2}
+                              min={0.25}
+                              onChange={(value) => setTrackSource(track.id, { sampleGain: value })}
+                              step={0.01}
+                              value={track.source.sampleGain}
+                            />
+                          </div>
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            <button
+                              className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                              data-active={track.source.sampleReverse}
+                              onClick={() => setTrackSource(track.id, { sampleReverse: !track.source.sampleReverse })}
+                            >
+                              {track.source.sampleReverse ? 'Reverse on' : 'Reverse off'}
+                            </button>
+                            <button
+                              className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                              onClick={() => setTrackSource(track.id, {
+                                sampleEnd: 1,
+                                sampleGain: 1,
+                                sampleReverse: false,
+                                sampleStart: 0,
+                              })}
+                            >
+                              Reset window
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ) : (
