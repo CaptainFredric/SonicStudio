@@ -63,14 +63,11 @@ const VUChannel: React.FC<{ track: Track }> = ({ track }) => {
           />
         </div>
 
-        <input
-          className="mixer-fader h-6 w-[220px] -rotate-90 origin-center bg-transparent appearance-none cursor-pointer"
-          max="6"
-          min="-60"
-          onChange={(event) => updateTrackVolume(track.id, Number(event.target.value))}
-          step="1"
-          style={{ WebkitAppearance: 'none' }}
-          type="range"
+        <VerticalFader
+          max={6}
+          min={-60}
+          onChange={(value) => updateTrackVolume(track.id, value)}
+          step={1}
           value={track.volume}
         />
       </div>
@@ -121,3 +118,61 @@ const StateBtn = ({ active, label, onClick }: { active: boolean; label: string; 
     {label}
   </button>
 );
+
+const VerticalFader = ({
+  max,
+  min,
+  onChange,
+  step = 1,
+  value,
+}: {
+  max: number;
+  min: number;
+  onChange: (value: number) => void;
+  step?: number;
+  value: number;
+}) => {
+  const percentage = ((value - min) / (max - min)) * 100;
+  const clampedPercentage = Math.max(0, Math.min(100, percentage));
+  const thumbBottom = `calc(${clampedPercentage}% - 14px)`;
+
+  const updateFromPointer = (element: HTMLDivElement, clientY: number) => {
+    const bounds = element.getBoundingClientRect();
+    const ratio = 1 - ((clientY - bounds.top) / bounds.height);
+    const clampedRatio = Math.max(0, Math.min(1, ratio));
+    const rawValue = min + ((max - min) * clampedRatio);
+    const steppedValue = min + (Math.round((rawValue - min) / step) * step);
+    onChange(Number(Math.max(min, Math.min(max, steppedValue)).toFixed(step >= 1 ? 0 : 2)));
+  };
+
+  return (
+    <div className="flex h-[220px] w-9 items-center justify-center">
+      <div
+        className="group relative flex h-full w-6 cursor-ns-resize items-center justify-center rounded-full border border-[var(--border-soft)] bg-[rgba(255,255,255,0.025)]"
+        onPointerDown={(event) => {
+          event.preventDefault();
+          (event.currentTarget as HTMLDivElement).setPointerCapture(event.pointerId);
+          updateFromPointer(event.currentTarget as HTMLDivElement, event.clientY);
+        }}
+        onPointerMove={(event) => {
+          if (event.buttons === 0) {
+            return;
+          }
+
+          updateFromPointer(event.currentTarget as HTMLDivElement, event.clientY);
+        }}
+        style={{ touchAction: 'none' }}
+      >
+        <div className="absolute inset-[5px] rounded-full bg-[rgba(255,255,255,0.035)]" />
+        <div
+          className="absolute bottom-[5px] left-1/2 w-[3px] -translate-x-1/2 rounded-full bg-[var(--accent)] transition-[height] duration-75"
+          style={{ height: `calc(${clampedPercentage}% - 5px)` }}
+        />
+        <div
+          className="absolute left-1/2 h-7 w-7 -translate-x-1/2 rounded-[6px] border border-[rgba(255,255,255,0.24)] bg-[linear-gradient(180deg,rgba(241,245,249,0.92),rgba(203,213,225,0.76))] shadow-[0_10px_30px_rgba(0,0,0,0.35)] transition-colors group-hover:border-[rgba(130,201,187,0.42)]"
+          style={{ bottom: thumbBottom }}
+        />
+      </div>
+    </div>
+  );
+};

@@ -7,6 +7,8 @@ import { defaultNoteForTrack, type ArrangementClip, type Track } from '../projec
 const PIXELS_PER_STEP = 22;
 const CLIP_SNAP = 4;
 const MIN_CLIP_LENGTH = CLIP_SNAP;
+const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const ALL_NOTES = buildNoteRange(6, 2);
 
 type DragMode = 'move' | 'trim-start' | 'trim-end';
 
@@ -27,6 +29,48 @@ const snapStepDelta = (offsetPx: number) => (
 const isDrumTrack = (track: Track) => (
   track.type === 'kick' || track.type === 'snare' || track.type === 'hihat'
 );
+
+const noteToMidi = (note: string): number | null => {
+  const match = note.match(/^([A-G]#?)(-?\d+)$/);
+  if (!match) {
+    return null;
+  }
+
+  const pitchClass = NOTE_NAMES.indexOf(match[1]);
+  if (pitchClass === -1) {
+    return null;
+  }
+
+  return (Number(match[2]) + 1) * 12 + pitchClass;
+};
+
+const midiToNote = (midi: number): string => {
+  const clampedMidi = Math.max(24, Math.min(96, Math.round(midi)));
+  const pitchClass = NOTE_NAMES[clampedMidi % 12];
+  const octave = Math.floor(clampedMidi / 12) - 1;
+  return `${pitchClass}${octave}`;
+};
+
+const shiftNote = (note: string, semitones: number) => {
+  const midi = noteToMidi(note);
+  if (midi === null) {
+    return note;
+  }
+
+  return midiToNote(midi + semitones);
+};
+
+function buildNoteRange(highOctave: number, lowOctave: number) {
+  const notes: string[] = [];
+
+  for (let octave = highOctave; octave >= lowOctave; octave -= 1) {
+    for (let pitchIndex = NOTE_NAMES.length - 1; pitchIndex >= 0; pitchIndex -= 1) {
+      notes.push(`${NOTE_NAMES[pitchIndex]}${octave}`);
+    }
+  }
+
+  return notes;
+}
 
 export const Arranger = () => {
   const {
@@ -55,10 +99,12 @@ export const Arranger = () => {
     transportMode,
     updateArrangerClip,
     updatePatternAutomationStep,
+    updatePatternStepEvent,
   } = useAudio();
   const [selectedClipId, setSelectedClipId] = useState<string | null>(arrangerClips[0]?.id ?? null);
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [selectedPhraseStepIndex, setSelectedPhraseStepIndex] = useState(0);
+  const [selectedPhraseNoteIndex, setSelectedPhraseNoteIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (selectedClipId && arrangerClips.some((clip) => clip.id === selectedClipId)) {
@@ -70,6 +116,7 @@ export const Arranger = () => {
 
   useEffect(() => {
     setSelectedPhraseStepIndex(0);
+    setSelectedPhraseNoteIndex(null);
   }, [selectedClipId]);
 
   useEffect(() => {
@@ -171,6 +218,12 @@ export const Arranger = () => {
   const selectedPhraseActiveSteps = selectedClipPattern.filter((step) => step.length > 0).length;
   const selectedPhraseNoteCount = selectedClipPattern.reduce((sum, step) => sum + step.length, 0);
   const selectedPhraseLeadNote = selectedPhraseStep[0]?.note ?? null;
+  const normalizedSelectedPhraseNoteIndex = selectedPhraseNoteIndex !== null && selectedPhraseStep[selectedPhraseNoteIndex]
+    ? selectedPhraseNoteIndex
+    : selectedPhraseStep.length > 0 ? 0 : null;
+  const selectedPhraseNote = normalizedSelectedPhraseNoteIndex !== null
+    ? selectedPhraseStep[normalizedSelectedPhraseNoteIndex]
+    : null;
   const selectedAutomationLevel = selectedClipAutomation.level[selectedPhraseStepIndex] ?? 0.5;
   const selectedAutomationTone = selectedClipAutomation.tone[selectedPhraseStepIndex] ?? 0.5;
   const timelineSteps = Math.max(songLengthInBeats, 32);
@@ -474,6 +527,7 @@ export const Arranger = () => {
                           key={`${selectedClip.id}-${stepIndex}`}
                           onClick={() => {
                             setSelectedPhraseStepIndex(stepIndex);
+                            setSelectedPhraseNoteIndex(step.length > 0 ? 0 : null);
                             togglePatternStep(
                               selectedClip.trackId,
                               selectedClip.patternIndex,
@@ -526,6 +580,176 @@ export const Arranger = () => {
                       </button>
                     </div>
                   </div>
+
+                  {!isDrumTrack(selectedClipTrack) && (
+                    <div className="mt-4 rounded-[14px] border border-[var(--border-soft)] bg-[rgba(0,0,0,0.14)] px-3 py-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="section-label">Note stack</div>
+                          <div className="mt-1 text-xs text-[var(--text-secondary)]">
+                            Edit the selected phrase step without leaving song view.
+                          </div>
+                        </div>
+                        <button
+                          className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                          onClick={() => {
+                            const note = selectedPhraseNote?.note ?? defaultNoteForTrack(selectedClipTrack);
+                            const octaveNote = shiftNote(note, 12);
+                            setSelectedPhraseNoteIndex(selectedPhraseStep.length);
+                            togglePatternStep(selectedClip.trackId, selectedClip.patternIndex, selectedPhraseStepIndex, octaveNote);
+                          }}
+                        >
+                          Add +8va
+                        </button>
+                      </div>
+
+                      {selectedPhraseStep.length > 0 ? (
+                        <>
+                          <div className="mt-3 grid gap-2">
+                            {selectedPhraseStep.map((event, noteIndex) => (
+                              <button
+                                className={`flex items-center justify-between rounded-[12px] border px-3 py-3 text-left transition-colors ${normalizedSelectedPhraseNoteIndex === noteIndex ? 'border-[rgba(125,211,252,0.34)] bg-[rgba(125,211,252,0.12)] text-[var(--accent-strong)]' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.04)] hover:text-[var(--text-primary)]'}`}
+                                key={`${event.note}-${noteIndex}`}
+                                onClick={() => setSelectedPhraseNoteIndex(noteIndex)}
+                              >
+                                <div>
+                                  <div className="font-mono text-[12px]">{event.note}</div>
+                                  <div className="mt-1 text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+                                    Vel {Math.round(event.velocity * 100)} · Gate {event.gate.toFixed(2)}
+                                  </div>
+                                </div>
+                                <span className="rounded-sm border border-[var(--border-soft)] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.14em]">
+                                  {noteIndex + 1}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+
+                          {selectedPhraseNote && normalizedSelectedPhraseNoteIndex !== null && (
+                            <div className="mt-4 grid gap-3">
+                              <div className="grid grid-cols-[40px_minmax(0,1fr)_40px] gap-2">
+                                <button
+                                  className="ghost-icon-button flex h-10 w-10 items-center justify-center"
+                                  onClick={() => updatePatternStepEvent(
+                                    selectedClip.trackId,
+                                    selectedClip.patternIndex,
+                                    selectedPhraseStepIndex,
+                                    normalizedSelectedPhraseNoteIndex,
+                                    { note: shiftNote(selectedPhraseNote.note, -1) },
+                                  )}
+                                >
+                                  <Minus className="h-4 w-4" />
+                                </button>
+                                <select
+                                  className="control-field h-10 px-3 text-sm"
+                                  onChange={(event) => updatePatternStepEvent(
+                                    selectedClip.trackId,
+                                    selectedClip.patternIndex,
+                                    selectedPhraseStepIndex,
+                                    normalizedSelectedPhraseNoteIndex,
+                                    { note: event.target.value },
+                                  )}
+                                  value={selectedPhraseNote.note}
+                                >
+                                  {ALL_NOTES.map((note) => (
+                                    <option key={note} value={note}>
+                                      {note}
+                                    </option>
+                                  ))}
+                                </select>
+                                <button
+                                  className="ghost-icon-button flex h-10 w-10 items-center justify-center"
+                                  onClick={() => updatePatternStepEvent(
+                                    selectedClip.trackId,
+                                    selectedClip.patternIndex,
+                                    selectedPhraseStepIndex,
+                                    normalizedSelectedPhraseNoteIndex,
+                                    { note: shiftNote(selectedPhraseNote.note, 1) },
+                                  )}
+                                >
+                                  <Plus className="h-4 w-4" />
+                                </button>
+                              </div>
+
+                              <label className="text-xs text-[var(--text-secondary)]">
+                                <div className="mb-2 flex items-center justify-between">
+                                  <span className="section-label">Velocity</span>
+                                  <span className="font-mono text-[10px] text-[var(--text-tertiary)]">{Math.round(selectedPhraseNote.velocity * 100)}</span>
+                                </div>
+                                <input
+                                  className="w-full"
+                                  max="1"
+                                  min="0.1"
+                                  onChange={(event) => updatePatternStepEvent(
+                                    selectedClip.trackId,
+                                    selectedClip.patternIndex,
+                                    selectedPhraseStepIndex,
+                                    normalizedSelectedPhraseNoteIndex,
+                                    { velocity: Number(event.target.value) },
+                                  )}
+                                  step="0.01"
+                                  type="range"
+                                  value={selectedPhraseNote.velocity}
+                                />
+                              </label>
+
+                              <label className="text-xs text-[var(--text-secondary)]">
+                                <div className="mb-2 flex items-center justify-between">
+                                  <span className="section-label">Gate</span>
+                                  <span className="font-mono text-[10px] text-[var(--text-tertiary)]">{selectedPhraseNote.gate.toFixed(2)}</span>
+                                </div>
+                                <input
+                                  className="w-full"
+                                  max="4"
+                                  min="0.25"
+                                  onChange={(event) => updatePatternStepEvent(
+                                    selectedClip.trackId,
+                                    selectedClip.patternIndex,
+                                    selectedPhraseStepIndex,
+                                    normalizedSelectedPhraseNoteIndex,
+                                    { gate: Number(event.target.value) },
+                                  )}
+                                  step="0.25"
+                                  type="range"
+                                  value={selectedPhraseNote.gate}
+                                />
+                              </label>
+
+                              <div className="flex gap-2">
+                                <button
+                                  className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                                  onClick={() => {
+                                    const fifthNote = shiftNote(selectedPhraseNote.note, 7);
+                                    setSelectedPhraseNoteIndex(selectedPhraseStep.length);
+                                    togglePatternStep(selectedClip.trackId, selectedClip.patternIndex, selectedPhraseStepIndex, fifthNote);
+                                  }}
+                                >
+                                  Add fifth
+                                </button>
+                                <button
+                                  className="control-chip ml-auto flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--danger)]"
+                                  onClick={() => {
+                                    const nextIndex = selectedPhraseStep.length > 1
+                                      ? Math.max(0, normalizedSelectedPhraseNoteIndex - 1)
+                                      : null;
+                                    setSelectedPhraseNoteIndex(nextIndex);
+                                    togglePatternStep(selectedClip.trackId, selectedClip.patternIndex, selectedPhraseStepIndex, selectedPhraseNote.note);
+                                  }}
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                  Remove
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="mt-3 text-xs text-[var(--text-secondary)]">
+                          Place a note in the selected phrase step to edit pitch, velocity, gate, and harmony from the arranger.
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <div className="mt-4 rounded-[14px] border border-[var(--border-soft)] bg-[rgba(0,0,0,0.14)] px-3 py-3">
                     <div className="flex items-center justify-between gap-3">

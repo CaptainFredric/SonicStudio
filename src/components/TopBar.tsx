@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 
 import { useAudio } from '../context/AudioContext';
+import { getStudioReadinessAssessment } from '../utils/readiness';
 
 export const TopBar = () => {
   const {
@@ -40,6 +41,7 @@ export const TopBar = () => {
     undo,
   } = useAudio();
   const [draftProjectName, setDraftProjectName] = useState(projectName);
+  const readiness = getStudioReadinessAssessment();
 
   useEffect(() => {
     setDraftProjectName(projectName);
@@ -189,6 +191,26 @@ export const TopBar = () => {
           </div>
         )}
       </div>
+      <div className="mt-4 grid gap-3 lg:grid-cols-3">
+        <ReadinessCard
+          caption="Overall path"
+          detail="Useful browser studio, but still short of desktop-class depth."
+          label="Studio readiness"
+          value={readiness.overallScore}
+        />
+        <ReadinessCard
+          caption="Against GarageBand"
+          detail="Composition and arrangement are moving, editing depth still lags."
+          label="Competitor fit"
+          value={readiness.competitorScore}
+        />
+        <ReadinessCard
+          caption="Monetization now"
+          detail="Needs stronger polish, trust, and workflow differentiation first."
+          label="Commercial readiness"
+          value={readiness.monetizationScore}
+        />
+      </div>
     </header>
   );
 };
@@ -268,6 +290,35 @@ const ModeButton = ({
   >
     {label}
   </button>
+);
+
+const ReadinessCard = ({
+  caption,
+  detail,
+  label,
+  value,
+}: {
+  caption: string;
+  detail: string;
+  label: string;
+  value: number;
+}) => (
+  <div className="surface-panel-muted px-4 py-3">
+    <div className="flex items-center justify-between gap-3">
+      <div>
+        <div className="section-label">{label}</div>
+        <div className="mt-1 text-sm font-medium text-[var(--text-primary)]">{caption}</div>
+      </div>
+      <div className="font-mono text-lg text-[var(--accent-strong)]">{value}%</div>
+    </div>
+    <div className="mt-3 h-2 overflow-hidden rounded-full bg-[rgba(255,255,255,0.05)]">
+      <div
+        className="h-full rounded-full bg-[linear-gradient(90deg,rgba(114,217,255,0.55),rgba(223,246,255,0.92))]"
+        style={{ width: `${value}%` }}
+      />
+    </div>
+    <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">{detail}</div>
+  </div>
 );
 
 const TransportBtn = ({

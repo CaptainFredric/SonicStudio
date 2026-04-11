@@ -115,6 +115,7 @@ interface AudioContextType {
   undo: () => void;
   updateArrangerClip: (clipId: string, updates: Partial<ArrangementClip>) => void;
   updatePatternAutomationStep: (trackId: string, patternIndex: number, stepIndex: number, lane: 'level' | 'tone', value: number) => void;
+  updatePatternStepEvent: (trackId: string, patternIndex: number, stepIndex: number, noteIndex: number, updates: Partial<NoteEvent>) => void;
   updateStepEvent: (trackId: string, stepIndex: number, noteIndex: number, updates: Partial<NoteEvent>) => void;
   updateTrackPan: (trackId: string, pan: number) => void;
   updateTrackVolume: (trackId: string, volume: number) => void;
@@ -170,6 +171,7 @@ type EditorAction =
   | { type: 'UNDO' }
   | { type: 'UPDATE_ARRANGER_CLIP'; clipId: string; updates: Partial<ArrangementClip> }
   | { type: 'UPDATE_PATTERN_AUTOMATION_STEP'; trackId: string; patternIndex: number; stepIndex: number; lane: 'level' | 'tone'; value: number }
+  | { type: 'UPDATE_PATTERN_STEP_EVENT'; noteIndex: number; stepIndex: number; trackId: string; patternIndex: number; updates: Partial<NoteEvent> }
   | { type: 'UPDATE_STEP_EVENT'; noteIndex: number; stepIndex: number; trackId: string; updates: Partial<NoteEvent> };
 
 const AudioContext = createContext<AudioContextType | null>(null);
@@ -701,6 +703,33 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
           patterns: {
             ...track.patterns,
             [patternId]: nextSteps,
+          },
+        };
+      }));
+
+    case 'UPDATE_PATTERN_STEP_EVENT':
+      return commitProject(state, updateTrack(present, action.trackId, (track) => {
+        const currentPattern = track.patterns[action.patternIndex] ?? createEmptyPattern(present.transport.stepsPerPattern);
+        const targetStep = currentPattern[action.stepIndex];
+
+        if (!targetStep || !targetStep[action.noteIndex]) {
+          return track;
+        }
+
+        const nextSteps = [...currentPattern];
+        const nextStep = cloneStepEvents(targetStep);
+        const targetEvent = nextStep[action.noteIndex];
+        nextStep[action.noteIndex] = createStepEvent(targetEvent.note, {
+          ...targetEvent,
+          ...action.updates,
+        });
+        nextSteps[action.stepIndex] = nextStep;
+
+        return {
+          ...track,
+          patterns: {
+            ...track.patterns,
+            [action.patternIndex]: nextSteps,
           },
         };
       }));
@@ -1411,6 +1440,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       undo: () => dispatch({ type: 'UNDO' }),
       updateArrangerClip: (clipId, updates) => dispatch({ type: 'UPDATE_ARRANGER_CLIP', clipId, updates }),
       updatePatternAutomationStep: (trackId, patternIndex, stepIndex, lane, value) => dispatch({ type: 'UPDATE_PATTERN_AUTOMATION_STEP', trackId, patternIndex, stepIndex, lane, value }),
+      updatePatternStepEvent: (trackId, patternIndex, stepIndex, noteIndex, updates) => dispatch({ type: 'UPDATE_PATTERN_STEP_EVENT', noteIndex, stepIndex, trackId, patternIndex, updates }),
       updateStepEvent: (trackId, stepIndex, noteIndex, updates) => dispatch({ type: 'UPDATE_STEP_EVENT', noteIndex, stepIndex, trackId, updates }),
       updateTrackPan: (trackId, pan) => dispatch({ type: 'TOGGLE_PAN', pan, trackId }),
       updateTrackVolume: (trackId, volume) => dispatch({ type: 'TOGGLE_VOLUME', trackId, volume }),

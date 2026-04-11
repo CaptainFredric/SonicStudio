@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 
 import { useAudio } from '../context/AudioContext';
+import { getStudioReadinessAssessment } from '../utils/readiness';
 
 const PATTERN_OPTIONS = [2, 4, 6, 8];
 const STEP_OPTIONS = [8, 16, 32, 64];
@@ -47,6 +48,7 @@ export const SettingsSidebar = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
   const [draftTrackName, setDraftTrackName] = useState(selectedTrack?.name ?? '');
+  const readiness = getStudioReadinessAssessment();
 
   useEffect(() => {
     setDraftTrackName(selectedTrack?.name ?? '');
@@ -268,6 +270,35 @@ export const SettingsSidebar = () => {
             <ShortcutRow command="Cmd/Ctrl+Z" description="Undo" />
             <ShortcutRow command="Shift+Cmd/Ctrl+Z" description="Redo" />
             <ShortcutRow command="1-8" description="Switch pattern bank" />
+          </div>
+        </section>
+
+        <section className="surface-panel-strong p-4">
+          <div className="flex items-center gap-2 text-[var(--text-primary)]">
+            <Gauge className="h-4 w-4 text-[var(--accent)]" />
+            <span className="section-label">Readiness</span>
+          </div>
+          <div className="mt-4 grid grid-cols-3 gap-3 text-sm text-[var(--text-secondary)]">
+            <MetricCell label="Overall" value={`${readiness.overallScore}%`} />
+            <MetricCell label="GarageBand fit" value={`${readiness.competitorScore}%`} />
+            <MetricCell label="Monetization" value={`${readiness.monetizationScore}%`} />
+          </div>
+          <div className="mt-4 space-y-3">
+            {readiness.slices.map((slice) => (
+              <div key={slice.label} className="rounded-2xl border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="section-label">{slice.label}</span>
+                  <span className="font-mono text-xs text-[var(--accent-strong)]">{slice.score}%</span>
+                </div>
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-[rgba(255,255,255,0.05)]">
+                  <div
+                    className="h-full rounded-full bg-[linear-gradient(90deg,rgba(114,217,255,0.55),rgba(223,246,255,0.92))]"
+                    style={{ width: `${slice.score}%` }}
+                  />
+                </div>
+                <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">{slice.rationale}</div>
+              </div>
+            ))}
           </div>
         </section>
       </div>
