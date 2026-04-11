@@ -28,6 +28,7 @@ export const SettingsSidebar = () => {
     master,
     newSession,
     patternCount,
+    renderState,
     renameTrack,
     saveProject,
     saveStatus,
@@ -102,15 +103,33 @@ export const SettingsSidebar = () => {
           <div className="mt-4 grid grid-cols-3 gap-3 text-sm text-[var(--text-secondary)]">
             <MetricCell label="Tracks" value={String(tracks.length)} />
             <MetricCell label="Clips" value={String(arrangerClips.length)} />
-            <MetricCell label="Status" value={formatSaveLabel(saveStatus, lastSavedAt)} />
+            <MetricCell label="Status" value={renderState.active ? renderState.phase : formatSaveLabel(saveStatus, lastSavedAt)} />
           </div>
+          {renderState.active && (
+            <div className="mt-4 rounded-2xl border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="section-label">{renderState.mode === 'stems' ? 'Stem bounce' : 'Mix bounce'}</span>
+                <span className="font-mono text-xs text-[var(--accent-strong)]">{Math.round(renderState.progress * 100)}%</span>
+              </div>
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-[rgba(255,255,255,0.05)]">
+                <div
+                  className="h-full rounded-full bg-[linear-gradient(90deg,rgba(114,217,255,0.55),rgba(223,246,255,0.92))]"
+                  style={{ width: `${Math.round(renderState.progress * 100)}%` }}
+                />
+              </div>
+              <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
+                {renderState.currentTrackName ? `${renderState.phase} · ${renderState.currentTrackName}` : renderState.phase}
+                {renderState.etaSeconds !== null ? ` · about ${renderState.etaSeconds}s left` : ''}
+              </div>
+            </div>
+          )}
           <div className="mt-4 grid grid-cols-2 gap-2">
-            <ActionButton icon={<Sparkles className="h-3.5 w-3.5" />} label="New session" onClick={newSession} />
-            <ActionButton icon={<Layers3 className="h-3.5 w-3.5" />} label="Save now" onClick={saveProject} />
-            <ActionButton icon={<FolderOpen className="h-3.5 w-3.5" />} label="Load JSON" onClick={() => fileInputRef.current?.click()} />
-            <ActionButton icon={<Download className="h-3.5 w-3.5" />} label="Bounce WAV" onClick={() => void exportAudioMix()} />
-            <ActionButton icon={<Download className="h-3.5 w-3.5" />} label="Export stems" onClick={() => void exportTrackStems()} />
-            <ActionButton icon={<Layers3 className="h-3.5 w-3.5" />} label="Export JSON" onClick={exportSession} />
+            <ActionButton disabled={renderState.active} icon={<Sparkles className="h-3.5 w-3.5" />} label="New session" onClick={newSession} />
+            <ActionButton disabled={renderState.active} icon={<Layers3 className="h-3.5 w-3.5" />} label="Save now" onClick={saveProject} />
+            <ActionButton disabled={renderState.active} icon={<FolderOpen className="h-3.5 w-3.5" />} label="Load JSON" onClick={() => fileInputRef.current?.click()} />
+            <ActionButton disabled={renderState.active} icon={<Download className="h-3.5 w-3.5" />} label={renderState.mode === 'mix' ? 'Printing mix' : 'Bounce WAV'} onClick={() => void exportAudioMix()} />
+            <ActionButton disabled={renderState.active} icon={<Download className="h-3.5 w-3.5" />} label={renderState.mode === 'stems' ? 'Printing stems' : 'Export stems'} onClick={() => void exportTrackStems()} />
+            <ActionButton disabled={renderState.active} icon={<Layers3 className="h-3.5 w-3.5" />} label="Export JSON" onClick={exportSession} />
           </div>
         </section>
 
@@ -388,16 +407,19 @@ export const SettingsSidebar = () => {
 };
 
 const ActionButton = ({
+  disabled = false,
   icon,
   label,
   onClick,
 }: {
+  disabled?: boolean;
   icon: React.ReactNode;
   label: string;
   onClick: () => void;
 }) => (
   <button
-    className="control-field flex h-10 items-center gap-2 px-3 text-left text-sm font-medium text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
+    className="control-field flex h-10 items-center gap-2 px-3 text-left text-sm font-medium text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+    disabled={disabled}
     onClick={onClick}
   >
     <span className="text-[var(--accent)]">{icon}</span>

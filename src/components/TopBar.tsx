@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 
 import { useAudio } from '../context/AudioContext';
+import { getStudioReadinessAssessment } from '../utils/readiness';
 
 export const TopBar = () => {
   const {
@@ -31,6 +32,7 @@ export const TopBar = () => {
     patternCount,
     projectName,
     redo,
+    renderState,
     renameProject,
     saveProject,
     saveStatus,
@@ -50,6 +52,7 @@ export const TopBar = () => {
   } = useAudio();
   const [draftProjectName, setDraftProjectName] = useState(projectName);
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
+  const readiness = getStudioReadinessAssessment();
 
   useEffect(() => {
     setDraftProjectName(projectName);
@@ -264,6 +267,38 @@ export const TopBar = () => {
               value={`${Math.round(master.glueCompression * 100)}%`}
             />
           </div>
+          <div className="mt-3 grid gap-2 sm:grid-cols-3">
+            <MiniStat
+              label="Readiness"
+              value={`${readiness.overallScore}%`}
+            />
+            <MiniStat
+              label="GarageBand fit"
+              value={`${readiness.competitorScore}%`}
+            />
+            <MiniStat
+              label="Monetization"
+              value={`${readiness.monetizationScore}%`}
+            />
+          </div>
+          {renderState.active && (
+            <div className="mt-3 rounded-[16px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <span className="section-label">{renderState.mode === 'stems' ? 'Stem bounce' : 'Mix bounce'}</span>
+                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--accent-strong)]">{Math.round(renderState.progress * 100)}%</span>
+              </div>
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-[rgba(255,255,255,0.05)]">
+                <div
+                  className="h-full rounded-full bg-[linear-gradient(90deg,rgba(114,217,255,0.55),rgba(223,246,255,0.92))]"
+                  style={{ width: `${Math.round(renderState.progress * 100)}%` }}
+                />
+              </div>
+              <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
+                {renderState.currentTrackName ? `${renderState.phase} · ${renderState.currentTrackName}` : renderState.phase}
+                {renderState.etaSeconds !== null ? ` · about ${renderState.etaSeconds}s left` : ''}
+              </div>
+            </div>
+          )}
           <div className="mt-3 text-[11px] leading-5 text-[var(--text-secondary)]">
             The fastest loop in SonicStudio should be choose track, place phrase, shape tone, then move back into song view. This strip keeps that cycle visible.
           </div>

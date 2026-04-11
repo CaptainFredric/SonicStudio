@@ -29,13 +29,13 @@ const READINESS_SLICES: ReadinessSlice[] = [
   },
   {
     label: 'Audio output',
-    score: 64,
-    rationale: 'WAV bounce, stem export, and a real master output path now exist with glue, tone, gain, ceiling, and live metering, but offline rendering and more deliberate mastering quality are still missing.',
+    score: 67,
+    rationale: 'WAV bounce, stem export, a real master output path, and visible bounce progress now exist with glue, tone, gain, ceiling, and live metering, but offline rendering and more deliberate mastering quality are still missing.',
   },
   {
     label: 'Product finish',
-    score: 60,
-    rationale: 'Track management, focus handling, and output shaping feel more deliberate now, but onboarding, trust cues, collaboration, and account level product features are still early.',
+    score: 62,
+    rationale: 'Track management, focus handling, visible readiness, and output shaping feel more deliberate now, but onboarding, trust cues, collaboration, and account level product features are still early.',
   },
 ];
 

@@ -49,6 +49,25 @@ import {
 } from '../utils/export';
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+type RenderMode = 'mix' | 'stems' | null;
+
+interface RenderState {
+  active: boolean;
+  currentTrackName: string | null;
+  etaSeconds: number | null;
+  mode: RenderMode;
+  phase: string;
+  progress: number;
+}
+
+const IDLE_RENDER_STATE: RenderState = {
+  active: false,
+  currentTrackName: null,
+  etaSeconds: null,
+  mode: null,
+  phase: 'Idle',
+  progress: 0,
+};
 
 interface AudioContextType {
   activeView: AppView;
@@ -83,6 +102,7 @@ interface AudioContextType {
   previewTrack: (trackId: string, note?: string, sampleSliceIndex?: number) => Promise<void>;
   projectName: string;
   redo: () => void;
+  renderState: RenderState;
   removeArrangerClip: (clipId: string) => void;
   removeTrack: (trackId: string) => void;
   renameProject: (name: string) => void;
@@ -1639,6 +1659,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
+  const [renderState, setRenderState] = useState<RenderState>(IDLE_RENDER_STATE);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
 
   const project = editorState.history.present;
@@ -1842,7 +1863,10 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
     URL.revokeObjectURL(url);
   };
 
-  const bounceProjectRecording = async (renderProject: Project) => {
+  const bounceProjectRecording = async (
+    renderProject: Project,
+    updateProgress?: (progress: number, etaSeconds: number) => void,
+  ) => {
     if (typeof window === 'undefined' || isRecording) {
       return null;
     }
@@ -1873,7 +1897,19 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       setIsPlaying(engine.togglePlayback());
 
       await new Promise((resolve) => {
-        window.setTimeout(resolve, bounceDurationMs);
+        const startTime = Date.now();
+        const intervalId = window.setInterval(() => {
+          const elapsed = Date.now() - startTime;
+          const progress = Math.min(0.99, elapsed / bounceDurationMs);
+          const etaSeconds = Math.max(0, Math.ceil((bounceDurationMs - elapsed) / 1000));
+          updateProgress?.(progress, etaSeconds);
+        }, 120);
+
+        window.setTimeout(() => {
+          window.clearInterval(intervalId);
+          updateProgress?.(1, 0);
+          resolve(null);
+        }, bounceDurationMs);
       });
 
       return await engine.stopRecording(false);
@@ -1885,43 +1921,123 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const exportAudioMix = async () => {
-    const recording = await bounceProjectRecording(project);
+    setRenderState({
+      active: true,
+      currentTrackName: null,
+      etaSeconds: null,
+      mode: 'mix',
+      phase: project.transport.mode === 'SONG' ? 'Printing song mix' : 'Printing pattern mix',
+      progress: 0,
+    });
 
-    if (!recording) {
-      return;
-    }
+    try {
+      const recording = await bounceProjectRecording(project, (progress, etaSeconds) => {
+        setRenderState((current) => ({
+          ...current,
+          etaSeconds,
+          progress,
+        }));
+      });
 
-    const wavBlob = await convertRecordingBlobToWav(recording);
-    downloadBlob(wavBlob, `${sanitizeExportFileName(project.metadata.name)}-mix.wav`);
-  };
-
-  const exportTrackStems = async () => {
-    const baseFileName = sanitizeExportFileName(project.metadata.name);
-
-    for (const track of project.tracks) {
-      const stemProject = cloneProject(project);
-      stemProject.tracks = stemProject.tracks.map((candidate) => (
-        candidate.id === track.id
-          ? { ...candidate, muted: false, solo: false }
-          : { ...candidate, muted: true, solo: false }
-      ));
-
-      const recording = await bounceProjectRecording(stemProject);
       if (!recording) {
         return;
       }
 
-      const wavBlob = await convertRecordingBlobToWav(recording);
-      downloadBlob(
-        wavBlob,
-        `${baseFileName}-${sanitizeExportFileName(track.name)}-stem.wav`,
-      );
+      setRenderState((current) => ({
+        ...current,
+        etaSeconds: null,
+        phase: 'Encoding WAV',
+        progress: Math.max(current.progress, 0.98),
+      }));
 
-      if (typeof window !== 'undefined') {
-        await new Promise((resolve) => {
-          window.setTimeout(resolve, 160);
+      const wavBlob = await convertRecordingBlobToWav(recording);
+      downloadBlob(wavBlob, `${sanitizeExportFileName(project.metadata.name)}-mix.wav`);
+      setRenderState((current) => ({
+        ...current,
+        phase: 'Mix ready',
+        progress: 1,
+      }));
+    } finally {
+      window.setTimeout(() => {
+        setRenderState(IDLE_RENDER_STATE);
+      }, 500);
+    }
+  };
+
+  const exportTrackStems = async () => {
+    const baseFileName = sanitizeExportFileName(project.metadata.name);
+    const stemTracks = project.tracks;
+
+    setRenderState({
+      active: true,
+      currentTrackName: stemTracks[0]?.name ?? null,
+      etaSeconds: null,
+      mode: 'stems',
+      phase: `Printing stems 1/${stemTracks.length}`,
+      progress: 0,
+    });
+
+    try {
+      for (const [index, track] of stemTracks.entries()) {
+        const stemProject = cloneProject(project);
+        stemProject.tracks = stemProject.tracks.map((candidate) => (
+          candidate.id === track.id
+            ? { ...candidate, muted: false, solo: false }
+            : { ...candidate, muted: true, solo: false }
+        ));
+
+        const progressBase = index / stemTracks.length;
+        const progressWeight = 1 / stemTracks.length;
+        setRenderState((current) => ({
+          ...current,
+          currentTrackName: track.name,
+          phase: `Printing stems ${index + 1}/${stemTracks.length}`,
+          progress: progressBase,
+        }));
+
+        const recording = await bounceProjectRecording(stemProject, (progress, etaSeconds) => {
+          setRenderState((current) => ({
+            ...current,
+            currentTrackName: track.name,
+            etaSeconds,
+            progress: progressBase + (progress * progressWeight),
+          }));
         });
+        if (!recording) {
+          return;
+        }
+
+        setRenderState((current) => ({
+          ...current,
+          currentTrackName: track.name,
+          etaSeconds: null,
+          phase: `Encoding ${track.name}`,
+          progress: Math.max(current.progress, progressBase + (progressWeight * 0.98)),
+        }));
+
+        const wavBlob = await convertRecordingBlobToWav(recording);
+        downloadBlob(
+          wavBlob,
+          `${baseFileName}-${sanitizeExportFileName(track.name)}-stem.wav`,
+        );
+
+        if (typeof window !== 'undefined') {
+          await new Promise((resolve) => {
+            window.setTimeout(resolve, 160);
+          });
+        }
       }
+
+      setRenderState((current) => ({
+        ...current,
+        currentTrackName: null,
+        phase: 'Stems ready',
+        progress: 1,
+      }));
+    } finally {
+      window.setTimeout(() => {
+        setRenderState(IDLE_RENDER_STATE);
+      }, 500);
     }
   };
 
@@ -1980,6 +2096,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       previewTrack,
       projectName: project.metadata.name,
       redo: () => dispatch({ type: 'REDO' }),
+      renderState,
       removeArrangerClip: (clipId) => dispatch({ type: 'REMOVE_ARRANGER_CLIP', clipId }),
       removeTrack: (trackId) => dispatch({ type: 'REMOVE_TRACK', trackId }),
       renameProject: (name) => dispatch({ type: 'SET_PROJECT_NAME', name }),
