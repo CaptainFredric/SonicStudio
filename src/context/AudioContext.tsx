@@ -40,6 +40,11 @@ import {
   loadPersistedSession,
   persistSession,
 } from '../project/storage';
+import {
+  convertRecordingBlobToWav,
+  downloadBlob,
+  sanitizeExportFileName,
+} from '../utils/export';
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -56,7 +61,9 @@ interface AudioContextType {
   currentStep: number;
   duplicateArrangerClip: (clipId: string) => void;
   exportAudioMix: () => Promise<void>;
+  exportTrackStems: () => Promise<void>;
   loopArrangerClip: (clipId: string, copies: number) => void;
+  makeClipPatternUnique: (clipId: string) => void;
   duplicateTrack: (trackId: string) => void;
   exportSession: () => void;
   importSession: (file: File) => Promise<boolean>;
@@ -125,6 +132,7 @@ type EditorAction =
   | { type: 'CREATE_TRACK'; trackType: InstrumentType }
   | { type: 'DUPLICATE_ARRANGER_CLIP'; clipId: string }
   | { type: 'LOOP_ARRANGER_CLIP'; clipId: string; copies: number }
+  | { type: 'MAKE_CLIP_PATTERN_UNIQUE'; clipId: string }
   | { type: 'SPLIT_ARRANGER_CLIP'; clipId: string }
   | { type: 'DUPLICATE_TRACK'; trackId: string }
   | { type: 'HYDRATE_SESSION'; session: StudioSession }
@@ -684,6 +692,55 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
       }, sourceClip.trackId);
     }
 
+    case 'MAKE_CLIP_PATTERN_UNIQUE': {
+      const sourceClip = present.arrangerClips.find((clip) => clip.id === action.clipId);
+      if (!sourceClip) {
+        return state;
+      }
+
+      const sourceTrack = present.tracks.find((track) => track.id === sourceClip.trackId);
+      if (!sourceTrack) {
+        return state;
+      }
+
+      const occupiedPatternIndices = new Set(
+        present.arrangerClips
+          .filter((clip) => clip.trackId === sourceTrack.id && clip.id !== sourceClip.id)
+          .map((clip) => clip.patternIndex),
+      );
+      const nextPatternIndex = Array.from(
+        { length: present.transport.patternCount },
+        (_, patternIndex) => patternIndex,
+      ).find((patternIndex) => !occupiedPatternIndices.has(patternIndex) && patternIndex !== sourceClip.patternIndex);
+
+      if (nextPatternIndex === undefined) {
+        return state;
+      }
+
+      const nextProject = updateTrack(present, sourceTrack.id, (track) => {
+        const sourcePattern = track.patterns[sourceClip.patternIndex] ?? createEmptyPattern(present.transport.stepsPerPattern);
+
+        return {
+          ...track,
+          patterns: {
+            ...track.patterns,
+            [nextPatternIndex]: sourcePattern.map(cloneStepEvents),
+          },
+        };
+      });
+
+      return commitProject(state, {
+        ...nextProject,
+        arrangerClips: syncArrangerClips(
+          nextProject.arrangerClips.map((clip) => (
+            clip.id === sourceClip.id ? { ...clip, patternIndex: nextPatternIndex } : clip
+          )),
+          nextProject.tracks,
+          nextProject.transport.patternCount,
+        ),
+      }, sourceTrack.id);
+    }
+
     case 'SPLIT_ARRANGER_CLIP': {
       const sourceClip = present.arrangerClips.find((clip) => clip.id === action.clipId);
       if (!sourceClip || sourceClip.beatLength < 8) {
@@ -1078,24 +1135,30 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
     URL.revokeObjectURL(url);
   };
 
-  const exportAudioMix = async () => {
+  const bounceProjectRecording = async (renderProject: Project) => {
     if (typeof window === 'undefined' || isRecording) {
-      return;
+      return null;
     }
 
     if (!isInitialized) {
       await initAudio();
     }
 
-    const renderSteps = project.transport.mode === 'SONG'
-      ? Math.max(songLengthInBeats, project.transport.stepsPerPattern)
-      : project.transport.stepsPerPattern;
-    const renderDurationSeconds = renderSteps * (60 / project.transport.bpm) * 0.25;
+    const renderSteps = renderProject.transport.mode === 'SONG'
+      ? Math.max(
+          renderProject.arrangerClips.reduce(
+            (maxBeat, clip) => Math.max(maxBeat, clip.startBeat + clip.beatLength),
+            renderProject.transport.stepsPerPattern,
+          ),
+          renderProject.transport.stepsPerPattern,
+        )
+      : renderProject.transport.stepsPerPattern;
+    const renderDurationSeconds = renderSteps * (60 / renderProject.transport.bpm) * 0.25;
     const tailSeconds = 1.5;
     const bounceDurationMs = Math.max(1200, Math.ceil((renderDurationSeconds + tailSeconds) * 1000));
 
     stop();
-    engine.syncProject(project);
+    engine.syncProject(renderProject);
 
     try {
       await engine.startRecording();
@@ -1106,26 +1169,52 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
         window.setTimeout(resolve, bounceDurationMs);
       });
 
-      const recording = await engine.stopRecording(false);
+      return await engine.stopRecording(false);
+    } finally {
+      stop();
+      setIsRecording(false);
+      engine.syncProject(project);
+    }
+  };
 
+  const exportAudioMix = async () => {
+    const recording = await bounceProjectRecording(project);
+
+    if (!recording) {
+      return;
+    }
+
+    const wavBlob = await convertRecordingBlobToWav(recording);
+    downloadBlob(wavBlob, `${sanitizeExportFileName(project.metadata.name)}-mix.wav`);
+  };
+
+  const exportTrackStems = async () => {
+    const baseFileName = sanitizeExportFileName(project.metadata.name);
+
+    for (const track of project.tracks) {
+      const stemProject = cloneProject(project);
+      stemProject.tracks = stemProject.tracks.map((candidate) => (
+        candidate.id === track.id
+          ? { ...candidate, muted: false, solo: false }
+          : { ...candidate, muted: true, solo: false }
+      ));
+
+      const recording = await bounceProjectRecording(stemProject);
       if (!recording) {
         return;
       }
 
-      const url = URL.createObjectURL(recording);
-      const anchor = document.createElement('a');
-      const fileName = project.metadata.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'sonicstudio-mix';
+      const wavBlob = await convertRecordingBlobToWav(recording);
+      downloadBlob(
+        wavBlob,
+        `${baseFileName}-${sanitizeExportFileName(track.name)}-stem.wav`,
+      );
 
-      anchor.href = url;
-      anchor.download = `${fileName}.webm`;
-      anchor.click();
-
-      window.setTimeout(() => {
-        URL.revokeObjectURL(url);
-      }, 1000);
-    } finally {
-      stop();
-      setIsRecording(false);
+      if (typeof window !== 'undefined') {
+        await new Promise((resolve) => {
+          window.setTimeout(resolve, 160);
+        });
+      }
     }
   };
 
@@ -1164,7 +1253,9 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       currentStep,
       duplicateArrangerClip: (clipId) => dispatch({ type: 'DUPLICATE_ARRANGER_CLIP', clipId }),
       exportAudioMix,
+      exportTrackStems,
       loopArrangerClip: (clipId, copies) => dispatch({ type: 'LOOP_ARRANGER_CLIP', clipId, copies }),
+      makeClipPatternUnique: (clipId) => dispatch({ type: 'MAKE_CLIP_PATTERN_UNIQUE', clipId }),
       duplicateTrack: (trackId) => dispatch({ type: 'DUPLICATE_TRACK', trackId }),
       exportSession,
       importSession,

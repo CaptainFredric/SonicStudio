@@ -32,10 +32,12 @@ export const Arranger = () => {
     currentStep,
     currentPattern,
     duplicateArrangerClip,
+    makeClipPatternUnique,
     splitArrangerClip,
     loopArrangerClip,
     patternCount,
     removeArrangerClip,
+    setActiveView,
     selectedTrackId,
     setCurrentPattern,
     setSelectedTrackId,
@@ -122,6 +124,22 @@ export const Arranger = () => {
 
   const selectedClip = arrangerClips.find((clip) => clip.id === selectedClipId) ?? null;
   const selectedClipTrack = tracks.find((track) => track.id === selectedClip?.trackId) ?? null;
+  const linkedPhraseCount = selectedClip
+    ? arrangerClips.filter((clip) => (
+        clip.trackId === selectedClip.trackId
+        && clip.patternIndex === selectedClip.patternIndex
+      )).length
+    : 0;
+  const canMakeUnique = linkedPhraseCount > 1 && selectedClip && selectedClipTrack
+    ? Array.from({ length: patternCount }, (_, patternIndex) => patternIndex).some((patternIndex) => (
+        patternIndex !== selectedClip.patternIndex
+        && !arrangerClips.some((clip) => (
+          clip.trackId === selectedClip.trackId
+          && clip.id !== selectedClip.id
+          && clip.patternIndex === patternIndex
+        ))
+      ))
+    : false;
   const timelineSteps = Math.max(songLengthInBeats, 32);
   const timelineWidth = timelineSteps * PIXELS_PER_STEP;
   const totalDurationSeconds = songLengthInBeats * (60 / bpm) * 0.25;
@@ -334,6 +352,33 @@ export const Arranger = () => {
                 <div className="mt-3 space-y-2 text-sm text-[var(--text-secondary)]">
                   <p>Selected pattern matches top-bar pattern {String.fromCharCode(65 + currentPattern)} when you focus a clip, which keeps song editing and note editing in sync.</p>
                   <p>Bar snap is currently {CLIP_SNAP} steps. Drag the body to move a clip and drag either edge to trim it without breaking alignment.</p>
+                </div>
+                <div className="mt-3 rounded-[14px] border border-[var(--border-soft)] bg-[rgba(0,0,0,0.14)] px-3 py-3">
+                  <div className="section-label">Phrase linkage</div>
+                  <div className="mt-2 text-sm text-[var(--text-secondary)]">
+                    {linkedPhraseCount > 1
+                      ? `This clip shares pattern ${String.fromCharCode(65 + selectedClip.patternIndex)} with ${linkedPhraseCount - 1} other clip${linkedPhraseCount === 2 ? '' : 's'} on this track.`
+                      : 'This clip already points at its own phrase slot on this track.'}
+                  </div>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <button
+                      className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] disabled:cursor-not-allowed disabled:opacity-45"
+                      disabled={!canMakeUnique}
+                      onClick={() => selectedClip && makeClipPatternUnique(selectedClip.id)}
+                    >
+                      Make unique
+                    </button>
+                    <button
+                      className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                      onClick={() => {
+                        setSelectedTrackId(selectedClip.trackId);
+                        setCurrentPattern(selectedClip.patternIndex);
+                        setActiveView('PIANO_ROLL');
+                      }}
+                    >
+                      Edit notes
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

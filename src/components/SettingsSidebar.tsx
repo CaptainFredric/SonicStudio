@@ -19,6 +19,7 @@ export const SettingsSidebar = () => {
     arrangerClips,
     bpm,
     exportAudioMix,
+    exportTrackStems,
     exportSession,
     importSession,
     isSettingsOpen,
@@ -103,7 +104,8 @@ export const SettingsSidebar = () => {
             <ActionButton icon={<Sparkles className="h-3.5 w-3.5" />} label="New session" onClick={newSession} />
             <ActionButton icon={<Layers3 className="h-3.5 w-3.5" />} label="Save now" onClick={saveProject} />
             <ActionButton icon={<FolderOpen className="h-3.5 w-3.5" />} label="Load JSON" onClick={() => fileInputRef.current?.click()} />
-            <ActionButton icon={<Download className="h-3.5 w-3.5" />} label="Bounce audio" onClick={() => void exportAudioMix()} />
+            <ActionButton icon={<Download className="h-3.5 w-3.5" />} label="Bounce WAV" onClick={() => void exportAudioMix()} />
+            <ActionButton icon={<Download className="h-3.5 w-3.5" />} label="Export stems" onClick={() => void exportTrackStems()} />
             <ActionButton icon={<Layers3 className="h-3.5 w-3.5" />} label="Export JSON" onClick={exportSession} />
           </div>
         </section>

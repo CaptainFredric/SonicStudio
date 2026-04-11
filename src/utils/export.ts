@@ -1,6 +1,6 @@
 // Honest export helpers for the current SonicStudio project model.
-// JSON snapshot export is implemented today. Audio format exports remain
-// placeholders until the render pipeline lands.
+// JSON snapshot export is implemented today, and recorder output can now be
+// converted into WAV downloads for mix and stem export flows.
 
 import type { Project } from '../project/schema';
 
@@ -24,6 +24,16 @@ export interface ExportResult {
   message?: string;
   downloadUrl?: string;
 }
+
+const getAudioContextConstructor = () => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  return window.AudioContext ?? (window as typeof window & {
+    webkitAudioContext?: typeof AudioContext;
+  }).webkitAudioContext ?? null;
+};
 
 const unsupportedExport = async (
   format: ExportOptions['format'],
@@ -95,6 +105,86 @@ export async function exportToJSON(
   };
 }
 
+export const sanitizeExportFileName = (name: string) => (
+  name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'sonicstudio-export'
+);
+
+export const downloadBlob = (blob: Blob, fileName: string) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = fileName;
+  anchor.click();
+
+  window.setTimeout(() => {
+    URL.revokeObjectURL(url);
+  }, 1000);
+};
+
+export const encodeAudioBufferToWav = (audioBuffer: AudioBuffer): Blob => {
+  const channelCount = audioBuffer.numberOfChannels;
+  const sampleRate = audioBuffer.sampleRate;
+  const sampleCount = audioBuffer.length;
+  const bytesPerSample = 2;
+  const blockAlign = channelCount * bytesPerSample;
+  const byteRate = sampleRate * blockAlign;
+  const dataSize = sampleCount * blockAlign;
+  const buffer = new ArrayBuffer(44 + dataSize);
+  const view = new DataView(buffer);
+
+  writeAscii(view, 0, 'RIFF');
+  view.setUint32(4, 36 + dataSize, true);
+  writeAscii(view, 8, 'WAVE');
+  writeAscii(view, 12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, channelCount, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, byteRate, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, 16, true);
+  writeAscii(view, 36, 'data');
+  view.setUint32(40, dataSize, true);
+
+  const channels = Array.from({ length: channelCount }, (_, channelIndex) => (
+    audioBuffer.getChannelData(channelIndex)
+  ));
+  let offset = 44;
+
+  for (let sampleIndex = 0; sampleIndex < sampleCount; sampleIndex += 1) {
+    for (let channelIndex = 0; channelIndex < channelCount; channelIndex += 1) {
+      const sample = Math.max(-1, Math.min(1, channels[channelIndex][sampleIndex] ?? 0));
+      const pcm = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
+      view.setInt16(offset, Math.round(pcm), true);
+      offset += bytesPerSample;
+    }
+  }
+
+  return new Blob([buffer], { type: 'audio/wav' });
+};
+
+export const convertRecordingBlobToWav = async (recording: Blob): Promise<Blob> => {
+  const AudioContextConstructor = getAudioContextConstructor();
+
+  if (!AudioContextConstructor) {
+    throw new Error('AudioContext is unavailable in this environment.');
+  }
+
+  const context = new AudioContextConstructor();
+
+  try {
+    const arrayBuffer = await recording.arrayBuffer();
+    const decoded = await context.decodeAudioData(arrayBuffer.slice(0));
+    return encodeAudioBufferToWav(decoded);
+  } finally {
+    await context.close();
+  }
+};
+
 export const exportToMIDI = async (_project: Project, _options: Partial<ExportOptions> = {}) => unsupportedExport('midi');
 export const exportToWAV = async (_project: Project, _options: Partial<ExportOptions> = {}) => unsupportedExport('wav');
 export const exportToMP3 = async (_project: Project, _options: Partial<ExportOptions> = {}) => unsupportedExport('mp3');
@@ -147,6 +237,9 @@ function generateChecksum(data: Uint8Array): string {
 }
 
 export const ExportUtils = {
+  convertRecordingBlobToWav,
+  downloadBlob,
+  encodeAudioBufferToWav,
   exportToMIDI,
   exportToWAV,
   exportToMP3,
@@ -154,6 +247,13 @@ export const ExportUtils = {
   exportToFLAC,
   exportToOGG,
   batchExport,
+  sanitizeExportFileName,
 };
 
 export default ExportUtils;
+
+function writeAscii(view: DataView, offset: number, value: string) {
+  for (let index = 0; index < value.length; index += 1) {
+    view.setUint8(offset + index, value.charCodeAt(index));
+  }
+}
