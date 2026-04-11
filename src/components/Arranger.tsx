@@ -188,6 +188,7 @@ export const Arranger = () => {
     createSongMarker,
     currentStep,
     duplicateArrangerClip,
+    duplicateSongRange,
     loopArrangerClip,
     makeClipPatternUnique,
     patternCount,
@@ -289,6 +290,29 @@ export const Arranger = () => {
   const selectedAutomationTone = selectedClipAutomation.tone[selectedPhraseStepIndex] ?? 0.5;
   const selectedPhraseSliceIndex = selectedPhraseStep[0]?.sampleSliceIndex ?? null;
   const markerCount = songMarkers.length;
+  const sectionRanges = useMemo(() => {
+    const sortedMarkers = [...songMarkers].sort((left, right) => left.beat - right.beat);
+    const boundaries = sortedMarkers.length > 0
+      ? sortedMarkers
+      : [{ beat: 0, id: 'marker_fallback', name: 'Song' }];
+
+    return boundaries.map((marker, index) => {
+      const nextMarker = boundaries[index + 1];
+      const startBeat = marker.beat;
+      const endBeat = nextMarker?.beat ?? timelineSteps;
+      const clipsInRange = arrangerClips.filter((clip) => (
+        clip.startBeat < endBeat && clip.startBeat + clip.beatLength > startBeat
+      ));
+
+      return {
+        clipCount: clipsInRange.length,
+        endBeat,
+        id: marker.id,
+        label: marker.name,
+        startBeat,
+      };
+    });
+  }, [arrangerClips, songMarkers, timelineSteps]);
 
   const laneData = useMemo(() => (
     tracks.map((track) => ({
@@ -911,6 +935,37 @@ export const Arranger = () => {
                   </div>
                 </div>
               ))}
+            </div>
+            <div className="mt-4 border-t border-[var(--border-soft)] pt-4">
+              <div className="section-label">Sections</div>
+              <div className="mt-3 space-y-2">
+                {sectionRanges.map((section) => (
+                  <div key={section.id} className="rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-semibold text-[var(--text-primary)]">{section.label}</div>
+                        <div className="mt-1 text-[11px] text-[var(--text-secondary)]">
+                          Steps {section.startBeat + 1} to {section.endBeat} · {section.clipCount} clip{section.clipCount === 1 ? '' : 's'}
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                          onClick={() => jumpToBoundary(section.startBeat)}
+                        >
+                          Jump
+                        </button>
+                        <button
+                          className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                          onClick={() => duplicateSongRange(section.startBeat, section.endBeat, section.label)}
+                        >
+                          Duplicate
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         </div>

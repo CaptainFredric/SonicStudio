@@ -24,8 +24,8 @@ const READINESS_SLICES: ReadinessSlice[] = [
   },
   {
     label: 'Editing ergonomics',
-    score: 92,
-    rationale: 'The sequencer and arranger now expose lane scope filters, pinned lanes, group collapse, compact density, visible mute and solo controls, stronger timeline navigation, starter scenes, and persistent section markers, so larger sessions stay easier to scan and structure without losing focus.',
+    score: 93,
+    rationale: 'The sequencer and arranger now expose lane scope filters, pinned lanes, group collapse, compact density, visible mute and solo controls, stronger timeline navigation, starter scenes, persistent section markers, and section-level duplication, so larger sessions stay easier to scan and restructure without losing focus.',
   },
   {
     label: 'Audio output',
@@ -34,8 +34,8 @@ const READINESS_SLICES: ReadinessSlice[] = [
   },
   {
     label: 'Product finish',
-    score: 75,
-    rationale: 'Track management, pinned lane focus, grouped session organization, visible readiness, bounce feedback, targeted print ranges, real starter scenes, and persistent section markers make the studio feel more deliberate on first use and during longer sessions, but trust cues, collaboration, and account-level product features are still early.',
+    score: 76,
+    rationale: 'Track management, pinned lane focus, grouped session organization, visible readiness, bounce feedback, targeted print ranges, real starter scenes, persistent section markers, and section-level duplication make the studio feel more deliberate on first use and during longer sessions, but trust cues, collaboration, and account-level product features are still early.',
   },
 ];
 

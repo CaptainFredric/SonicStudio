@@ -148,6 +148,7 @@ interface AudioContextType {
   toggleStep: (trackId: string, stepIndex: number, note?: string) => void;
   tracks: Track[];
   createSongMarker: (beat: number, name?: string) => void;
+  duplicateSongRange: (startBeat: number, endBeat: number, label?: string) => void;
   togglePinnedTrack: (trackId: string) => void;
   transformClipPattern: (clipId: string, transform: 'clear' | 'double-density' | 'halve-density' | 'randomize-velocity' | 'reset-automation' | 'shift-left' | 'shift-right' | 'transpose', value?: number) => void;
   transposePatternAt: (trackId: string, patternIndex: number, semitones: number) => void;
@@ -187,6 +188,7 @@ type EditorAction =
   | { type: 'CREATE_SAMPLE_SLICE'; trackId: string; slice?: Partial<SampleSliceMemory> }
   | { type: 'DELETE_SAMPLE_SLICE'; trackId: string; sliceIndex: number }
   | { type: 'DUPLICATE_ARRANGER_CLIP'; clipId: string }
+  | { type: 'DUPLICATE_SONG_RANGE'; endBeat: number; label?: string; startBeat: number }
   | { type: 'LOOP_ARRANGER_CLIP'; clipId: string; copies: number }
   | { type: 'MAKE_CLIP_PATTERN_UNIQUE'; clipId: string }
   | { type: 'SPLIT_ARRANGER_CLIP'; clipId: string; splitAtBeat?: number }
@@ -362,6 +364,65 @@ const songLengthFromProject = (project: Project) => (
     project.transport.stepsPerPattern,
   )
 );
+
+const buildSongRangeDuplicate = (
+  project: Project,
+  startBeat: number,
+  endBeat: number,
+  label?: string,
+): Project => {
+  const normalizedStartBeat = clamp(Math.round(startBeat), 0, songLengthFromProject(project));
+  const normalizedEndBeat = clamp(Math.round(endBeat), normalizedStartBeat + 1, songLengthFromProject(project));
+  const rangeLength = normalizedEndBeat - normalizedStartBeat;
+
+  if (rangeLength <= 0) {
+    return project;
+  }
+
+  const duplicateClips = project.arrangerClips.flatMap((clip) => {
+    const clipStart = clip.startBeat;
+    const clipEnd = clip.startBeat + clip.beatLength;
+    const overlapStart = Math.max(clipStart, normalizedStartBeat);
+    const overlapEnd = Math.min(clipEnd, normalizedEndBeat);
+
+    if (overlapEnd <= overlapStart) {
+      return [];
+    }
+
+    return [{
+      ...clip,
+      beatLength: overlapEnd - overlapStart,
+      id: `clip_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      startBeat: normalizedEndBeat + (overlapStart - normalizedStartBeat),
+    }];
+  });
+
+  if (duplicateClips.length === 0) {
+    return project;
+  }
+
+  const duplicatedMarkers = project.markers
+    .filter((marker) => marker.beat >= normalizedStartBeat && marker.beat < normalizedEndBeat)
+    .map((marker) => ({
+      ...marker,
+      beat: normalizedEndBeat + (marker.beat - normalizedStartBeat),
+      id: `marker_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      name: label ? `${label} Copy` : `${marker.name} Copy`,
+    }));
+
+  return {
+    ...project,
+    arrangerClips: syncArrangerClips(
+      [...project.arrangerClips, ...duplicateClips],
+      project.tracks,
+      project.transport.patternCount,
+    ),
+    markers: syncSongMarkers(
+      [...project.markers, ...duplicatedMarkers],
+      Math.max(songLengthFromProject(project), normalizedEndBeat + rangeLength),
+    ),
+  };
+};
 
 const stampProjectUpdate = (project: Project): Project => ({
   ...project,
@@ -764,6 +825,12 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
         markers: syncSongMarkers([...present.markers, nextMarker], Math.max(songLengthFromProject(present), nextMarker.beat)),
       });
     }
+
+    case 'DUPLICATE_SONG_RANGE':
+      return commitProject(
+        state,
+        buildSongRangeDuplicate(present, action.startBeat, action.endBeat, action.label),
+      );
 
     case 'UPDATE_SONG_MARKER':
       return commitProject(state, {
@@ -2260,6 +2327,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       loopArrangerClip: (clipId, copies) => dispatch({ type: 'LOOP_ARRANGER_CLIP', clipId, copies }),
       makeClipPatternUnique: (clipId) => dispatch({ type: 'MAKE_CLIP_PATTERN_UNIQUE', clipId }),
       createSongMarker: (beat, name) => dispatch({ type: 'CREATE_SONG_MARKER', beat, name }),
+      duplicateSongRange: (startBeat, endBeat, label) => dispatch({ type: 'DUPLICATE_SONG_RANGE', endBeat, label, startBeat }),
       duplicateTrack: (trackId) => dispatch({ type: 'DUPLICATE_TRACK', trackId }),
       exportSession,
       importSession,
