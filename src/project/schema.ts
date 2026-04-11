@@ -30,6 +30,11 @@ export interface ArrangementClip {
   beatLength: number;
 }
 
+export interface PatternAutomation {
+  level: number[];
+  tone: number[];
+}
+
 export interface SynthParams {
   cutoff: number;
   resonance: number;
@@ -59,6 +64,7 @@ export interface TrackSource {
 }
 
 export interface Track {
+  automation: Record<number, PatternAutomation>;
   id: string;
   name: string;
   type: InstrumentType;
@@ -112,7 +118,7 @@ export const MAX_PATTERN_COUNT = 8;
 export const MAX_STEPS_PER_PATTERN = 64;
 export const MIN_PATTERN_COUNT = 1;
 export const MIN_STEPS_PER_PATTERN = 8;
-export const PROJECT_SCHEMA_VERSION = 6;
+export const PROJECT_SCHEMA_VERSION = 7;
 
 export const INITIAL_PARAMS: SynthParams = {
   cutoff: 2000,
@@ -219,6 +225,7 @@ const createId = (prefix: string) => {
 
 const clampStepVelocity = (velocity: number) => clamp(velocity, 0.1, 1);
 const clampStepGate = (gate: number) => clamp(gate, 0.25, 4);
+const clampAutomationValue = (value: number) => clamp(value, 0, 1);
 const cloneStep = (step: StepValue): StepValue => step.map((event) => ({ ...event }));
 
 const isInstrumentType = (value: unknown): value is InstrumentType => (
@@ -422,6 +429,43 @@ const normalizePatterns = (
   return nextPatterns;
 };
 
+const createAutomationPattern = (stepCount: number): PatternAutomation => ({
+  level: Array.from({ length: stepCount }, () => 0.5),
+  tone: Array.from({ length: stepCount }, () => 0.5),
+});
+
+const normalizeAutomation = (
+  automation: unknown,
+  patternCount: number,
+  stepCount: number,
+): Record<number, PatternAutomation> => {
+  const candidate = isRecord(automation) ? automation : {};
+  const nextAutomation: Record<number, PatternAutomation> = {};
+
+  for (let patternIndex = 0; patternIndex < patternCount; patternIndex += 1) {
+    const rawPatternCandidate = candidate[patternIndex];
+    const rawPattern = isRecord(rawPatternCandidate) ? rawPatternCandidate : {};
+    const rawLevel = Array.isArray(rawPattern.level) ? rawPattern.level : [];
+    const rawTone = Array.isArray(rawPattern.tone) ? rawPattern.tone : [];
+    const fallbackPattern = createAutomationPattern(stepCount);
+
+    nextAutomation[patternIndex] = {
+      level: Array.from({ length: stepCount }, (_, stepIndex) => clampAutomationValue(
+        typeof rawLevel[stepIndex] === 'number'
+          ? rawLevel[stepIndex]
+          : fallbackPattern.level[stepIndex],
+      )),
+      tone: Array.from({ length: stepCount }, (_, stepIndex) => clampAutomationValue(
+        typeof rawTone[stepIndex] === 'number'
+          ? rawTone[stepIndex]
+          : fallbackPattern.tone[stepIndex],
+      )),
+    };
+  }
+
+  return nextAutomation;
+};
+
 const normalizeTransport = (transport: unknown): TransportSettings => {
   const candidate = isRecord(transport) ? transport : {};
   const patternCount = clamp(
@@ -458,6 +502,7 @@ const normalizeTrack = (
   const preset = TRACK_PRESETS[type];
 
   return {
+    automation: normalizeAutomation(candidate.automation, transport.patternCount, transport.stepsPerPattern),
     id: typeof candidate.id === 'string' && candidate.id ? candidate.id : createId('track'),
     name: typeof candidate.name === 'string' && candidate.name.trim() ? candidate.name.trim() : preset.name,
     type,
@@ -557,6 +602,19 @@ export const createPatternBank = (
   return patterns;
 };
 
+export const createAutomationBank = (
+  patternCount: number = DEFAULT_PATTERN_COUNT,
+  stepCount: number = DEFAULT_STEPS_PER_PATTERN,
+): Record<number, PatternAutomation> => {
+  const automation: Record<number, PatternAutomation> = {};
+
+  for (let index = 0; index < patternCount; index += 1) {
+    automation[index] = createAutomationPattern(stepCount);
+  }
+
+  return automation;
+};
+
 export const buildDefaultArranger = (transport: TransportSettings): ArrangerSection[] => {
   const sections: ArrangerSection[] = [
     {
@@ -605,6 +663,7 @@ export const cloneProject = (project: Project): Project => JSON.parse(JSON.strin
 export const createTrack = (
   type: InstrumentType,
   options: Partial<Omit<Track, 'type' | 'patterns' | 'params' | 'source'>> & {
+    automation?: Record<number, PatternAutomation>;
     params?: Partial<SynthParams>;
     patternCount?: number;
     patterns?: Record<number, StepValue[]>;
@@ -618,6 +677,9 @@ export const createTrack = (
   const params = normalizeParams(options.params, preset.params);
 
   return {
+    automation: options.automation
+      ? normalizeAutomation(options.automation, patternCount, stepsPerPattern)
+      : createAutomationBank(patternCount, stepsPerPattern),
     color: options.color ?? preset.color,
     id: options.id ?? createId('track'),
     muted: options.muted ?? false,
@@ -651,6 +713,7 @@ export const duplicateTrack = (track: Track, transport: TransportSettings): Trac
     patterns: track.patterns,
     solo: false,
     source: track.source,
+    automation: track.automation,
     stepsPerPattern: transport.stepsPerPattern,
     volume: track.volume,
   });
@@ -662,6 +725,7 @@ export const resizeTrackPatterns = (
   stepsPerPattern: number,
 ): Track => {
   const patterns: Record<number, StepValue[]> = {};
+  const automation: Record<number, PatternAutomation> = {};
 
   for (let patternIndex = 0; patternIndex < patternCount; patternIndex += 1) {
     const sourceSteps = track.patterns[patternIndex] ?? [];
@@ -669,9 +733,15 @@ export const resizeTrackPatterns = (
     const value = sourceSteps[stepIndex];
       return Array.isArray(value) ? cloneStep(value) : [];
     });
+    const sourceAutomation = track.automation?.[patternIndex] ?? createAutomationPattern(stepsPerPattern);
+    automation[patternIndex] = {
+      level: Array.from({ length: stepsPerPattern }, (_, stepIndex) => clampAutomationValue(sourceAutomation.level[stepIndex] ?? 0.5)),
+      tone: Array.from({ length: stepsPerPattern }, (_, stepIndex) => clampAutomationValue(sourceAutomation.tone[stepIndex] ?? 0.5)),
+    };
   }
 
   return {
+    automation,
     ...track,
     patterns,
   };

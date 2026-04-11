@@ -71,6 +71,7 @@ export async function exportToJSON(
       },
       arrangerClips: project.arrangerClips ?? [],
       tracks: project.tracks.map((track) => ({
+        automation: track.automation,
         id: track.id,
         name: track.name,
         type: track.type,

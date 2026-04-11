@@ -54,6 +54,7 @@ export const Arranger = () => {
     transposePatternAt,
     transportMode,
     updateArrangerClip,
+    updatePatternAutomationStep,
   } = useAudio();
   const [selectedClipId, setSelectedClipId] = useState<string | null>(arrangerClips[0]?.id ?? null);
   const [dragState, setDragState] = useState<DragState | null>(null);
@@ -157,10 +158,21 @@ export const Arranger = () => {
   const selectedClipPattern = selectedClip && selectedClipTrack
     ? selectedClipTrack.patterns[selectedClip.patternIndex] ?? Array.from({ length: stepsPerPattern }, () => [])
     : [];
+  const selectedClipAutomation = selectedClip && selectedClipTrack
+    ? selectedClipTrack.automation[selectedClip.patternIndex] ?? {
+        level: Array.from({ length: stepsPerPattern }, () => 0.5),
+        tone: Array.from({ length: stepsPerPattern }, () => 0.5),
+      }
+    : {
+        level: Array.from({ length: stepsPerPattern }, () => 0.5),
+        tone: Array.from({ length: stepsPerPattern }, () => 0.5),
+      };
   const selectedPhraseStep = selectedClipPattern[selectedPhraseStepIndex] ?? [];
   const selectedPhraseActiveSteps = selectedClipPattern.filter((step) => step.length > 0).length;
   const selectedPhraseNoteCount = selectedClipPattern.reduce((sum, step) => sum + step.length, 0);
   const selectedPhraseLeadNote = selectedPhraseStep[0]?.note ?? null;
+  const selectedAutomationLevel = selectedClipAutomation.level[selectedPhraseStepIndex] ?? 0.5;
+  const selectedAutomationTone = selectedClipAutomation.tone[selectedPhraseStepIndex] ?? 0.5;
   const timelineSteps = Math.max(songLengthInBeats, 32);
   const timelineWidth = timelineSteps * PIXELS_PER_STEP;
   const totalDurationSeconds = songLengthInBeats * (60 / bpm) * 0.25;
@@ -514,6 +526,81 @@ export const Arranger = () => {
                       </button>
                     </div>
                   </div>
+
+                  <div className="mt-4 rounded-[14px] border border-[var(--border-soft)] bg-[rgba(0,0,0,0.14)] px-3 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="section-label">Automation</div>
+                        <div className="mt-1 text-xs text-[var(--text-secondary)]">
+                          Level and tone are per phrase step and affect playback in song mode and pattern mode.
+                        </div>
+                      </div>
+                      <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+                        Step {selectedPhraseStepIndex + 1}
+                      </div>
+                    </div>
+
+                    <div className="mt-4 space-y-3">
+                      <AutomationLaneRow
+                        label="Level"
+                        onSelectStep={setSelectedPhraseStepIndex}
+                        selectedStepIndex={selectedPhraseStepIndex}
+                        values={selectedClipAutomation.level}
+                      />
+                      <AutomationLaneRow
+                        label="Tone"
+                        onSelectStep={setSelectedPhraseStepIndex}
+                        selectedStepIndex={selectedPhraseStepIndex}
+                        values={selectedClipAutomation.tone}
+                      />
+                    </div>
+
+                    <div className="mt-4 grid gap-3">
+                      <label className="text-xs text-[var(--text-secondary)]">
+                        <div className="mb-2 flex items-center justify-between">
+                          <span className="section-label">Level focus</span>
+                          <span className="font-mono text-[10px] text-[var(--text-tertiary)]">{Math.round(selectedAutomationLevel * 100)}</span>
+                        </div>
+                        <input
+                          className="w-full"
+                          max="1"
+                          min="0"
+                          onChange={(event) => selectedClip && updatePatternAutomationStep(
+                            selectedClip.trackId,
+                            selectedClip.patternIndex,
+                            selectedPhraseStepIndex,
+                            'level',
+                            Number(event.target.value),
+                          )}
+                          step="0.01"
+                          type="range"
+                          value={selectedAutomationLevel}
+                        />
+                      </label>
+
+                      <label className="text-xs text-[var(--text-secondary)]">
+                        <div className="mb-2 flex items-center justify-between">
+                          <span className="section-label">Tone focus</span>
+                          <span className="font-mono text-[10px] text-[var(--text-tertiary)]">{Math.round(selectedAutomationTone * 100)}</span>
+                        </div>
+                        <input
+                          className="w-full"
+                          max="1"
+                          min="0"
+                          onChange={(event) => selectedClip && updatePatternAutomationStep(
+                            selectedClip.trackId,
+                            selectedClip.patternIndex,
+                            selectedPhraseStepIndex,
+                            'tone',
+                            Number(event.target.value),
+                          )}
+                          step="0.01"
+                          type="range"
+                          value={selectedAutomationTone}
+                        />
+                      </label>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -720,6 +807,44 @@ const QuickActionRow = ({
       <button className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={secondaryAction}>
         {secondaryLabel}
       </button>
+    </div>
+  </div>
+);
+
+const AutomationLaneRow = ({
+  label,
+  onSelectStep,
+  selectedStepIndex,
+  values,
+}: {
+  label: string;
+  onSelectStep: (stepIndex: number) => void;
+  selectedStepIndex: number;
+  values: number[];
+}) => (
+  <div>
+    <div className="mb-2 flex items-center justify-between">
+      <span className="section-label">{label}</span>
+      <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+        step-focused lane
+      </span>
+    </div>
+    <div className="grid grid-cols-4 gap-2">
+      {values.map((value, stepIndex) => (
+        <button
+          className={`rounded-[10px] border px-1 py-2 transition-colors ${selectedStepIndex === stepIndex ? 'border-[rgba(125,211,252,0.34)] bg-[rgba(125,211,252,0.12)]' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.04)]'}`}
+          key={`${label}-${stepIndex}`}
+          onClick={() => onSelectStep(stepIndex)}
+        >
+          <div className="mx-auto flex h-12 w-full items-end justify-center rounded-[8px] bg-[rgba(255,255,255,0.03)] px-1">
+            <span
+              className="w-full rounded-[6px] bg-[var(--accent)]"
+              style={{ height: `${Math.max(12, value * 100)}%` }}
+            />
+          </div>
+          <div className="mt-2 font-mono text-[9px] text-[var(--text-tertiary)]">{stepIndex + 1}</div>
+        </button>
+      ))}
     </div>
   </div>
 );

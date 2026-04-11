@@ -4,6 +4,7 @@ import { getSamplePresetMeta, getSampleUrl } from './sampleLibrary';
 import type {
   ArrangementClip,
   NoteEvent,
+  PatternAutomation,
   Project,
   StepValue,
   Track,
@@ -104,12 +105,13 @@ class ToneEngine {
     return Math.max(clipTail, this.stepsPerPattern);
   }
 
-  private resolvePatternStep(track: Track, songStep: number): { note: StepValue; patternIndex: number } | null {
+  private resolvePatternStep(track: Track, songStep: number): { note: StepValue; patternIndex: number; stepIndex: number } | null {
     if (this.transportMode === 'PATTERN') {
       const patternSteps = track.patterns[this.currentPattern] ?? Array.from({ length: this.stepsPerPattern }, () => []);
       return {
         note: patternSteps[songStep % this.stepsPerPattern] ?? [],
         patternIndex: this.currentPattern,
+        stepIndex: songStep % this.stepsPerPattern,
       };
     }
 
@@ -129,7 +131,27 @@ class ToneEngine {
     return {
       note: patternSteps[localStep] ?? [],
       patternIndex: activeClip.patternIndex,
+      stepIndex: localStep,
     };
+  }
+
+  private getAutomationStep(track: Track, patternIndex: number, stepIndex: number): { level: number; tone: number } {
+    const patternAutomation = track.automation?.[patternIndex];
+
+    return {
+      level: patternAutomation?.level[stepIndex] ?? 0.5,
+      tone: patternAutomation?.tone[stepIndex] ?? 0.5,
+    };
+  }
+
+  private applyAutomationStep(graph: TrackGraph, track: Track, patternIndex: number, stepIndex: number) {
+    const automation = this.getAutomationStep(track, patternIndex, stepIndex);
+    const volumeOffset = (automation.level - 0.5) * 18;
+    const toneFactor = 0.35 + automation.tone * 1.3;
+    const automatedCutoff = Math.max(80, Math.min(18_000, track.params.cutoff * toneFactor));
+
+    graph.channel.volume.rampTo(track.volume + volumeOffset, 0.02);
+    graph.filter.frequency.rampTo(automatedCutoff, 0.02);
   }
 
   private triggerTrack(graph: TrackGraph, track: Track, step: NoteEvent, time: number) {
@@ -176,6 +198,12 @@ class ToneEngine {
 
       const resolved = this.resolvePatternStep(track, songStep);
       if (!resolved || resolved.note.length === 0) {
+        if (resolved) {
+          const graph = this.trackGraphs[track.id];
+          if (graph) {
+            this.applyAutomationStep(graph, track, resolved.patternIndex, resolved.stepIndex);
+          }
+        }
         return;
       }
 
@@ -184,6 +212,8 @@ class ToneEngine {
       if (!graph) {
         return;
       }
+
+      this.applyAutomationStep(graph, track, resolved.patternIndex, resolved.stepIndex);
 
       resolved.note.forEach((event) => {
         this.triggerTrack(graph, track, event, time);

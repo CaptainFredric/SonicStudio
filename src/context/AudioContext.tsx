@@ -114,6 +114,7 @@ interface AudioContextType {
   transportMode: TransportMode;
   undo: () => void;
   updateArrangerClip: (clipId: string, updates: Partial<ArrangementClip>) => void;
+  updatePatternAutomationStep: (trackId: string, patternIndex: number, stepIndex: number, lane: 'level' | 'tone', value: number) => void;
   updateStepEvent: (trackId: string, stepIndex: number, noteIndex: number, updates: Partial<NoteEvent>) => void;
   updateTrackPan: (trackId: string, pan: number) => void;
   updateTrackVolume: (trackId: string, volume: number) => void;
@@ -168,6 +169,7 @@ type EditorAction =
   | { type: 'TRANSPOSE_PATTERN_AT'; semitones: number; trackId: string; patternIndex: number }
   | { type: 'UNDO' }
   | { type: 'UPDATE_ARRANGER_CLIP'; clipId: string; updates: Partial<ArrangementClip> }
+  | { type: 'UPDATE_PATTERN_AUTOMATION_STEP'; trackId: string; patternIndex: number; stepIndex: number; lane: 'level' | 'tone'; value: number }
   | { type: 'UPDATE_STEP_EVENT'; noteIndex: number; stepIndex: number; trackId: string; updates: Partial<NoteEvent> };
 
 const AudioContext = createContext<AudioContextType | null>(null);
@@ -361,6 +363,30 @@ const updatePatternSteps = (
     ...track,
     patterns: {
       ...track.patterns,
+      [patternIndex]: nextPattern,
+    },
+  };
+};
+
+const updateTrackAutomationPattern = (
+  track: Track,
+  patternIndex: number,
+  stepsPerPattern: number,
+  updater: (pattern: { level: number[]; tone: number[] }) => { level: number[]; tone: number[] },
+): Track => {
+  const currentPattern = track.automation?.[patternIndex] ?? {
+    level: Array.from({ length: stepsPerPattern }, () => 0.5),
+    tone: Array.from({ length: stepsPerPattern }, () => 0.5),
+  };
+  const nextPattern = updater({
+    level: [...currentPattern.level],
+    tone: [...currentPattern.tone],
+  });
+
+  return {
+    ...track,
+    automation: {
+      ...track.automation,
       [patternIndex]: nextPattern,
     },
   };
@@ -678,6 +704,23 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
           },
         };
       }));
+
+    case 'UPDATE_PATTERN_AUTOMATION_STEP':
+      return commitProject(state, updateTrack(present, action.trackId, (track) => (
+        updateTrackAutomationPattern(
+          track,
+          action.patternIndex,
+          present.transport.stepsPerPattern,
+          (patternAutomation) => ({
+            ...patternAutomation,
+            [action.lane]: patternAutomation[action.lane].map((entry, entryIndex) => (
+              entryIndex === action.stepIndex
+                ? clamp(action.value, 0, 1)
+                : entry
+            )),
+          }),
+        )
+      )));
 
     case 'CREATE_TRACK': {
       const nextTrack = buildTrack(action.trackType, {
@@ -1367,6 +1410,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       transportMode: project.transport.mode,
       undo: () => dispatch({ type: 'UNDO' }),
       updateArrangerClip: (clipId, updates) => dispatch({ type: 'UPDATE_ARRANGER_CLIP', clipId, updates }),
+      updatePatternAutomationStep: (trackId, patternIndex, stepIndex, lane, value) => dispatch({ type: 'UPDATE_PATTERN_AUTOMATION_STEP', trackId, patternIndex, stepIndex, lane, value }),
       updateStepEvent: (trackId, stepIndex, noteIndex, updates) => dispatch({ type: 'UPDATE_STEP_EVENT', noteIndex, stepIndex, trackId, updates }),
       updateTrackPan: (trackId, pan) => dispatch({ type: 'TOGGLE_PAN', pan, trackId }),
       updateTrackVolume: (trackId, volume) => dispatch({ type: 'TOGGLE_VOLUME', trackId, volume }),
