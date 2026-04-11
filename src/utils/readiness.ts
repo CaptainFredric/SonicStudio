@@ -24,8 +24,8 @@ const READINESS_SLICES: ReadinessSlice[] = [
   },
   {
     label: 'Editing ergonomics',
-    score: 80,
-    rationale: 'The main edit loop stays stronger because song view now understands sample slices too, though larger session navigation and timeline management still need another pass.',
+    score: 83,
+    rationale: 'The arranger now handles longer sessions better with snap control, reveal and jump actions, follow-playhead behavior, and a navigable overview strip, so the song view is substantially easier to stay inside.',
   },
   {
     label: 'Audio output',
@@ -34,8 +34,8 @@ const READINESS_SLICES: ReadinessSlice[] = [
   },
   {
     label: 'Product finish',
-    score: 53,
-    rationale: 'Focus handling and song navigation read more clearly now, but onboarding, trust cues, collaboration, and account level product features are still early.',
+    score: 56,
+    rationale: 'Focus handling and song navigation are more deliberate now, but onboarding, trust cues, collaboration, and account level product features are still early.',
   },
 ];
 

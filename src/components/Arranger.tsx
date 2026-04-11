@@ -16,12 +16,13 @@ import {
 import { useAudio } from '../context/AudioContext';
 import { defaultNoteForTrack, type ArrangementClip, type NoteEvent, type Track } from '../project/schema';
 
-const CLIP_SNAP = 4;
-const MIN_CLIP_LENGTH = CLIP_SNAP;
+const DEFAULT_SNAP = 4;
+const MIN_CLIP_LENGTH = 4;
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const DRAG_HANDLE_WIDTH = 8;
 
 type DragMode = 'move' | 'trim-start' | 'trim-end';
+type SnapSize = 1 | 2 | 4 | 8 | 16;
 type ZoomPreset = 'PHRASE' | 'SECTION' | 'SONG';
 type PaintMode = 'add' | 'remove';
 
@@ -47,6 +48,14 @@ const ZOOM_PIXELS_PER_STEP: Record<ZoomPreset, number> = {
   SONG: 10,
 };
 
+const SNAP_OPTIONS: Array<{ label: string; value: SnapSize }> = [
+  { label: '1', value: 1 },
+  { label: '2', value: 2 },
+  { label: '4', value: 4 },
+  { label: '8', value: 8 },
+  { label: '16', value: 16 },
+];
+
 const DRUM_ROW_LABELS: Record<Track['type'], string> = {
   bass: 'Bass',
   fx: 'FX',
@@ -58,8 +67,12 @@ const DRUM_ROW_LABELS: Record<Track['type'], string> = {
   snare: 'Snare',
 };
 
-const snapStepDelta = (offsetPx: number, pixelsPerStep: number) => (
-  Math.round(offsetPx / pixelsPerStep / CLIP_SNAP) * CLIP_SNAP
+const snapStepDelta = (offsetPx: number, pixelsPerStep: number, snapSize: SnapSize) => (
+  Math.round(offsetPx / pixelsPerStep / snapSize) * snapSize
+);
+
+const snapStepValue = (value: number, snapSize: SnapSize) => (
+  Math.round(value / snapSize) * snapSize
 );
 
 const isDrumTrack = (track: Track) => (
@@ -119,6 +132,30 @@ const getVisibleRangeLabel = (startStep: number, endStep: number) => (
   `${startStep + 1} to ${Math.max(startStep + 1, endStep)}`
 );
 
+const scrollTimelineToStep = (
+  node: HTMLDivElement,
+  step: number,
+  pixelsPerStep: number,
+  align: 'center' | 'nearest' = 'center',
+) => {
+  const targetLeft = step * pixelsPerStep;
+  const viewportStart = node.scrollLeft;
+  const viewportEnd = viewportStart + node.clientWidth;
+
+  if (align === 'nearest' && targetLeft >= viewportStart && targetLeft <= viewportEnd) {
+    return;
+  }
+
+  const nextLeft = align === 'center'
+    ? Math.max(0, targetLeft - node.clientWidth * 0.5)
+    : Math.max(0, targetLeft - node.clientWidth * 0.2);
+
+  node.scrollTo({
+    behavior: 'smooth',
+    left: nextLeft,
+  });
+};
+
 export const Arranger = () => {
   const {
     addArrangerClip,
@@ -153,6 +190,8 @@ export const Arranger = () => {
   const [paintState, setPaintState] = useState<PaintState | null>(null);
   const [selectedPhraseStepIndex, setSelectedPhraseStepIndex] = useState(0);
   const [selectedPhraseNoteIndex, setSelectedPhraseNoteIndex] = useState<number | null>(null);
+  const [snapSize, setSnapSize] = useState<SnapSize>(DEFAULT_SNAP);
+  const [followPlayhead, setFollowPlayhead] = useState(true);
   const [zoomPreset, setZoomPreset] = useState<ZoomPreset>('SECTION');
   const [viewportWidth, setViewportWidth] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
@@ -236,7 +275,7 @@ export const Arranger = () => {
     }
 
     const handlePointerMove = (event: PointerEvent) => {
-      const stepDelta = snapStepDelta(event.clientX - dragState.originX, pixelsPerStep);
+      const stepDelta = snapStepDelta(event.clientX - dragState.originX, pixelsPerStep, snapSize);
 
       if (dragState.mode === 'move') {
         setDragState((current) => current ? {
@@ -293,7 +332,7 @@ export const Arranger = () => {
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
     };
-  }, [arrangerClips, dragState, pixelsPerStep, updateArrangerClip]);
+  }, [arrangerClips, dragState, pixelsPerStep, snapSize, updateArrangerClip]);
 
   useEffect(() => {
     if (!paintState) {
@@ -328,6 +367,33 @@ export const Arranger = () => {
       window.removeEventListener('resize', updateViewport);
     };
   }, [zoomPreset]);
+
+  useEffect(() => {
+    if (!followPlayhead) {
+      return;
+    }
+
+    const node = timelineRef.current;
+    if (!node) {
+      return;
+    }
+
+    scrollTimelineToStep(node, currentStep, pixelsPerStep, 'nearest');
+  }, [currentStep, followPlayhead, pixelsPerStep]);
+
+  useEffect(() => {
+    if (!selectedClip) {
+      return;
+    }
+
+    const node = timelineRef.current;
+    if (!node) {
+      return;
+    }
+
+    const clipMidpoint = selectedClip.startBeat + selectedClip.beatLength / 2;
+    scrollTimelineToStep(node, clipMidpoint, pixelsPerStep, 'nearest');
+  }, [pixelsPerStep, selectedClip?.id]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -367,13 +433,13 @@ export const Arranger = () => {
 
       if (event.key === 'ArrowLeft') {
         event.preventDefault();
-        updateArrangerClip(selectedClip.id, { startBeat: Math.max(0, selectedClip.startBeat - CLIP_SNAP) });
+        updateArrangerClip(selectedClip.id, { startBeat: Math.max(0, selectedClip.startBeat - snapSize) });
         return;
       }
 
       if (event.key === 'ArrowRight') {
         event.preventDefault();
-        updateArrangerClip(selectedClip.id, { startBeat: selectedClip.startBeat + CLIP_SNAP });
+        updateArrangerClip(selectedClip.id, { startBeat: selectedClip.startBeat + snapSize });
         return;
       }
 
@@ -386,6 +452,12 @@ export const Arranger = () => {
       if (event.key === ']') {
         event.preventDefault();
         transformClipPattern(selectedClip.id, 'transpose', 1);
+        return;
+      }
+
+      if (key === 'f' && !event.metaKey && !event.ctrlKey) {
+        event.preventDefault();
+        setFollowPlayhead((current) => !current);
       }
     };
 
@@ -393,7 +465,7 @@ export const Arranger = () => {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [duplicateArrangerClip, makeClipPatternUnique, removeArrangerClip, selectedClip, transformClipPattern, updateArrangerClip]);
+  }, [duplicateArrangerClip, makeClipPatternUnique, removeArrangerClip, selectedClip, snapSize, transformClipPattern, updateArrangerClip]);
 
   const selectClip = (clipId: string) => {
     const clip = arrangerClips.find((candidate) => candidate.id === clipId);
@@ -404,6 +476,35 @@ export const Arranger = () => {
     setSelectedArrangerClipId(clip.id);
     setSelectedTrackId(clip.trackId);
     setCurrentPattern(clip.patternIndex);
+  };
+
+  const revealSelectedClip = () => {
+    if (!selectedClip || !timelineRef.current) {
+      return;
+    }
+
+    scrollTimelineToStep(
+      timelineRef.current,
+      selectedClip.startBeat + selectedClip.beatLength / 2,
+      pixelsPerStep,
+      'center',
+    );
+  };
+
+  const jumpToPlayhead = () => {
+    if (!timelineRef.current) {
+      return;
+    }
+
+    scrollTimelineToStep(timelineRef.current, currentStep, pixelsPerStep, 'center');
+  };
+
+  const jumpToBoundary = (step: number) => {
+    if (!timelineRef.current) {
+      return;
+    }
+
+    scrollTimelineToStep(timelineRef.current, step, pixelsPerStep, 'center');
   };
 
   const beginClipDrag = (clip: ArrangementClip, event: React.PointerEvent<HTMLDivElement>, mode: DragMode) => {
@@ -436,14 +537,14 @@ export const Arranger = () => {
   };
 
   const getSplitBeat = (clip: ArrangementClip) => {
-    const clipCenter = clip.startBeat + Math.floor(clip.beatLength / 2 / CLIP_SNAP) * CLIP_SNAP;
+    const clipCenter = clip.startBeat + Math.floor(clip.beatLength / 2 / snapSize) * snapSize;
     if (transportMode !== 'SONG') {
       return clipCenter;
     }
 
-    const snappedPlayhead = Math.round(currentStep / CLIP_SNAP) * CLIP_SNAP;
-    const minSplit = clip.startBeat + CLIP_SNAP;
-    const maxSplit = clip.startBeat + clip.beatLength - CLIP_SNAP;
+    const snappedPlayhead = snapStepValue(currentStep, snapSize);
+    const minSplit = clip.startBeat + MIN_CLIP_LENGTH;
+    const maxSplit = clip.startBeat + clip.beatLength - MIN_CLIP_LENGTH;
 
     if (snappedPlayhead < minSplit || snappedPlayhead > maxSplit) {
       return clipCenter;
@@ -522,7 +623,7 @@ export const Arranger = () => {
           </button>
         </div>
 
-        <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1.4fr)_auto_auto]">
+        <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1.6fr)_auto_auto_auto]">
           <div className="surface-panel-strong px-4 py-3">
             <div className="section-label">Song overview</div>
             <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-[var(--text-primary)]">
@@ -540,26 +641,117 @@ export const Arranger = () => {
                 }}
               />
             </div>
+            <div className="relative mt-3 h-10 overflow-hidden rounded-[12px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]">
+              <button
+                className="absolute inset-0"
+                onClick={(event) => {
+                  if (!timelineRef.current) {
+                    return;
+                  }
+
+                  const bounds = event.currentTarget.getBoundingClientRect();
+                  const ratio = bounds.width > 0 ? (event.clientX - bounds.left) / bounds.width : 0;
+                  jumpToBoundary(Math.max(0, Math.round(ratio * timelineSteps)));
+                }}
+              />
+              {arrangerClips.map((clip) => {
+                const track = tracks.find((candidate) => candidate.id === clip.trackId);
+                if (!track) {
+                  return null;
+                }
+
+                const isSelected = clip.id === selectedArrangerClipId;
+
+                return (
+                  <button
+                    className={`absolute inset-y-2 rounded-sm border ${isSelected ? 'ring-1 ring-white/60' : ''}`}
+                    key={`overview-${clip.id}`}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      selectClip(clip.id);
+                      jumpToBoundary(clip.startBeat);
+                    }}
+                    style={{
+                      backgroundColor: `${track.color}44`,
+                      borderColor: `${track.color}${isSelected ? 'ee' : '99'}`,
+                      left: `${(clip.startBeat / timelineSteps) * 100}%`,
+                      width: `${Math.max(0.8, (clip.beatLength / timelineSteps) * 100)}%`,
+                    }}
+                  />
+                );
+              })}
+              <div
+                className="pointer-events-none absolute inset-y-0 w-[2px] bg-[rgba(255,255,255,0.85)]"
+                style={{ left: `${(currentStep / timelineSteps) * 100}%` }}
+              />
+            </div>
           </div>
 
           <div className="surface-panel-strong px-4 py-3">
-              <div className="section-label">Zoom</div>
-              <div className="mt-2 flex gap-2">
-                {(['SONG', 'SECTION', 'PHRASE'] as ZoomPreset[]).map((preset) => (
-                  <div key={preset}>
-                    <ZoomButton
-                      active={zoomPreset === preset}
-                      label={preset.charAt(0) + preset.slice(1).toLowerCase()}
-                      onClick={() => setZoomPreset(preset)}
-                    />
-                  </div>
-                ))}
-              </div>
+            <div className="section-label">Zoom</div>
+            <div className="mt-2 flex gap-2">
+              {(['SONG', 'SECTION', 'PHRASE'] as ZoomPreset[]).map((preset) => (
+                <div key={preset}>
+                  <ZoomButton
+                    active={zoomPreset === preset}
+                    label={preset.charAt(0) + preset.slice(1).toLowerCase()}
+                    onClick={() => setZoomPreset(preset)}
+                  />
+                </div>
+              ))}
             </div>
+          </div>
+
+          <div className="surface-panel-strong px-4 py-3">
+            <div className="section-label">Navigation</div>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {SNAP_OPTIONS.map((option) => (
+                <div key={`snap-${option.value}`}>
+                  <ZoomButton
+                    active={snapSize === option.value}
+                    label={`Snap ${option.label}`}
+                    onClick={() => setSnapSize(option.value)}
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <ZoomButton
+                active={followPlayhead}
+                label="Follow"
+                onClick={() => setFollowPlayhead((current) => !current)}
+              />
+              <ZoomButton
+                active={false}
+                label="Reveal Clip"
+                onClick={revealSelectedClip}
+              />
+              <ZoomButton
+                active={false}
+                label="Playhead"
+                onClick={jumpToPlayhead}
+              />
+              <ZoomButton
+                active={false}
+                label="Start"
+                onClick={() => jumpToBoundary(0)}
+              />
+              <ZoomButton
+                active={false}
+                label="End"
+                onClick={() => jumpToBoundary(timelineSteps)}
+              />
+            </div>
+          </div>
 
           <div className="surface-panel-strong px-4 py-3">
             <div className="section-label">Current focus</div>
             <div className="mt-2 text-sm font-medium text-[var(--text-primary)]">{phraseSummary}</div>
+            {selectedClip && (
+              <div className="mt-2 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+                Start {selectedClip.startBeat + 1} · Length {selectedClip.beatLength} · Snap {snapSize}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -1149,7 +1341,7 @@ export const Arranger = () => {
           <div className="mb-3 flex items-center justify-between gap-4">
             <div className="section-label">Timeline</div>
             <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-              {totalBars} bars · snap {CLIP_SNAP} steps · {zoomPreset.toLowerCase()} zoom
+              {totalBars} bars · snap {snapSize} steps · {zoomPreset.toLowerCase()} zoom
             </div>
           </div>
 
@@ -1258,7 +1450,7 @@ export const Arranger = () => {
                                     onPointerDown={(event) => event.stopPropagation()}
                                     onClick={(event) => {
                                       event.stopPropagation();
-                                      updateArrangerClip(clip.id, { startBeat: Math.max(0, clip.startBeat - CLIP_SNAP) });
+                                      updateArrangerClip(clip.id, { startBeat: Math.max(0, clip.startBeat - snapSize) });
                                     }}
                                   >
                                     <span className="font-mono text-xs">{'<'}</span>
@@ -1268,7 +1460,7 @@ export const Arranger = () => {
                                     onPointerDown={(event) => event.stopPropagation()}
                                     onClick={(event) => {
                                       event.stopPropagation();
-                                      updateArrangerClip(clip.id, { startBeat: clip.startBeat + CLIP_SNAP });
+                                      updateArrangerClip(clip.id, { startBeat: clip.startBeat + snapSize });
                                     }}
                                   >
                                     <span className="font-mono text-xs">{'>'}</span>
