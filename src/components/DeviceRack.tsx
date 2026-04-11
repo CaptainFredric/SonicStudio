@@ -7,6 +7,7 @@ import {
   Play,
   Sparkles,
   SlidersHorizontal,
+  Trash2,
   X,
   Waves,
   Zap,
@@ -14,6 +15,7 @@ import {
 
 import { MAX_CUSTOM_SAMPLE_BYTES, getDefaultSamplePreset, getSamplePresetMeta, getSamplePresetOptions } from '../audio/sampleLibrary';
 import { useAudio } from '../context/AudioContext';
+import { defaultNoteForTrack } from '../project/schema';
 import { Knob } from './Knob';
 import { Visualizer } from './Visualizer';
 
@@ -30,18 +32,26 @@ const SAMPLE_WINDOW_PRESETS = [
   { end: 0.75, key: 'q3', label: 'Q3', start: 0.5 },
   { end: 1, key: 'q4', label: 'Q4', start: 0.75 },
 ] as const;
-const SAMPLE_MEMORY_LIMIT = 4;
+const SAMPLE_TRIGGER_MODE_OPTIONS = [
+  { description: 'Use the selected slice for all sample playback on this track.', label: 'Active slice', value: 'active-slice' },
+  { description: 'Ignore slices and play the current full source window.', label: 'Full source', value: 'full-source' },
+  { description: 'Let each step choose its own slice for beat making.', label: 'Step mapped', value: 'step-mapped' },
+] as const;
 
 export const DeviceRack = () => {
   const {
+    createSampleSlice,
     currentPattern,
+    deleteSampleSlice,
     isRecording,
     previewTrack,
+    selectSampleSlice,
     selectedTrackId,
     setTrackParams,
     setTrackSource,
     toggleRecording,
     tracks,
+    updateSampleSlice,
     updateTrackPan,
     updateTrackVolume,
   } = useAudio();
@@ -49,7 +59,9 @@ export const DeviceRack = () => {
   const sampleOptions = track ? getSamplePresetOptions(track.type) : [];
   const activeSampleMeta = track ? getSamplePresetMeta(track.source.samplePreset) : null;
   const sampleWindowWidth = Math.max(0.05, track ? track.source.sampleEnd - track.source.sampleStart : 1);
-  const sampleSliceSlots = Array.from({ length: SAMPLE_MEMORY_LIMIT }, (_, index) => track?.source.sampleSlices[index] ?? null);
+  const selectedSampleSlice = track && typeof track.source.activeSampleSlice === 'number'
+    ? track.source.sampleSlices[track.source.activeSampleSlice] ?? null
+    : null;
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [sampleStatus, setSampleStatus] = useState<string | null>(null);
   const [activeRackView, setActiveRackView] = useState<RackView>('SOURCE');
@@ -70,30 +82,64 @@ export const DeviceRack = () => {
     );
   }
 
-  const storeSampleSlice = (slotIndex: number) => {
-    const nextSlices = [...track.source.sampleSlices];
-    nextSlices[slotIndex] = {
+  const applyCurrentWindowAsSlice = () => {
+    if (!track) {
+      return;
+    }
+
+    if (typeof track.source.activeSampleSlice === 'number' && selectedSampleSlice) {
+      updateSampleSlice(track.id, track.source.activeSampleSlice, {
+        end: track.source.sampleEnd,
+        gain: track.source.sampleGain,
+        reverse: track.source.sampleReverse,
+        start: track.source.sampleStart,
+      });
+      return;
+    }
+
+    createSampleSlice(track.id, {
       end: track.source.sampleEnd,
-      label: `Slice ${slotIndex + 1}`,
+      gain: track.source.sampleGain,
+      reverse: track.source.sampleReverse,
       start: track.source.sampleStart,
-    };
+    });
+  };
+
+  const applyEvenSplit = (parts: number) => {
+    if (!track) {
+      return;
+    }
+
+    const nextSlices = Array.from({ length: Math.min(parts, 8) }, (_, index) => {
+      const start = index / parts;
+      const end = (index + 1) / parts;
+      return {
+        end,
+        gain: 1,
+        label: `Slice ${index + 1}`,
+        reverse: false,
+        start,
+      };
+    });
 
     setTrackSource(track.id, {
-      activeSampleSlice: slotIndex,
+      activeSampleSlice: nextSlices[0] ? 0 : null,
       sampleSlices: nextSlices,
     });
   };
 
-  const recallSampleSlice = (slotIndex: number) => {
-    const slice = track.source.sampleSlices[slotIndex];
-    if (!slice) {
+  const applyRegionTemplate = () => {
+    if (!track) {
       return;
     }
 
     setTrackSource(track.id, {
-      activeSampleSlice: slotIndex,
-      sampleEnd: slice.end,
-      sampleStart: slice.start,
+      activeSampleSlice: 0,
+      sampleSlices: [
+        { end: 0.22, gain: 1, label: 'Attack', reverse: false, start: 0 },
+        { end: 0.7, gain: 1, label: 'Body', reverse: false, start: 0.18 },
+        { end: 1, gain: 1, label: 'Tail', reverse: false, start: 0.62 },
+      ],
     });
   };
 
@@ -140,7 +186,11 @@ export const DeviceRack = () => {
             <div className="flex gap-2">
               <button
                 className="control-chip flex flex-1 items-center justify-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] hover:text-[var(--text-primary)]"
-                onClick={() => void previewTrack(track.id)}
+                onClick={() => void previewTrack(
+                  track.id,
+                  defaultNoteForTrack(track),
+                  typeof track.source.activeSampleSlice === 'number' ? track.source.activeSampleSlice : undefined,
+                )}
               >
                 <Play className="h-3.5 w-3.5" />
                 Audition
@@ -265,22 +315,40 @@ export const DeviceRack = () => {
                           </span>
                         </label>
 
-                        <label className="text-xs text-[var(--text-secondary)]">
-                          <span className="section-label mb-2 block">Playback mode</span>
-                          <select
-                            className="control-field h-11 w-full px-3 text-sm"
-                            onChange={(event) => setTrackSource(track.id, {
-                              samplePlayback: event.target.value as typeof track.source.samplePlayback,
-                            })}
-                            value={track.source.samplePlayback}
-                          >
-                            <option value="pitched">Pitched</option>
-                            <option value="oneshot">One-shot</option>
-                          </select>
-                          <span className="mt-2 block text-[11px] leading-5 text-[var(--text-secondary)]">
-                            One-shot is better for drums and rises. Pitched is better for bass, lead, pad, and pluck parts.
-                          </span>
-                        </label>
+                        <div className="grid gap-3 md:grid-cols-2">
+                          <label className="text-xs text-[var(--text-secondary)]">
+                            <span className="section-label mb-2 block">Playback mode</span>
+                            <select
+                              className="control-field h-11 w-full px-3 text-sm"
+                              onChange={(event) => setTrackSource(track.id, {
+                                samplePlayback: event.target.value as typeof track.source.samplePlayback,
+                              })}
+                              value={track.source.samplePlayback}
+                            >
+                              <option value="pitched">Pitched</option>
+                              <option value="oneshot">One-shot</option>
+                            </select>
+                          </label>
+                          <label className="text-xs text-[var(--text-secondary)]">
+                            <span className="section-label mb-2 block">Trigger mode</span>
+                            <select
+                              className="control-field h-11 w-full px-3 text-sm"
+                              onChange={(event) => setTrackSource(track.id, {
+                                sampleTriggerMode: event.target.value as typeof track.source.sampleTriggerMode,
+                              })}
+                              value={track.source.sampleTriggerMode}
+                            >
+                              {SAMPLE_TRIGGER_MODE_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>
+                                  {option.label}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+                        </div>
+                        <div className="text-[11px] leading-5 text-[var(--text-secondary)]">
+                          {SAMPLE_TRIGGER_MODE_OPTIONS.find((option) => option.value === track.source.sampleTriggerMode)?.description}
+                        </div>
 
                         <div className="rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
                           <div className="section-label">Custom sample</div>
@@ -356,92 +424,46 @@ export const DeviceRack = () => {
                         </div>
 
                         <div className="rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
-                          <div className="section-label">Playback window</div>
+                          <div className="section-label">Source window</div>
                           <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
-                            Trim the sample, flip playback, and rebalance source loudness before it hits the rack.
+                            Full-source playback uses this window. Slices can override gain and reverse when selected.
                           </div>
                           <div className="mt-4 rounded-[12px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
                             <div className="flex items-center justify-between">
-                              <span className="section-label">Window map</span>
+                              <span className="section-label">Region strip</span>
                               <span className="font-mono text-[10px] text-[var(--text-secondary)]">
                                 {Math.round(track.source.sampleStart * 100)}% to {Math.round(track.source.sampleEnd * 100)}%
                               </span>
                             </div>
-                            <div className="mt-3 h-3 overflow-hidden rounded-full bg-[rgba(255,255,255,0.05)]">
+                            <div className="relative mt-3 h-4 overflow-hidden rounded-full bg-[rgba(255,255,255,0.05)]">
                               <div
-                                className="h-full rounded-full bg-[linear-gradient(90deg,#7dd3fc,#67e8f9)]"
+                                className="absolute inset-y-0 rounded-full bg-[linear-gradient(90deg,#7dd3fc,#67e8f9)]"
                                 style={{
-                                  marginLeft: `${track.source.sampleStart * 100}%`,
+                                  left: `${track.source.sampleStart * 100}%`,
                                   width: `${sampleWindowWidth * 100}%`,
                                 }}
                               />
+                              <div className="relative h-full">
+                                {track.source.sampleSlices.map((slice, index) => (
+                                  <div
+                                    className={`absolute inset-y-0 border ${track.source.activeSampleSlice === index ? 'bg-[rgba(125,211,252,0.28)] border-[rgba(125,211,252,0.7)]' : 'bg-[rgba(255,255,255,0.14)] border-[rgba(255,255,255,0.28)]'}`}
+                                    key={`${slice.label}-${index}`}
+                                    style={{
+                                      left: `${slice.start * 100}%`,
+                                      width: `${Math.max(4, (slice.end - slice.start) * 100)}%`,
+                                    }}
+                                  />
+                                ))}
+                              </div>
                             </div>
                           </div>
-                          <div className="mt-4">
-                            <div className="section-label">Quick regions</div>
-                            <div className="mt-3 flex flex-wrap gap-2">
-                              {SAMPLE_WINDOW_PRESETS.map((preset) => (
-                                <button
-                                  key={preset.key}
-                                  className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                                  onClick={() => setTrackSource(track.id, {
-                                    sampleEnd: preset.end,
-                                    sampleStart: preset.start,
-                                  })}
-                                >
-                                  {preset.label}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                          <div className="mt-4">
-                            <div className="section-label">Slice memory</div>
-                            <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                              {sampleSliceSlots.map((slice, slotIndex) => (
-                                <div
-                                  key={`slice-slot-${slotIndex + 1}`}
-                                  className="rounded-[12px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3"
-                                >
-                                  <div className="flex items-center justify-between">
-                                    <span className="section-label">Slot {slotIndex + 1}</span>
-                                    <span className="font-mono text-[10px] text-[var(--text-secondary)]">
-                                      {slice
-                                        ? `${Math.round(slice.start * 100)}% to ${Math.round(slice.end * 100)}%`
-                                        : 'empty'}
-                                    </span>
-                                  </div>
-                                  <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
-                                    {slice
-                                      ? `${slice.label}${track.source.activeSampleSlice === slotIndex ? ' · active' : ''}`
-                                      : 'Store the current window here for quick recall.'}
-                                  </div>
-                                  <div className="mt-3 flex flex-wrap gap-2">
-                                    <button
-                                      className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                                      onClick={() => storeSampleSlice(slotIndex)}
-                                    >
-                                      Save
-                                    </button>
-                                    <button
-                                      className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                                      data-active={track.source.activeSampleSlice === slotIndex}
-                                      disabled={!slice}
-                                      onClick={() => recallSampleSlice(slotIndex)}
-                                    >
-                                      Load
-                                    </button>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
+
                           <div className="mt-4 space-y-3">
                             <InlineSlider
                               label="Start"
                               max={0.95}
                               min={0}
                               onChange={(value) => setTrackSource(track.id, {
-                                activeSampleSlice: null,
                                 sampleEnd: Math.max(value + 0.05, track.source.sampleEnd),
                                 sampleStart: value,
                               })}
@@ -454,7 +476,6 @@ export const DeviceRack = () => {
                               max={1}
                               min={0.05}
                               onChange={(value) => setTrackSource(track.id, {
-                                activeSampleSlice: null,
                                 sampleEnd: value,
                                 sampleStart: Math.min(track.source.sampleStart, value - 0.05),
                               })}
@@ -466,23 +487,34 @@ export const DeviceRack = () => {
                               label="Source gain"
                               max={2}
                               min={0.25}
-                              onChange={(value) => setTrackSource(track.id, { activeSampleSlice: null, sampleGain: value })}
+                              onChange={(value) => setTrackSource(track.id, { sampleGain: value })}
                               step={0.01}
                               value={track.source.sampleGain}
                             />
                           </div>
+
                           <div className="mt-4 flex flex-wrap gap-2">
+                            {SAMPLE_WINDOW_PRESETS.map((preset) => (
+                              <button
+                                key={preset.key}
+                                className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                                onClick={() => setTrackSource(track.id, {
+                                  sampleEnd: preset.end,
+                                  sampleStart: preset.start,
+                                })}
+                              >
+                                {preset.label}
+                              </button>
+                            ))}
                             <button
                               className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                              data-active={track.source.sampleReverse}
-                              onClick={() => setTrackSource(track.id, { activeSampleSlice: null, sampleReverse: !track.source.sampleReverse })}
+                              onClick={() => setTrackSource(track.id, { sampleReverse: !track.source.sampleReverse })}
                             >
                               {track.source.sampleReverse ? 'Reverse on' : 'Reverse off'}
                             </button>
                             <button
                               className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
                               onClick={() => setTrackSource(track.id, {
-                                activeSampleSlice: null,
                                 sampleEnd: 1,
                                 sampleGain: 1,
                                 sampleReverse: false,
@@ -492,6 +524,122 @@ export const DeviceRack = () => {
                               Reset window
                             </button>
                           </div>
+                        </div>
+
+                        <div className="rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <div>
+                              <div className="section-label">Slices</div>
+                              <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
+                                Author real slice regions here, then use step mapping in the arranger for beat work.
+                              </div>
+                            </div>
+                            <button
+                              className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                              disabled={track.source.sampleSlices.length >= 8}
+                              onClick={applyCurrentWindowAsSlice}
+                            >
+                              {selectedSampleSlice ? 'Replace from window' : 'Save current'}
+                            </button>
+                          </div>
+
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            <button className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => applyEvenSplit(2)}>Split 2</button>
+                            <button className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => applyEvenSplit(4)}>Split 4</button>
+                            <button className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => applyEvenSplit(8)}>Split 8</button>
+                            <button className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={applyRegionTemplate}>Attack Body Tail</button>
+                            <button
+                              className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                              disabled={track.source.sampleSlices.length >= 8}
+                              onClick={() => createSampleSlice(track.id, {
+                                end: track.source.sampleEnd,
+                                gain: track.source.sampleGain,
+                                reverse: track.source.sampleReverse,
+                                start: track.source.sampleStart,
+                              })}
+                            >
+                              New slice
+                            </button>
+                          </div>
+
+                          <div className="mt-4 grid gap-2">
+                            {track.source.sampleSlices.length > 0 ? track.source.sampleSlices.map((slice, index) => (
+                              <div
+                                className={`rounded-[12px] border p-3 ${track.source.activeSampleSlice === index ? 'border-[rgba(125,211,252,0.34)] bg-[rgba(125,211,252,0.12)]' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]'}`}
+                                key={`slice-${index}`}
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <button
+                                    className="min-w-0 text-left"
+                                    onClick={() => selectSampleSlice(track.id, index)}
+                                  >
+                                    <div className="truncate text-sm font-medium text-[var(--text-primary)]">{slice.label}</div>
+                                    <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+                                      {Math.round(slice.start * 100)}% to {Math.round(slice.end * 100)}%
+                                    </div>
+                                  </button>
+                                  <div className="flex gap-2">
+                                    <button
+                                      className="ghost-icon-button flex h-8 w-8 items-center justify-center"
+                                      onClick={() => void previewTrack(track.id, defaultNoteForTrack(track), index)}
+                                    >
+                                      <Play className="h-3.5 w-3.5" />
+                                    </button>
+                                    <button
+                                      className="ghost-icon-button flex h-8 w-8 items-center justify-center text-[var(--danger)]"
+                                      onClick={() => deleteSampleSlice(track.id, index)}
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            )) : (
+                              <div className="text-[11px] leading-5 text-[var(--text-secondary)]">
+                                No slices yet. Save the current window or use one of the split actions above.
+                              </div>
+                            )}
+                          </div>
+
+                          {selectedSampleSlice && typeof track.source.activeSampleSlice === 'number' && (
+                            <div className="mt-4 rounded-[12px] border border-[var(--border-soft)] bg-[rgba(0,0,0,0.18)] p-3">
+                              <div className="section-label">Selected slice</div>
+                              <div className="mt-3 grid gap-3">
+                                <label className="text-xs text-[var(--text-secondary)]">
+                                  <span className="section-label mb-2 block">Label</span>
+                                  <input
+                                    className="control-field h-11 w-full px-3 text-sm"
+                                    maxLength={16}
+                                    onChange={(event) => updateSampleSlice(track.id, track.source.activeSampleSlice!, { label: event.target.value })}
+                                    value={selectedSampleSlice.label}
+                                  />
+                                </label>
+                                <InlineSlider
+                                  label="Slice gain"
+                                  max={2}
+                                  min={0.25}
+                                  onChange={(value) => updateSampleSlice(track.id, track.source.activeSampleSlice!, { gain: value })}
+                                  step={0.01}
+                                  value={selectedSampleSlice.gain}
+                                />
+                                <div className="flex flex-wrap gap-2">
+                                  <button
+                                    className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                                    data-active={selectedSampleSlice.reverse}
+                                    onClick={() => updateSampleSlice(track.id, track.source.activeSampleSlice!, { reverse: !selectedSampleSlice.reverse })}
+                                  >
+                                    {selectedSampleSlice.reverse ? 'Slice reverse on' : 'Slice reverse off'}
+                                  </button>
+                                  <button
+                                    className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                                    onClick={applyCurrentWindowAsSlice}
+                                  >
+                                    Replace from current window
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                     ) : (

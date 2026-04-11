@@ -19,13 +19,13 @@ const READINESS_SLICES: ReadinessSlice[] = [
   },
   {
     label: 'Sound design',
-    score: 74,
-    rationale: 'The rack is expressive, more focused, and now supports real sample window shaping, reusable slice memory, and pitched versus one-shot sample behavior, but it still lacks deeper slicing and stronger mixing tools.',
+    score: 81,
+    rationale: 'The rack now supports real slice regions, trigger modes, slice-local gain and reverse, and step-mapped sample behavior, so sample tracks are materially closer to usable instruments instead of trimmed audio placeholders.',
   },
   {
     label: 'Editing ergonomics',
-    score: 79,
-    rationale: 'The main edit loop is substantially better now because clip focus persists, phrase transforms are one action away, and composing from song view requires far less context switching.',
+    score: 80,
+    rationale: 'The main edit loop stays stronger because song view now understands sample slices too, though larger session navigation and timeline management still need another pass.',
   },
   {
     label: 'Audio output',

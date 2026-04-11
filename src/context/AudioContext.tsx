@@ -27,6 +27,7 @@ import {
   type InstrumentType,
   type NoteEvent,
   type Project,
+  type SampleSliceMemory,
   type StudioSession,
   type StudioUIState,
   type SynthParams,
@@ -58,6 +59,7 @@ interface AudioContextType {
   clearPatternAt: (trackId: string, patternIndex: number) => void;
   clearTrack: (trackId: string) => void;
   createTrack: (trackType: InstrumentType) => void;
+  createSampleSlice: (trackId: string, slice?: Partial<SampleSliceMemory>) => void;
   currentPattern: number;
   currentStep: number;
   duplicateArrangerClip: (clipId: string) => void;
@@ -76,7 +78,7 @@ interface AudioContextType {
   lastSavedAt: string | null;
   newSession: () => void;
   patternCount: number;
-  previewTrack: (trackId: string, note?: string) => Promise<void>;
+  previewTrack: (trackId: string, note?: string, sampleSliceIndex?: number) => Promise<void>;
   projectName: string;
   redo: () => void;
   removeArrangerClip: (clipId: string) => void;
@@ -97,6 +99,8 @@ interface AudioContextType {
   setStepsPerPattern: (stepsPerPattern: number) => void;
   setTrackParams: (id: string, params: Partial<SynthParams>) => void;
   setTrackSource: (id: string, source: Partial<TrackSource>) => void;
+  setClipPatternStepSlice: (clipId: string, stepIndex: number, sliceIndex: number | null, note?: string) => void;
+  selectSampleSlice: (trackId: string, sliceIndex: number | null) => void;
   setTransportMode: (mode: TransportMode) => void;
   shiftPatternAt: (trackId: string, patternIndex: number, direction: 'left' | 'right') => void;
   songLengthInBeats: number;
@@ -123,8 +127,10 @@ interface AudioContextType {
   updatePatternAutomationStep: (trackId: string, patternIndex: number, stepIndex: number, lane: 'level' | 'tone', value: number) => void;
   updatePatternStepEvent: (trackId: string, patternIndex: number, stepIndex: number, noteIndex: number, updates: Partial<NoteEvent>) => void;
   updateStepEvent: (trackId: string, stepIndex: number, noteIndex: number, updates: Partial<NoteEvent>) => void;
+  updateSampleSlice: (trackId: string, sliceIndex: number, updates: Partial<SampleSliceMemory>) => void;
   updateTrackPan: (trackId: string, pan: number) => void;
   updateTrackVolume: (trackId: string, volume: number) => void;
+  deleteSampleSlice: (trackId: string, sliceIndex: number) => void;
 }
 
 interface HistoryState {
@@ -143,6 +149,8 @@ type EditorAction =
   | { type: 'CLEAR_TRACK'; trackId: string }
   | { type: 'CLEAR_PATTERN_AT'; trackId: string; patternIndex: number }
   | { type: 'CREATE_TRACK'; trackType: InstrumentType }
+  | { type: 'CREATE_SAMPLE_SLICE'; trackId: string; slice?: Partial<SampleSliceMemory> }
+  | { type: 'DELETE_SAMPLE_SLICE'; trackId: string; sliceIndex: number }
   | { type: 'DUPLICATE_ARRANGER_CLIP'; clipId: string }
   | { type: 'LOOP_ARRANGER_CLIP'; clipId: string; copies: number }
   | { type: 'MAKE_CLIP_PATTERN_UNIQUE'; clipId: string }
@@ -160,7 +168,9 @@ type EditorAction =
   | { type: 'SET_CURRENT_PATTERN'; pattern: number }
   | { type: 'SET_PATTERN_COUNT'; patternCount: number }
   | { type: 'SET_PROJECT_NAME'; name: string }
+  | { type: 'SET_CLIP_PATTERN_STEP_SLICE'; clipId: string; note?: string; sliceIndex: number | null; stepIndex: number }
   | { type: 'SET_SELECTED_TRACK_ID'; trackId: string | null }
+  | { type: 'SELECT_SAMPLE_SLICE'; trackId: string; sliceIndex: number | null }
   | { type: 'SET_STEPS_PER_PATTERN'; stepsPerPattern: number }
   | { type: 'SET_TRACK_NAME'; name: string; trackId: string }
   | { type: 'SET_TRACK_PARAMS'; params: Partial<SynthParams>; trackId: string }
@@ -183,6 +193,7 @@ type EditorAction =
   | { type: 'UPDATE_CLIP_PATTERN_STEP_EVENT'; clipId: string; noteIndex: number; stepIndex: number; updates: Partial<NoteEvent> }
   | { type: 'UPDATE_PATTERN_AUTOMATION_STEP'; trackId: string; patternIndex: number; stepIndex: number; lane: 'level' | 'tone'; value: number }
   | { type: 'UPDATE_PATTERN_STEP_EVENT'; noteIndex: number; stepIndex: number; trackId: string; patternIndex: number; updates: Partial<NoteEvent> }
+  | { type: 'UPDATE_SAMPLE_SLICE'; trackId: string; sliceIndex: number; updates: Partial<SampleSliceMemory> }
   | { type: 'UPDATE_STEP_EVENT'; noteIndex: number; stepIndex: number; trackId: string; updates: Partial<NoteEvent> };
 
 const AudioContext = createContext<AudioContextType | null>(null);
@@ -427,6 +438,102 @@ const updateTrack = (
   return didChange ? { ...project, tracks } : project;
 };
 
+const clampSliceValue = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+const normalizeSliceMemory = (
+  slice: Partial<SampleSliceMemory> | undefined,
+  fallbackLabel: string,
+): SampleSliceMemory => {
+  const start = clampSliceValue(slice?.start ?? 0, 0, 0.95);
+  const requestedEnd = clampSliceValue(slice?.end ?? 1, 0.05, 1);
+
+  return {
+    end: Math.max(start + 0.05, requestedEnd),
+    gain: clampSliceValue(slice?.gain ?? 1, 0.25, 2),
+    label: typeof slice?.label === 'string' && slice.label.trim()
+      ? slice.label.trim().slice(0, 16)
+      : fallbackLabel,
+    reverse: Boolean(slice?.reverse),
+    start,
+  };
+};
+
+const sanitizeActiveSampleSlice = (track: Track, slices: SampleSliceMemory[]) => {
+  const { activeSampleSlice } = track.source;
+
+  if (typeof activeSampleSlice !== 'number') {
+    return null;
+  }
+
+  return activeSampleSlice >= 0 && activeSampleSlice < slices.length ? activeSampleSlice : null;
+};
+
+const remapTrackSampleSlices = (
+  track: Track,
+  remapIndex: (index: number) => number | null,
+): Track => ({
+  ...track,
+  patterns: Object.fromEntries(
+    Object.entries(track.patterns).map(([patternIndex, patternSteps]) => ([
+      patternIndex,
+      patternSteps.map((step) => (
+        step.map((event) => {
+          if (typeof event.sampleSliceIndex !== 'number') {
+            return event;
+          }
+
+          const nextSliceIndex = remapIndex(event.sampleSliceIndex);
+          if (nextSliceIndex === null) {
+            const { sampleSliceIndex: _removed, ...rest } = event;
+            return rest;
+          }
+
+          return {
+            ...event,
+            sampleSliceIndex: nextSliceIndex,
+          };
+        })
+      )),
+    ])),
+  ) as Track['patterns'],
+});
+
+const clearOutOfRangeTrackSliceReferences = (
+  track: Track,
+  sliceCount: number,
+): Track => remapTrackSampleSlices(track, (index) => (index >= 0 && index < sliceCount ? index : null));
+
+const mergeTrackSource = (
+  track: Track,
+  source: Partial<TrackSource>,
+): Track => {
+  const nextSource = {
+    ...track.source,
+    ...source,
+  };
+  const sampleSlices = Array.isArray(nextSource.sampleSlices)
+    ? nextSource.sampleSlices
+        .slice(0, 8)
+        .map((slice, index) => normalizeSliceMemory(slice, `Slice ${index + 1}`))
+    : track.source.sampleSlices;
+  const activeSampleSlice = nextSource.activeSampleSlice === null
+    ? null
+    : typeof nextSource.activeSampleSlice === 'number'
+      ? (nextSource.activeSampleSlice >= 0 && nextSource.activeSampleSlice < sampleSlices.length
+          ? nextSource.activeSampleSlice
+          : null)
+      : sanitizeActiveSampleSlice({ ...track, source: nextSource }, sampleSlices);
+
+  return {
+    ...track,
+    source: {
+      ...nextSource,
+      activeSampleSlice,
+      sampleSlices,
+    },
+  };
+};
+
 const resizeProjectTransport = (
   project: Project,
   patternCount: number,
@@ -627,13 +734,106 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
       })));
 
     case 'SET_TRACK_SOURCE':
+      return commitProject(state, updateTrack(present, action.trackId, (track) => {
+        const mergedTrack = mergeTrackSource(track, action.source);
+
+        if (Array.isArray(action.source.sampleSlices)) {
+          return clearOutOfRangeTrackSliceReferences(mergedTrack, mergedTrack.source.sampleSlices.length);
+        }
+
+        return mergedTrack;
+      }));
+
+    case 'SELECT_SAMPLE_SLICE':
       return commitProject(state, updateTrack(present, action.trackId, (track) => ({
         ...track,
         source: {
           ...track.source,
-          ...action.source,
+          activeSampleSlice: action.sliceIndex !== null
+            && action.sliceIndex >= 0
+            && action.sliceIndex < track.source.sampleSlices.length
+            ? action.sliceIndex
+            : null,
         },
       })));
+
+    case 'CREATE_SAMPLE_SLICE':
+      return commitProject(state, updateTrack(present, action.trackId, (track) => {
+        const nextSliceIndex = track.source.sampleSlices.length;
+        if (nextSliceIndex >= 8) {
+          return track;
+        }
+
+        const nextSlice = normalizeSliceMemory(
+          action.slice ?? {
+            end: track.source.sampleEnd,
+            gain: track.source.sampleGain,
+            reverse: track.source.sampleReverse,
+            start: track.source.sampleStart,
+          },
+          `Slice ${nextSliceIndex + 1}`,
+        );
+
+        return {
+          ...track,
+          source: {
+            ...track.source,
+            activeSampleSlice: nextSliceIndex,
+            sampleSlices: [...track.source.sampleSlices, nextSlice],
+          },
+        };
+      }));
+
+    case 'UPDATE_SAMPLE_SLICE':
+      return commitProject(state, updateTrack(present, action.trackId, (track) => {
+        if (!track.source.sampleSlices[action.sliceIndex]) {
+          return track;
+        }
+
+        const nextSlices = track.source.sampleSlices.map((slice, index) => (
+          index === action.sliceIndex
+            ? normalizeSliceMemory({ ...slice, ...action.updates }, slice.label)
+            : slice
+        ));
+
+        return {
+          ...track,
+          source: {
+            ...track.source,
+            activeSampleSlice: sanitizeActiveSampleSlice(track, nextSlices),
+            sampleSlices: nextSlices,
+          },
+        };
+      }));
+
+    case 'DELETE_SAMPLE_SLICE':
+      return commitProject(state, updateTrack(present, action.trackId, (track) => {
+        if (!track.source.sampleSlices[action.sliceIndex]) {
+          return track;
+        }
+
+        const nextSlices = track.source.sampleSlices.filter((_, index) => index !== action.sliceIndex);
+        const remappedTrack = remapTrackSampleSlices(track, (index) => {
+          if (index === action.sliceIndex) {
+            return null;
+          }
+
+          return index > action.sliceIndex ? index - 1 : index;
+        });
+
+        return {
+          ...remappedTrack,
+          source: {
+            ...remappedTrack.source,
+            activeSampleSlice: track.source.activeSampleSlice === action.sliceIndex
+              ? (nextSlices[0] ? 0 : null)
+              : typeof track.source.activeSampleSlice === 'number' && track.source.activeSampleSlice > action.sliceIndex
+                ? track.source.activeSampleSlice - 1
+                : sanitizeActiveSampleSlice(remappedTrack, nextSlices),
+            sampleSlices: nextSlices,
+          },
+        };
+      }));
 
     case 'TOGGLE_STEP': {
       const nextProject = updateTrack(present, action.trackId, (track) => {
@@ -749,6 +949,42 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
             ...existingStep,
             createStepEvent(targetNote, templateEvent ?? {}),
           ].sort((left, right) => compareNotesDescending(left.note, right.note));
+          return nextSteps;
+        })
+      ));
+
+      return commitProject(state, nextProject, clip.trackId, clip.id);
+    }
+
+    case 'SET_CLIP_PATTERN_STEP_SLICE': {
+      const editableClip = getUniqueClipPatternProject(present, action.clipId);
+      if (!editableClip) {
+        return state;
+      }
+
+      const { clip, project: nextProjectSeed, track } = editableClip;
+      const nextProject = updateTrack(nextProjectSeed, track.id, (candidate) => (
+        updatePatternSteps(candidate, clip.patternIndex, present.transport.stepsPerPattern, (nextSteps) => {
+          const existingStep = cloneStepEvents(nextSteps[action.stepIndex] ?? []);
+
+          if (action.sliceIndex === null) {
+            nextSteps[action.stepIndex] = [];
+            return nextSteps;
+          }
+
+          const normalizedSliceIndex = Math.max(0, action.sliceIndex);
+          const targetNote = action.note ?? existingStep[0]?.note ?? defaultNoteForTrack(track);
+
+          if (existingStep.length === 0) {
+            nextSteps[action.stepIndex] = [createStepEvent(targetNote, { sampleSliceIndex: normalizedSliceIndex })];
+            return nextSteps;
+          }
+
+          nextSteps[action.stepIndex] = existingStep.map((event, noteIndex) => (
+            noteIndex === 0
+              ? createStepEvent(targetNote, { ...event, sampleSliceIndex: normalizedSliceIndex })
+              : event
+          ));
           return nextSteps;
         })
       ));
@@ -1547,7 +1783,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
     persistCurrentSession();
   };
 
-  const previewTrack = async (trackId: string, note?: string) => {
+  const previewTrack = async (trackId: string, note?: string, sampleSliceIndex?: number) => {
     const track = project.tracks.find((candidate) => candidate.id === trackId);
     if (!track) {
       return;
@@ -1557,7 +1793,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       await initAudio();
     }
 
-    engine.previewTrack(track, note ?? defaultNoteForTrack(track));
+    engine.previewTrack(track, note ?? defaultNoteForTrack(track), sampleSliceIndex);
   };
 
   const resetTransportState = () => {
@@ -1708,6 +1944,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       clearPatternAt: (trackId, patternIndex) => dispatch({ type: 'CLEAR_PATTERN_AT', trackId, patternIndex }),
       clearTrack: (trackId) => dispatch({ type: 'CLEAR_TRACK', trackId }),
       createTrack: (trackType) => dispatch({ type: 'CREATE_TRACK', trackType }),
+      createSampleSlice: (trackId, slice) => dispatch({ type: 'CREATE_SAMPLE_SLICE', slice, trackId }),
       currentPattern: project.transport.currentPattern,
       currentStep,
       duplicateArrangerClip: (clipId) => dispatch({ type: 'DUPLICATE_ARRANGER_CLIP', clipId }),
@@ -1744,7 +1981,9 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       setBpm: (bpm) => dispatch({ type: 'SET_BPM', bpm }),
       setCurrentPattern: (pattern) => dispatch({ type: 'SET_CURRENT_PATTERN', pattern }),
       setPatternCount: (patternCount) => dispatch({ type: 'SET_PATTERN_COUNT', patternCount }),
+      setClipPatternStepSlice: (clipId, stepIndex, sliceIndex, note) => dispatch({ type: 'SET_CLIP_PATTERN_STEP_SLICE', clipId, note, sliceIndex, stepIndex }),
       setSelectedTrackId: (trackId) => dispatch({ type: 'SET_SELECTED_TRACK_ID', trackId }),
+      selectSampleSlice: (trackId, sliceIndex) => dispatch({ type: 'SELECT_SAMPLE_SLICE', sliceIndex, trackId }),
       setStepsPerPattern: (stepsPerPattern) => dispatch({ type: 'SET_STEPS_PER_PATTERN', stepsPerPattern }),
       setTrackParams: (trackId, params) => dispatch({ type: 'SET_TRACK_PARAMS', params, trackId }),
       setTrackSource: (trackId, source) => dispatch({ type: 'SET_TRACK_SOURCE', source, trackId }),
@@ -1772,9 +2011,11 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       updateClipPatternStepEvent: (clipId, stepIndex, noteIndex, updates) => dispatch({ type: 'UPDATE_CLIP_PATTERN_STEP_EVENT', clipId, noteIndex, stepIndex, updates }),
       updatePatternAutomationStep: (trackId, patternIndex, stepIndex, lane, value) => dispatch({ type: 'UPDATE_PATTERN_AUTOMATION_STEP', trackId, patternIndex, stepIndex, lane, value }),
       updatePatternStepEvent: (trackId, patternIndex, stepIndex, noteIndex, updates) => dispatch({ type: 'UPDATE_PATTERN_STEP_EVENT', noteIndex, stepIndex, trackId, patternIndex, updates }),
+      updateSampleSlice: (trackId, sliceIndex, updates) => dispatch({ type: 'UPDATE_SAMPLE_SLICE', sliceIndex, trackId, updates }),
       updateStepEvent: (trackId, stepIndex, noteIndex, updates) => dispatch({ type: 'UPDATE_STEP_EVENT', noteIndex, stepIndex, trackId, updates }),
       updateTrackPan: (trackId, pan) => dispatch({ type: 'TOGGLE_PAN', pan, trackId }),
       updateTrackVolume: (trackId, volume) => dispatch({ type: 'TOGGLE_VOLUME', trackId, volume }),
+      deleteSampleSlice: (trackId, sliceIndex) => dispatch({ type: 'DELETE_SAMPLE_SLICE', sliceIndex, trackId }),
     }}>
       {children}
     </AudioContext.Provider>

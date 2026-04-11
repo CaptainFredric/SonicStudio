@@ -37,7 +37,8 @@ interface DragState {
 
 interface PaintState {
   mode: PaintMode;
-  note: string;
+  note?: string;
+  sliceIndex?: number;
 }
 
 const ZOOM_PIXELS_PER_STEP: Record<ZoomPreset, number> = {
@@ -129,9 +130,11 @@ export const Arranger = () => {
     makeClipPatternUnique,
     patternCount,
     removeArrangerClip,
+    selectSampleSlice,
     selectedArrangerClipId,
     selectedTrackId,
     setActiveView,
+    setClipPatternStepSlice,
     setCurrentPattern,
     setSelectedArrangerClipId,
     setSelectedTrackId,
@@ -190,6 +193,11 @@ export const Arranger = () => {
       ? buildComposerRows(selectedClipTrack, selectedPhraseNote?.note ?? selectedPhraseStep[0]?.note ?? null)
       : []
   ), [selectedClipTrack, selectedPhraseNote?.note, selectedPhraseStep]);
+  const isStepMappedSampleTrack = Boolean(
+    selectedClipTrack
+    && selectedClipTrack.source.engine === 'sample'
+    && selectedClipTrack.source.sampleTriggerMode === 'step-mapped',
+  );
   const timelineSteps = Math.max(songLengthInBeats, 32);
   const timelineWidth = timelineSteps * pixelsPerStep;
   const totalBars = formatBars(timelineSteps);
@@ -200,6 +208,7 @@ export const Arranger = () => {
   const selectedPhraseNoteCount = selectedClipPattern.reduce((sum, step) => sum + step.length, 0);
   const selectedAutomationLevel = selectedClipAutomation.level[selectedPhraseStepIndex] ?? 0.5;
   const selectedAutomationTone = selectedClipAutomation.tone[selectedPhraseStepIndex] ?? 0.5;
+  const selectedPhraseSliceIndex = selectedPhraseStep[0]?.sampleSliceIndex ?? null;
 
   const laneData = useMemo(() => (
     tracks.map((track) => ({
@@ -464,6 +473,31 @@ export const Arranger = () => {
     toggleClipPatternStep(selectedClip.id, stepIndex, note, paintState.mode);
   };
 
+  const beginSlicePaint = (stepIndex: number, sliceIndex: number | null, isActive: boolean) => {
+    if (!selectedClip || sliceIndex === null) {
+      return;
+    }
+
+    const mode: PaintMode = isActive ? 'remove' : 'add';
+    setSelectedPhraseStepIndex(stepIndex);
+    setSelectedPhraseNoteIndex(0);
+    setPaintState({ mode, sliceIndex });
+    setClipPatternStepSlice(selectedClip.id, stepIndex, mode === 'remove' ? null : sliceIndex);
+  };
+
+  const continueSlicePaint = (stepIndex: number) => {
+    if (!paintState || !selectedClip || typeof paintState.sliceIndex !== 'number') {
+      return;
+    }
+
+    setSelectedPhraseStepIndex(stepIndex);
+    setClipPatternStepSlice(
+      selectedClip.id,
+      stepIndex,
+      paintState.mode === 'remove' ? null : paintState.sliceIndex,
+    );
+  };
+
   const phraseSummary = selectedClip && selectedClipTrack
     ? `${selectedClipTrack.name} · Pattern ${String.fromCharCode(65 + selectedClip.patternIndex)} · ${selectedClip.beatLength} steps · ${selectedPhraseActiveSteps} active`
     : 'Select a clip to compose directly in song view';
@@ -637,7 +671,9 @@ export const Arranger = () => {
                   <div>
                     <div className="section-label">Phrase composer</div>
                     <div className="mt-2 text-xs text-[var(--text-secondary)]">
-                      {isDrumTrack(selectedClipTrack)
+                      {isStepMappedSampleTrack
+                        ? 'Map saved sample slices directly to song steps.'
+                        : isDrumTrack(selectedClipTrack)
                         ? 'Paint drum triggers directly in song view.'
                         : 'Paint notes directly in song view, then use the note stack below for precise shaping.'}
                     </div>
@@ -647,7 +683,54 @@ export const Arranger = () => {
                   </span>
                 </div>
 
-                {isDrumTrack(selectedClipTrack) ? (
+                {isStepMappedSampleTrack ? (
+                  <div className="mt-4">
+                    <div className="mb-3 flex flex-wrap gap-2">
+                      {selectedClipTrack.source.sampleSlices.map((slice, index) => (
+                        <button
+                          className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                          data-active={selectedClipTrack.source.activeSampleSlice === index}
+                          key={`${slice.label}-${index}`}
+                          onClick={() => selectSampleSlice(selectedClipTrack.id, index)}
+                        >
+                          {slice.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-[72px_repeat(16,minmax(0,1fr))] gap-1">
+                      <div className="flex items-center text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                        Slice
+                      </div>
+                      {composerSteps.map((step, stepIndex) => {
+                        const activeSliceIndex = step[0]?.sampleSliceIndex ?? null;
+                        const isActive = typeof activeSliceIndex === 'number';
+                        const currentSliceIndex = typeof selectedClipTrack.source.activeSampleSlice === 'number'
+                          ? selectedClipTrack.source.activeSampleSlice
+                          : selectedClipTrack.source.sampleSlices[0] ? 0 : null;
+                        const currentSliceLabel = typeof activeSliceIndex === 'number'
+                          ? selectedClipTrack.source.sampleSlices[activeSliceIndex]?.label ?? `Slice ${activeSliceIndex + 1}`
+                          : 'Rest';
+
+                        return (
+                          <button
+                            className={`h-12 rounded-[10px] border px-1 transition-colors ${isActive ? 'border-[rgba(125,211,252,0.34)] bg-[rgba(125,211,252,0.12)] text-[var(--accent-strong)]' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.04)]'}`}
+                            key={`slice-step-${stepIndex}`}
+                            onPointerDown={(event) => {
+                              event.preventDefault();
+                              beginSlicePaint(stepIndex, currentSliceIndex, isActive && activeSliceIndex === currentSliceIndex);
+                            }}
+                            onPointerEnter={() => continueSlicePaint(stepIndex)}
+                          >
+                            <div className="font-mono text-[10px]">{stepIndex + 1}</div>
+                            <div className="mt-1 truncate text-[9px] uppercase tracking-[0.12em]">
+                              {currentSliceLabel}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : isDrumTrack(selectedClipTrack) ? (
                   <div className="mt-4">
                     <div className="grid grid-cols-[72px_repeat(16,minmax(0,1fr))] gap-1">
                       <div className="flex items-center text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
@@ -729,7 +812,7 @@ export const Arranger = () => {
                       Step {selectedPhraseStepIndex + 1} · {selectedPhraseStep.length > 0 ? `${selectedPhraseStep.length} note${selectedPhraseStep.length === 1 ? '' : 's'}` : 'Rest'}
                     </div>
                   </div>
-                  {!isDrumTrack(selectedClipTrack) && (
+                  {!isDrumTrack(selectedClipTrack) && !isStepMappedSampleTrack && (
                     <button
                       className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
                       onClick={() => {
@@ -743,7 +826,94 @@ export const Arranger = () => {
                   )}
                 </div>
 
-                {!isDrumTrack(selectedClipTrack) ? (
+                {isStepMappedSampleTrack ? (
+                  <div className="mt-4 grid gap-3">
+                    <div className="grid gap-2">
+                      {selectedClipTrack.source.sampleSlices.length > 0 ? selectedClipTrack.source.sampleSlices.map((slice, index) => {
+                        const isAssigned = selectedPhraseSliceIndex === index;
+                        return (
+                          <button
+                            className={`flex items-center justify-between rounded-[12px] border px-3 py-3 text-left transition-colors ${isAssigned ? 'border-[rgba(125,211,252,0.34)] bg-[rgba(125,211,252,0.12)] text-[var(--accent-strong)]' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.04)] hover:text-[var(--text-primary)]'}`}
+                            key={`${slice.label}-${index}`}
+                            onClick={() => {
+                              setSelectedPhraseNoteIndex(0);
+                              setClipPatternStepSlice(selectedClip.id, selectedPhraseStepIndex, index);
+                            }}
+                          >
+                            <div>
+                              <div className="font-mono text-[12px]">{slice.label}</div>
+                              <div className="mt-1 text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+                                {Math.round(slice.start * 100)} to {Math.round(slice.end * 100)} · gain {slice.gain.toFixed(2)}
+                              </div>
+                            </div>
+                            <span className="rounded-sm border border-[var(--border-soft)] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.14em]">
+                              {isAssigned ? 'assigned' : index + 1}
+                            </span>
+                          </button>
+                        );
+                      }) : (
+                        <div className="text-xs text-[var(--text-secondary)]">
+                          Create slices in the rack first, then map them here.
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="grid gap-3">
+                      <label className="text-xs text-[var(--text-secondary)]">
+                        <div className="mb-2 flex items-center justify-between">
+                          <span className="section-label">Velocity</span>
+                          <span className="font-mono text-[10px] text-[var(--text-tertiary)]">{Math.round((selectedPhraseStep[0]?.velocity ?? 0.82) * 100)}</span>
+                        </div>
+                        <input
+                          className="w-full"
+                          disabled={selectedPhraseStep.length === 0}
+                          max="1"
+                          min="0.1"
+                          onChange={(event) => updateClipPatternStepEvent(
+                            selectedClip.id,
+                            selectedPhraseStepIndex,
+                            0,
+                            { velocity: Number(event.target.value) },
+                          )}
+                          step="0.01"
+                          type="range"
+                          value={selectedPhraseStep[0]?.velocity ?? 0.82}
+                        />
+                      </label>
+
+                      <label className="text-xs text-[var(--text-secondary)]">
+                        <div className="mb-2 flex items-center justify-between">
+                          <span className="section-label">Gate</span>
+                          <span className="font-mono text-[10px] text-[var(--text-tertiary)]">{(selectedPhraseStep[0]?.gate ?? 1).toFixed(2)}</span>
+                        </div>
+                        <input
+                          className="w-full"
+                          disabled={selectedPhraseStep.length === 0}
+                          max="4"
+                          min="0.25"
+                          onChange={(event) => updateClipPatternStepEvent(
+                            selectedClip.id,
+                            selectedPhraseStepIndex,
+                            0,
+                            { gate: Number(event.target.value) },
+                          )}
+                          step="0.05"
+                          type="range"
+                          value={selectedPhraseStep[0]?.gate ?? 1}
+                        />
+                      </label>
+
+                      <button
+                        className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--danger)]"
+                        disabled={selectedPhraseStep.length === 0}
+                        onClick={() => setClipPatternStepSlice(selectedClip.id, selectedPhraseStepIndex, null)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Clear step
+                      </button>
+                    </div>
+                  </div>
+                ) : !isDrumTrack(selectedClipTrack) ? (
                   selectedPhraseStep.length > 0 ? (
                     <>
                       <div className="mt-4 grid gap-2">

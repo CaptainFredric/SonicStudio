@@ -5,17 +5,21 @@ export type OscillatorShape = 'sine' | 'triangle' | 'sawtooth' | 'square';
 export type FilterMode = 'lowpass' | 'bandpass' | 'highpass';
 export type SourceEngine = 'synth' | 'sample';
 export type SamplePlaybackMode = 'pitched' | 'oneshot';
+export type SampleTriggerMode = 'active-slice' | 'full-source' | 'step-mapped';
 export type SamplePreset = 'kick-thud' | 'snare-crack' | 'hat-air' | 'bass-pluck' | 'lead-glass' | 'pad-haze' | 'pluck-mallet' | 'fx-rise';
 
 export interface SampleSliceMemory {
   end: number;
+  gain: number;
   label: string;
+  reverse: boolean;
   start: number;
 }
 
 export interface NoteEvent {
   gate: number;
   note: string;
+  sampleSliceIndex?: number;
   velocity: number;
 }
 
@@ -74,6 +78,7 @@ export interface TrackSource {
   sampleReverse: boolean;
   sampleSlices: SampleSliceMemory[];
   sampleStart: number;
+  sampleTriggerMode: SampleTriggerMode;
   waveform: OscillatorShape;
 }
 
@@ -133,7 +138,7 @@ export const MAX_PATTERN_COUNT = 8;
 export const MAX_STEPS_PER_PATTERN = 64;
 export const MIN_PATTERN_COUNT = 1;
 export const MIN_STEPS_PER_PATTERN = 8;
-export const PROJECT_SCHEMA_VERSION = 8;
+export const PROJECT_SCHEMA_VERSION = 9;
 
 export const INITIAL_PARAMS: SynthParams = {
   cutoff: 2000,
@@ -165,6 +170,7 @@ export const INITIAL_SOURCE: TrackSource = {
   sampleReverse: false,
   sampleSlices: [],
   sampleStart: 0,
+  sampleTriggerMode: 'active-slice',
   waveform: 'sawtooth',
 };
 
@@ -181,19 +187,19 @@ const TRACK_PRESETS: Record<
   kick: {
     color: '#f87171',
     name: 'Deep Kick',
-    source: { octaveShift: -2, samplePlayback: 'oneshot', samplePreset: 'kick-thud', waveform: 'sine' },
+    source: { octaveShift: -2, samplePlayback: 'oneshot', samplePreset: 'kick-thud', sampleTriggerMode: 'step-mapped', waveform: 'sine' },
     volume: -6,
   },
   snare: {
     color: '#fb923c',
     name: 'Sharp Snare',
-    source: { samplePlayback: 'oneshot', samplePreset: 'snare-crack', waveform: 'square' },
+    source: { samplePlayback: 'oneshot', samplePreset: 'snare-crack', sampleTriggerMode: 'step-mapped', waveform: 'square' },
     volume: -6,
   },
   hihat: {
     color: '#fbbf24',
     name: 'Neon Hat',
-    source: { detune: 12, samplePlayback: 'oneshot', samplePreset: 'hat-air', waveform: 'square' },
+    source: { detune: 12, samplePlayback: 'oneshot', samplePreset: 'hat-air', sampleTriggerMode: 'step-mapped', waveform: 'square' },
     volume: -15,
   },
   bass: {
@@ -228,7 +234,7 @@ const TRACK_PRESETS: Record<
     color: '#fb7185',
     name: 'Motion FX',
     params: { attack: 0.02, bitCrush: 0.18, chorusSend: 0.16, decay: 0.6, delaySend: 0.58, distortion: 0.12, filterMode: 'bandpass', release: 1.4, reverbSend: 0.4, sustain: 0.38, vibratoDepth: 0.22, vibratoRate: 6.4 },
-    source: { detune: 18, octaveShift: 1, portamento: 0.07, samplePlayback: 'oneshot', samplePreset: 'fx-rise', waveform: 'sawtooth' },
+    source: { detune: 18, octaveShift: 1, portamento: 0.07, samplePlayback: 'oneshot', samplePreset: 'fx-rise', sampleTriggerMode: 'step-mapped', waveform: 'sawtooth' },
     volume: -18,
   },
 };
@@ -279,6 +285,12 @@ const isSamplePlaybackMode = (value: unknown): value is SamplePlaybackMode => (
   || value === 'oneshot'
 );
 
+const isSampleTriggerMode = (value: unknown): value is SampleTriggerMode => (
+  value === 'active-slice'
+  || value === 'full-source'
+  || value === 'step-mapped'
+);
+
 const isSamplePreset = (value: unknown): value is SamplePreset => (
   value === 'kick-thud'
   || value === 'snare-crack'
@@ -324,9 +336,15 @@ const normalizeSampleSliceMemory = (
 
   return {
     end,
+    gain: clamp(
+      typeof candidate.gain === 'number' ? candidate.gain : 1,
+      0.25,
+      2,
+    ),
     label: typeof candidate.label === 'string' && candidate.label.trim()
       ? candidate.label.trim().slice(0, 16)
       : `Slice ${index + 1}`,
+    reverse: Boolean(candidate.reverse),
     start,
   };
 };
@@ -404,6 +422,9 @@ const normalizeSource = (
     sampleReverse: Boolean(candidate.sampleReverse),
     sampleSlices,
     sampleStart,
+    sampleTriggerMode: isSampleTriggerMode(candidate.sampleTriggerMode)
+      ? candidate.sampleTriggerMode
+      : presetSource?.sampleTriggerMode ?? INITIAL_SOURCE.sampleTriggerMode,
     waveform: isOscillatorShape(candidate.waveform)
       ? candidate.waveform
       : presetSource?.waveform ?? INITIAL_SOURCE.waveform,
@@ -474,6 +495,9 @@ export const createStepEvent = (
 ): NoteEvent => ({
   gate: clampStepGate(options.gate ?? 1),
   note,
+  sampleSliceIndex: typeof options.sampleSliceIndex === 'number' && Number.isInteger(options.sampleSliceIndex)
+    ? Math.max(0, options.sampleSliceIndex)
+    : undefined,
   velocity: clampStepVelocity(options.velocity ?? 0.82),
 });
 
@@ -490,6 +514,7 @@ const normalizeStepValue = (value: unknown): StepValue => {
 
       return [createStepEvent(candidate.note, {
         gate: typeof candidate.gate === 'number' ? candidate.gate : 1,
+        sampleSliceIndex: typeof candidate.sampleSliceIndex === 'number' ? candidate.sampleSliceIndex : undefined,
         velocity: typeof candidate.velocity === 'number' ? candidate.velocity : 0.82,
       })];
     });
@@ -501,6 +526,7 @@ const normalizeStepValue = (value: unknown): StepValue => {
 
   return [createStepEvent(value.note, {
     gate: typeof value.gate === 'number' ? value.gate : 1,
+    sampleSliceIndex: typeof value.sampleSliceIndex === 'number' ? value.sampleSliceIndex : undefined,
     velocity: typeof value.velocity === 'number' ? value.velocity : 0.82,
   })];
 };

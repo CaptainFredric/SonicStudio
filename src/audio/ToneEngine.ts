@@ -6,6 +6,7 @@ import type {
   NoteEvent,
   PatternAutomation,
   Project,
+  SampleSliceMemory,
   StepValue,
   Track,
   TransportMode,
@@ -300,7 +301,7 @@ class ToneEngine {
     };
   }
 
-  public previewTrack(track: Track, note: string) {
+  public previewTrack(track: Track, note: string, sampleSliceIndex?: number) {
     if (!this.isInitialized) {
       return;
     }
@@ -309,6 +310,7 @@ class ToneEngine {
     const previewNote: NoteEvent = {
       gate: track.source.engine === 'sample' ? 2 : track.type === 'pad' ? 2.5 : 1.25,
       note,
+      sampleSliceIndex,
       velocity: 0.88,
     };
 
@@ -375,6 +377,31 @@ class ToneEngine {
     return Math.pow(2, (targetMidi - rootMidi) / 12);
   }
 
+  private resolveSampleSlice(track: Track, step: NoteEvent): SampleSliceMemory | null {
+    const source = track.source;
+
+    if (source.sampleTriggerMode === 'step-mapped' && typeof step.sampleSliceIndex === 'number') {
+      return source.sampleSlices[step.sampleSliceIndex] ?? null;
+    }
+
+    if (source.sampleTriggerMode === 'active-slice' && typeof source.activeSampleSlice === 'number') {
+      return source.sampleSlices[source.activeSampleSlice] ?? null;
+    }
+
+    return null;
+  }
+
+  private getSampleSliceWindow(track: Track, step: NoteEvent) {
+    const activeSlice = this.resolveSampleSlice(track, step);
+
+    return {
+      end: activeSlice?.end ?? track.source.sampleEnd,
+      gain: activeSlice?.gain ?? track.source.sampleGain,
+      reverse: activeSlice?.reverse ?? track.source.sampleReverse,
+      start: activeSlice?.start ?? track.source.sampleStart,
+    };
+  }
+
   private triggerSampleTrack(
     graph: TrackGraph,
     track: Track,
@@ -386,9 +413,10 @@ class ToneEngine {
       return;
     }
 
+    const sliceWindow = this.getSampleSliceWindow(track, step);
     const sampleDuration = graph.sampleBuffer.duration;
-    const windowStart = sampleDuration * track.source.sampleStart;
-    const windowEnd = sampleDuration * track.source.sampleEnd;
+    const windowStart = sampleDuration * sliceWindow.start;
+    const windowEnd = sampleDuration * sliceWindow.end;
     const playbackRate = this.getSamplePlaybackRate(track, step.note, graph.sampleRootNote);
     const trimmedDuration = Math.max(0.02, windowEnd - windowStart);
     const scheduledDuration = track.source.samplePlayback === 'oneshot'
@@ -398,11 +426,11 @@ class ToneEngine {
       fadeOut: Math.min(0.05, scheduledDuration * 0.25),
       loop: false,
       playbackRate,
-      reverse: track.source.sampleReverse,
+      reverse: sliceWindow.reverse,
       url: graph.sampleBuffer,
     });
 
-    player.volume.value = Tone.gainToDb(Math.max(0.0001, step.velocity * track.source.sampleGain));
+    player.volume.value = Tone.gainToDb(Math.max(0.0001, step.velocity * sliceWindow.gain));
     player.connect(graph.vibrato);
     player.start(time, windowStart, scheduledDuration);
     player.stop(time + scheduledDuration + 0.06);
