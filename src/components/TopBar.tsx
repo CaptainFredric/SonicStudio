@@ -1,20 +1,23 @@
 import React, { useEffect, useState } from 'react';
 import {
   Circle,
+  Compass,
+  Layers3,
   Play,
   Radio,
   Redo2,
   Save,
+  SlidersHorizontal,
   Square,
   Undo2,
   Waves,
 } from 'lucide-react';
 
 import { useAudio } from '../context/AudioContext';
-import { getStudioReadinessAssessment } from '../utils/readiness';
 
 export const TopBar = () => {
   const {
+    activeView,
     bpm,
     canRedo,
     canUndo,
@@ -30,6 +33,8 @@ export const TopBar = () => {
     renameProject,
     saveProject,
     saveStatus,
+    selectedTrackId,
+    setActiveView,
     setBpm,
     setCurrentPattern,
     setTransportMode,
@@ -38,10 +43,11 @@ export const TopBar = () => {
     togglePlay,
     toggleRecording,
     transportMode,
+    tracks,
     undo,
   } = useAudio();
   const [draftProjectName, setDraftProjectName] = useState(projectName);
-  const readiness = getStudioReadinessAssessment();
+  const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
 
   useEffect(() => {
     setDraftProjectName(projectName);
@@ -191,25 +197,63 @@ export const TopBar = () => {
           </div>
         )}
       </div>
-      <div className="mt-4 grid gap-3 lg:grid-cols-3">
-        <ReadinessCard
-          caption="Overall path"
-          detail="Useful browser studio, but still short of desktop-class depth."
-          label="Studio readiness"
-          value={readiness.overallScore}
-        />
-        <ReadinessCard
-          caption="Against GarageBand"
-          detail="Composition and arrangement are moving, editing depth still lags."
-          label="Competitor fit"
-          value={readiness.competitorScore}
-        />
-        <ReadinessCard
-          caption="Monetization now"
-          detail="Needs stronger polish, trust, and workflow differentiation first."
-          label="Commercial readiness"
-          value={readiness.monetizationScore}
-        />
+      <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+        <div className="surface-panel-muted px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="section-label">Current focus</div>
+              <div className="mt-1 text-sm font-medium text-[var(--text-primary)]">
+                {selectedTrack ? `${selectedTrack.name} · ${selectedTrack.type}` : 'No track selected'}
+              </div>
+              <div className="mt-1 text-[11px] text-[var(--text-secondary)]">
+                {selectedTrack
+                  ? `${selectedTrack.source.engine === 'sample' ? 'Sample lane' : 'Synth lane'} · Pattern ${String.fromCharCode(65 + currentPattern)} · ${transportMode === 'SONG' ? 'Song transport' : 'Pattern transport'}`
+                  : 'Pick a track to keep editing and sound design tied together.'}
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <WorkflowButton
+                active={activeView === 'SEQUENCER'}
+                icon={<Compass className="h-3.5 w-3.5" />}
+                label="Grid"
+                onClick={() => setActiveView('SEQUENCER')}
+              />
+              <WorkflowButton
+                active={activeView === 'PIANO_ROLL'}
+                icon={<SlidersHorizontal className="h-3.5 w-3.5" />}
+                label="Notes"
+                onClick={() => setActiveView('PIANO_ROLL')}
+              />
+              <WorkflowButton
+                active={activeView === 'ARRANGER'}
+                icon={<Layers3 className="h-3.5 w-3.5" />}
+                label="Song"
+                onClick={() => setActiveView('ARRANGER')}
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="surface-panel-muted px-4 py-3">
+          <div className="section-label">Working rhythm</div>
+          <div className="mt-2 grid gap-2 sm:grid-cols-3">
+            <MiniStat
+              label="Track"
+              value={selectedTrack ? selectedTrack.name : 'None'}
+            />
+            <MiniStat
+              label="Pattern"
+              value={String.fromCharCode(65 + currentPattern)}
+            />
+            <MiniStat
+              label="Bars"
+              value={String(Math.max(1, Math.ceil(songLengthInBeats / 16)))}
+            />
+          </div>
+          <div className="mt-3 text-[11px] leading-5 text-[var(--text-secondary)]">
+            The fastest loop in SonicStudio should be choose track, place phrase, shape tone, then move back into song view. This strip keeps that cycle visible.
+          </div>
+        </div>
       </div>
     </header>
   );
@@ -292,32 +336,37 @@ const ModeButton = ({
   </button>
 );
 
-const ReadinessCard = ({
-  caption,
-  detail,
+const WorkflowButton = ({
+  active,
+  icon,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+}) => (
+  <button
+    className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+    data-active={active}
+    onClick={onClick}
+  >
+    {icon}
+    {label}
+  </button>
+);
+
+const MiniStat = ({
   label,
   value,
 }: {
-  caption: string;
-  detail: string;
   label: string;
-  value: number;
+  value: string;
 }) => (
-  <div className="surface-panel-muted px-4 py-3">
-    <div className="flex items-center justify-between gap-3">
-      <div>
-        <div className="section-label">{label}</div>
-        <div className="mt-1 text-sm font-medium text-[var(--text-primary)]">{caption}</div>
-      </div>
-      <div className="font-mono text-lg text-[var(--accent-strong)]">{value}%</div>
-    </div>
-    <div className="mt-3 h-2 overflow-hidden rounded-full bg-[rgba(255,255,255,0.05)]">
-      <div
-        className="h-full rounded-full bg-[linear-gradient(90deg,rgba(114,217,255,0.55),rgba(223,246,255,0.92))]"
-        style={{ width: `${value}%` }}
-      />
-    </div>
-    <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">{detail}</div>
+  <div className="rounded-[10px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-2">
+    <div className="section-label">{label}</div>
+    <div className="mt-1 truncate text-xs font-medium text-[var(--text-primary)]">{value}</div>
   </div>
 );
 

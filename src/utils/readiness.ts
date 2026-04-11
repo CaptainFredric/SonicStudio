@@ -14,18 +14,18 @@ export interface ReadinessAssessment {
 const READINESS_SLICES: ReadinessSlice[] = [
   {
     label: 'Composition core',
-    score: 72,
-    rationale: 'Pattern editing, clip arrangement, phrase automation, and sample or synth sources are all present and usable.',
+    score: 74,
+    rationale: 'Pattern editing, clip arrangement, phrase automation, and sample or synth sources are all present and easier to move through.',
   },
   {
     label: 'Sound design',
-    score: 64,
-    rationale: 'The rack is expressive enough for browser work, but it still lacks richer instrument depth, sample slicing, and stronger mixing tools.',
+    score: 67,
+    rationale: 'The rack is expressive and now more focused, but it still lacks richer instrument depth, sample slicing, and stronger mixing tools.',
   },
   {
     label: 'Editing ergonomics',
-    score: 58,
-    rationale: 'Arranger editing is now materially better, but advanced note editing, drag operations, and dense session navigation still trail mature DAWs.',
+    score: 66,
+    rationale: 'The main edit loop is materially clearer now, but advanced note editing, drag operations, and dense session navigation still trail mature DAWs.',
   },
   {
     label: 'Audio output',
@@ -34,8 +34,8 @@ const READINESS_SLICES: ReadinessSlice[] = [
   },
   {
     label: 'Product finish',
-    score: 46,
-    rationale: 'The shell is now more stable, but onboarding, trust cues, collaboration, and account level product features are still early.',
+    score: 49,
+    rationale: 'The shell is more stable and easier to read, but onboarding, trust cues, collaboration, and account level product features are still early.',
   },
 ];
 

@@ -226,17 +226,6 @@ input[type=range]:focus {
   outline: none;
 }
 
-/* Vertical Mixer Fader Fixes */
-.mixer-fader::-webkit-slider-thumb {
-  @apply h-8 w-4 cursor-pointer mt-[-14px] shadow-lg;
-  background: linear-gradient(180deg, #f1f5f9 0%, #cbd5e1 100%);
-  border: 1px solid rgba(226, 232, 240, 0.35);
-}
-
-.mixer-fader {
-  touch-action: none;
-}
-
 .app-shell {
   background:
     linear-gradient(90deg, rgba(125, 211, 252, 0.04), transparent 18%),
