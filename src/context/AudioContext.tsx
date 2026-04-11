@@ -54,6 +54,7 @@ interface AudioContextType {
   createTrack: (trackType: InstrumentType) => void;
   currentPattern: number;
   currentStep: number;
+  duplicateArrangerClip: (clipId: string) => void;
   duplicateTrack: (trackId: string) => void;
   exportSession: () => void;
   importSession: (file: File) => Promise<boolean>;
@@ -118,6 +119,7 @@ type EditorAction =
   | { type: 'ADD_ARRANGER_CLIP'; trackId?: string }
   | { type: 'CLEAR_TRACK'; trackId: string }
   | { type: 'CREATE_TRACK'; trackType: InstrumentType }
+  | { type: 'DUPLICATE_ARRANGER_CLIP'; clipId: string }
   | { type: 'DUPLICATE_TRACK'; trackId: string }
   | { type: 'HYDRATE_SESSION'; session: StudioSession }
   | { type: 'REDO' }
@@ -628,6 +630,29 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
       }, nextTrack.id);
     }
 
+    case 'DUPLICATE_ARRANGER_CLIP': {
+      const sourceClip = present.arrangerClips.find((clip) => clip.id === action.clipId);
+      if (!sourceClip) {
+        return state;
+      }
+
+      return commitProject(state, {
+        ...present,
+        arrangerClips: syncArrangerClips(
+          [
+            ...present.arrangerClips,
+            buildArrangerClip(sourceClip.trackId, present.transport, {
+              beatLength: sourceClip.beatLength,
+              patternIndex: sourceClip.patternIndex,
+              startBeat: sourceClip.startBeat + sourceClip.beatLength,
+            }),
+          ],
+          present.tracks,
+          present.transport.patternCount,
+        ),
+      }, sourceClip.trackId);
+    }
+
     case 'DUPLICATE_TRACK': {
       const sourceTrack = present.tracks.find((track) => track.id === action.trackId);
       if (!sourceTrack) {
@@ -1011,6 +1036,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       createTrack: (trackType) => dispatch({ type: 'CREATE_TRACK', trackType }),
       currentPattern: project.transport.currentPattern,
       currentStep,
+      duplicateArrangerClip: (clipId) => dispatch({ type: 'DUPLICATE_ARRANGER_CLIP', clipId }),
       duplicateTrack: (trackId) => dispatch({ type: 'DUPLICATE_TRACK', trackId }),
       exportSession,
       importSession,
