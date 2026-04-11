@@ -7,6 +7,12 @@ export type SourceEngine = 'synth' | 'sample';
 export type SamplePlaybackMode = 'pitched' | 'oneshot';
 export type SamplePreset = 'kick-thud' | 'snare-crack' | 'hat-air' | 'bass-pluck' | 'lead-glass' | 'pad-haze' | 'pluck-mallet' | 'fx-rise';
 
+export interface SampleSliceMemory {
+  end: number;
+  label: string;
+  start: number;
+}
+
 export interface NoteEvent {
   gate: number;
   note: string;
@@ -54,6 +60,7 @@ export interface SynthParams {
 }
 
 export interface TrackSource {
+  activeSampleSlice: number | null;
   customSampleDataUrl?: string;
   customSampleName?: string;
   detune: number;
@@ -65,6 +72,7 @@ export interface TrackSource {
   samplePlayback: SamplePlaybackMode;
   samplePreset: SamplePreset;
   sampleReverse: boolean;
+  sampleSlices: SampleSliceMemory[];
   sampleStart: number;
   waveform: OscillatorShape;
 }
@@ -124,7 +132,7 @@ export const MAX_PATTERN_COUNT = 8;
 export const MAX_STEPS_PER_PATTERN = 64;
 export const MIN_PATTERN_COUNT = 1;
 export const MIN_STEPS_PER_PATTERN = 8;
-export const PROJECT_SCHEMA_VERSION = 7;
+export const PROJECT_SCHEMA_VERSION = 8;
 
 export const INITIAL_PARAMS: SynthParams = {
   cutoff: 2000,
@@ -144,6 +152,7 @@ export const INITIAL_PARAMS: SynthParams = {
 };
 
 export const INITIAL_SOURCE: TrackSource = {
+  activeSampleSlice: null,
   detune: 0,
   engine: 'synth',
   octaveShift: 0,
@@ -153,6 +162,7 @@ export const INITIAL_SOURCE: TrackSource = {
   samplePlayback: 'pitched',
   samplePreset: 'lead-glass',
   sampleReverse: false,
+  sampleSlices: [],
   sampleStart: 0,
   waveform: 'sawtooth',
 };
@@ -225,6 +235,7 @@ const TRACK_PRESETS: Record<
 const DEMO_TRACK_ORDER: InstrumentType[] = ['kick', 'snare', 'hihat', 'bass', 'lead', 'pad'];
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+const clampSampleEdge = (value: number, min: number, max: number) => clamp(value, min, max);
 
 const createId = (prefix: string) => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -288,6 +299,37 @@ const isRecord = (value: unknown): value is Record<string, unknown> => (
   typeof value === 'object' && value !== null
 );
 
+const normalizeSampleSliceMemory = (
+  candidate: unknown,
+  index: number,
+): SampleSliceMemory | null => {
+  if (!isRecord(candidate)) {
+    return null;
+  }
+
+  const start = clampSampleEdge(
+    typeof candidate.start === 'number' ? candidate.start : 0,
+    0,
+    0.95,
+  );
+  const end = Math.max(
+    start + 0.05,
+    clampSampleEdge(
+      typeof candidate.end === 'number' ? candidate.end : 1,
+      0.05,
+      1,
+    ),
+  );
+
+  return {
+    end,
+    label: typeof candidate.label === 'string' && candidate.label.trim()
+      ? candidate.label.trim().slice(0, 16)
+      : `Slice ${index + 1}`,
+    start,
+  };
+};
+
 const normalizeSource = (
   type: InstrumentType,
   source: unknown,
@@ -307,8 +349,21 @@ const normalizeSource = (
       1,
     ),
   );
+  const sampleSlices = Array.isArray(candidate.sampleSlices)
+    ? candidate.sampleSlices
+      .slice(0, 8)
+      .map((slice, index) => normalizeSampleSliceMemory(slice, index))
+      .filter((slice): slice is SampleSliceMemory => slice !== null)
+    : [];
+  const activeSampleSlice = typeof candidate.activeSampleSlice === 'number'
+    && Number.isInteger(candidate.activeSampleSlice)
+    && candidate.activeSampleSlice >= 0
+    && candidate.activeSampleSlice < sampleSlices.length
+    ? candidate.activeSampleSlice
+    : INITIAL_SOURCE.activeSampleSlice;
 
   return {
+    activeSampleSlice,
     customSampleDataUrl: typeof candidate.customSampleDataUrl === 'string' && candidate.customSampleDataUrl.startsWith('data:audio/')
       ? candidate.customSampleDataUrl
       : undefined,
@@ -346,6 +401,7 @@ const normalizeSource = (
       ? candidate.samplePreset
       : presetSource?.samplePreset ?? INITIAL_SOURCE.samplePreset,
     sampleReverse: Boolean(candidate.sampleReverse),
+    sampleSlices,
     sampleStart,
     waveform: isOscillatorShape(candidate.waveform)
       ? candidate.waveform

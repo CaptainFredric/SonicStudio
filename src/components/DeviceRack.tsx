@@ -30,6 +30,7 @@ const SAMPLE_WINDOW_PRESETS = [
   { end: 0.75, key: 'q3', label: 'Q3', start: 0.5 },
   { end: 1, key: 'q4', label: 'Q4', start: 0.75 },
 ] as const;
+const SAMPLE_MEMORY_LIMIT = 4;
 
 export const DeviceRack = () => {
   const {
@@ -48,6 +49,7 @@ export const DeviceRack = () => {
   const sampleOptions = track ? getSamplePresetOptions(track.type) : [];
   const activeSampleMeta = track ? getSamplePresetMeta(track.source.samplePreset) : null;
   const sampleWindowWidth = Math.max(0.05, track ? track.source.sampleEnd - track.source.sampleStart : 1);
+  const sampleSliceSlots = Array.from({ length: SAMPLE_MEMORY_LIMIT }, (_, index) => track?.source.sampleSlices[index] ?? null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [sampleStatus, setSampleStatus] = useState<string | null>(null);
   const [activeRackView, setActiveRackView] = useState<RackView>('SOURCE');
@@ -67,6 +69,33 @@ export const DeviceRack = () => {
       </section>
     );
   }
+
+  const storeSampleSlice = (slotIndex: number) => {
+    const nextSlices = [...track.source.sampleSlices];
+    nextSlices[slotIndex] = {
+      end: track.source.sampleEnd,
+      label: `Slice ${slotIndex + 1}`,
+      start: track.source.sampleStart,
+    };
+
+    setTrackSource(track.id, {
+      activeSampleSlice: slotIndex,
+      sampleSlices: nextSlices,
+    });
+  };
+
+  const recallSampleSlice = (slotIndex: number) => {
+    const slice = track.source.sampleSlices[slotIndex];
+    if (!slice) {
+      return;
+    }
+
+    setTrackSource(track.id, {
+      activeSampleSlice: slotIndex,
+      sampleEnd: slice.end,
+      sampleStart: slice.start,
+    });
+  };
 
   return (
     <section className="surface-panel min-h-[320px] max-h-[46vh] overflow-auto p-3">
@@ -365,12 +394,54 @@ export const DeviceRack = () => {
                               ))}
                             </div>
                           </div>
+                          <div className="mt-4">
+                            <div className="section-label">Slice memory</div>
+                            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                              {sampleSliceSlots.map((slice, slotIndex) => (
+                                <div
+                                  key={`slice-slot-${slotIndex + 1}`}
+                                  className="rounded-[12px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3"
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span className="section-label">Slot {slotIndex + 1}</span>
+                                    <span className="font-mono text-[10px] text-[var(--text-secondary)]">
+                                      {slice
+                                        ? `${Math.round(slice.start * 100)}% to ${Math.round(slice.end * 100)}%`
+                                        : 'empty'}
+                                    </span>
+                                  </div>
+                                  <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
+                                    {slice
+                                      ? `${slice.label}${track.source.activeSampleSlice === slotIndex ? ' · active' : ''}`
+                                      : 'Store the current window here for quick recall.'}
+                                  </div>
+                                  <div className="mt-3 flex flex-wrap gap-2">
+                                    <button
+                                      className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                                      onClick={() => storeSampleSlice(slotIndex)}
+                                    >
+                                      Save
+                                    </button>
+                                    <button
+                                      className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                                      data-active={track.source.activeSampleSlice === slotIndex}
+                                      disabled={!slice}
+                                      onClick={() => recallSampleSlice(slotIndex)}
+                                    >
+                                      Load
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
                           <div className="mt-4 space-y-3">
                             <InlineSlider
                               label="Start"
                               max={0.95}
                               min={0}
                               onChange={(value) => setTrackSource(track.id, {
+                                activeSampleSlice: null,
                                 sampleEnd: Math.max(value + 0.05, track.source.sampleEnd),
                                 sampleStart: value,
                               })}
@@ -383,6 +454,7 @@ export const DeviceRack = () => {
                               max={1}
                               min={0.05}
                               onChange={(value) => setTrackSource(track.id, {
+                                activeSampleSlice: null,
                                 sampleEnd: value,
                                 sampleStart: Math.min(track.source.sampleStart, value - 0.05),
                               })}
@@ -394,7 +466,7 @@ export const DeviceRack = () => {
                               label="Source gain"
                               max={2}
                               min={0.25}
-                              onChange={(value) => setTrackSource(track.id, { sampleGain: value })}
+                              onChange={(value) => setTrackSource(track.id, { activeSampleSlice: null, sampleGain: value })}
                               step={0.01}
                               value={track.source.sampleGain}
                             />
@@ -403,13 +475,14 @@ export const DeviceRack = () => {
                             <button
                               className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
                               data-active={track.source.sampleReverse}
-                              onClick={() => setTrackSource(track.id, { sampleReverse: !track.source.sampleReverse })}
+                              onClick={() => setTrackSource(track.id, { activeSampleSlice: null, sampleReverse: !track.source.sampleReverse })}
                             >
                               {track.source.sampleReverse ? 'Reverse on' : 'Reverse off'}
                             </button>
                             <button
                               className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
                               onClick={() => setTrackSource(track.id, {
+                                activeSampleSlice: null,
                                 sampleEnd: 1,
                                 sampleGain: 1,
                                 sampleReverse: false,
