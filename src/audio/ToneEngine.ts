@@ -18,6 +18,8 @@ type TrackInstrument =
 
 interface TrackGraph {
   channel: Tone.Channel;
+  chorus: Tone.Chorus;
+  crusher: Tone.BitCrusher;
   delay: Tone.FeedbackDelay;
   dist: Tone.Distortion;
   filter: Tone.Filter;
@@ -25,6 +27,7 @@ interface TrackGraph {
   meter: Tone.Meter;
   reverb: Tone.Freeverb;
   type: Track['type'];
+  vibrato: Tone.Vibrato;
 }
 
 class ToneEngine {
@@ -255,25 +258,36 @@ class ToneEngine {
   private createTrackGraph(track: Track): TrackGraph {
     const meter = new Tone.Meter();
     const channel = new Tone.Channel(0, 0);
+    const chorus = new Tone.Chorus(2.5, 1.8, 0.2).start();
+    const crusher = new Tone.BitCrusher(16);
     const reverb = new Tone.Freeverb({ roomSize: 0.7 });
     const delay = new Tone.FeedbackDelay('8n', 0.4);
     const filter = new Tone.Filter(2000, 'lowpass');
     const dist = new Tone.Distortion(0);
+    const vibrato = new Tone.Vibrato(4, 0);
     const instrument = this.createInstrument(track.type);
 
     channel.connect(this.masterLimiter!);
     channel.connect(meter);
     reverb.connect(channel);
     delay.connect(reverb);
-    filter.connect(delay);
+    chorus.connect(delay);
+    filter.connect(chorus);
     dist.connect(filter);
-    instrument.connect(dist);
+    crusher.connect(dist);
+    vibrato.connect(crusher);
+    instrument.connect(vibrato);
 
+    chorus.wet.value = 0;
+    crusher.bits.value = 16;
     reverb.wet.value = 0;
     delay.wet.value = 0;
+    vibrato.wet.value = 1;
 
     return {
       channel,
+      chorus,
+      crusher,
       delay,
       dist,
       filter,
@@ -281,6 +295,7 @@ class ToneEngine {
       meter,
       reverb,
       type: track.type,
+      vibrato,
     };
   }
 
@@ -307,8 +322,11 @@ class ToneEngine {
     }
 
     graph.instrument.dispose();
+    graph.vibrato.dispose();
+    graph.crusher.dispose();
     graph.dist.dispose();
     graph.filter.dispose();
+    graph.chorus.dispose();
     graph.delay.dispose();
     graph.reverb.dispose();
     graph.channel.dispose();
@@ -359,11 +377,16 @@ class ToneEngine {
       graph.channel.solo = track.solo;
       graph.channel.volume.rampTo(track.volume, 0.05);
 
+      graph.chorus.wet.rampTo(track.params.chorusSend, 0.1);
       graph.delay.wet.rampTo(track.params.delaySend, 0.1);
+      graph.crusher.bits.value = Math.max(2, Math.round(16 - track.params.bitCrush * 14));
       graph.dist.distortion = track.params.distortion;
       graph.filter.frequency.rampTo(track.params.cutoff, 0.1);
       graph.filter.Q.rampTo(track.params.resonance, 0.1);
+      graph.filter.type = track.params.filterMode;
       graph.reverb.wet.rampTo(track.params.reverbSend, 0.1);
+      graph.vibrato.frequency.value = track.params.vibratoRate;
+      graph.vibrato.depth.value = track.params.vibratoDepth;
 
       this.applySourceShape(graph, track);
 

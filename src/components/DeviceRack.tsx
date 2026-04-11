@@ -3,6 +3,7 @@ import {
   Activity,
   Disc3,
   Sparkles,
+  SlidersHorizontal,
   Volume2,
   Waves,
   Zap,
@@ -13,6 +14,7 @@ import { Knob } from './Knob';
 import { Visualizer } from './Visualizer';
 
 const WAVEFORM_OPTIONS = ['sine', 'triangle', 'sawtooth', 'square'] as const;
+const FILTER_OPTIONS = ['lowpass', 'bandpass', 'highpass'] as const;
 
 export const DeviceRack = () => {
   const {
@@ -39,8 +41,8 @@ export const DeviceRack = () => {
   }
 
   return (
-    <section className="surface-panel h-[330px] overflow-auto p-3">
-      <div className="grid h-full min-w-[1480px] grid-cols-[240px_1fr_0.95fr_0.85fr_0.95fr_1.55fr] gap-3">
+    <section className="surface-panel h-[360px] overflow-auto p-3">
+      <div className="grid h-full min-w-[1720px] grid-cols-[240px_1fr_0.95fr_1.05fr_0.95fr_1.05fr_1.45fr] gap-3">
         <div className="surface-panel-strong flex flex-col justify-between p-4">
           <div>
             <div className="section-label">Selected track</div>
@@ -55,11 +57,11 @@ export const DeviceRack = () => {
             </div>
             <div className="mt-4 rounded-2xl border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
               <div className="section-label">Character</div>
-              <div className="mt-2 text-sm text-[var(--text-primary)]">{waveformLabel(track.source.waveform)}</div>
+              <div className="mt-2 text-sm text-[var(--text-primary)]">{waveformLabel(track.source.waveform)} · {filterLabel(track.params.filterMode)}</div>
               <div className="mt-1 text-xs text-[var(--text-secondary)]">
                 {track.type === 'bass' || track.type === 'lead'
-                  ? 'Playable synth voice with oscillator shaping and glide.'
-                  : 'Percussive lane with mix and timing control.'}
+                  ? 'Playable synth voice with oscillator shaping, motion, and widening.'
+                  : 'Percussive or texture lane with deeper color and output shaping.'}
               </div>
             </div>
           </div>
@@ -157,14 +159,39 @@ export const DeviceRack = () => {
         </RackSection>
 
         <RackSection icon={<Activity className="h-4 w-4 text-[var(--accent)]" />} title="Filter">
-          <div className="flex h-full items-center justify-around gap-3">
-            <Knob color="#e7a65f" label="Cutoff" max={15000} min={20} onChange={(value) => setTrackParams(track.id, { cutoff: value })} unit="Hz" value={track.params.cutoff} />
-            <Knob color="#e7a65f" label="Res" max={20} min={0.1} onChange={(value) => setTrackParams(track.id, { resonance: value })} value={track.params.resonance} />
+          <div className="grid h-full gap-4">
+            <label className="text-xs text-[var(--text-secondary)]">
+              <span className="section-label mb-2 block">Mode</span>
+              <select
+                className="control-field h-11 w-full px-3 text-sm"
+                onChange={(event) => setTrackParams(track.id, { filterMode: event.target.value as typeof track.params.filterMode })}
+                value={track.params.filterMode}
+              >
+                {FILTER_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {filterLabel(option)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="flex items-center justify-around gap-3">
+              <Knob color="#e7a65f" label="Cutoff" max={15000} min={20} onChange={(value) => setTrackParams(track.id, { cutoff: value })} unit="Hz" value={track.params.cutoff} />
+              <Knob color="#e7a65f" label="Res" max={20} min={0.1} onChange={(value) => setTrackParams(track.id, { resonance: value })} value={track.params.resonance} />
+            </div>
+          </div>
+        </RackSection>
+
+        <RackSection icon={<SlidersHorizontal className="h-4 w-4 text-[var(--accent)]" />} title="Motion">
+          <div className="grid grid-cols-2 gap-4">
+            <Knob color="#8ab4ff" label="Vib rate" max={12} min={0.1} onChange={(value) => setTrackParams(track.id, { vibratoRate: value })} unit="Hz" value={track.params.vibratoRate} />
+            <Knob color="#8ab4ff" label="Vib depth" max={1} min={0} onChange={(value) => setTrackParams(track.id, { vibratoDepth: value })} value={track.params.vibratoDepth} />
           </div>
         </RackSection>
 
         <RackSection icon={<Zap className="h-4 w-4 text-[var(--accent)]" />} title="Drive & space">
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-5 gap-4">
+            <Knob color="#96b9f3" label="Chorus" max={1} min={0} onChange={(value) => setTrackParams(track.id, { chorusSend: value })} value={track.params.chorusSend} />
+            <Knob color="#d79cff" label="Crush" max={1} min={0} onChange={(value) => setTrackParams(track.id, { bitCrush: value })} value={track.params.bitCrush} />
             <Knob color="#f08f86" label="Drive" max={1} min={0} onChange={(value) => setTrackParams(track.id, { distortion: value })} value={track.params.distortion} />
             <Knob color="#96b9f3" label="Delay" max={1} min={0} onChange={(value) => setTrackParams(track.id, { delaySend: value })} value={track.params.delaySend} />
             <Knob color="#96b9f3" label="Reverb" max={1} min={0} onChange={(value) => setTrackParams(track.id, { reverbSend: value })} value={track.params.reverbSend} />
@@ -191,8 +218,9 @@ export const DeviceRack = () => {
             <div className="rounded-2xl border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
               <div className="section-label">Source notes</div>
               <div className="mt-3 space-y-2 text-sm text-[var(--text-secondary)]">
-                <p>{track.type === 'lead' ? 'Lead voices respond best to saw and square shapes, then cutoff for drama.' : 'Bass and drum lanes now carry persistent source settings for deeper sketching.'}</p>
-                <p>Song mode reads clips lane by lane, so the patterns you place in the arranger now drive the actual transport.</p>
+                <p>{track.type === 'lead' ? 'Lead voices respond best to saw and square shapes, then chorus, vibrato, and filter mode for movement.' : 'Bass, drum, and texture lanes now carry persistent tone-shaping controls for much deeper sketching.'}</p>
+                <p>Crusher handles grit, chorus opens width, and vibrato adds motion without forcing more notes into the pattern.</p>
+                <p>Song mode still reads clips lane by lane, so the patterns you place in the arranger drive the actual transport while the rack shapes the tone in real time.</p>
               </div>
             </div>
             <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
@@ -231,5 +259,16 @@ const waveformLabel = (waveform: typeof WAVEFORM_OPTIONS[number]) => {
       return 'Triangle';
     default:
       return waveform.charAt(0).toUpperCase() + waveform.slice(1);
+  }
+};
+
+const filterLabel = (mode: typeof FILTER_OPTIONS[number]) => {
+  switch (mode) {
+    case 'highpass':
+      return 'High-pass';
+    case 'bandpass':
+      return 'Band-pass';
+    default:
+      return 'Low-pass';
   }
 };

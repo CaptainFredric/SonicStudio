@@ -2,6 +2,7 @@ export type AppView = 'SEQUENCER' | 'PIANO_ROLL' | 'MIXER' | 'ARRANGER';
 export type InstrumentType = 'kick' | 'snare' | 'hihat' | 'bass' | 'lead' | 'pad' | 'pluck' | 'fx';
 export type TransportMode = 'PATTERN' | 'SONG';
 export type OscillatorShape = 'sine' | 'triangle' | 'sawtooth' | 'square';
+export type FilterMode = 'lowpass' | 'bandpass' | 'highpass';
 
 export interface NoteEvent {
   gate: number;
@@ -30,13 +31,18 @@ export interface ArrangementClip {
 export interface SynthParams {
   cutoff: number;
   resonance: number;
+  filterMode: FilterMode;
   attack: number;
   decay: number;
   sustain: number;
   release: number;
+  chorusSend: number;
   delaySend: number;
   reverbSend: number;
+  bitCrush: number;
   distortion: number;
+  vibratoDepth: number;
+  vibratoRate: number;
 }
 
 export interface TrackSource {
@@ -100,18 +106,23 @@ export const MAX_PATTERN_COUNT = 8;
 export const MAX_STEPS_PER_PATTERN = 64;
 export const MIN_PATTERN_COUNT = 1;
 export const MIN_STEPS_PER_PATTERN = 8;
-export const PROJECT_SCHEMA_VERSION = 4;
+export const PROJECT_SCHEMA_VERSION = 5;
 
 export const INITIAL_PARAMS: SynthParams = {
   cutoff: 2000,
   resonance: 1,
+  filterMode: 'lowpass',
   attack: 0.01,
   decay: 0.2,
   sustain: 0.5,
   release: 0.8,
+  chorusSend: 0,
   delaySend: 0,
   reverbSend: 0,
+  bitCrush: 0,
   distortion: 0,
+  vibratoDepth: 0,
+  vibratoRate: 4,
 };
 
 export const INITIAL_SOURCE: TrackSource = {
@@ -159,28 +170,28 @@ const TRACK_PRESETS: Record<
   lead: {
     color: '#7dd3fc',
     name: 'Prism Lead',
-    params: { delaySend: 0.4, reverbSend: 0.3, release: 1.3 },
+    params: { chorusSend: 0.18, delaySend: 0.4, reverbSend: 0.3, release: 1.3, vibratoDepth: 0.1, vibratoRate: 5.2 },
     source: { octaveShift: 0, portamento: 0.05, waveform: 'sawtooth' },
     volume: -12,
   },
   pad: {
     color: '#67e8f9',
     name: 'Glass Pad',
-    params: { attack: 0.18, decay: 0.4, delaySend: 0.24, reverbSend: 0.48, release: 2.2, sustain: 0.72 },
+    params: { attack: 0.18, chorusSend: 0.24, decay: 0.4, delaySend: 0.24, reverbSend: 0.48, release: 2.2, sustain: 0.72, vibratoDepth: 0.05, vibratoRate: 3.6 },
     source: { octaveShift: 0, portamento: 0.02, waveform: 'triangle' },
     volume: -16,
   },
   pluck: {
     color: '#c084fc',
     name: 'Pulse Pluck',
-    params: { attack: 0.003, decay: 0.16, release: 0.32, sustain: 0.18 },
+    params: { attack: 0.003, bitCrush: 0.08, decay: 0.16, release: 0.32, sustain: 0.18 },
     source: { octaveShift: 0, portamento: 0, waveform: 'square' },
     volume: -14,
   },
   fx: {
     color: '#fb7185',
     name: 'Motion FX',
-    params: { attack: 0.02, decay: 0.6, delaySend: 0.58, distortion: 0.12, release: 1.4, reverbSend: 0.4, sustain: 0.38 },
+    params: { attack: 0.02, bitCrush: 0.18, chorusSend: 0.16, decay: 0.6, delaySend: 0.58, distortion: 0.12, filterMode: 'bandpass', release: 1.4, reverbSend: 0.4, sustain: 0.38, vibratoDepth: 0.22, vibratoRate: 6.4 },
     source: { detune: 18, octaveShift: 1, portamento: 0.07, waveform: 'sawtooth' },
     volume: -18,
   },
@@ -218,6 +229,12 @@ const isOscillatorShape = (value: unknown): value is OscillatorShape => (
   || value === 'triangle'
   || value === 'sawtooth'
   || value === 'square'
+);
+
+const isFilterMode = (value: unknown): value is FilterMode => (
+  value === 'lowpass'
+  || value === 'bandpass'
+  || value === 'highpass'
 );
 
 const isRecord = (value: unknown): value is Record<string, unknown> => (
@@ -296,13 +313,18 @@ const normalizeParams = (
   return {
     cutoff: clamp(typeof candidate.cutoff === 'number' ? candidate.cutoff : presetParams?.cutoff ?? INITIAL_PARAMS.cutoff, 20, 18000),
     resonance: clamp(typeof candidate.resonance === 'number' ? candidate.resonance : presetParams?.resonance ?? INITIAL_PARAMS.resonance, 0.1, 20),
+    filterMode: isFilterMode(candidate.filterMode) ? candidate.filterMode : presetParams?.filterMode ?? INITIAL_PARAMS.filterMode,
     attack: clamp(typeof candidate.attack === 'number' ? candidate.attack : presetParams?.attack ?? INITIAL_PARAMS.attack, 0.001, 2),
     decay: clamp(typeof candidate.decay === 'number' ? candidate.decay : presetParams?.decay ?? INITIAL_PARAMS.decay, 0.01, 4),
     sustain: clamp(typeof candidate.sustain === 'number' ? candidate.sustain : presetParams?.sustain ?? INITIAL_PARAMS.sustain, 0, 1),
     release: clamp(typeof candidate.release === 'number' ? candidate.release : presetParams?.release ?? INITIAL_PARAMS.release, 0.01, 8),
+    chorusSend: clamp(typeof candidate.chorusSend === 'number' ? candidate.chorusSend : presetParams?.chorusSend ?? INITIAL_PARAMS.chorusSend, 0, 1),
     delaySend: clamp(typeof candidate.delaySend === 'number' ? candidate.delaySend : presetParams?.delaySend ?? INITIAL_PARAMS.delaySend, 0, 1),
     reverbSend: clamp(typeof candidate.reverbSend === 'number' ? candidate.reverbSend : presetParams?.reverbSend ?? INITIAL_PARAMS.reverbSend, 0, 1),
+    bitCrush: clamp(typeof candidate.bitCrush === 'number' ? candidate.bitCrush : presetParams?.bitCrush ?? INITIAL_PARAMS.bitCrush, 0, 1),
     distortion: clamp(typeof candidate.distortion === 'number' ? candidate.distortion : presetParams?.distortion ?? INITIAL_PARAMS.distortion, 0, 1),
+    vibratoDepth: clamp(typeof candidate.vibratoDepth === 'number' ? candidate.vibratoDepth : presetParams?.vibratoDepth ?? INITIAL_PARAMS.vibratoDepth, 0, 1),
+    vibratoRate: clamp(typeof candidate.vibratoRate === 'number' ? candidate.vibratoRate : presetParams?.vibratoRate ?? INITIAL_PARAMS.vibratoRate, 0.1, 12),
   };
 };
 
