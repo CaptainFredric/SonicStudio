@@ -19,13 +19,13 @@ const READINESS_SLICES: ReadinessSlice[] = [
   },
   {
     label: 'Sound design',
-    score: 71,
-    rationale: 'The rack is expressive, more focused, and now supports real sample window shaping, but it still lacks sample slicing and stronger mixing tools.',
+    score: 73,
+    rationale: 'The rack is expressive, more focused, and now supports real sample window shaping plus pitched versus one-shot sample behavior, but it still lacks deeper slicing and stronger mixing tools.',
   },
   {
     label: 'Editing ergonomics',
-    score: 70,
-    rationale: 'The main edit loop is materially clearer now, especially in the sequencer and rack, but advanced note editing, drag operations, and dense session navigation still trail mature DAWs.',
+    score: 71,
+    rationale: 'The main edit loop is materially clearer now, especially in the sequencer and rack, and sample editing is faster, but advanced note editing, drag operations, and dense session navigation still trail mature DAWs.',
   },
   {
     label: 'Audio output',

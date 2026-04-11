@@ -21,6 +21,16 @@ const WAVEFORM_OPTIONS = ['sine', 'triangle', 'sawtooth', 'square'] as const;
 const FILTER_OPTIONS = ['lowpass', 'bandpass', 'highpass'] as const;
 type RackView = 'SOURCE' | 'SHAPE' | 'SPACE';
 
+const SAMPLE_WINDOW_PRESETS = [
+  { end: 0.25, key: 'attack', label: 'Attack', start: 0 },
+  { end: 0.65, key: 'body', label: 'Body', start: 0.2 },
+  { end: 1, key: 'tail', label: 'Tail', start: 0.55 },
+  { end: 0.25, key: 'q1', label: 'Q1', start: 0 },
+  { end: 0.5, key: 'q2', label: 'Q2', start: 0.25 },
+  { end: 0.75, key: 'q3', label: 'Q3', start: 0.5 },
+  { end: 1, key: 'q4', label: 'Q4', start: 0.75 },
+] as const;
+
 export const DeviceRack = () => {
   const {
     currentPattern,
@@ -37,6 +47,7 @@ export const DeviceRack = () => {
   const track = tracks.find((candidate) => candidate.id === selectedTrackId) ?? null;
   const sampleOptions = track ? getSamplePresetOptions(track.type) : [];
   const activeSampleMeta = track ? getSamplePresetMeta(track.source.samplePreset) : null;
+  const sampleWindowWidth = Math.max(0.05, track ? track.source.sampleEnd - track.source.sampleStart : 1);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [sampleStatus, setSampleStatus] = useState<string | null>(null);
   const [activeRackView, setActiveRackView] = useState<RackView>('SOURCE');
@@ -139,9 +150,9 @@ export const DeviceRack = () => {
               <StatusCell label="Filter" value={filterLabel(track.params.filterMode)} />
               <StatusCell label="Pattern notes" value={`${track.patterns[currentPattern]?.reduce((sum, step) => sum + step.length, 0) ?? 0}`} />
               <StatusCell
-                label={track.source.engine === 'sample' ? 'Window' : 'Motion'}
+                label={track.source.engine === 'sample' ? 'Sample mode' : 'Motion'}
                 value={track.source.engine === 'sample'
-                  ? `${Math.round((track.source.sampleEnd - track.source.sampleStart) * 100)}%`
+                  ? `${track.source.samplePlayback === 'oneshot' ? 'One-shot' : 'Pitched'} · ${Math.round(sampleWindowWidth * 100)}%`
                   : `${track.params.vibratoDepth.toFixed(2)} depth`}
               />
             </div>
@@ -225,6 +236,23 @@ export const DeviceRack = () => {
                           </span>
                         </label>
 
+                        <label className="text-xs text-[var(--text-secondary)]">
+                          <span className="section-label mb-2 block">Playback mode</span>
+                          <select
+                            className="control-field h-11 w-full px-3 text-sm"
+                            onChange={(event) => setTrackSource(track.id, {
+                              samplePlayback: event.target.value as typeof track.source.samplePlayback,
+                            })}
+                            value={track.source.samplePlayback}
+                          >
+                            <option value="pitched">Pitched</option>
+                            <option value="oneshot">One-shot</option>
+                          </select>
+                          <span className="mt-2 block text-[11px] leading-5 text-[var(--text-secondary)]">
+                            One-shot is better for drums and rises. Pitched is better for bass, lead, pad, and pluck parts.
+                          </span>
+                        </label>
+
                         <div className="rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
                           <div className="section-label">Custom sample</div>
                           <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
@@ -303,6 +331,40 @@ export const DeviceRack = () => {
                           <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
                             Trim the sample, flip playback, and rebalance source loudness before it hits the rack.
                           </div>
+                          <div className="mt-4 rounded-[12px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+                            <div className="flex items-center justify-between">
+                              <span className="section-label">Window map</span>
+                              <span className="font-mono text-[10px] text-[var(--text-secondary)]">
+                                {Math.round(track.source.sampleStart * 100)}% to {Math.round(track.source.sampleEnd * 100)}%
+                              </span>
+                            </div>
+                            <div className="mt-3 h-3 overflow-hidden rounded-full bg-[rgba(255,255,255,0.05)]">
+                              <div
+                                className="h-full rounded-full bg-[linear-gradient(90deg,#7dd3fc,#67e8f9)]"
+                                style={{
+                                  marginLeft: `${track.source.sampleStart * 100}%`,
+                                  width: `${sampleWindowWidth * 100}%`,
+                                }}
+                              />
+                            </div>
+                          </div>
+                          <div className="mt-4">
+                            <div className="section-label">Quick regions</div>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {SAMPLE_WINDOW_PRESETS.map((preset) => (
+                                <button
+                                  key={preset.key}
+                                  className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                                  onClick={() => setTrackSource(track.id, {
+                                    sampleEnd: preset.end,
+                                    sampleStart: preset.start,
+                                  })}
+                                >
+                                  {preset.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
                           <div className="mt-4 space-y-3">
                             <InlineSlider
                               label="Start"
@@ -313,6 +375,7 @@ export const DeviceRack = () => {
                                 sampleStart: value,
                               })}
                               step={0.01}
+                              unit="%"
                               value={track.source.sampleStart}
                             />
                             <InlineSlider
@@ -324,6 +387,7 @@ export const DeviceRack = () => {
                                 sampleStart: Math.min(track.source.sampleStart, value - 0.05),
                               })}
                               step={0.01}
+                              unit="%"
                               value={track.source.sampleEnd}
                             />
                             <InlineSlider
@@ -569,7 +633,13 @@ const InlineSlider = ({
     <div className="flex items-center justify-between">
       <span className="section-label">{label}</span>
       <span className="font-mono text-[10px] text-[var(--text-secondary)]">
-        {unit === 'dB' ? `${value.toFixed(1)} ${unit}` : value.toFixed(1)}
+        {unit === 'dB'
+          ? `${value.toFixed(1)} ${unit}`
+          : unit === '%'
+            ? `${Math.round(value * 100)}%`
+            : unit
+              ? `${value.toFixed(1)} ${unit}`
+              : value.toFixed(1)}
       </span>
     </div>
     <input

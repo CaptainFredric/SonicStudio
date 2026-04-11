@@ -361,6 +361,10 @@ class ToneEngine {
   }
 
   private getSamplePlaybackRate(track: Track, note: string, rootNote: string) {
+    if (track.source.samplePlayback === 'oneshot') {
+      return 1;
+    }
+
     const targetMidi = this.noteToMidi(this.resolvePlayableNote(track, note));
     const rootMidi = this.noteToMidi(rootNote);
 
@@ -387,7 +391,9 @@ class ToneEngine {
     const windowEnd = sampleDuration * track.source.sampleEnd;
     const playbackRate = this.getSamplePlaybackRate(track, step.note, graph.sampleRootNote);
     const trimmedDuration = Math.max(0.02, windowEnd - windowStart);
-    const scheduledDuration = Math.min(trimmedDuration, Math.max(0.02, duration * playbackRate));
+    const scheduledDuration = track.source.samplePlayback === 'oneshot'
+      ? trimmedDuration
+      : Math.min(trimmedDuration, Math.max(0.02, duration * playbackRate));
     const player = new Tone.Player({
       fadeOut: Math.min(0.05, scheduledDuration * 0.25),
       loop: false,

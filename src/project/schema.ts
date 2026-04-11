@@ -4,6 +4,7 @@ export type TransportMode = 'PATTERN' | 'SONG';
 export type OscillatorShape = 'sine' | 'triangle' | 'sawtooth' | 'square';
 export type FilterMode = 'lowpass' | 'bandpass' | 'highpass';
 export type SourceEngine = 'synth' | 'sample';
+export type SamplePlaybackMode = 'pitched' | 'oneshot';
 export type SamplePreset = 'kick-thud' | 'snare-crack' | 'hat-air' | 'bass-pluck' | 'lead-glass' | 'pad-haze' | 'pluck-mallet' | 'fx-rise';
 
 export interface NoteEvent {
@@ -61,6 +62,7 @@ export interface TrackSource {
   portamento: number;
   sampleEnd: number;
   sampleGain: number;
+  samplePlayback: SamplePlaybackMode;
   samplePreset: SamplePreset;
   sampleReverse: boolean;
   sampleStart: number;
@@ -148,6 +150,7 @@ export const INITIAL_SOURCE: TrackSource = {
   portamento: 0,
   sampleEnd: 1,
   sampleGain: 1,
+  samplePlayback: 'pitched',
   samplePreset: 'lead-glass',
   sampleReverse: false,
   sampleStart: 0,
@@ -167,19 +170,19 @@ const TRACK_PRESETS: Record<
   kick: {
     color: '#f87171',
     name: 'Deep Kick',
-    source: { octaveShift: -2, samplePreset: 'kick-thud', waveform: 'sine' },
+    source: { octaveShift: -2, samplePlayback: 'oneshot', samplePreset: 'kick-thud', waveform: 'sine' },
     volume: -6,
   },
   snare: {
     color: '#fb923c',
     name: 'Sharp Snare',
-    source: { samplePreset: 'snare-crack', waveform: 'square' },
+    source: { samplePlayback: 'oneshot', samplePreset: 'snare-crack', waveform: 'square' },
     volume: -6,
   },
   hihat: {
     color: '#fbbf24',
     name: 'Neon Hat',
-    source: { detune: 12, samplePreset: 'hat-air', waveform: 'square' },
+    source: { detune: 12, samplePlayback: 'oneshot', samplePreset: 'hat-air', waveform: 'square' },
     volume: -15,
   },
   bass: {
@@ -214,7 +217,7 @@ const TRACK_PRESETS: Record<
     color: '#fb7185',
     name: 'Motion FX',
     params: { attack: 0.02, bitCrush: 0.18, chorusSend: 0.16, decay: 0.6, delaySend: 0.58, distortion: 0.12, filterMode: 'bandpass', release: 1.4, reverbSend: 0.4, sustain: 0.38, vibratoDepth: 0.22, vibratoRate: 6.4 },
-    source: { detune: 18, octaveShift: 1, portamento: 0.07, samplePreset: 'fx-rise', waveform: 'sawtooth' },
+    source: { detune: 18, octaveShift: 1, portamento: 0.07, samplePlayback: 'oneshot', samplePreset: 'fx-rise', waveform: 'sawtooth' },
     volume: -18,
   },
 };
@@ -257,6 +260,11 @@ const isOscillatorShape = (value: unknown): value is OscillatorShape => (
 const isSourceEngine = (value: unknown): value is SourceEngine => (
   value === 'synth'
   || value === 'sample'
+);
+
+const isSamplePlaybackMode = (value: unknown): value is SamplePlaybackMode => (
+  value === 'pitched'
+  || value === 'oneshot'
 );
 
 const isSamplePreset = (value: unknown): value is SamplePreset => (
@@ -331,6 +339,9 @@ const normalizeSource = (
       0.25,
       2,
     ),
+    samplePlayback: isSamplePlaybackMode(candidate.samplePlayback)
+      ? candidate.samplePlayback
+      : presetSource?.samplePlayback ?? INITIAL_SOURCE.samplePlayback,
     samplePreset: isSamplePreset(candidate.samplePreset)
       ? candidate.samplePreset
       : presetSource?.samplePreset ?? INITIAL_SOURCE.samplePreset,
