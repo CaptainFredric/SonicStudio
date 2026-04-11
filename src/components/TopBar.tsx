@@ -28,6 +28,8 @@ export const TopBar = () => {
     isPlaying,
     isRecording,
     lastSavedAt,
+    loopRangeEndBeat,
+    loopRangeStartBeat,
     master,
     patternCount,
     pinnedTrackIds,
@@ -197,7 +199,9 @@ export const TopBar = () => {
                 </div>
                 <div className="mt-1 flex items-center gap-2 text-[11px] text-[var(--text-secondary)]">
                   <Radio className="h-3 w-3 text-[var(--accent)]" />
-                  {transportMode === 'SONG' ? 'Arranger timeline is active' : 'Pattern loop is active'}
+                  {loopRangeStartBeat !== null && loopRangeEndBeat !== null
+                    ? `Looping steps ${loopRangeStartBeat + 1}-${loopRangeEndBeat}`
+                    : transportMode === 'SONG' ? 'Arranger timeline is active' : 'Pattern loop is active'}
                 </div>
               </div>
             </div>

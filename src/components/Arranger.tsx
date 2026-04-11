@@ -190,6 +190,8 @@ export const Arranger = () => {
     duplicateArrangerClip,
     duplicateSongRange,
     loopArrangerClip,
+    loopRangeEndBeat,
+    loopRangeStartBeat,
     makeClipPatternUnique,
     patternCount,
     pinnedTrackIds,
@@ -200,6 +202,7 @@ export const Arranger = () => {
     setActiveView,
     setClipPatternStepSlice,
     setCurrentPattern,
+    setLoopRange,
     setSelectedArrangerClipId,
     setSelectedTrackId,
     songMarkers,
@@ -948,18 +951,32 @@ export const Arranger = () => {
                           Steps {section.startBeat + 1} to {section.endBeat} · {section.clipCount} clip{section.clipCount === 1 ? '' : 's'}
                         </div>
                       </div>
-                      <div className="flex gap-2">
-                        <button
-                          className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                          onClick={() => jumpToBoundary(section.startBeat)}
-                        >
-                          Jump
-                        </button>
-                        <button
-                          className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                          onClick={() => duplicateSongRange(section.startBeat, section.endBeat, section.label)}
-                        >
-                          Duplicate
+                  <div className="flex gap-2">
+                    <button
+                      className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                      onClick={() => jumpToBoundary(section.startBeat)}
+                    >
+                      Jump
+                    </button>
+                    <button
+                      className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                      data-active={loopRangeStartBeat === section.startBeat && loopRangeEndBeat === section.endBeat}
+                      onClick={() => {
+                        if (loopRangeStartBeat === section.startBeat && loopRangeEndBeat === section.endBeat) {
+                          setLoopRange(null, null);
+                          return;
+                        }
+
+                        setLoopRange(section.startBeat, section.endBeat);
+                      }}
+                    >
+                      {loopRangeStartBeat === section.startBeat && loopRangeEndBeat === section.endBeat ? 'Looping' : 'Loop'}
+                    </button>
+                    <button
+                      className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                      onClick={() => duplicateSongRange(section.startBeat, section.endBeat, section.label)}
+                    >
+                      Duplicate
                         </button>
                       </div>
                     </div>

@@ -35,6 +35,12 @@ const normalizeUiState = (value: unknown, project: Project): StudioUIState => {
       typeof trackId === 'string' && project.tracks.some((track) => track.id === trackId)
     ))
     : [];
+  const loopRangeStartBeat = typeof candidate.loopRangeStartBeat === 'number'
+    ? Math.max(0, Math.round(candidate.loopRangeStartBeat))
+    : null;
+  const loopRangeEndBeat = typeof candidate.loopRangeEndBeat === 'number'
+    ? Math.max(1, Math.round(candidate.loopRangeEndBeat))
+    : null;
   const selectedArrangerClipId = typeof candidate.selectedArrangerClipId === 'string'
     && project.arrangerClips.some((clip) => clip.id === candidate.selectedArrangerClipId)
     ? candidate.selectedArrangerClipId
@@ -43,6 +49,12 @@ const normalizeUiState = (value: unknown, project: Project): StudioUIState => {
   return {
     activeView: activeView as AppView,
     isSettingsOpen: Boolean(candidate.isSettingsOpen),
+    loopRangeEndBeat: loopRangeStartBeat !== null && loopRangeEndBeat !== null && loopRangeEndBeat > loopRangeStartBeat
+      ? loopRangeEndBeat
+      : null,
+    loopRangeStartBeat: loopRangeStartBeat !== null && loopRangeEndBeat !== null && loopRangeEndBeat > loopRangeStartBeat
+      ? loopRangeStartBeat
+      : null,
     pinnedTrackIds,
     selectedArrangerClipId,
     selectedTrackId: project.tracks.some((track) => track.id === selectedTrackId)
@@ -97,6 +109,8 @@ export const createDefaultSession = (
     ui: {
       activeView: 'SEQUENCER',
       isSettingsOpen: false,
+      loopRangeEndBeat: null,
+      loopRangeStartBeat: null,
       pinnedTrackIds: [],
       selectedArrangerClipId: project.arrangerClips[0]?.id ?? null,
       selectedTrackId: project.tracks.at(-1)?.id ?? null,

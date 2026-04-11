@@ -101,6 +101,8 @@ interface AudioContextType {
   isRecording: boolean;
   isSettingsOpen: boolean;
   lastSavedAt: string | null;
+  loopRangeEndBeat: number | null;
+  loopRangeStartBeat: number | null;
   loadSessionTemplate: (templateId: SessionTemplateId) => void;
   newSession: () => void;
   patternCount: number;
@@ -131,6 +133,7 @@ interface AudioContextType {
   setTrackSource: (id: string, source: Partial<TrackSource>) => void;
   songMarkers: SongMarker[];
   setClipPatternStepSlice: (clipId: string, stepIndex: number, sliceIndex: number | null, note?: string) => void;
+  setLoopRange: (startBeat: number | null, endBeat: number | null) => void;
   selectSampleSlice: (trackId: string, sliceIndex: number | null) => void;
   setTransportMode: (mode: TransportMode) => void;
   shiftPatternAt: (trackId: string, patternIndex: number, direction: 'left' | 'right') => void;
@@ -204,6 +207,7 @@ type EditorAction =
   | { type: 'SHIFT_PATTERN_AT'; direction: 'left' | 'right'; trackId: string; patternIndex: number }
   | { type: 'SET_ACTIVE_VIEW'; view: AppView }
   | { type: 'SET_BPM'; bpm: number }
+  | { type: 'SET_LOOP_RANGE'; endBeat: number | null; startBeat: number | null }
   | { type: 'SET_MASTER_SETTINGS'; settings: Partial<MasterSettings> }
   | { type: 'SET_CURRENT_PATTERN'; pattern: number }
   | { type: 'SET_PATTERN_COUNT'; patternCount: number }
@@ -896,6 +900,28 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
           bpm: nextBpm,
         },
       });
+    }
+
+    case 'SET_LOOP_RANGE': {
+      const nextStartBeat = action.startBeat !== null ? Math.max(0, Math.round(action.startBeat)) : null;
+      const nextEndBeat = action.endBeat !== null ? Math.max(1, Math.round(action.endBeat)) : null;
+      const hasValidRange = nextStartBeat !== null && nextEndBeat !== null && nextEndBeat > nextStartBeat;
+
+      if (
+        state.ui.loopRangeStartBeat === (hasValidRange ? nextStartBeat : null)
+        && state.ui.loopRangeEndBeat === (hasValidRange ? nextEndBeat : null)
+      ) {
+        return state;
+      }
+
+      return {
+        ...state,
+        ui: {
+          ...state.ui,
+          loopRangeEndBeat: hasValidRange ? nextEndBeat : null,
+          loopRangeStartBeat: hasValidRange ? nextStartBeat : null,
+        },
+      };
     }
 
     case 'SET_MASTER_SETTINGS':
@@ -1834,6 +1860,8 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
   const project = editorState.history.present;
   const {
     activeView,
+    loopRangeEndBeat,
+    loopRangeStartBeat,
     pinnedTrackIds,
     selectedArrangerClipId,
     selectedTrackId,
@@ -1845,6 +1873,14 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     engine.syncProject(project);
   }, [project]);
+
+  useEffect(() => {
+    engine.setLoopRange(
+      loopRangeStartBeat !== null && loopRangeEndBeat !== null
+        ? { endBeat: loopRangeEndBeat, startBeat: loopRangeStartBeat }
+        : null,
+    );
+  }, [loopRangeEndBeat, loopRangeStartBeat]);
 
   useEffect(() => {
     const unsubscribe = engine.onStep((step) => {
@@ -2337,6 +2373,8 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       isRecording,
       isSettingsOpen: editorState.ui.isSettingsOpen,
       lastSavedAt,
+      loopRangeEndBeat,
+      loopRangeStartBeat,
       loadSessionTemplate,
       master: project.master,
       newSession,
@@ -2364,6 +2402,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       setCurrentPattern: (pattern) => dispatch({ type: 'SET_CURRENT_PATTERN', pattern }),
       setPatternCount: (patternCount) => dispatch({ type: 'SET_PATTERN_COUNT', patternCount }),
       setClipPatternStepSlice: (clipId, stepIndex, sliceIndex, note) => dispatch({ type: 'SET_CLIP_PATTERN_STEP_SLICE', clipId, note, sliceIndex, stepIndex }),
+      setLoopRange: (startBeat, endBeat) => dispatch({ type: 'SET_LOOP_RANGE', endBeat, startBeat }),
       setSelectedTrackId: (trackId) => dispatch({ type: 'SET_SELECTED_TRACK_ID', trackId }),
       selectSampleSlice: (trackId, sliceIndex) => dispatch({ type: 'SELECT_SAMPLE_SLICE', sliceIndex, trackId }),
       setStepsPerPattern: (stepsPerPattern) => dispatch({ type: 'SET_STEPS_PER_PATTERN', stepsPerPattern }),

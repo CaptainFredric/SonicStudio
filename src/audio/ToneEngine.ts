@@ -41,6 +41,7 @@ interface TrackGraph {
 class ToneEngine {
   private arrangerClips: ArrangementClip[] = [];
   private isInitialized = false;
+  private loopRange: { endBeat: number; startBeat: number } | null = null;
   private masterCompressor: Tone.Compressor | null = null;
   private masterEq: Tone.EQ3 | null = null;
   private masterGain: Tone.Gain | null = null;
@@ -110,13 +111,23 @@ class ToneEngine {
     this.setBpm(project.transport.bpm);
     this.updateTransportLoop();
 
-    const loopLength = this.getLoopLength();
-    if (this.currentStep >= loopLength) {
-      this.currentStep = 0;
+    const loopBounds = this.getLoopBounds();
+    if (this.currentStep < loopBounds.startBeat || this.currentStep >= loopBounds.endBeat) {
+      this.currentStep = loopBounds.startBeat;
     }
 
     this.syncTrackGraphs();
     this.applyMasterSettings();
+  }
+
+  public setLoopRange(range: { endBeat: number; startBeat: number } | null) {
+    this.loopRange = range && range.endBeat > range.startBeat ? range : null;
+    this.updateTransportLoop();
+
+    const loopBounds = this.getLoopBounds();
+    if (this.currentStep < loopBounds.startBeat || this.currentStep >= loopBounds.endBeat) {
+      this.currentStep = loopBounds.startBeat;
+    }
   }
 
   private applyMasterSettings() {
@@ -134,9 +145,16 @@ class ToneEngine {
     this.masterEq.mid.value = (this.masterSettings.tone - 0.5) * 2;
   }
 
-  private getLoopLength() {
+  private getLoopBounds() {
     if (this.transportMode === 'PATTERN') {
-      return this.stepsPerPattern;
+      return {
+        endBeat: this.stepsPerPattern,
+        startBeat: 0,
+      };
+    }
+
+    if (this.loopRange) {
+      return this.loopRange;
     }
 
     const clipTail = this.arrangerClips.reduce(
@@ -144,16 +162,19 @@ class ToneEngine {
       0,
     );
 
-    return Math.max(clipTail, this.stepsPerPattern);
+    return {
+      endBeat: Math.max(clipTail, this.stepsPerPattern),
+      startBeat: 0,
+    };
   }
 
   private updateTransportLoop() {
-    const loopLength = this.getLoopLength();
+    const loopBounds = this.getLoopBounds();
     const sixteenthDuration = Tone.Time('16n').toSeconds();
 
     Tone.Transport.loop = true;
-    Tone.Transport.loopStart = 0;
-    Tone.Transport.loopEnd = loopLength * sixteenthDuration;
+    Tone.Transport.loopStart = loopBounds.startBeat * sixteenthDuration;
+    Tone.Transport.loopEnd = loopBounds.endBeat * sixteenthDuration;
   }
 
   private resolvePatternStep(track: Track, songStep: number): { note: StepValue; patternIndex: number; stepIndex: number } | null {
@@ -238,6 +259,7 @@ class ToneEngine {
   }
 
   private playStep(time: number) {
+    const loopBounds = this.getLoopBounds();
     const songStep = this.currentStep;
     let displayedPattern = this.currentPattern;
 
@@ -278,7 +300,9 @@ class ToneEngine {
       this.stepCallbacks.forEach((callback) => callback(visualStep, displayedPattern));
     }, time);
 
-    this.currentStep = (songStep + 1) % this.getLoopLength();
+    this.currentStep = songStep + 1 >= loopBounds.endBeat
+      ? loopBounds.startBeat
+      : songStep + 1;
   }
 
   public togglePlayback() {
@@ -298,10 +322,11 @@ class ToneEngine {
   }
 
   public stop() {
+    const loopBounds = this.getLoopBounds();
     Tone.Transport.stop();
-    Tone.Transport.position = 0;
-    this.currentStep = 0;
-    this.stepCallbacks.forEach((callback) => callback(0, this.currentPattern));
+    Tone.Transport.position = loopBounds.startBeat * Tone.Time('16n').toSeconds();
+    this.currentStep = loopBounds.startBeat;
+    this.stepCallbacks.forEach((callback) => callback(loopBounds.startBeat % this.stepsPerPattern, this.currentPattern));
   }
 
   public setBpm(bpm: number) {
