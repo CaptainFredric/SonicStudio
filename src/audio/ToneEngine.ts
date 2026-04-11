@@ -245,6 +245,21 @@ class ToneEngine {
     };
   }
 
+  public previewTrack(track: Track, note: string) {
+    if (!this.isInitialized) {
+      return;
+    }
+
+    const graph = this.ensureTrackGraph(track);
+    const previewNote: NoteEvent = {
+      gate: track.source.engine === 'sample' ? 2 : track.type === 'pad' ? 2.5 : 1.25,
+      note,
+      velocity: 0.88,
+    };
+
+    this.triggerTrack(graph, track, previewNote, Tone.now() + 0.02);
+  }
+
   private resolvePlayableNote(track: Track, note: string) {
     const semitoneShift = track.source.octaveShift * 12;
     if (semitoneShift === 0) {

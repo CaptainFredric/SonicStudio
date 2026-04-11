@@ -2,6 +2,7 @@ import React from 'react';
 import {
   Activity,
   Disc3,
+  Play,
   Sparkles,
   SlidersHorizontal,
   Volume2,
@@ -19,7 +20,9 @@ const FILTER_OPTIONS = ['lowpass', 'bandpass', 'highpass'] as const;
 
 export const DeviceRack = () => {
   const {
+    currentPattern,
     isRecording,
+    previewTrack,
     selectedTrackId,
     setTrackParams,
     setTrackSource,
@@ -55,7 +58,15 @@ export const DeviceRack = () => {
               </div>
               <div className="min-w-0">
                 <div className="truncate text-base font-semibold tracking-tight text-[var(--text-primary)]">{track.name}</div>
-                <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.type}</div>
+              <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.type}</div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <span className="rounded-sm border border-[var(--border-soft)] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                    {track.source.engine}
+                  </span>
+                  <span className="rounded-sm border border-[var(--border-soft)] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                    {track.source.engine === 'sample' ? activeSampleMeta?.label ?? 'preset' : waveformLabel(track.source.waveform)}
+                  </span>
+                </div>
               </div>
             </div>
             <div className="mt-4 rounded-2xl border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
@@ -76,6 +87,16 @@ export const DeviceRack = () => {
           </div>
 
           <div className="space-y-4">
+            <div className="flex gap-2">
+              <button
+                className="control-chip flex flex-1 items-center justify-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] hover:text-[var(--text-primary)]"
+                onClick={() => void previewTrack(track.id)}
+              >
+                <Play className="h-3.5 w-3.5" />
+                Audition
+              </button>
+            </div>
+
             <div>
               <div className="flex items-center justify-between">
                 <span className="section-label">Channel level</span>
@@ -270,15 +291,17 @@ export const DeviceRack = () => {
           </div>
           <div className="mt-4 grid flex-1 gap-4">
             <div className="rounded-2xl border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
-              <div className="section-label">Source notes</div>
-              <div className="mt-3 space-y-2 text-sm text-[var(--text-secondary)]">
-                <p>{track.source.engine === 'sample'
-                  ? 'Sample mode gives each lane a built-in source preset, then lets the same filter, chorus, crusher, and space chain reshape it.'
-                  : track.type === 'lead'
-                    ? 'Lead voices respond best to saw and square shapes, then chorus, vibrato, and filter mode for movement.'
-                    : 'Bass, drum, and texture lanes now carry persistent tone-shaping controls for much deeper sketching.'}</p>
-                <p>Crusher handles grit, chorus opens width, and vibrato adds motion without forcing more notes into the pattern.</p>
-                <p>Song mode still reads clips lane by lane, so the patterns you place in the arranger drive the actual transport while the rack shapes the tone in real time.</p>
+              <div className="section-label">Track status</div>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-[var(--text-secondary)]">
+                <StatusCell label="Engine" value={track.source.engine === 'sample' ? 'Sample' : 'Synth'} />
+                <StatusCell label="Voice" value={track.source.engine === 'sample' ? activeSampleMeta?.label ?? 'Preset' : waveformLabel(track.source.waveform)} />
+                <StatusCell label="Pattern notes" value={`${track.patterns[currentPattern]?.reduce((sum, step) => sum + step.length, 0) ?? 0}`} />
+                <StatusCell label="Filter" value={filterLabel(track.params.filterMode)} />
+              </div>
+              <div className="mt-3 text-[11px] leading-5 text-[var(--text-secondary)]">
+                {track.source.engine === 'sample'
+                  ? 'Audition plays the current sample preset through the same filter and FX chain used during playback.'
+                  : 'Audition plays the current synth voice with its motion and space settings, so you can shape tone without starting transport.'}
               </div>
             </div>
             <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
@@ -330,3 +353,10 @@ const filterLabel = (mode: typeof FILTER_OPTIONS[number]) => {
       return 'Low-pass';
   }
 };
+
+const StatusCell = ({ label, value }: { label: string; value: string }) => (
+  <div className="rounded-[10px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-2">
+    <div className="section-label">{label}</div>
+    <div className="mt-1 text-xs font-medium text-[var(--text-primary)]">{value}</div>
+  </div>
+);

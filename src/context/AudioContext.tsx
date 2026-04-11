@@ -66,6 +66,7 @@ interface AudioContextType {
   lastSavedAt: string | null;
   newSession: () => void;
   patternCount: number;
+  previewTrack: (trackId: string, note?: string) => Promise<void>;
   projectName: string;
   redo: () => void;
   removeArrangerClip: (clipId: string) => void;
@@ -970,6 +971,19 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
     persistCurrentSession();
   };
 
+  const previewTrack = async (trackId: string, note?: string) => {
+    const track = project.tracks.find((candidate) => candidate.id === trackId);
+    if (!track) {
+      return;
+    }
+
+    if (!isInitialized) {
+      await initAudio();
+    }
+
+    engine.previewTrack(track, note ?? defaultNoteForTrack(track));
+  };
+
   const resetTransportState = () => {
     engine.stop();
     setCurrentStep(0);
@@ -1048,6 +1062,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       lastSavedAt,
       newSession,
       patternCount: project.transport.patternCount,
+      previewTrack,
       projectName: project.metadata.name,
       redo: () => dispatch({ type: 'REDO' }),
       removeArrangerClip: (clipId) => dispatch({ type: 'REMOVE_ARRANGER_CLIP', clipId }),

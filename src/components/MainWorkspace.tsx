@@ -1,6 +1,7 @@
 import React from 'react';
 import { Copy, Eraser, Music2, Trash2 } from 'lucide-react';
 
+import { getSamplePresetMeta } from '../audio/sampleLibrary';
 import { useAudio } from '../context/AudioContext';
 
 const TRACK_BUTTONS = [
@@ -76,6 +77,9 @@ export const MainWorkspace = () => {
           {tracks.map((track) => {
             const patternSteps = track.patterns[currentPattern] || Array.from({ length: stepsPerPattern }, () => []);
             const selected = selectedTrackId === track.id;
+            const sourceLabel = track.source.engine === 'sample'
+              ? getSamplePresetMeta(track.source.samplePreset).label
+              : waveformLabel(track.source.waveform);
 
             return (
               <div
@@ -103,6 +107,8 @@ export const MainWorkspace = () => {
                       </div>
                       <div className="mt-2 flex items-center gap-3">
                         <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.type}</span>
+                        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.source.engine}</span>
+                        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{sourceLabel}</span>
                         <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.volume.toFixed(0)} dB</span>
                         <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
                           {patternSteps.reduce((sum, step) => sum + step.length, 0)} notes
@@ -200,3 +206,14 @@ const RowActionBtn = ({
     {children}
   </button>
 );
+
+const waveformLabel = (waveform: 'sine' | 'triangle' | 'sawtooth' | 'square') => {
+  switch (waveform) {
+    case 'sawtooth':
+      return 'Saw';
+    case 'triangle':
+      return 'Triangle';
+    default:
+      return waveform.charAt(0).toUpperCase() + waveform.slice(1);
+  }
+};
