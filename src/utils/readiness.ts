@@ -14,8 +14,8 @@ export interface ReadinessAssessment {
 const READINESS_SLICES: ReadinessSlice[] = [
   {
     label: 'Composition core',
-    score: 74,
-    rationale: 'Pattern editing, clip arrangement, phrase automation, and sample or synth sources are all present and easier to move through.',
+    score: 75,
+    rationale: 'Pattern editing, clip arrangement, phrase automation, and sample or synth sources are all present, with faster sequencing and clearer track focus.',
   },
   {
     label: 'Sound design',
@@ -24,8 +24,8 @@ const READINESS_SLICES: ReadinessSlice[] = [
   },
   {
     label: 'Editing ergonomics',
-    score: 66,
-    rationale: 'The main edit loop is materially clearer now, but advanced note editing, drag operations, and dense session navigation still trail mature DAWs.',
+    score: 70,
+    rationale: 'The main edit loop is materially clearer now, especially in the sequencer, but advanced note editing, drag operations, and dense session navigation still trail mature DAWs.',
   },
   {
     label: 'Audio output',
@@ -34,7 +34,7 @@ const READINESS_SLICES: ReadinessSlice[] = [
   },
   {
     label: 'Product finish',
-    score: 49,
+    score: 50,
     rationale: 'The shell is more stable and easier to read, but onboarding, trust cues, collaboration, and account level product features are still early.',
   },
 ];
