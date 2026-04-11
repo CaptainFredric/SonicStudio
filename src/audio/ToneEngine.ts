@@ -227,15 +227,22 @@ class ToneEngine {
     }
   }
 
-  public async stopRecording() {
+  public async stopRecording(download = true) {
     if (this.recorder?.state === 'started') {
       const recording = await this.recorder.stop();
-      const url = URL.createObjectURL(recording);
-      const anchor = document.createElement('a');
-      anchor.download = 'sonic_studio_obsidian.webm';
-      anchor.href = url;
-      anchor.click();
+
+      if (download) {
+        const url = URL.createObjectURL(recording);
+        const anchor = document.createElement('a');
+        anchor.download = 'sonic_studio_obsidian.webm';
+        anchor.href = url;
+        anchor.click();
+      }
+
+      return recording;
     }
+
+    return null;
   }
 
   public onStep(callback: (step: number, pattern: number) => void) {

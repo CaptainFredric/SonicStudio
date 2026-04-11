@@ -55,6 +55,7 @@ interface AudioContextType {
   currentPattern: number;
   currentStep: number;
   duplicateArrangerClip: (clipId: string) => void;
+  exportAudioMix: () => Promise<void>;
   loopArrangerClip: (clipId: string, copies: number) => void;
   duplicateTrack: (trackId: string) => void;
   exportSession: () => void;
@@ -88,6 +89,7 @@ interface AudioContextType {
   setTrackSource: (id: string, source: Partial<TrackSource>) => void;
   setTransportMode: (mode: TransportMode) => void;
   songLengthInBeats: number;
+  splitArrangerClip: (clipId: string) => void;
   stepsPerPattern: number;
   stop: () => void;
   toggleMute: (trackId: string) => void;
@@ -123,6 +125,7 @@ type EditorAction =
   | { type: 'CREATE_TRACK'; trackType: InstrumentType }
   | { type: 'DUPLICATE_ARRANGER_CLIP'; clipId: string }
   | { type: 'LOOP_ARRANGER_CLIP'; clipId: string; copies: number }
+  | { type: 'SPLIT_ARRANGER_CLIP'; clipId: string }
   | { type: 'DUPLICATE_TRACK'; trackId: string }
   | { type: 'HYDRATE_SESSION'; session: StudioSession }
   | { type: 'REDO' }
@@ -681,6 +684,37 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
       }, sourceClip.trackId);
     }
 
+    case 'SPLIT_ARRANGER_CLIP': {
+      const sourceClip = present.arrangerClips.find((clip) => clip.id === action.clipId);
+      if (!sourceClip || sourceClip.beatLength < 8) {
+        return state;
+      }
+
+      const halfLength = Math.floor(sourceClip.beatLength / 8) * 4;
+      const firstLength = clamp(halfLength, 4, sourceClip.beatLength - 4);
+      const secondLength = sourceClip.beatLength - firstLength;
+
+      return commitProject(state, {
+        ...present,
+        arrangerClips: syncArrangerClips(
+          [
+            ...present.arrangerClips.map((clip) => (
+              clip.id === sourceClip.id
+                ? { ...clip, beatLength: firstLength }
+                : clip
+            )),
+            buildArrangerClip(sourceClip.trackId, present.transport, {
+              beatLength: secondLength,
+              patternIndex: sourceClip.patternIndex,
+              startBeat: sourceClip.startBeat + firstLength,
+            }),
+          ],
+          present.tracks,
+          present.transport.patternCount,
+        ),
+      }, sourceClip.trackId);
+    }
+
     case 'DUPLICATE_TRACK': {
       const sourceTrack = present.tracks.find((track) => track.id === action.trackId);
       if (!sourceTrack) {
@@ -1044,6 +1078,57 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
     URL.revokeObjectURL(url);
   };
 
+  const exportAudioMix = async () => {
+    if (typeof window === 'undefined' || isRecording) {
+      return;
+    }
+
+    if (!isInitialized) {
+      await initAudio();
+    }
+
+    const renderSteps = project.transport.mode === 'SONG'
+      ? Math.max(songLengthInBeats, project.transport.stepsPerPattern)
+      : project.transport.stepsPerPattern;
+    const renderDurationSeconds = renderSteps * (60 / project.transport.bpm) * 0.25;
+    const tailSeconds = 1.5;
+    const bounceDurationMs = Math.max(1200, Math.ceil((renderDurationSeconds + tailSeconds) * 1000));
+
+    stop();
+    engine.syncProject(project);
+
+    try {
+      await engine.startRecording();
+      setIsRecording(true);
+      setIsPlaying(engine.togglePlayback());
+
+      await new Promise((resolve) => {
+        window.setTimeout(resolve, bounceDurationMs);
+      });
+
+      const recording = await engine.stopRecording(false);
+
+      if (!recording) {
+        return;
+      }
+
+      const url = URL.createObjectURL(recording);
+      const anchor = document.createElement('a');
+      const fileName = project.metadata.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'sonicstudio-mix';
+
+      anchor.href = url;
+      anchor.download = `${fileName}.webm`;
+      anchor.click();
+
+      window.setTimeout(() => {
+        URL.revokeObjectURL(url);
+      }, 1000);
+    } finally {
+      stop();
+      setIsRecording(false);
+    }
+  };
+
   const importSession = async (file: File) => {
     try {
       const parsed = JSON.parse(await file.text()) as unknown;
@@ -1078,6 +1163,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       currentPattern: project.transport.currentPattern,
       currentStep,
       duplicateArrangerClip: (clipId) => dispatch({ type: 'DUPLICATE_ARRANGER_CLIP', clipId }),
+      exportAudioMix,
       loopArrangerClip: (clipId, copies) => dispatch({ type: 'LOOP_ARRANGER_CLIP', clipId, copies }),
       duplicateTrack: (trackId) => dispatch({ type: 'DUPLICATE_TRACK', trackId }),
       exportSession,
@@ -1111,6 +1197,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       setTrackSource: (trackId, source) => dispatch({ type: 'SET_TRACK_SOURCE', source, trackId }),
       setTransportMode: (mode) => dispatch({ type: 'SET_TRANSPORT_MODE', mode }),
       songLengthInBeats,
+      splitArrangerClip: (clipId) => dispatch({ type: 'SPLIT_ARRANGER_CLIP', clipId }),
       stepsPerPattern: project.transport.stepsPerPattern,
       stop,
       toggleMute: (trackId) => dispatch({ type: 'TOGGLE_MUTE', trackId }),

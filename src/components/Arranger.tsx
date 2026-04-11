@@ -1,10 +1,28 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Copy, Layers3, MoveHorizontal, Plus, Shrink, StretchHorizontal, Trash2 } from 'lucide-react';
+import { Copy, Layers3, MoveHorizontal, Plus, Scissors, StretchHorizontal, Trash2 } from 'lucide-react';
 
 import { useAudio } from '../context/AudioContext';
+import type { ArrangementClip } from '../project/schema';
 
 const PIXELS_PER_STEP = 22;
 const CLIP_SNAP = 4;
+const MIN_CLIP_LENGTH = CLIP_SNAP;
+
+type DragMode = 'move' | 'trim-start' | 'trim-end';
+
+interface DragState {
+  clipId: string;
+  mode: DragMode;
+  originX: number;
+  previewBeatLength: number;
+  previewStartBeat: number;
+  sourceBeatLength: number;
+  sourceStartBeat: number;
+}
+
+const snapStepDelta = (offsetPx: number) => (
+  Math.round(offsetPx / PIXELS_PER_STEP / CLIP_SNAP) * CLIP_SNAP
+);
 
 export const Arranger = () => {
   const {
@@ -14,6 +32,7 @@ export const Arranger = () => {
     currentStep,
     currentPattern,
     duplicateArrangerClip,
+    splitArrangerClip,
     loopArrangerClip,
     patternCount,
     removeArrangerClip,
@@ -26,6 +45,7 @@ export const Arranger = () => {
     updateArrangerClip,
   } = useAudio();
   const [selectedClipId, setSelectedClipId] = useState<string | null>(arrangerClips[0]?.id ?? null);
+  const [dragState, setDragState] = useState<DragState | null>(null);
 
   useEffect(() => {
     if (selectedClipId && arrangerClips.some((clip) => clip.id === selectedClipId)) {
@@ -34,6 +54,71 @@ export const Arranger = () => {
 
     setSelectedClipId(arrangerClips[0]?.id ?? null);
   }, [arrangerClips, selectedClipId]);
+
+  useEffect(() => {
+    if (!dragState) {
+      return undefined;
+    }
+
+    const handlePointerMove = (event: PointerEvent) => {
+      const stepDelta = snapStepDelta(event.clientX - dragState.originX);
+
+      if (dragState.mode === 'move') {
+        setDragState((current) => current ? {
+          ...current,
+          previewStartBeat: Math.max(0, dragState.sourceStartBeat + stepDelta),
+        } : current);
+        return;
+      }
+
+      if (dragState.mode === 'trim-end') {
+        setDragState((current) => current ? {
+          ...current,
+          previewBeatLength: Math.max(MIN_CLIP_LENGTH, dragState.sourceBeatLength + stepDelta),
+        } : current);
+        return;
+      }
+
+      const requestedStart = Math.max(0, dragState.sourceStartBeat + stepDelta);
+      const maxStartBeat = dragState.sourceStartBeat + dragState.sourceBeatLength - MIN_CLIP_LENGTH;
+      const nextStartBeat = Math.min(requestedStart, maxStartBeat);
+
+      setDragState((current) => current ? {
+        ...current,
+        previewBeatLength: dragState.sourceBeatLength - (nextStartBeat - dragState.sourceStartBeat),
+        previewStartBeat: nextStartBeat,
+      } : current);
+    };
+
+    const commitDrag = () => {
+      const clip = arrangerClips.find((candidate) => candidate.id === dragState.clipId);
+      if (clip) {
+        const updates: Partial<ArrangementClip> = {};
+
+        if (dragState.previewStartBeat !== dragState.sourceStartBeat) {
+          updates.startBeat = dragState.previewStartBeat;
+        }
+
+        if (dragState.previewBeatLength !== dragState.sourceBeatLength) {
+          updates.beatLength = dragState.previewBeatLength;
+        }
+
+        if (Object.keys(updates).length > 0) {
+          updateArrangerClip(clip.id, updates);
+        }
+      }
+
+      setDragState(null);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove);
+    window.addEventListener('pointerup', commitDrag, { once: true });
+
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', commitDrag);
+    };
+  }, [arrangerClips, dragState, updateArrangerClip]);
 
   const selectedClip = arrangerClips.find((clip) => clip.id === selectedClipId) ?? null;
   const selectedClipTrack = tracks.find((track) => track.id === selectedClip?.trackId) ?? null;
@@ -78,6 +163,35 @@ export const Arranger = () => {
     updateArrangerClip(clipId, { beatLength: Math.max(CLIP_SNAP, clip.beatLength + amount) });
   };
 
+  const beginClipDrag = (clip: ArrangementClip, event: React.PointerEvent<HTMLDivElement>, mode: DragMode) => {
+    event.preventDefault();
+    event.stopPropagation();
+    selectClip(clip.id);
+    setDragState({
+      clipId: clip.id,
+      mode,
+      originX: event.clientX,
+      previewBeatLength: clip.beatLength,
+      previewStartBeat: clip.startBeat,
+      sourceBeatLength: clip.beatLength,
+      sourceStartBeat: clip.startBeat,
+    });
+  };
+
+  const getRenderedClipFrame = (clip: ArrangementClip) => {
+    if (!dragState || dragState.clipId !== clip.id) {
+      return {
+        beatLength: clip.beatLength,
+        startBeat: clip.startBeat,
+      };
+    }
+
+    return {
+      beatLength: dragState.previewBeatLength,
+      startBeat: dragState.previewStartBeat,
+    };
+  };
+
   return (
     <section className="surface-panel flex min-h-0 flex-1 flex-col overflow-hidden">
       <div className="flex items-center justify-between gap-4 border-b border-[var(--border-soft)] px-5 py-4">
@@ -85,7 +199,7 @@ export const Arranger = () => {
           <div className="section-label">Arranger</div>
           <h2 className="mt-2 text-lg font-semibold tracking-tight text-[var(--text-primary)]">Clip lanes</h2>
           <p className="mt-2 max-w-3xl text-sm text-[var(--text-secondary)]">
-            Song mode already reads this timeline. This pass makes phrase building faster by selecting, duplicating, nudging, and stretching clips directly from the lane view instead of relying on numeric edits alone.
+            Song mode already reads this timeline. This pass makes phrase building faster by selecting, dragging, trimming, splitting, and duplicating clips directly from the lane view instead of relying on numeric edits alone.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -202,13 +316,24 @@ export const Arranger = () => {
                   secondaryLabel="Repeat x4"
                   secondaryAction={() => loopArrangerClip(selectedClip.id, 3)}
                 />
+                <QuickActionRow
+                  icon={<Scissors className="h-4 w-4" />}
+                  label="Edit"
+                  primaryLabel="Split"
+                  primaryAction={() => splitArrangerClip(selectedClip.id)}
+                  secondaryLabel="Focus"
+                  secondaryAction={() => {
+                    setSelectedTrackId(selectedClip.trackId);
+                    setCurrentPattern(selectedClip.patternIndex);
+                  }}
+                />
               </div>
 
               <div className="rounded-[16px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-4">
                 <div className="section-label">Session cues</div>
                 <div className="mt-3 space-y-2 text-sm text-[var(--text-secondary)]">
                   <p>Selected pattern matches top-bar pattern {String.fromCharCode(65 + currentPattern)} when you focus a clip, which keeps song editing and note editing in sync.</p>
-                  <p>Bar snap is currently {CLIP_SNAP} steps. That keeps phrases aligned while still letting you build longer clips by duplication.</p>
+                  <p>Bar snap is currently {CLIP_SNAP} steps. Drag the body to move a clip and drag either edge to trim it without breaking alignment.</p>
                 </div>
               </div>
             </div>
@@ -287,6 +412,7 @@ export const Arranger = () => {
                         <div className="relative z-[2] flex h-20 items-center">
                           {clips.map((clip) => {
                             const isSelectedClip = selectedClipId === clip.id;
+                            const frame = getRenderedClipFrame(clip);
 
                             return (
                               <div
@@ -299,28 +425,34 @@ export const Arranger = () => {
                                     selectClip(clip.id);
                                   }
                                 }}
+                                onPointerDown={(event) => beginClipDrag(clip, event, 'move')}
                                 role="button"
                                 style={{
                                   background: `linear-gradient(135deg, ${track.color}40, ${track.color}1a)`,
                                   borderColor: isSelectedClip ? `${track.color}aa` : `${track.color}66`,
                                   borderRadius: isSelectedClip ? '6px' : '4px',
-                                  left: `${clip.startBeat * PIXELS_PER_STEP}px`,
-                                  width: `${clip.beatLength * PIXELS_PER_STEP}px`,
+                                  left: `${frame.startBeat * PIXELS_PER_STEP}px`,
+                                  width: `${frame.beatLength * PIXELS_PER_STEP}px`,
                                 }}
                                 tabIndex={0}
                               >
+                                <div
+                                  className="absolute inset-y-0 left-0 z-[3] w-2 cursor-ew-resize bg-[rgba(255,255,255,0.08)] opacity-0 transition-opacity group-hover:opacity-100"
+                                  onPointerDown={(event) => beginClipDrag(clip, event, 'trim-start')}
+                                />
                                 <div className="min-w-0 flex-1">
                                   <div className="truncate text-xs font-semibold text-[var(--text-primary)]">
                                     {track.name}
                                   </div>
                                   <div className="mt-1 flex items-center justify-between gap-3 text-[10px] text-[var(--text-secondary)]">
                                     <span>Pattern {String.fromCharCode(65 + clip.patternIndex)}</span>
-                                    <span>{clip.beatLength} steps</span>
+                                    <span>{frame.beatLength} steps</span>
                                   </div>
                                 </div>
                                 <div className="ml-3 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                                   <button
                                     className="ghost-icon-button flex h-8 w-8 items-center justify-center"
+                                    onPointerDown={(event) => event.stopPropagation()}
                                     onClick={(event) => {
                                       event.stopPropagation();
                                       nudgeClip(clip.id, -CLIP_SNAP);
@@ -330,6 +462,7 @@ export const Arranger = () => {
                                   </button>
                                   <button
                                     className="ghost-icon-button flex h-8 w-8 items-center justify-center"
+                                    onPointerDown={(event) => event.stopPropagation()}
                                     onClick={(event) => {
                                       event.stopPropagation();
                                       nudgeClip(clip.id, CLIP_SNAP);
@@ -339,6 +472,7 @@ export const Arranger = () => {
                                   </button>
                                   <button
                                     className="ghost-icon-button flex h-8 w-8 items-center justify-center"
+                                    onPointerDown={(event) => event.stopPropagation()}
                                     onClick={(event) => {
                                       event.stopPropagation();
                                       duplicateArrangerClip(clip.id);
@@ -347,6 +481,10 @@ export const Arranger = () => {
                                     <Copy className="h-3.5 w-3.5" />
                                   </button>
                                 </div>
+                                <div
+                                  className="absolute inset-y-0 right-0 z-[3] w-2 cursor-ew-resize bg-[rgba(255,255,255,0.08)] opacity-0 transition-opacity group-hover:opacity-100"
+                                  onPointerDown={(event) => beginClipDrag(clip, event, 'trim-end')}
+                                />
                               </div>
                             );
                           })}
