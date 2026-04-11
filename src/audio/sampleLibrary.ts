@@ -85,3 +85,5 @@ export const getSamplePresetOptions = (trackType: InstrumentType) => (
 export const getSamplePresetMeta = (preset: SamplePreset) => SAMPLE_LIBRARY[preset];
 
 export const getSampleUrl = (preset: SamplePreset) => `${import.meta.env.BASE_URL}${SAMPLE_LIBRARY[preset].path}`;
+
+export const MAX_CUSTOM_SAMPLE_BYTES = 1_500_000;

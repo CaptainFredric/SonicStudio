@@ -286,19 +286,20 @@ class ToneEngine {
 
   private buildVoiceSignature(track: Track) {
     return track.source.engine === 'sample'
-      ? `${track.type}:sample:${track.source.samplePreset}`
+      ? `${track.type}:sample:${track.source.customSampleName ?? track.source.samplePreset}:${track.source.customSampleDataUrl?.length ?? 0}`
       : `${track.type}:synth`;
   }
 
   private createInstrument(track: Track): TrackInstrument {
     if (track.source.engine === 'sample') {
       const preset = getSamplePresetMeta(track.source.samplePreset);
+      const sampleUrl = track.source.customSampleDataUrl ?? getSampleUrl(track.source.samplePreset);
 
       return new Tone.Sampler({
         attack: 0,
         release: 1,
         urls: {
-          [preset.rootNote]: getSampleUrl(track.source.samplePreset),
+          [preset.rootNote]: sampleUrl,
         },
       });
     }

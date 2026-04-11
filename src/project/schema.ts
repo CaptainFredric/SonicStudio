@@ -48,6 +48,8 @@ export interface SynthParams {
 }
 
 export interface TrackSource {
+  customSampleDataUrl?: string;
+  customSampleName?: string;
   detune: number;
   engine: SourceEngine;
   octaveShift: number;
@@ -110,7 +112,7 @@ export const MAX_PATTERN_COUNT = 8;
 export const MAX_STEPS_PER_PATTERN = 64;
 export const MIN_PATTERN_COUNT = 1;
 export const MIN_STEPS_PER_PATTERN = 8;
-export const PROJECT_SCHEMA_VERSION = 5;
+export const PROJECT_SCHEMA_VERSION = 6;
 
 export const INITIAL_PARAMS: SynthParams = {
   cutoff: 2000,
@@ -271,6 +273,12 @@ const normalizeSource = (
   const candidate = isRecord(source) ? source : {};
 
   return {
+    customSampleDataUrl: typeof candidate.customSampleDataUrl === 'string' && candidate.customSampleDataUrl.startsWith('data:audio/')
+      ? candidate.customSampleDataUrl
+      : undefined,
+    customSampleName: typeof candidate.customSampleName === 'string' && candidate.customSampleName.trim()
+      ? candidate.customSampleName.trim()
+      : undefined,
     detune: clamp(
       typeof candidate.detune === 'number' ? candidate.detune : presetSource?.detune ?? INITIAL_SOURCE.detune,
       -2400,

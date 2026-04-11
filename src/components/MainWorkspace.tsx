@@ -78,7 +78,7 @@ export const MainWorkspace = () => {
             const patternSteps = track.patterns[currentPattern] || Array.from({ length: stepsPerPattern }, () => []);
             const selected = selectedTrackId === track.id;
             const sourceLabel = track.source.engine === 'sample'
-              ? getSamplePresetMeta(track.source.samplePreset).label
+              ? track.source.customSampleName ?? getSamplePresetMeta(track.source.samplePreset).label
               : waveformLabel(track.source.waveform);
 
             return (

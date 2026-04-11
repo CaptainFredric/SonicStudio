@@ -55,6 +55,7 @@ interface AudioContextType {
   currentPattern: number;
   currentStep: number;
   duplicateArrangerClip: (clipId: string) => void;
+  loopArrangerClip: (clipId: string, copies: number) => void;
   duplicateTrack: (trackId: string) => void;
   exportSession: () => void;
   importSession: (file: File) => Promise<boolean>;
@@ -121,6 +122,7 @@ type EditorAction =
   | { type: 'CLEAR_TRACK'; trackId: string }
   | { type: 'CREATE_TRACK'; trackType: InstrumentType }
   | { type: 'DUPLICATE_ARRANGER_CLIP'; clipId: string }
+  | { type: 'LOOP_ARRANGER_CLIP'; clipId: string; copies: number }
   | { type: 'DUPLICATE_TRACK'; trackId: string }
   | { type: 'HYDRATE_SESSION'; session: StudioSession }
   | { type: 'REDO' }
@@ -654,6 +656,31 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
       }, sourceClip.trackId);
     }
 
+    case 'LOOP_ARRANGER_CLIP': {
+      const sourceClip = present.arrangerClips.find((clip) => clip.id === action.clipId);
+      if (!sourceClip) {
+        return state;
+      }
+
+      const copies = Math.max(1, Math.min(8, Math.round(action.copies)));
+      const loopedClips = Array.from({ length: copies }, (_, index) => (
+        buildArrangerClip(sourceClip.trackId, present.transport, {
+          beatLength: sourceClip.beatLength,
+          patternIndex: sourceClip.patternIndex,
+          startBeat: sourceClip.startBeat + sourceClip.beatLength * (index + 1),
+        })
+      ));
+
+      return commitProject(state, {
+        ...present,
+        arrangerClips: syncArrangerClips(
+          [...present.arrangerClips, ...loopedClips],
+          present.tracks,
+          present.transport.patternCount,
+        ),
+      }, sourceClip.trackId);
+    }
+
     case 'DUPLICATE_TRACK': {
       const sourceTrack = present.tracks.find((track) => track.id === action.trackId);
       if (!sourceTrack) {
@@ -1051,6 +1078,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       currentPattern: project.transport.currentPattern,
       currentStep,
       duplicateArrangerClip: (clipId) => dispatch({ type: 'DUPLICATE_ARRANGER_CLIP', clipId }),
+      loopArrangerClip: (clipId, copies) => dispatch({ type: 'LOOP_ARRANGER_CLIP', clipId, copies }),
       duplicateTrack: (trackId) => dispatch({ type: 'DUPLICATE_TRACK', trackId }),
       exportSession,
       importSession,

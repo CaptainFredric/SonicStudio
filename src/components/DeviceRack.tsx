@@ -1,16 +1,18 @@
-import React from 'react';
+import React, { startTransition, useEffect, useRef, useState } from 'react';
 import {
   Activity,
   Disc3,
+  FolderUp,
   Play,
   Sparkles,
   SlidersHorizontal,
+  X,
   Volume2,
   Waves,
   Zap,
 } from 'lucide-react';
 
-import { getDefaultSamplePreset, getSamplePresetMeta, getSamplePresetOptions } from '../audio/sampleLibrary';
+import { MAX_CUSTOM_SAMPLE_BYTES, getDefaultSamplePreset, getSamplePresetMeta, getSamplePresetOptions } from '../audio/sampleLibrary';
 import { useAudio } from '../context/AudioContext';
 import { Knob } from './Knob';
 import { Visualizer } from './Visualizer';
@@ -34,6 +36,12 @@ export const DeviceRack = () => {
   const track = tracks.find((candidate) => candidate.id === selectedTrackId) ?? null;
   const sampleOptions = track ? getSamplePresetOptions(track.type) : [];
   const activeSampleMeta = track ? getSamplePresetMeta(track.source.samplePreset) : null;
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [sampleStatus, setSampleStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSampleStatus(null);
+  }, [track?.id]);
 
   if (!track) {
     return (
@@ -64,7 +72,9 @@ export const DeviceRack = () => {
                     {track.source.engine}
                   </span>
                   <span className="rounded-sm border border-[var(--border-soft)] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--text-secondary)]">
-                    {track.source.engine === 'sample' ? activeSampleMeta?.label ?? 'preset' : waveformLabel(track.source.waveform)}
+                    {track.source.engine === 'sample'
+                      ? track.source.customSampleName ?? activeSampleMeta?.label ?? 'preset'
+                      : waveformLabel(track.source.waveform)}
                   </span>
                 </div>
               </div>
@@ -73,7 +83,7 @@ export const DeviceRack = () => {
               <div className="section-label">Character</div>
               <div className="mt-2 text-sm text-[var(--text-primary)]">
                 {track.source.engine === 'sample'
-                  ? `${activeSampleMeta?.label ?? 'Sample'} · ${filterLabel(track.params.filterMode)}`
+                  ? `${track.source.customSampleName ?? activeSampleMeta?.label ?? 'Sample'} · ${filterLabel(track.params.filterMode)}`
                   : `${waveformLabel(track.source.waveform)} · ${filterLabel(track.params.filterMode)}`}
               </div>
               <div className="mt-1 text-xs text-[var(--text-secondary)]">
@@ -152,23 +162,102 @@ export const DeviceRack = () => {
             </label>
 
             {track.source.engine === 'sample' ? (
-              <label className="text-xs text-[var(--text-secondary)]">
-                <span className="section-label mb-2 block">Sample preset</span>
-                <select
-                  className="control-field h-11 w-full px-3 text-sm"
-                  onChange={(event) => setTrackSource(track.id, { samplePreset: event.target.value as typeof track.source.samplePreset })}
-                  value={track.source.samplePreset}
-                >
-                  {sampleOptions.map((option) => (
-                    <option key={option.preset} value={option.preset}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <span className="mt-2 block text-[11px] leading-5 text-[var(--text-secondary)]">
-                  {activeSampleMeta?.description ?? 'Built-in sample source.'}
-                </span>
-              </label>
+              <div className="grid gap-3">
+                <label className="text-xs text-[var(--text-secondary)]">
+                  <span className="section-label mb-2 block">Sample preset</span>
+                  <select
+                    className="control-field h-11 w-full px-3 text-sm"
+                    onChange={(event) => setTrackSource(track.id, {
+                      customSampleDataUrl: undefined,
+                      customSampleName: undefined,
+                      samplePreset: event.target.value as typeof track.source.samplePreset,
+                    })}
+                    value={track.source.samplePreset}
+                  >
+                    {sampleOptions.map((option) => (
+                      <option key={option.preset} value={option.preset}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="mt-2 block text-[11px] leading-5 text-[var(--text-secondary)]">
+                    {activeSampleMeta?.description ?? 'Built-in sample source.'}
+                  </span>
+                </label>
+
+                <div className="rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
+                  <div className="section-label">Custom sample</div>
+                  <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
+                    {track.source.customSampleName
+                      ? `Loaded: ${track.source.customSampleName}`
+                      : `Import a short audio file up to ${(MAX_CUSTOM_SAMPLE_BYTES / 1_000_000).toFixed(1)} MB. It will save inside the project.`}
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] hover:text-[var(--text-primary)]"
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <FolderUp className="h-3.5 w-3.5" />
+                      {track.source.customSampleName ? 'Replace' : 'Import'}
+                    </button>
+                    {track.source.customSampleName && (
+                      <button
+                        className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--danger)]"
+                        onClick={() => {
+                          setTrackSource(track.id, { customSampleDataUrl: undefined, customSampleName: undefined });
+                          setSampleStatus('Reverted to built-in preset');
+                        }}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                        Clear custom
+                      </button>
+                    )}
+                  </div>
+                  {sampleStatus && (
+                    <div className="mt-3 text-[11px] leading-5 text-[var(--text-secondary)]">{sampleStatus}</div>
+                  )}
+                  <input
+                    accept="audio/*,.wav,.mp3,.ogg,.m4a,.webm"
+                    className="hidden"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      event.target.value = '';
+
+                      if (!file) {
+                        return;
+                      }
+
+                      if (file.size > MAX_CUSTOM_SAMPLE_BYTES) {
+                        setSampleStatus(`Sample is too large. Keep it under ${(MAX_CUSTOM_SAMPLE_BYTES / 1_000_000).toFixed(1)} MB.`);
+                        return;
+                      }
+
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        const result = typeof reader.result === 'string' ? reader.result : null;
+                        if (!result || !result.startsWith('data:audio/')) {
+                          setSampleStatus('Could not read that file as audio.');
+                          return;
+                        }
+
+                        startTransition(() => {
+                          setTrackSource(track.id, {
+                            customSampleDataUrl: result,
+                            customSampleName: file.name,
+                          });
+                          setSampleStatus(`Loaded ${file.name}`);
+                        });
+                      };
+                      reader.onerror = () => {
+                        setSampleStatus('Could not import that file.');
+                      };
+                      reader.readAsDataURL(file);
+                    }}
+                    ref={fileInputRef}
+                    type="file"
+                  />
+                </div>
+              </div>
             ) : (
               <label className="text-xs text-[var(--text-secondary)]">
               <span className="section-label mb-2 block">Waveform</span>
@@ -294,13 +383,13 @@ export const DeviceRack = () => {
               <div className="section-label">Track status</div>
               <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-[var(--text-secondary)]">
                 <StatusCell label="Engine" value={track.source.engine === 'sample' ? 'Sample' : 'Synth'} />
-                <StatusCell label="Voice" value={track.source.engine === 'sample' ? activeSampleMeta?.label ?? 'Preset' : waveformLabel(track.source.waveform)} />
+                <StatusCell label="Voice" value={track.source.engine === 'sample' ? track.source.customSampleName ?? activeSampleMeta?.label ?? 'Preset' : waveformLabel(track.source.waveform)} />
                 <StatusCell label="Pattern notes" value={`${track.patterns[currentPattern]?.reduce((sum, step) => sum + step.length, 0) ?? 0}`} />
                 <StatusCell label="Filter" value={filterLabel(track.params.filterMode)} />
               </div>
               <div className="mt-3 text-[11px] leading-5 text-[var(--text-secondary)]">
                 {track.source.engine === 'sample'
-                  ? 'Audition plays the current sample preset through the same filter and FX chain used during playback.'
+                  ? 'Audition plays the current sample source through the same filter and FX chain used during playback.'
                   : 'Audition plays the current synth voice with its motion and space settings, so you can shape tone without starting transport.'}
               </div>
             </div>

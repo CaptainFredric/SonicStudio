@@ -14,6 +14,7 @@ export const Arranger = () => {
     currentStep,
     currentPattern,
     duplicateArrangerClip,
+    loopArrangerClip,
     patternCount,
     removeArrangerClip,
     selectedTrackId,
@@ -198,8 +199,8 @@ export const Arranger = () => {
                   label="Phrase"
                   primaryLabel="Duplicate"
                   primaryAction={() => duplicateArrangerClip(selectedClip.id)}
-                  secondaryLabel="Focus pattern"
-                  secondaryAction={() => setCurrentPattern(selectedClip.patternIndex)}
+                  secondaryLabel="Repeat x4"
+                  secondaryAction={() => loopArrangerClip(selectedClip.id, 3)}
                 />
               </div>
 
