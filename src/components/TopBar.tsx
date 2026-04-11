@@ -33,6 +33,7 @@ export const TopBar = () => {
     renameProject,
     saveProject,
     saveStatus,
+    selectedArrangerClipId,
     selectedTrackId,
     setActiveView,
     setBpm,
@@ -203,11 +204,13 @@ export const TopBar = () => {
             <div>
               <div className="section-label">Current focus</div>
               <div className="mt-1 text-sm font-medium text-[var(--text-primary)]">
-                {selectedTrack ? `${selectedTrack.name} · ${selectedTrack.type}` : 'No track selected'}
+                {selectedTrack
+                  ? `${selectedTrack.name} · ${selectedTrack.type}${selectedArrangerClipId ? ' · clip focused' : ''}`
+                  : 'No track selected'}
               </div>
               <div className="mt-1 text-[11px] text-[var(--text-secondary)]">
                 {selectedTrack
-                  ? `${selectedTrack.source.engine === 'sample' ? 'Sample lane' : 'Synth lane'} · Pattern ${String.fromCharCode(65 + currentPattern)} · ${transportMode === 'SONG' ? 'Song transport' : 'Pattern transport'}`
+                  ? `${selectedTrack.source.engine === 'sample' ? 'Sample lane' : 'Synth lane'} · Pattern ${String.fromCharCode(65 + currentPattern)}${selectedArrangerClipId ? ' · selected song clip' : ''} · ${transportMode === 'SONG' ? 'Song transport' : 'Pattern transport'}`
                   : 'Pick a track to keep editing and sound design tied together.'}
               </div>
             </div>
@@ -246,8 +249,8 @@ export const TopBar = () => {
               value={String.fromCharCode(65 + currentPattern)}
             />
             <MiniStat
-              label="Bars"
-              value={String(Math.max(1, Math.ceil(songLengthInBeats / 16)))}
+              label="Clip"
+              value={selectedArrangerClipId ? 'Selected' : 'None'}
             />
           </div>
           <div className="mt-3 text-[11px] leading-5 text-[var(--text-secondary)]">

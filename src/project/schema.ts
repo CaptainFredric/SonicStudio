@@ -118,6 +118,7 @@ export interface Project {
 export interface StudioUIState {
   activeView: AppView;
   isSettingsOpen: boolean;
+  selectedArrangerClipId: string | null;
   selectedTrackId: string | null;
 }
 

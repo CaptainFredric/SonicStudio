@@ -1,16 +1,29 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Copy, Eraser, Layers3, Minus, MoveHorizontal, Plus, Scissors, StretchHorizontal, Trash2 } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Braces,
+  Copy,
+  Eraser,
+  Layers3,
+  Minus,
+  MoveHorizontal,
+  PencilLine,
+  Plus,
+  Scissors,
+  Trash2,
+  Wand2,
+} from 'lucide-react';
 
 import { useAudio } from '../context/AudioContext';
-import { defaultNoteForTrack, type ArrangementClip, type Track } from '../project/schema';
+import { defaultNoteForTrack, type ArrangementClip, type NoteEvent, type Track } from '../project/schema';
 
-const PIXELS_PER_STEP = 22;
 const CLIP_SNAP = 4;
 const MIN_CLIP_LENGTH = CLIP_SNAP;
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-const ALL_NOTES = buildNoteRange(6, 2);
+const DRAG_HANDLE_WIDTH = 8;
 
 type DragMode = 'move' | 'trim-start' | 'trim-end';
+type ZoomPreset = 'PHRASE' | 'SECTION' | 'SONG';
+type PaintMode = 'add' | 'remove';
 
 interface DragState {
   clipId: string;
@@ -22,8 +35,30 @@ interface DragState {
   sourceStartBeat: number;
 }
 
-const snapStepDelta = (offsetPx: number) => (
-  Math.round(offsetPx / PIXELS_PER_STEP / CLIP_SNAP) * CLIP_SNAP
+interface PaintState {
+  mode: PaintMode;
+  note: string;
+}
+
+const ZOOM_PIXELS_PER_STEP: Record<ZoomPreset, number> = {
+  PHRASE: 30,
+  SECTION: 18,
+  SONG: 10,
+};
+
+const DRUM_ROW_LABELS: Record<Track['type'], string> = {
+  bass: 'Bass',
+  fx: 'FX',
+  hihat: 'Hat',
+  kick: 'Kick',
+  lead: 'Lead',
+  pad: 'Pad',
+  pluck: 'Pluck',
+  snare: 'Snare',
+};
+
+const snapStepDelta = (offsetPx: number, pixelsPerStep: number) => (
+  Math.round(offsetPx / pixelsPerStep / CLIP_SNAP) * CLIP_SNAP
 );
 
 const isDrumTrack = (track: Track) => (
@@ -60,64 +95,131 @@ const shiftNote = (note: string, semitones: number) => {
   return midiToNote(midi + semitones);
 };
 
-function buildNoteRange(highOctave: number, lowOctave: number) {
-  const notes: string[] = [];
+const buildComposerRows = (track: Track, focusNote: string | null) => {
+  const rootMidi = noteToMidi(focusNote ?? defaultNoteForTrack(track)) ?? noteToMidi(defaultNoteForTrack(track)) ?? 60;
+  return Array.from({ length: 12 }, (_, index) => midiToNote(rootMidi + 7 - index));
+};
 
-  for (let octave = highOctave; octave >= lowOctave; octave -= 1) {
-    for (let pitchIndex = NOTE_NAMES.length - 1; pitchIndex >= 0; pitchIndex -= 1) {
-      notes.push(`${NOTE_NAMES[pitchIndex]}${octave}`);
-    }
+const getComposerStepCount = (clip: ArrangementClip | null, stepsPerPattern: number) => {
+  if (!clip) {
+    return Math.min(stepsPerPattern, 16);
   }
 
-  return notes;
-}
+  if (clip.beatLength > 16 || stepsPerPattern > 16) {
+    return Math.min(stepsPerPattern, 32);
+  }
+
+  return Math.min(stepsPerPattern, 16);
+};
+
+const formatBars = (steps: number) => Math.max(1, Math.ceil(steps / 16));
+
+const getVisibleRangeLabel = (startStep: number, endStep: number) => (
+  `${startStep + 1} to ${Math.max(startStep + 1, endStep)}`
+);
 
 export const Arranger = () => {
   const {
     addArrangerClip,
     arrangerClips,
     bpm,
-    clearPatternAt,
     currentStep,
-    currentPattern,
     duplicateArrangerClip,
-    makeClipPatternUnique,
-    splitArrangerClip,
     loopArrangerClip,
+    makeClipPatternUnique,
     patternCount,
     removeArrangerClip,
-    setActiveView,
+    selectedArrangerClipId,
     selectedTrackId,
+    setActiveView,
     setCurrentPattern,
+    setSelectedArrangerClipId,
     setSelectedTrackId,
-    shiftPatternAt,
     songLengthInBeats,
+    splitArrangerClip,
     stepsPerPattern,
-    togglePatternStep,
+    toggleClipPatternStep,
     tracks,
-    transposePatternAt,
+    transformClipPattern,
     transportMode,
     updateArrangerClip,
-    updatePatternAutomationStep,
-    updatePatternStepEvent,
+    updateClipPatternAutomationStep,
+    updateClipPatternStepEvent,
   } = useAudio();
-  const [selectedClipId, setSelectedClipId] = useState<string | null>(arrangerClips[0]?.id ?? null);
   const [dragState, setDragState] = useState<DragState | null>(null);
+  const [paintState, setPaintState] = useState<PaintState | null>(null);
   const [selectedPhraseStepIndex, setSelectedPhraseStepIndex] = useState(0);
   const [selectedPhraseNoteIndex, setSelectedPhraseNoteIndex] = useState<number | null>(null);
+  const [zoomPreset, setZoomPreset] = useState<ZoomPreset>('SECTION');
+  const [viewportWidth, setViewportWidth] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
+  const timelineRef = useRef<HTMLDivElement | null>(null);
+  const pixelsPerStep = ZOOM_PIXELS_PER_STEP[zoomPreset];
+
+  const selectedClip = arrangerClips.find((clip) => clip.id === selectedArrangerClipId) ?? null;
+  const selectedClipTrack = tracks.find((track) => track.id === selectedClip?.trackId) ?? null;
+  const linkedPhraseCount = selectedClip
+    ? arrangerClips.filter((clip) => (
+        clip.trackId === selectedClip.trackId
+        && clip.patternIndex === selectedClip.patternIndex
+      )).length
+    : 0;
+  const selectedClipPattern = selectedClip && selectedClipTrack
+    ? selectedClipTrack.patterns[selectedClip.patternIndex] ?? Array.from({ length: stepsPerPattern }, () => [])
+    : [];
+  const selectedClipAutomation = selectedClip && selectedClipTrack
+    ? selectedClipTrack.automation[selectedClip.patternIndex] ?? {
+        level: Array.from({ length: stepsPerPattern }, () => 0.5),
+        tone: Array.from({ length: stepsPerPattern }, () => 0.5),
+      }
+    : {
+        level: Array.from({ length: stepsPerPattern }, () => 0.5),
+        tone: Array.from({ length: stepsPerPattern }, () => 0.5),
+      };
+  const selectedPhraseStep = selectedClipPattern[selectedPhraseStepIndex] ?? [];
+  const normalizedSelectedPhraseNoteIndex = selectedPhraseNoteIndex !== null && selectedPhraseStep[selectedPhraseNoteIndex]
+    ? selectedPhraseNoteIndex
+    : selectedPhraseStep.length > 0 ? 0 : null;
+  const selectedPhraseNote = normalizedSelectedPhraseNoteIndex !== null
+    ? selectedPhraseStep[normalizedSelectedPhraseNoteIndex]
+    : null;
+  const composerStepCount = getComposerStepCount(selectedClip, stepsPerPattern);
+  const composerSteps = selectedClipPattern.slice(0, composerStepCount);
+  const phraseRows = useMemo(() => (
+    selectedClipTrack && !isDrumTrack(selectedClipTrack)
+      ? buildComposerRows(selectedClipTrack, selectedPhraseNote?.note ?? selectedPhraseStep[0]?.note ?? null)
+      : []
+  ), [selectedClipTrack, selectedPhraseNote?.note, selectedPhraseStep]);
+  const timelineSteps = Math.max(songLengthInBeats, 32);
+  const timelineWidth = timelineSteps * pixelsPerStep;
+  const totalBars = formatBars(timelineSteps);
+  const totalDurationSeconds = songLengthInBeats * (60 / bpm) * 0.25;
+  const visibleStartStep = Math.floor(scrollLeft / pixelsPerStep);
+  const visibleEndStep = Math.ceil((scrollLeft + viewportWidth) / pixelsPerStep);
+  const selectedPhraseActiveSteps = selectedClipPattern.filter((step) => step.length > 0).length;
+  const selectedPhraseNoteCount = selectedClipPattern.reduce((sum, step) => sum + step.length, 0);
+  const selectedAutomationLevel = selectedClipAutomation.level[selectedPhraseStepIndex] ?? 0.5;
+  const selectedAutomationTone = selectedClipAutomation.tone[selectedPhraseStepIndex] ?? 0.5;
+
+  const laneData = useMemo(() => (
+    tracks.map((track) => ({
+      clips: arrangerClips.filter((clip) => clip.trackId === track.id),
+      track,
+    }))
+  ), [arrangerClips, tracks]);
 
   useEffect(() => {
-    if (selectedClipId && arrangerClips.some((clip) => clip.id === selectedClipId)) {
+    if (selectedArrangerClipId && arrangerClips.some((clip) => clip.id === selectedArrangerClipId)) {
       return;
     }
 
-    setSelectedClipId(arrangerClips[0]?.id ?? null);
-  }, [arrangerClips, selectedClipId]);
+    setSelectedArrangerClipId(arrangerClips[0]?.id ?? null);
+  }, [arrangerClips, selectedArrangerClipId, setSelectedArrangerClipId]);
 
   useEffect(() => {
     setSelectedPhraseStepIndex(0);
     setSelectedPhraseNoteIndex(null);
-  }, [selectedClipId]);
+  }, [selectedArrangerClipId]);
 
   useEffect(() => {
     if (!dragState) {
@@ -125,7 +227,7 @@ export const Arranger = () => {
     }
 
     const handlePointerMove = (event: PointerEvent) => {
-      const stepDelta = snapStepDelta(event.clientX - dragState.originX);
+      const stepDelta = snapStepDelta(event.clientX - dragState.originX, pixelsPerStep);
 
       if (dragState.mode === 'move') {
         setDragState((current) => current ? {
@@ -154,7 +256,7 @@ export const Arranger = () => {
       } : current);
     };
 
-    const commitDrag = () => {
+    const handlePointerUp = () => {
       const clip = arrangerClips.find((candidate) => candidate.id === dragState.clipId);
       if (clip) {
         const updates: Partial<ArrangementClip> = {};
@@ -176,67 +278,113 @@ export const Arranger = () => {
     };
 
     window.addEventListener('pointermove', handlePointerMove);
-    window.addEventListener('pointerup', commitDrag, { once: true });
+    window.addEventListener('pointerup', handlePointerUp, { once: true });
 
     return () => {
       window.removeEventListener('pointermove', handlePointerMove);
-      window.removeEventListener('pointerup', commitDrag);
+      window.removeEventListener('pointerup', handlePointerUp);
     };
-  }, [arrangerClips, dragState, updateArrangerClip]);
+  }, [arrangerClips, dragState, pixelsPerStep, updateArrangerClip]);
 
-  const selectedClip = arrangerClips.find((clip) => clip.id === selectedClipId) ?? null;
-  const selectedClipTrack = tracks.find((track) => track.id === selectedClip?.trackId) ?? null;
-  const linkedPhraseCount = selectedClip
-    ? arrangerClips.filter((clip) => (
-        clip.trackId === selectedClip.trackId
-        && clip.patternIndex === selectedClip.patternIndex
-      )).length
-    : 0;
-  const canMakeUnique = linkedPhraseCount > 1 && selectedClip && selectedClipTrack
-    ? Array.from({ length: patternCount }, (_, patternIndex) => patternIndex).some((patternIndex) => (
-        patternIndex !== selectedClip.patternIndex
-        && !arrangerClips.some((clip) => (
-          clip.trackId === selectedClip.trackId
-          && clip.id !== selectedClip.id
-          && clip.patternIndex === patternIndex
-        ))
-      ))
-    : false;
-  const selectedClipPattern = selectedClip && selectedClipTrack
-    ? selectedClipTrack.patterns[selectedClip.patternIndex] ?? Array.from({ length: stepsPerPattern }, () => [])
-    : [];
-  const selectedClipAutomation = selectedClip && selectedClipTrack
-    ? selectedClipTrack.automation[selectedClip.patternIndex] ?? {
-        level: Array.from({ length: stepsPerPattern }, () => 0.5),
-        tone: Array.from({ length: stepsPerPattern }, () => 0.5),
+  useEffect(() => {
+    if (!paintState) {
+      return undefined;
+    }
+
+    const clearPaint = () => setPaintState(null);
+    window.addEventListener('pointerup', clearPaint, { once: true });
+
+    return () => {
+      window.removeEventListener('pointerup', clearPaint);
+    };
+  }, [paintState]);
+
+  useEffect(() => {
+    const node = timelineRef.current;
+    if (!node) {
+      return undefined;
+    }
+
+    const updateViewport = () => {
+      setViewportWidth(node.clientWidth);
+      setScrollLeft(node.scrollLeft);
+    };
+
+    updateViewport();
+    node.addEventListener('scroll', updateViewport, { passive: true });
+    window.addEventListener('resize', updateViewport);
+
+    return () => {
+      node.removeEventListener('scroll', updateViewport);
+      window.removeEventListener('resize', updateViewport);
+    };
+  }, [zoomPreset]);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && (
+        target.tagName === 'INPUT'
+        || target.tagName === 'TEXTAREA'
+        || target.tagName === 'SELECT'
+        || target.isContentEditable
+      )) {
+        return;
       }
-    : {
-        level: Array.from({ length: stepsPerPattern }, () => 0.5),
-        tone: Array.from({ length: stepsPerPattern }, () => 0.5),
-      };
-  const selectedPhraseStep = selectedClipPattern[selectedPhraseStepIndex] ?? [];
-  const selectedPhraseActiveSteps = selectedClipPattern.filter((step) => step.length > 0).length;
-  const selectedPhraseNoteCount = selectedClipPattern.reduce((sum, step) => sum + step.length, 0);
-  const selectedPhraseLeadNote = selectedPhraseStep[0]?.note ?? null;
-  const normalizedSelectedPhraseNoteIndex = selectedPhraseNoteIndex !== null && selectedPhraseStep[selectedPhraseNoteIndex]
-    ? selectedPhraseNoteIndex
-    : selectedPhraseStep.length > 0 ? 0 : null;
-  const selectedPhraseNote = normalizedSelectedPhraseNoteIndex !== null
-    ? selectedPhraseStep[normalizedSelectedPhraseNoteIndex]
-    : null;
-  const selectedAutomationLevel = selectedClipAutomation.level[selectedPhraseStepIndex] ?? 0.5;
-  const selectedAutomationTone = selectedClipAutomation.tone[selectedPhraseStepIndex] ?? 0.5;
-  const timelineSteps = Math.max(songLengthInBeats, 32);
-  const timelineWidth = timelineSteps * PIXELS_PER_STEP;
-  const totalDurationSeconds = songLengthInBeats * (60 / bpm) * 0.25;
-  const totalBars = Math.max(2, Math.ceil(timelineSteps / 16));
 
-  const laneData = useMemo(() => (
-    tracks.map((track) => ({
-      clips: arrangerClips.filter((clip) => clip.trackId === track.id),
-      track,
-    }))
-  ), [arrangerClips, tracks]);
+      if (!selectedClip) {
+        return;
+      }
+
+      const key = event.key.toLowerCase();
+
+      if (key === 'd' && !event.metaKey && !event.ctrlKey) {
+        event.preventDefault();
+        duplicateArrangerClip(selectedClip.id);
+        return;
+      }
+
+      if (key === 'u' && !event.metaKey && !event.ctrlKey) {
+        event.preventDefault();
+        makeClipPatternUnique(selectedClip.id);
+        return;
+      }
+
+      if (key === 'backspace' && !event.metaKey && !event.ctrlKey) {
+        event.preventDefault();
+        removeArrangerClip(selectedClip.id);
+        return;
+      }
+
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        updateArrangerClip(selectedClip.id, { startBeat: Math.max(0, selectedClip.startBeat - CLIP_SNAP) });
+        return;
+      }
+
+      if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        updateArrangerClip(selectedClip.id, { startBeat: selectedClip.startBeat + CLIP_SNAP });
+        return;
+      }
+
+      if (event.key === '[') {
+        event.preventDefault();
+        transformClipPattern(selectedClip.id, 'transpose', -1);
+        return;
+      }
+
+      if (event.key === ']') {
+        event.preventDefault();
+        transformClipPattern(selectedClip.id, 'transpose', 1);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [duplicateArrangerClip, makeClipPatternUnique, removeArrangerClip, selectedClip, transformClipPattern, updateArrangerClip]);
 
   const selectClip = (clipId: string) => {
     const clip = arrangerClips.find((candidate) => candidate.id === clipId);
@@ -244,27 +392,9 @@ export const Arranger = () => {
       return;
     }
 
-    setSelectedClipId(clipId);
+    setSelectedArrangerClipId(clip.id);
     setSelectedTrackId(clip.trackId);
     setCurrentPattern(clip.patternIndex);
-  };
-
-  const nudgeClip = (clipId: string, amount: number) => {
-    const clip = arrangerClips.find((candidate) => candidate.id === clipId);
-    if (!clip) {
-      return;
-    }
-
-    updateArrangerClip(clipId, { startBeat: Math.max(0, clip.startBeat + amount) });
-  };
-
-  const resizeClip = (clipId: string, amount: number) => {
-    const clip = arrangerClips.find((candidate) => candidate.id === clipId);
-    if (!clip) {
-      return;
-    }
-
-    updateArrangerClip(clipId, { beatLength: Math.max(CLIP_SNAP, clip.beatLength + amount) });
   };
 
   const beginClipDrag = (clip: ArrangementClip, event: React.PointerEvent<HTMLDivElement>, mode: DragMode) => {
@@ -296,21 +426,58 @@ export const Arranger = () => {
     };
   };
 
+  const getSplitBeat = (clip: ArrangementClip) => {
+    const clipCenter = clip.startBeat + Math.floor(clip.beatLength / 2 / CLIP_SNAP) * CLIP_SNAP;
+    if (transportMode !== 'SONG') {
+      return clipCenter;
+    }
+
+    const snappedPlayhead = Math.round(currentStep / CLIP_SNAP) * CLIP_SNAP;
+    const minSplit = clip.startBeat + CLIP_SNAP;
+    const maxSplit = clip.startBeat + clip.beatLength - CLIP_SNAP;
+
+    if (snappedPlayhead < minSplit || snappedPlayhead > maxSplit) {
+      return clipCenter;
+    }
+
+    return snappedPlayhead;
+  };
+
+  const beginPaint = (note: string, stepIndex: number, isActive: boolean) => {
+    if (!selectedClip) {
+      return;
+    }
+
+    const mode: PaintMode = isActive ? 'remove' : 'add';
+    setSelectedPhraseStepIndex(stepIndex);
+    setSelectedPhraseNoteIndex(0);
+    setPaintState({ mode, note });
+    toggleClipPatternStep(selectedClip.id, stepIndex, note, mode);
+  };
+
+  const continuePaint = (note: string, stepIndex: number) => {
+    if (!paintState || !selectedClip || paintState.note !== note) {
+      return;
+    }
+
+    setSelectedPhraseStepIndex(stepIndex);
+    toggleClipPatternStep(selectedClip.id, stepIndex, note, paintState.mode);
+  };
+
+  const phraseSummary = selectedClip && selectedClipTrack
+    ? `${selectedClipTrack.name} · Pattern ${String.fromCharCode(65 + selectedClip.patternIndex)} · ${selectedClip.beatLength} steps · ${selectedPhraseActiveSteps} active`
+    : 'Select a clip to compose directly in song view';
+
   return (
     <section className="surface-panel flex min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="flex items-center justify-between gap-4 border-b border-[var(--border-soft)] px-5 py-4">
-        <div>
-          <div className="section-label">Arranger</div>
-          <h2 className="mt-2 text-lg font-semibold tracking-tight text-[var(--text-primary)]">Clip lanes</h2>
-          <p className="mt-2 max-w-3xl text-sm text-[var(--text-secondary)]">
-            Song mode already reads this timeline. This pass makes phrase building faster by selecting, dragging, trimming, splitting, and duplicating clips directly from the lane view instead of relying on numeric edits alone.
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="hidden text-right md:block">
-            <div className="section-label">Song span</div>
-            <div className="mt-1 font-mono text-sm text-[var(--text-primary)]">{songLengthInBeats} steps · {totalDurationSeconds.toFixed(1)}s</div>
-            <div className="mt-1 text-[11px] text-[var(--text-secondary)]">{transportMode === 'SONG' ? 'Live transport follows these clips' : 'Switch to song mode to play this timeline'}</div>
+      <div className="border-b border-[var(--border-soft)] px-5 py-4">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <div className="section-label">Arranger</div>
+            <h2 className="mt-2 text-lg font-semibold tracking-tight text-[var(--text-primary)]">Song composer</h2>
+            <p className="mt-2 max-w-3xl text-sm text-[var(--text-secondary)]">
+              This pass keeps phrase editing, arrangement decisions, and note shaping in one place so a solo creator can stay in song view longer.
+            </p>
           </div>
           <button
             className="control-field flex items-center gap-2 px-4 py-2 text-sm font-medium text-[var(--accent-strong)] hover:text-[var(--text-primary)]"
@@ -320,17 +487,63 @@ export const Arranger = () => {
             Add clip
           </button>
         </div>
+
+        <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1.4fr)_auto_auto]">
+          <div className="surface-panel-strong px-4 py-3">
+            <div className="section-label">Song overview</div>
+            <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-[var(--text-primary)]">
+              <span>{timelineSteps} steps</span>
+              <span>{totalBars} bars</span>
+              <span>{totalDurationSeconds.toFixed(1)}s</span>
+              <span className="text-[var(--text-secondary)]">Visible {getVisibleRangeLabel(visibleStartStep, visibleEndStep)}</span>
+            </div>
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-[rgba(255,255,255,0.05)]">
+              <div
+                className="h-full rounded-full bg-[linear-gradient(90deg,#7dd3fc,#67e8f9)]"
+                style={{
+                  marginLeft: `${(visibleStartStep / timelineSteps) * 100}%`,
+                  width: `${Math.min(100, ((Math.max(1, visibleEndStep - visibleStartStep)) / timelineSteps) * 100)}%`,
+                }}
+              />
+            </div>
+          </div>
+
+          <div className="surface-panel-strong px-4 py-3">
+              <div className="section-label">Zoom</div>
+              <div className="mt-2 flex gap-2">
+                {(['SONG', 'SECTION', 'PHRASE'] as ZoomPreset[]).map((preset) => (
+                  <div key={preset}>
+                    <ZoomButton
+                      active={zoomPreset === preset}
+                      label={preset.charAt(0) + preset.slice(1).toLowerCase()}
+                      onClick={() => setZoomPreset(preset)}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+          <div className="surface-panel-strong px-4 py-3">
+            <div className="section-label">Current focus</div>
+            <div className="mt-2 text-sm font-medium text-[var(--text-primary)]">{phraseSummary}</div>
+          </div>
+        </div>
       </div>
 
       <div className="flex min-h-0 flex-1 gap-4 p-5">
-        <div className="surface-panel-strong sonic-sidebar w-[300px] shrink-0 overflow-y-auto p-4">
-          <div className="mb-4 flex items-center gap-2">
-            <Layers3 className="h-4 w-4 text-[var(--accent)]" />
-            <div className="section-label">Clip inspector</div>
+        <div className="surface-panel-strong sonic-sidebar w-[380px] shrink-0 overflow-y-auto p-4">
+          <div className="sticky top-0 z-10 -mx-4 -mt-4 border-b border-[var(--border-soft)] bg-[rgba(8,12,17,0.96)] px-4 py-4 backdrop-blur">
+            <div className="flex items-center gap-2">
+              <Layers3 className="h-4 w-4 text-[var(--accent)]" />
+              <div className="section-label">Clip composer</div>
+            </div>
+            <div className="mt-2 text-sm text-[var(--text-secondary)]">
+              {selectedClip && selectedClipTrack ? phraseSummary : 'Select a clip to compose, transform, and arrange it from one surface.'}
+            </div>
           </div>
 
           {selectedClip && selectedClipTrack ? (
-            <div className="space-y-4">
+            <div className="space-y-4 pt-4">
               <div className="rounded-[16px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
@@ -339,498 +552,425 @@ export const Arranger = () => {
                       <span className="text-sm font-semibold text-[var(--text-primary)]">{selectedClipTrack.name}</span>
                     </div>
                     <div className="mt-2 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-                      Pattern {String.fromCharCode(65 + selectedClip.patternIndex)} · {selectedClip.beatLength} steps
+                      Pattern {String.fromCharCode(65 + selectedClip.patternIndex)} · {linkedPhraseCount > 1 ? `${linkedPhraseCount} linked clips` : 'unique phrase'}
                     </div>
                   </div>
                   <button
                     className="ghost-icon-button flex h-8 w-8 items-center justify-center"
-                    onClick={() => {
-                      removeArrangerClip(selectedClip.id);
-                      setSelectedClipId(null);
-                    }}
+                    onClick={() => removeArrangerClip(selectedClip.id)}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
-                <div className="mt-4 grid grid-cols-3 gap-2">
-                  <label className="text-xs text-[var(--text-secondary)]">
-                    <span className="section-label mb-1 block">Pattern</span>
-                    <select
-                      className="control-field h-9 w-full px-2 text-xs"
-                      onChange={(event) => {
-                        const nextPattern = Number(event.target.value);
-                        updateArrangerClip(selectedClip.id, { patternIndex: nextPattern });
-                        setCurrentPattern(nextPattern);
-                      }}
-                      value={selectedClip.patternIndex}
-                    >
-                      {Array.from({ length: patternCount }, (_, patternIndex) => (
-                        <option key={patternIndex} value={patternIndex}>
-                          {String.fromCharCode(65 + patternIndex)}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="text-xs text-[var(--text-secondary)]">
-                    <span className="section-label mb-1 block">Start</span>
-                    <input
-                      className="control-field h-9 w-full px-2 text-xs"
-                      min={0}
-                      onChange={(event) => updateArrangerClip(selectedClip.id, { startBeat: Number(event.target.value) })}
-                      type="number"
-                      value={selectedClip.startBeat}
-                    />
-                  </label>
-                  <label className="text-xs text-[var(--text-secondary)]">
-                    <span className="section-label mb-1 block">Length</span>
-                    <input
-                      className="control-field h-9 w-full px-2 text-xs"
-                      min={CLIP_SNAP}
-                      onChange={(event) => updateArrangerClip(selectedClip.id, { beatLength: Number(event.target.value) })}
-                      step={CLIP_SNAP}
-                      type="number"
-                      value={selectedClip.beatLength}
-                    />
-                  </label>
-                </div>
-              </div>
 
-              <div className="grid gap-2">
-                <QuickActionRow
-                  icon={<MoveHorizontal className="h-4 w-4" />}
-                  label="Nudge"
-                  primaryLabel={`-${CLIP_SNAP}`}
-                  primaryAction={() => nudgeClip(selectedClip.id, -CLIP_SNAP)}
-                  secondaryLabel={`+${CLIP_SNAP}`}
-                  secondaryAction={() => nudgeClip(selectedClip.id, CLIP_SNAP)}
-                />
-                <QuickActionRow
-                  icon={<StretchHorizontal className="h-4 w-4" />}
-                  label="Length"
-                  primaryLabel={`-${CLIP_SNAP}`}
-                  primaryAction={() => resizeClip(selectedClip.id, -CLIP_SNAP)}
-                  secondaryLabel={`+${CLIP_SNAP}`}
-                  secondaryAction={() => resizeClip(selectedClip.id, CLIP_SNAP)}
-                />
-                <QuickActionRow
-                  icon={<Copy className="h-4 w-4" />}
-                  label="Phrase"
-                  primaryLabel="Duplicate"
-                  primaryAction={() => duplicateArrangerClip(selectedClip.id)}
-                  secondaryLabel="Repeat x4"
-                  secondaryAction={() => loopArrangerClip(selectedClip.id, 3)}
-                />
-                <QuickActionRow
-                  icon={<Scissors className="h-4 w-4" />}
-                  label="Edit"
-                  primaryLabel="Split"
-                  primaryAction={() => splitArrangerClip(selectedClip.id)}
-                  secondaryLabel="Focus"
-                  secondaryAction={() => {
-                    setSelectedTrackId(selectedClip.trackId);
-                    setCurrentPattern(selectedClip.patternIndex);
-                  }}
-                />
+                <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                  <button
+                    className="control-chip flex items-center justify-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                    onClick={() => duplicateArrangerClip(selectedClip.id)}
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                    Duplicate forward
+                  </button>
+                  <button
+                    className="control-chip flex items-center justify-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                    onClick={() => makeClipPatternUnique(selectedClip.id)}
+                  >
+                    <Braces className="h-3.5 w-3.5" />
+                    Make unique
+                  </button>
+                  <button
+                    className="control-chip flex items-center justify-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                    onClick={() => splitArrangerClip(selectedClip.id, getSplitBeat(selectedClip))}
+                  >
+                    <Scissors className="h-3.5 w-3.5" />
+                    Split at playhead
+                  </button>
+                  <button
+                    className="control-chip flex items-center justify-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                    onClick={() => loopArrangerClip(selectedClip.id, 3)}
+                  >
+                    <Layers3 className="h-3.5 w-3.5" />
+                    Repeat x4
+                  </button>
+                </div>
               </div>
 
               <div className="rounded-[16px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-4">
-                <div className="section-label">Session cues</div>
-                <div className="mt-3 space-y-2 text-sm text-[var(--text-secondary)]">
-                  <p>Selected pattern matches top-bar pattern {String.fromCharCode(65 + currentPattern)} when you focus a clip, which keeps song editing and note editing in sync.</p>
-                  <p>Bar snap is currently {CLIP_SNAP} steps. Drag the body to move a clip and drag either edge to trim it without breaking alignment.</p>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="section-label">Phrase operations</div>
+                    <div className="mt-2 text-xs text-[var(--text-secondary)]">
+                      These actions target the selected clip’s phrase, not whichever global pattern happens to be selected.
+                    </div>
+                  </div>
+                  <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+                    {composerStepCount} step view
+                  </span>
                 </div>
-                <div className="mt-3 rounded-[14px] border border-[var(--border-soft)] bg-[rgba(0,0,0,0.14)] px-3 py-3">
-                  <div className="section-label">Phrase linkage</div>
-                  <div className="mt-2 text-sm text-[var(--text-secondary)]">
-                    {linkedPhraseCount > 1
-                      ? `This clip shares pattern ${String.fromCharCode(65 + selectedClip.patternIndex)} with ${linkedPhraseCount - 1} other clip${linkedPhraseCount === 2 ? '' : 's'} on this track.`
-                      : 'This clip already points at its own phrase slot on this track.'}
-                  </div>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <button
-                      className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] disabled:cursor-not-allowed disabled:opacity-45"
-                      disabled={!canMakeUnique}
-                      onClick={() => selectedClip && makeClipPatternUnique(selectedClip.id)}
-                    >
-                      Make unique
-                    </button>
-                    <button
-                      className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                      onClick={() => {
-                        setSelectedTrackId(selectedClip.trackId);
-                        setCurrentPattern(selectedClip.patternIndex);
-                        setActiveView('PIANO_ROLL');
-                      }}
-                    >
-                      Edit notes
-                    </button>
-                  </div>
+
+                <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                  <OperationButton icon={<MoveHorizontal className="h-3.5 w-3.5" />} label="Shift left" onClick={() => transformClipPattern(selectedClip.id, 'shift-left')} />
+                  <OperationButton icon={<MoveHorizontal className="h-3.5 w-3.5" />} label="Shift right" onClick={() => transformClipPattern(selectedClip.id, 'shift-right')} />
+                  <OperationButton icon={<Minus className="h-3.5 w-3.5" />} label="Semitone down" onClick={() => transformClipPattern(selectedClip.id, 'transpose', -1)} />
+                  <OperationButton icon={<Plus className="h-3.5 w-3.5" />} label="Semitone up" onClick={() => transformClipPattern(selectedClip.id, 'transpose', 1)} />
+                  <OperationButton icon={<Minus className="h-3.5 w-3.5" />} label="Octave down" onClick={() => transformClipPattern(selectedClip.id, 'transpose', -12)} />
+                  <OperationButton icon={<Plus className="h-3.5 w-3.5" />} label="Octave up" onClick={() => transformClipPattern(selectedClip.id, 'transpose', 12)} />
+                  <OperationButton icon={<Copy className="h-3.5 w-3.5" />} label="Double density" onClick={() => transformClipPattern(selectedClip.id, 'double-density')} />
+                  <OperationButton icon={<Eraser className="h-3.5 w-3.5" />} label="Halve density" onClick={() => transformClipPattern(selectedClip.id, 'halve-density')} />
+                  <OperationButton icon={<Wand2 className="h-3.5 w-3.5" />} label="Randomize velocity" onClick={() => transformClipPattern(selectedClip.id, 'randomize-velocity')} />
+                  <OperationButton icon={<PencilLine className="h-3.5 w-3.5" />} label="Reset automation" onClick={() => transformClipPattern(selectedClip.id, 'reset-automation')} />
+                  <OperationButton icon={<Eraser className="h-3.5 w-3.5" />} label="Clear phrase" onClick={() => transformClipPattern(selectedClip.id, 'clear')} />
+                  <OperationButton
+                    icon={<Layers3 className="h-3.5 w-3.5" />}
+                    label="Edit in Piano Roll"
+                    onClick={() => {
+                      setSelectedTrackId(selectedClip.trackId);
+                      setCurrentPattern(selectedClip.patternIndex);
+                      setActiveView('PIANO_ROLL');
+                    }}
+                  />
                 </div>
               </div>
 
-              {selectedClip && selectedClipTrack && (
-                <div className="rounded-[16px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-4">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <div className="section-label">Phrase sketch</div>
-                      <div className="mt-2 text-sm text-[var(--text-secondary)]">
-                        Edit pattern {String.fromCharCode(65 + selectedClip.patternIndex)} directly from song view. Click steps to add or clear notes, then use the piano roll for finer note shaping.
+              <div className="rounded-[16px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="section-label">Phrase composer</div>
+                    <div className="mt-2 text-xs text-[var(--text-secondary)]">
+                      {isDrumTrack(selectedClipTrack)
+                        ? 'Paint drum triggers directly in song view.'
+                        : 'Paint notes directly in song view, then use the note stack below for precise shaping.'}
+                    </div>
+                  </div>
+                  <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+                    Step {selectedPhraseStepIndex + 1}
+                  </span>
+                </div>
+
+                {isDrumTrack(selectedClipTrack) ? (
+                  <div className="mt-4">
+                    <div className="grid grid-cols-[72px_repeat(16,minmax(0,1fr))] gap-1">
+                      <div className="flex items-center text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                        {DRUM_ROW_LABELS[selectedClipTrack.type]}
                       </div>
-                    </div>
-                    <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-                      {selectedPhraseActiveSteps} active · {selectedPhraseNoteCount} notes
+                      {composerSteps.map((step, stepIndex) => {
+                        const defaultNote = defaultNoteForTrack(selectedClipTrack);
+                        const isActive = step.some((event) => event.note === defaultNote);
+
+                        return (
+                          <button
+                            className={`h-12 rounded-[10px] border transition-colors ${isActive ? 'border-[rgba(125,211,252,0.34)] bg-[rgba(125,211,252,0.12)] text-[var(--accent-strong)]' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.04)]'}`}
+                            key={`drum-step-${stepIndex}`}
+                            onPointerDown={(event) => {
+                              event.preventDefault();
+                              beginPaint(defaultNote, stepIndex, isActive);
+                            }}
+                            onPointerEnter={() => continuePaint(defaultNote, stepIndex)}
+                          >
+                            <div className="font-mono text-[10px]">{stepIndex + 1}</div>
+                            <div className="mt-1 text-[10px] uppercase tracking-[0.14em]">
+                              {isActive ? 'Trig' : 'Rest'}
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
-
-                  <div className="mt-4 grid grid-cols-2 gap-2">
-                    <button
-                      className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                      onClick={() => shiftPatternAt(selectedClip.trackId, selectedClip.patternIndex, 'left')}
-                    >
-                      Shift left
-                    </button>
-                    <button
-                      className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                      onClick={() => shiftPatternAt(selectedClip.trackId, selectedClip.patternIndex, 'right')}
-                    >
-                      Shift right
-                    </button>
-                    {!isDrumTrack(selectedClipTrack) && (
-                      <>
-                        <button
-                          className="control-chip flex items-center justify-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                          onClick={() => transposePatternAt(selectedClip.trackId, selectedClip.patternIndex, -1)}
+                ) : (
+                  <div className="mt-4 overflow-auto rounded-[14px] border border-[var(--border-soft)] bg-[rgba(0,0,0,0.18)] p-2">
+                    <div className="grid gap-1" style={{ gridTemplateColumns: `72px repeat(${composerStepCount}, minmax(0, 1fr))` }}>
+                      <div />
+                      {composerSteps.map((_, stepIndex) => (
+                        <div
+                          className={`flex h-8 items-center justify-center rounded-[8px] text-[10px] font-mono ${selectedPhraseStepIndex === stepIndex ? 'bg-[rgba(124,211,252,0.12)] text-[var(--accent-strong)]' : 'text-[var(--text-tertiary)]'}`}
+                          key={`step-label-${stepIndex}`}
                         >
-                          <Minus className="h-3.5 w-3.5" />
-                          Down 1
-                        </button>
-                        <button
-                          className="control-chip flex items-center justify-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                          onClick={() => transposePatternAt(selectedClip.trackId, selectedClip.patternIndex, 1)}
-                        >
-                          <Plus className="h-3.5 w-3.5" />
-                          Up 1
-                        </button>
-                      </>
-                    )}
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-4 gap-2">
-                    {selectedClipPattern.map((step, stepIndex) => {
-                      const isSelectedStep = selectedPhraseStepIndex === stepIndex;
-                      const isActiveStep = step.length > 0;
-                      const leadNote = step[0]?.note ?? null;
-
-                      return (
-                        <button
-                          className={`rounded-[12px] border px-2 py-3 text-left transition-colors ${isSelectedStep ? 'border-[rgba(125,211,252,0.34)] bg-[rgba(125,211,252,0.12)]' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.04)]'}`}
-                          key={`${selectedClip.id}-${stepIndex}`}
-                          onClick={() => {
-                            setSelectedPhraseStepIndex(stepIndex);
-                            setSelectedPhraseNoteIndex(step.length > 0 ? 0 : null);
-                            togglePatternStep(
-                              selectedClip.trackId,
-                              selectedClip.patternIndex,
-                              stepIndex,
-                              step.length > 0 ? undefined : defaultNoteForTrack(selectedClipTrack),
-                            );
-                          }}
-                        >
-                          <div className="font-mono text-[10px] text-[var(--text-tertiary)]">{stepIndex + 1}</div>
-                          <div className={`mt-2 text-xs font-semibold ${isActiveStep ? 'text-[var(--text-primary)]' : 'text-[var(--text-secondary)]'}`}>
-                            {isDrumTrack(selectedClipTrack) ? (isActiveStep ? 'TRIG' : 'Rest') : (leadNote ?? 'Rest')}
-                          </div>
-                          <div className="mt-1 font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
-                            {step.length > 1 ? `${step.length} notes` : isActiveStep ? '1 note' : 'empty'}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  <div className="mt-4 flex items-center justify-between gap-3 rounded-[14px] border border-[var(--border-soft)] bg-[rgba(0,0,0,0.14)] px-3 py-3">
-                    <div className="min-w-0">
-                      <div className="section-label">Selected step</div>
-                      <div className="mt-2 text-sm text-[var(--text-primary)]">
-                        Step {selectedPhraseStepIndex + 1}{selectedPhraseLeadNote ? ` · ${selectedPhraseLeadNote}` : ' · Rest'}
-                      </div>
-                      <div className="mt-1 text-xs text-[var(--text-secondary)]">
-                        {selectedPhraseStep.length > 0
-                          ? `${selectedPhraseStep.length} note${selectedPhraseStep.length === 1 ? '' : 's'} in this step`
-                          : 'Click a step to place the default note for this track'}
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                        onClick={() => clearPatternAt(selectedClip.trackId, selectedClip.patternIndex)}
-                      >
-                        <Eraser className="h-3.5 w-3.5" />
-                        Clear phrase
-                      </button>
-                      <button
-                        className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                        onClick={() => {
-                          setSelectedTrackId(selectedClip.trackId);
-                          setCurrentPattern(selectedClip.patternIndex);
-                          setActiveView('PIANO_ROLL');
-                        }}
-                      >
-                        Deep edit
-                      </button>
-                    </div>
-                  </div>
-
-                  {!isDrumTrack(selectedClipTrack) && (
-                    <div className="mt-4 rounded-[14px] border border-[var(--border-soft)] bg-[rgba(0,0,0,0.14)] px-3 py-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <div className="section-label">Note stack</div>
-                          <div className="mt-1 text-xs text-[var(--text-secondary)]">
-                            Edit the selected phrase step without leaving song view.
-                          </div>
+                          {stepIndex + 1}
                         </div>
-                        <button
-                          className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                          onClick={() => {
-                            const note = selectedPhraseNote?.note ?? defaultNoteForTrack(selectedClipTrack);
-                            const octaveNote = shiftNote(note, 12);
-                            setSelectedPhraseNoteIndex(selectedPhraseStep.length);
-                            togglePatternStep(selectedClip.trackId, selectedClip.patternIndex, selectedPhraseStepIndex, octaveNote);
-                          }}
-                        >
-                          Add +8va
-                        </button>
-                      </div>
+                      ))}
 
-                      {selectedPhraseStep.length > 0 ? (
-                        <>
-                          <div className="mt-3 grid gap-2">
-                            {selectedPhraseStep.map((event, noteIndex) => (
-                              <button
-                                className={`flex items-center justify-between rounded-[12px] border px-3 py-3 text-left transition-colors ${normalizedSelectedPhraseNoteIndex === noteIndex ? 'border-[rgba(125,211,252,0.34)] bg-[rgba(125,211,252,0.12)] text-[var(--accent-strong)]' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.04)] hover:text-[var(--text-primary)]'}`}
-                                key={`${event.note}-${noteIndex}`}
-                                onClick={() => setSelectedPhraseNoteIndex(noteIndex)}
-                              >
-                                <div>
-                                  <div className="font-mono text-[12px]">{event.note}</div>
-                                  <div className="mt-1 text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-                                    Vel {Math.round(event.velocity * 100)} · Gate {event.gate.toFixed(2)}
-                                  </div>
-                                </div>
-                                <span className="rounded-sm border border-[var(--border-soft)] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.14em]">
-                                  {noteIndex + 1}
-                                </span>
-                              </button>
-                            ))}
+                      {phraseRows.map((note) => (
+                        <React.Fragment key={note}>
+                          <div className="flex items-center pr-2 text-[10px] font-mono text-[var(--text-secondary)]">
+                            {note}
                           </div>
+                          {composerSteps.map((step, stepIndex) => {
+                            const noteIndex = step.findIndex((event) => event.note === note);
+                            const isActive = noteIndex >= 0;
 
-                          {selectedPhraseNote && normalizedSelectedPhraseNoteIndex !== null && (
-                            <div className="mt-4 grid gap-3">
-                              <div className="grid grid-cols-[40px_minmax(0,1fr)_40px] gap-2">
-                                <button
-                                  className="ghost-icon-button flex h-10 w-10 items-center justify-center"
-                                  onClick={() => updatePatternStepEvent(
-                                    selectedClip.trackId,
-                                    selectedClip.patternIndex,
-                                    selectedPhraseStepIndex,
-                                    normalizedSelectedPhraseNoteIndex,
-                                    { note: shiftNote(selectedPhraseNote.note, -1) },
-                                  )}
-                                >
-                                  <Minus className="h-4 w-4" />
-                                </button>
-                                <select
-                                  className="control-field h-10 px-3 text-sm"
-                                  onChange={(event) => updatePatternStepEvent(
-                                    selectedClip.trackId,
-                                    selectedClip.patternIndex,
-                                    selectedPhraseStepIndex,
-                                    normalizedSelectedPhraseNoteIndex,
-                                    { note: event.target.value },
-                                  )}
-                                  value={selectedPhraseNote.note}
-                                >
-                                  {ALL_NOTES.map((note) => (
-                                    <option key={note} value={note}>
-                                      {note}
-                                    </option>
-                                  ))}
-                                </select>
-                                <button
-                                  className="ghost-icon-button flex h-10 w-10 items-center justify-center"
-                                  onClick={() => updatePatternStepEvent(
-                                    selectedClip.trackId,
-                                    selectedClip.patternIndex,
-                                    selectedPhraseStepIndex,
-                                    normalizedSelectedPhraseNoteIndex,
-                                    { note: shiftNote(selectedPhraseNote.note, 1) },
-                                  )}
-                                >
-                                  <Plus className="h-4 w-4" />
-                                </button>
-                              </div>
+                            return (
+                              <button
+                                className={`h-8 rounded-[8px] border transition-colors ${isActive ? 'border-[rgba(125,211,252,0.34)] bg-[rgba(125,211,252,0.16)] text-[var(--accent-strong)]' : 'border-[rgba(151,163,180,0.1)] bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.04)]'} ${selectedPhraseStepIndex === stepIndex ? 'ring-1 ring-[rgba(125,211,252,0.2)]' : ''}`}
+                                key={`${note}-${stepIndex}`}
+                                onPointerDown={(event) => {
+                                  event.preventDefault();
+                                  setSelectedPhraseStepIndex(stepIndex);
+                                  setSelectedPhraseNoteIndex(noteIndex >= 0 ? noteIndex : 0);
+                                  beginPaint(note, stepIndex, isActive);
+                                }}
+                                onPointerEnter={() => continuePaint(note, stepIndex)}
+                              >
+                                {isActive ? '●' : ''}
+                              </button>
+                            );
+                          })}
+                        </React.Fragment>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
 
-                              <label className="text-xs text-[var(--text-secondary)]">
-                                <div className="mb-2 flex items-center justify-between">
-                                  <span className="section-label">Velocity</span>
-                                  <span className="font-mono text-[10px] text-[var(--text-tertiary)]">{Math.round(selectedPhraseNote.velocity * 100)}</span>
-                                </div>
-                                <input
-                                  className="w-full"
-                                  max="1"
-                                  min="0.1"
-                                  onChange={(event) => updatePatternStepEvent(
-                                    selectedClip.trackId,
-                                    selectedClip.patternIndex,
-                                    selectedPhraseStepIndex,
-                                    normalizedSelectedPhraseNoteIndex,
-                                    { velocity: Number(event.target.value) },
-                                  )}
-                                  step="0.01"
-                                  type="range"
-                                  value={selectedPhraseNote.velocity}
-                                />
-                              </label>
+              <div className="rounded-[16px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="section-label">Selected step</div>
+                    <div className="mt-2 text-sm text-[var(--text-primary)]">
+                      Step {selectedPhraseStepIndex + 1} · {selectedPhraseStep.length > 0 ? `${selectedPhraseStep.length} note${selectedPhraseStep.length === 1 ? '' : 's'}` : 'Rest'}
+                    </div>
+                  </div>
+                  {!isDrumTrack(selectedClipTrack) && (
+                    <button
+                      className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                      onClick={() => {
+                        const note = selectedPhraseNote?.note ?? defaultNoteForTrack(selectedClipTrack);
+                        toggleClipPatternStep(selectedClip.id, selectedPhraseStepIndex, shiftNote(note, 12), 'add');
+                        setSelectedPhraseNoteIndex(selectedPhraseStep.length);
+                      }}
+                    >
+                      Add +8va
+                    </button>
+                  )}
+                </div>
 
-                              <label className="text-xs text-[var(--text-secondary)]">
-                                <div className="mb-2 flex items-center justify-between">
-                                  <span className="section-label">Gate</span>
-                                  <span className="font-mono text-[10px] text-[var(--text-tertiary)]">{selectedPhraseNote.gate.toFixed(2)}</span>
-                                </div>
-                                <input
-                                  className="w-full"
-                                  max="4"
-                                  min="0.25"
-                                  onChange={(event) => updatePatternStepEvent(
-                                    selectedClip.trackId,
-                                    selectedClip.patternIndex,
-                                    selectedPhraseStepIndex,
-                                    normalizedSelectedPhraseNoteIndex,
-                                    { gate: Number(event.target.value) },
-                                  )}
-                                  step="0.25"
-                                  type="range"
-                                  value={selectedPhraseNote.gate}
-                                />
-                              </label>
-
-                              <div className="flex gap-2">
-                                <button
-                                  className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                                  onClick={() => {
-                                    const fifthNote = shiftNote(selectedPhraseNote.note, 7);
-                                    setSelectedPhraseNoteIndex(selectedPhraseStep.length);
-                                    togglePatternStep(selectedClip.trackId, selectedClip.patternIndex, selectedPhraseStepIndex, fifthNote);
-                                  }}
-                                >
-                                  Add fifth
-                                </button>
-                                <button
-                                  className="control-chip ml-auto flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--danger)]"
-                                  onClick={() => {
-                                    const nextIndex = selectedPhraseStep.length > 1
-                                      ? Math.max(0, normalizedSelectedPhraseNoteIndex - 1)
-                                      : null;
-                                    setSelectedPhraseNoteIndex(nextIndex);
-                                    togglePatternStep(selectedClip.trackId, selectedClip.patternIndex, selectedPhraseStepIndex, selectedPhraseNote.note);
-                                  }}
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                  Remove
-                                </button>
+                {!isDrumTrack(selectedClipTrack) ? (
+                  selectedPhraseStep.length > 0 ? (
+                    <>
+                      <div className="mt-4 grid gap-2">
+                        {selectedPhraseStep.map((event, noteIndex) => (
+                          <button
+                            className={`flex items-center justify-between rounded-[12px] border px-3 py-3 text-left transition-colors ${normalizedSelectedPhraseNoteIndex === noteIndex ? 'border-[rgba(125,211,252,0.34)] bg-[rgba(125,211,252,0.12)] text-[var(--accent-strong)]' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.04)] hover:text-[var(--text-primary)]'}`}
+                            key={`${event.note}-${noteIndex}`}
+                            onClick={() => setSelectedPhraseNoteIndex(noteIndex)}
+                          >
+                            <div>
+                              <div className="font-mono text-[12px]">{event.note}</div>
+                              <div className="mt-1 text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+                                Vel {Math.round(event.velocity * 100)} · Gate {event.gate.toFixed(2)}
                               </div>
                             </div>
-                          )}
-                        </>
-                      ) : (
-                        <div className="mt-3 text-xs text-[var(--text-secondary)]">
-                          Place a note in the selected phrase step to edit pitch, velocity, gate, and harmony from the arranger.
+                            <span className="rounded-sm border border-[var(--border-soft)] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.14em]">
+                              {noteIndex + 1}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+
+                      {selectedPhraseNote && normalizedSelectedPhraseNoteIndex !== null && (
+                        <div className="mt-4 grid gap-3">
+                          <div className="grid grid-cols-[40px_minmax(0,1fr)_40px] gap-2">
+                            <button
+                              className="ghost-icon-button flex h-10 w-10 items-center justify-center"
+                              onClick={() => updateClipPatternStepEvent(
+                                selectedClip.id,
+                                selectedPhraseStepIndex,
+                                normalizedSelectedPhraseNoteIndex,
+                                { note: shiftNote(selectedPhraseNote.note, -1) },
+                              )}
+                            >
+                              <Minus className="h-4 w-4" />
+                            </button>
+                            <select
+                              className="control-field h-10 px-3 text-sm"
+                              onChange={(event) => updateClipPatternStepEvent(
+                                selectedClip.id,
+                                selectedPhraseStepIndex,
+                                normalizedSelectedPhraseNoteIndex,
+                                { note: event.target.value },
+                              )}
+                              value={selectedPhraseNote.note}
+                            >
+                              {phraseRows.map((note) => (
+                                <option key={note} value={note}>
+                                  {note}
+                                </option>
+                              ))}
+                              {NOTE_NAMES.map((_, index) => {
+                                const octaveNote = shiftNote(selectedPhraseNote.note, index - 6);
+                                return octaveNote;
+                              }).filter((note, index, values) => values.indexOf(note) === index).map((note) => (
+                                <option key={`extra-${note}`} value={note}>
+                                  {note}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              className="ghost-icon-button flex h-10 w-10 items-center justify-center"
+                              onClick={() => updateClipPatternStepEvent(
+                                selectedClip.id,
+                                selectedPhraseStepIndex,
+                                normalizedSelectedPhraseNoteIndex,
+                                { note: shiftNote(selectedPhraseNote.note, 1) },
+                              )}
+                            >
+                              <Plus className="h-4 w-4" />
+                            </button>
+                          </div>
+
+                          <label className="text-xs text-[var(--text-secondary)]">
+                            <div className="mb-2 flex items-center justify-between">
+                              <span className="section-label">Velocity</span>
+                              <span className="font-mono text-[10px] text-[var(--text-tertiary)]">{Math.round(selectedPhraseNote.velocity * 100)}</span>
+                            </div>
+                            <input
+                              className="w-full"
+                              max="1"
+                              min="0.1"
+                              onChange={(event) => updateClipPatternStepEvent(
+                                selectedClip.id,
+                                selectedPhraseStepIndex,
+                                normalizedSelectedPhraseNoteIndex,
+                                { velocity: Number(event.target.value) },
+                              )}
+                              step="0.01"
+                              type="range"
+                              value={selectedPhraseNote.velocity}
+                            />
+                          </label>
+
+                          <label className="text-xs text-[var(--text-secondary)]">
+                            <div className="mb-2 flex items-center justify-between">
+                              <span className="section-label">Gate</span>
+                              <span className="font-mono text-[10px] text-[var(--text-tertiary)]">{selectedPhraseNote.gate.toFixed(2)}</span>
+                            </div>
+                            <input
+                              className="w-full"
+                              max="4"
+                              min="0.25"
+                              onChange={(event) => updateClipPatternStepEvent(
+                                selectedClip.id,
+                                selectedPhraseStepIndex,
+                                normalizedSelectedPhraseNoteIndex,
+                                { gate: Number(event.target.value) },
+                              )}
+                              step="0.25"
+                              type="range"
+                              value={selectedPhraseNote.gate}
+                            />
+                          </label>
+
+                          <div className="flex gap-2">
+                            <button
+                              className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                              onClick={() => {
+                                toggleClipPatternStep(selectedClip.id, selectedPhraseStepIndex, shiftNote(selectedPhraseNote.note, 7), 'add');
+                                setSelectedPhraseNoteIndex(selectedPhraseStep.length);
+                              }}
+                            >
+                              Add fifth
+                            </button>
+                            <button
+                              className="control-chip ml-auto flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--danger)]"
+                              onClick={() => {
+                                toggleClipPatternStep(selectedClip.id, selectedPhraseStepIndex, selectedPhraseNote.note, 'remove');
+                                setSelectedPhraseNoteIndex(selectedPhraseStep.length > 1 ? Math.max(0, normalizedSelectedPhraseNoteIndex - 1) : null);
+                              }}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              Remove
+                            </button>
+                          </div>
                         </div>
                       )}
+                    </>
+                  ) : (
+                    <div className="mt-3 text-xs text-[var(--text-secondary)]">
+                      Paint a note in the composer grid to shape pitch, velocity, gate, and harmony here.
                     </div>
-                  )}
+                  )
+                ) : (
+                  <div className="mt-3 text-xs text-[var(--text-secondary)]">
+                    Drum clips keep the selected step simple. Use the grid above to add or remove triggers quickly.
+                  </div>
+                )}
+              </div>
 
-                  <div className="mt-4 rounded-[14px] border border-[var(--border-soft)] bg-[rgba(0,0,0,0.14)] px-3 py-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <div className="section-label">Automation</div>
-                        <div className="mt-1 text-xs text-[var(--text-secondary)]">
-                          Level and tone are per phrase step and affect playback in song mode and pattern mode.
-                        </div>
-                      </div>
-                      <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-                        Step {selectedPhraseStepIndex + 1}
-                      </div>
-                    </div>
-
-                    <div className="mt-4 space-y-3">
-                      <AutomationLaneRow
-                        label="Level"
-                        onSelectStep={setSelectedPhraseStepIndex}
-                        selectedStepIndex={selectedPhraseStepIndex}
-                        values={selectedClipAutomation.level}
-                      />
-                      <AutomationLaneRow
-                        label="Tone"
-                        onSelectStep={setSelectedPhraseStepIndex}
-                        selectedStepIndex={selectedPhraseStepIndex}
-                        values={selectedClipAutomation.tone}
-                      />
-                    </div>
-
-                    <div className="mt-4 grid gap-3">
-                      <label className="text-xs text-[var(--text-secondary)]">
-                        <div className="mb-2 flex items-center justify-between">
-                          <span className="section-label">Level focus</span>
-                          <span className="font-mono text-[10px] text-[var(--text-tertiary)]">{Math.round(selectedAutomationLevel * 100)}</span>
-                        </div>
-                        <input
-                          className="w-full"
-                          max="1"
-                          min="0"
-                          onChange={(event) => selectedClip && updatePatternAutomationStep(
-                            selectedClip.trackId,
-                            selectedClip.patternIndex,
-                            selectedPhraseStepIndex,
-                            'level',
-                            Number(event.target.value),
-                          )}
-                          step="0.01"
-                          type="range"
-                          value={selectedAutomationLevel}
-                        />
-                      </label>
-
-                      <label className="text-xs text-[var(--text-secondary)]">
-                        <div className="mb-2 flex items-center justify-between">
-                          <span className="section-label">Tone focus</span>
-                          <span className="font-mono text-[10px] text-[var(--text-tertiary)]">{Math.round(selectedAutomationTone * 100)}</span>
-                        </div>
-                        <input
-                          className="w-full"
-                          max="1"
-                          min="0"
-                          onChange={(event) => selectedClip && updatePatternAutomationStep(
-                            selectedClip.trackId,
-                            selectedClip.patternIndex,
-                            selectedPhraseStepIndex,
-                            'tone',
-                            Number(event.target.value),
-                          )}
-                          step="0.01"
-                          type="range"
-                          value={selectedAutomationTone}
-                        />
-                      </label>
+              <div className="rounded-[16px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="section-label">Automation</div>
+                    <div className="mt-1 text-xs text-[var(--text-secondary)]">
+                      Level and tone stay next to the phrase they shape.
                     </div>
                   </div>
+                  <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+                    Step {selectedPhraseStepIndex + 1}
+                  </span>
                 </div>
-              )}
+
+                <div className="mt-4 space-y-3">
+                  <AutomationLaneRow
+                    label="Level"
+                    onSelectStep={setSelectedPhraseStepIndex}
+                    selectedStepIndex={selectedPhraseStepIndex}
+                    values={selectedClipAutomation.level.slice(0, composerStepCount)}
+                  />
+                  <AutomationLaneRow
+                    label="Tone"
+                    onSelectStep={setSelectedPhraseStepIndex}
+                    selectedStepIndex={selectedPhraseStepIndex}
+                    values={selectedClipAutomation.tone.slice(0, composerStepCount)}
+                  />
+                </div>
+
+                <div className="mt-4 grid gap-3">
+                  <label className="text-xs text-[var(--text-secondary)]">
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="section-label">Level focus</span>
+                      <span className="font-mono text-[10px] text-[var(--text-tertiary)]">{Math.round(selectedAutomationLevel * 100)}</span>
+                    </div>
+                    <input
+                      className="w-full"
+                      max="1"
+                      min="0"
+                      onChange={(event) => updateClipPatternAutomationStep(
+                        selectedClip.id,
+                        selectedPhraseStepIndex,
+                        'level',
+                        Number(event.target.value),
+                      )}
+                      step="0.01"
+                      type="range"
+                      value={selectedAutomationLevel}
+                    />
+                  </label>
+
+                  <label className="text-xs text-[var(--text-secondary)]">
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="section-label">Tone focus</span>
+                      <span className="font-mono text-[10px] text-[var(--text-tertiary)]">{Math.round(selectedAutomationTone * 100)}</span>
+                    </div>
+                    <input
+                      className="w-full"
+                      max="1"
+                      min="0"
+                      onChange={(event) => updateClipPatternAutomationStep(
+                        selectedClip.id,
+                        selectedPhraseStepIndex,
+                        'tone',
+                        Number(event.target.value),
+                      )}
+                      step="0.01"
+                      type="range"
+                      value={selectedAutomationTone}
+                    />
+                  </label>
+                </div>
+              </div>
             </div>
           ) : (
-            <div className="rounded-[16px] border border-dashed border-[var(--border-soft)] p-4 text-sm text-[var(--text-secondary)]">
-              Select a clip to nudge, stretch, duplicate, or retarget its pattern.
+            <div className="pt-4 text-sm text-[var(--text-secondary)]">
+              Select a clip to open the song-first composer.
             </div>
           )}
         </div>
@@ -839,10 +979,11 @@ export const Arranger = () => {
           <div className="mb-3 flex items-center justify-between gap-4">
             <div className="section-label">Timeline</div>
             <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-              {totalBars} bars · snap {CLIP_SNAP} steps
+              {totalBars} bars · snap {CLIP_SNAP} steps · {zoomPreset.toLowerCase()} zoom
             </div>
           </div>
-          <div className="min-h-0 flex-1 overflow-auto rounded-[18px] border border-[var(--border-soft)] bg-[rgba(0,0,0,0.24)]">
+
+          <div className="min-h-0 flex-1 overflow-auto rounded-[18px] border border-[var(--border-soft)] bg-[rgba(0,0,0,0.24)]" ref={timelineRef}>
             <div className="min-h-full p-4" style={{ minWidth: `${timelineWidth}px` }}>
               <div className="grid" style={{ gridTemplateColumns: '220px minmax(0, 1fr)' }}>
                 <div className="sticky left-0 z-10 border-b border-r border-[var(--border-soft)] bg-[rgba(8,12,17,0.96)] px-4 py-3 backdrop-blur">
@@ -854,7 +995,7 @@ export const Arranger = () => {
                       <div
                         className={`flex h-14 items-center justify-center border-r border-[rgba(151,163,180,0.08)] ${stepIndex % 16 === 0 ? 'bg-[rgba(114,217,255,0.05)]' : stepIndex % 4 === 0 ? 'bg-[rgba(255,255,255,0.025)]' : ''}`}
                         key={stepIndex}
-                        style={{ width: `${PIXELS_PER_STEP}px` }}
+                        style={{ width: `${pixelsPerStep}px` }}
                       >
                         <span className={`font-mono text-[10px] ${stepIndex % 16 === 0 ? 'text-[var(--accent-strong)]' : stepIndex % 4 === 0 ? 'text-[var(--text-primary)]' : 'text-[var(--text-tertiary)]'}`}>
                           {stepIndex % 16 === 0 ? `B${Math.floor(stepIndex / 16) + 1}` : stepIndex + 1}
@@ -864,7 +1005,7 @@ export const Arranger = () => {
                   </div>
                   <div
                     className="pointer-events-none absolute bottom-0 top-0 w-[2px] bg-[rgba(124,211,252,0.8)]"
-                    style={{ left: `${currentStep * PIXELS_PER_STEP}px` }}
+                    style={{ left: `${currentStep * pixelsPerStep}px` }}
                   />
                 </div>
 
@@ -890,19 +1031,19 @@ export const Arranger = () => {
                               className={`${stepIndex % 16 === 0 ? 'bg-[rgba(114,217,255,0.03)]' : stepIndex % 4 === 0 ? 'bg-[rgba(255,255,255,0.03)]' : 'bg-transparent'} absolute inset-y-0 border-r border-[rgba(151,163,180,0.08)]`}
                               key={stepIndex}
                               style={{
-                                left: `${stepIndex * PIXELS_PER_STEP}px`,
-                                width: `${PIXELS_PER_STEP}px`,
+                                left: `${stepIndex * pixelsPerStep}px`,
+                                width: `${pixelsPerStep}px`,
                               }}
                             />
                           ))}
                         </div>
                         <div
                           className="pointer-events-none absolute bottom-0 top-0 z-[1] w-[2px] bg-[rgba(124,211,252,0.8)]"
-                          style={{ left: `${currentStep * PIXELS_PER_STEP}px` }}
+                          style={{ left: `${currentStep * pixelsPerStep}px` }}
                         />
                         <div className="relative z-[2] flex h-20 items-center">
                           {clips.map((clip) => {
-                            const isSelectedClip = selectedClipId === clip.id;
+                            const isSelectedClip = selectedArrangerClipId === clip.id;
                             const frame = getRenderedClipFrame(clip);
 
                             return (
@@ -922,14 +1063,15 @@ export const Arranger = () => {
                                   background: `linear-gradient(135deg, ${track.color}40, ${track.color}1a)`,
                                   borderColor: isSelectedClip ? `${track.color}aa` : `${track.color}66`,
                                   borderRadius: isSelectedClip ? '6px' : '4px',
-                                  left: `${frame.startBeat * PIXELS_PER_STEP}px`,
-                                  width: `${frame.beatLength * PIXELS_PER_STEP}px`,
+                                  left: `${frame.startBeat * pixelsPerStep}px`,
+                                  width: `${frame.beatLength * pixelsPerStep}px`,
                                 }}
                                 tabIndex={0}
                               >
                                 <div
-                                  className="absolute inset-y-0 left-0 z-[3] w-2 cursor-ew-resize bg-[rgba(255,255,255,0.08)] opacity-0 transition-opacity group-hover:opacity-100"
+                                  className="absolute inset-y-0 left-0 z-[3] cursor-ew-resize bg-[rgba(255,255,255,0.08)] opacity-0 transition-opacity group-hover:opacity-100"
                                   onPointerDown={(event) => beginClipDrag(clip, event, 'trim-start')}
+                                  style={{ width: `${DRAG_HANDLE_WIDTH}px` }}
                                 />
                                 <div className="min-w-0 flex-1">
                                   <div className="truncate text-xs font-semibold text-[var(--text-primary)]">
@@ -946,7 +1088,7 @@ export const Arranger = () => {
                                     onPointerDown={(event) => event.stopPropagation()}
                                     onClick={(event) => {
                                       event.stopPropagation();
-                                      nudgeClip(clip.id, -CLIP_SNAP);
+                                      updateArrangerClip(clip.id, { startBeat: Math.max(0, clip.startBeat - CLIP_SNAP) });
                                     }}
                                   >
                                     <span className="font-mono text-xs">{'<'}</span>
@@ -956,7 +1098,7 @@ export const Arranger = () => {
                                     onPointerDown={(event) => event.stopPropagation()}
                                     onClick={(event) => {
                                       event.stopPropagation();
-                                      nudgeClip(clip.id, CLIP_SNAP);
+                                      updateArrangerClip(clip.id, { startBeat: clip.startBeat + CLIP_SNAP });
                                     }}
                                   >
                                     <span className="font-mono text-xs">{'>'}</span>
@@ -973,23 +1115,13 @@ export const Arranger = () => {
                                   </button>
                                 </div>
                                 <div
-                                  className="absolute inset-y-0 right-0 z-[3] w-2 cursor-ew-resize bg-[rgba(255,255,255,0.08)] opacity-0 transition-opacity group-hover:opacity-100"
+                                  className="absolute inset-y-0 right-0 z-[3] cursor-ew-resize bg-[rgba(255,255,255,0.08)] opacity-0 transition-opacity group-hover:opacity-100"
                                   onPointerDown={(event) => beginClipDrag(clip, event, 'trim-end')}
+                                  style={{ width: `${DRAG_HANDLE_WIDTH}px` }}
                                 />
                               </div>
                             );
                           })}
-                          <button
-                            className={`absolute top-1/2 flex h-14 -translate-y-1/2 items-center justify-center border border-dashed px-4 text-xs font-semibold uppercase tracking-[0.16em] transition-colors ${isSelectedTrack ? 'border-[rgba(124,211,252,0.26)] bg-[rgba(124,211,252,0.08)] text-[#d9f2ff]' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
-                            onClick={() => addArrangerClip(track.id)}
-                            style={{
-                              borderRadius: '4px',
-                              left: `${clips.reduce((maxBeat, clip) => Math.max(maxBeat, clip.startBeat + clip.beatLength), 0) * PIXELS_PER_STEP}px`,
-                              width: `${Math.max(4, Math.floor(PIXELS_PER_STEP * 3.5))}px`,
-                            }}
-                          >
-                            +
-                          </button>
                         </div>
                       </div>
                     </React.Fragment>
@@ -1004,35 +1136,40 @@ export const Arranger = () => {
   );
 };
 
-const QuickActionRow = ({
+const ZoomButton = ({
+  active,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}) => (
+  <button
+    className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+    data-active={active}
+    onClick={onClick}
+  >
+    {label}
+  </button>
+);
+
+const OperationButton = ({
   icon,
   label,
-  primaryAction,
-  primaryLabel,
-  secondaryAction,
-  secondaryLabel,
+  onClick,
 }: {
   icon: React.ReactNode;
   label: string;
-  primaryAction: () => void;
-  primaryLabel: string;
-  secondaryAction: () => void;
-  secondaryLabel: string;
+  onClick: () => void;
 }) => (
-  <div className="rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
-    <div className="mb-3 flex items-center gap-2">
-      <span className="text-[var(--accent)]">{icon}</span>
-      <span className="section-label">{label}</span>
-    </div>
-    <div className="grid grid-cols-2 gap-2">
-      <button className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={primaryAction}>
-        {primaryLabel}
-      </button>
-      <button className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={secondaryAction}>
-        {secondaryLabel}
-      </button>
-    </div>
-  </div>
+  <button
+    className="control-chip flex items-center justify-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+    onClick={onClick}
+  >
+    {icon}
+    {label}
+  </button>
 );
 
 const AutomationLaneRow = ({
@@ -1049,24 +1186,26 @@ const AutomationLaneRow = ({
   <div>
     <div className="mb-2 flex items-center justify-between">
       <span className="section-label">{label}</span>
-      <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-        step-focused lane
+      <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+        {Math.round((values[selectedStepIndex] ?? 0) * 100)}
       </span>
     </div>
-    <div className="grid grid-cols-4 gap-2">
+    <div className="grid grid-cols-16 gap-1">
       {values.map((value, stepIndex) => (
         <button
-          className={`rounded-[10px] border px-1 py-2 transition-colors ${selectedStepIndex === stepIndex ? 'border-[rgba(125,211,252,0.34)] bg-[rgba(125,211,252,0.12)]' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.04)]'}`}
+          className={`rounded-[8px] border px-0 py-2 transition-colors ${selectedStepIndex === stepIndex ? 'border-[rgba(125,211,252,0.34)] bg-[rgba(125,211,252,0.12)]' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.04)]'}`}
           key={`${label}-${stepIndex}`}
           onClick={() => onSelectStep(stepIndex)}
         >
-          <div className="mx-auto flex h-12 w-full items-end justify-center rounded-[8px] bg-[rgba(255,255,255,0.03)] px-1">
-            <span
-              className="w-full rounded-[6px] bg-[var(--accent)]"
-              style={{ height: `${Math.max(12, value * 100)}%` }}
+          <div className="mx-auto h-8 w-2 rounded-full bg-[rgba(255,255,255,0.08)]">
+            <div
+              className="w-full rounded-full bg-[var(--accent)]"
+              style={{
+                height: `${Math.max(8, value * 100)}%`,
+                marginTop: `${Math.max(0, 100 - Math.max(8, value * 100))}%`,
+              }}
             />
           </div>
-          <div className="mt-2 font-mono text-[9px] text-[var(--text-tertiary)]">{stepIndex + 1}</div>
         </button>
       ))}
     </div>

@@ -85,7 +85,9 @@ interface AudioContextType {
   renameTrack: (trackId: string, name: string) => void;
   saveProject: () => void;
   saveStatus: SaveStatus;
+  selectedArrangerClipId: string | null;
   selectedTrackId: string | null;
+  setSelectedArrangerClipId: (id: string | null) => void;
   shiftPattern: (trackId: string, direction: 'left' | 'right') => void;
   setActiveView: (view: AppView) => void;
   setBpm: (bpm: number) => void;
@@ -98,9 +100,10 @@ interface AudioContextType {
   setTransportMode: (mode: TransportMode) => void;
   shiftPatternAt: (trackId: string, patternIndex: number, direction: 'left' | 'right') => void;
   songLengthInBeats: number;
-  splitArrangerClip: (clipId: string) => void;
+  splitArrangerClip: (clipId: string, splitAtBeat?: number) => void;
   stepsPerPattern: number;
   stop: () => void;
+  toggleClipPatternStep: (clipId: string, stepIndex: number, note?: string, mode?: 'add' | 'remove' | 'toggle') => void;
   toggleMute: (trackId: string) => void;
   togglePlay: () => void;
   togglePatternStep: (trackId: string, patternIndex: number, stepIndex: number, note?: string) => void;
@@ -109,11 +112,14 @@ interface AudioContextType {
   toggleSolo: (trackId: string) => void;
   toggleStep: (trackId: string, stepIndex: number, note?: string) => void;
   tracks: Track[];
+  transformClipPattern: (clipId: string, transform: 'clear' | 'double-density' | 'halve-density' | 'randomize-velocity' | 'reset-automation' | 'shift-left' | 'shift-right' | 'transpose', value?: number) => void;
   transposePatternAt: (trackId: string, patternIndex: number, semitones: number) => void;
   transposePattern: (trackId: string, semitones: number) => void;
   transportMode: TransportMode;
   undo: () => void;
   updateArrangerClip: (clipId: string, updates: Partial<ArrangementClip>) => void;
+  updateClipPatternAutomationStep: (clipId: string, stepIndex: number, lane: 'level' | 'tone', value: number) => void;
+  updateClipPatternStepEvent: (clipId: string, stepIndex: number, noteIndex: number, updates: Partial<NoteEvent>) => void;
   updatePatternAutomationStep: (trackId: string, patternIndex: number, stepIndex: number, lane: 'level' | 'tone', value: number) => void;
   updatePatternStepEvent: (trackId: string, patternIndex: number, stepIndex: number, noteIndex: number, updates: Partial<NoteEvent>) => void;
   updateStepEvent: (trackId: string, stepIndex: number, noteIndex: number, updates: Partial<NoteEvent>) => void;
@@ -140,12 +146,13 @@ type EditorAction =
   | { type: 'DUPLICATE_ARRANGER_CLIP'; clipId: string }
   | { type: 'LOOP_ARRANGER_CLIP'; clipId: string; copies: number }
   | { type: 'MAKE_CLIP_PATTERN_UNIQUE'; clipId: string }
-  | { type: 'SPLIT_ARRANGER_CLIP'; clipId: string }
+  | { type: 'SPLIT_ARRANGER_CLIP'; clipId: string; splitAtBeat?: number }
   | { type: 'DUPLICATE_TRACK'; trackId: string }
   | { type: 'HYDRATE_SESSION'; session: StudioSession }
   | { type: 'REDO' }
   | { type: 'REMOVE_ARRANGER_CLIP'; clipId: string }
   | { type: 'REMOVE_TRACK'; trackId: string }
+  | { type: 'SET_SELECTED_ARRANGER_CLIP'; clipId: string | null }
   | { type: 'SHIFT_PATTERN'; direction: 'left' | 'right'; trackId: string }
   | { type: 'SHIFT_PATTERN_AT'; direction: 'left' | 'right'; trackId: string; patternIndex: number }
   | { type: 'SET_ACTIVE_VIEW'; view: AppView }
@@ -163,13 +170,17 @@ type EditorAction =
   | { type: 'TOGGLE_PAN'; pan: number; trackId: string }
   | { type: 'TOGGLE_SETTINGS' }
   | { type: 'TOGGLE_SOLO'; trackId: string }
+  | { type: 'TOGGLE_CLIP_PATTERN_STEP'; clipId: string; mode?: 'add' | 'remove' | 'toggle'; note?: string; stepIndex: number }
   | { type: 'TOGGLE_STEP'; note?: string; stepIndex: number; trackId: string }
   | { type: 'TOGGLE_PATTERN_STEP'; note?: string; stepIndex: number; trackId: string; patternIndex: number }
   | { type: 'TOGGLE_VOLUME'; trackId: string; volume: number }
+  | { type: 'TRANSFORM_CLIP_PATTERN'; clipId: string; transform: 'clear' | 'double-density' | 'halve-density' | 'randomize-velocity' | 'reset-automation' | 'shift-left' | 'shift-right' | 'transpose'; value?: number }
   | { type: 'TRANSPOSE_PATTERN'; semitones: number; trackId: string }
   | { type: 'TRANSPOSE_PATTERN_AT'; semitones: number; trackId: string; patternIndex: number }
   | { type: 'UNDO' }
   | { type: 'UPDATE_ARRANGER_CLIP'; clipId: string; updates: Partial<ArrangementClip> }
+  | { type: 'UPDATE_CLIP_PATTERN_AUTOMATION_STEP'; clipId: string; stepIndex: number; lane: 'level' | 'tone'; value: number }
+  | { type: 'UPDATE_CLIP_PATTERN_STEP_EVENT'; clipId: string; noteIndex: number; stepIndex: number; updates: Partial<NoteEvent> }
   | { type: 'UPDATE_PATTERN_AUTOMATION_STEP'; trackId: string; patternIndex: number; stepIndex: number; lane: 'level' | 'tone'; value: number }
   | { type: 'UPDATE_PATTERN_STEP_EVENT'; noteIndex: number; stepIndex: number; trackId: string; patternIndex: number; updates: Partial<NoteEvent> }
   | { type: 'UPDATE_STEP_EVENT'; noteIndex: number; stepIndex: number; trackId: string; updates: Partial<NoteEvent> };
@@ -177,6 +188,7 @@ type EditorAction =
 const AudioContext = createContext<AudioContextType | null>(null);
 const HISTORY_LIMIT = 100;
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const ARRANGER_SNAP = 4;
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 const cloneStepEvents = (step: NoteEvent[]) => step.map((event) => ({ ...event }));
@@ -266,6 +278,14 @@ const ensureSelectedTrackId = (project: Project, selectedTrackId: string | null)
   return project.tracks[0]?.id ?? null;
 };
 
+const ensureSelectedArrangerClipId = (project: Project, selectedArrangerClipId: string | null) => {
+  if (selectedArrangerClipId && project.arrangerClips.some((clip) => clip.id === selectedArrangerClipId)) {
+    return selectedArrangerClipId;
+  }
+
+  return project.arrangerClips[0]?.id ?? null;
+};
+
 const stampProjectUpdate = (project: Project): Project => ({
   ...project,
   metadata: {
@@ -278,6 +298,7 @@ const commitProject = (
   state: EditorState,
   nextProject: Project,
   selectedTrackId: string | null = state.ui.selectedTrackId,
+  selectedArrangerClipId: string | null = state.ui.selectedArrangerClipId,
 ): EditorState => {
   if (nextProject === state.history.present) {
     return state;
@@ -293,9 +314,95 @@ const commitProject = (
     },
     ui: {
       ...state.ui,
+      selectedArrangerClipId: ensureSelectedArrangerClipId(nextProject, selectedArrangerClipId),
       selectedTrackId: ensureSelectedTrackId(nextProject, selectedTrackId),
     },
   };
+};
+
+const getClipContext = (project: Project, clipId: string) => {
+  const clip = project.arrangerClips.find((candidate) => candidate.id === clipId);
+  if (!clip) {
+    return null;
+  }
+
+  const track = project.tracks.find((candidate) => candidate.id === clip.trackId);
+  if (!track) {
+    return null;
+  }
+
+  return { clip, track };
+};
+
+const getUniqueClipPatternProject = (
+  project: Project,
+  clipId: string,
+): { clip: ArrangementClip; project: Project; track: Track } | null => {
+  const context = getClipContext(project, clipId);
+  if (!context) {
+    return null;
+  }
+
+  const { clip, track } = context;
+  const linkedClips = project.arrangerClips.filter((candidate) => (
+    candidate.trackId === clip.trackId
+    && candidate.patternIndex === clip.patternIndex
+  ));
+
+  if (linkedClips.length <= 1) {
+    return { clip, project, track };
+  }
+
+  const occupiedPatternIndices = new Set(
+    project.arrangerClips
+      .filter((candidate) => candidate.trackId === track.id && candidate.id !== clip.id)
+      .map((candidate) => candidate.patternIndex),
+  );
+  const nextPatternIndex = Array.from(
+    { length: project.transport.patternCount },
+    (_, patternIndex) => patternIndex,
+  ).find((patternIndex) => !occupiedPatternIndices.has(patternIndex) && patternIndex !== clip.patternIndex);
+
+  if (nextPatternIndex === undefined) {
+    return { clip, project, track };
+  }
+
+  const nextProject = updateTrack(project, track.id, (candidate) => {
+    const sourcePattern = candidate.patterns[clip.patternIndex] ?? createEmptyPattern(project.transport.stepsPerPattern);
+    const sourceAutomation = candidate.automation?.[clip.patternIndex] ?? {
+      level: Array.from({ length: project.transport.stepsPerPattern }, () => 0.5),
+      tone: Array.from({ length: project.transport.stepsPerPattern }, () => 0.5),
+    };
+
+    return {
+      ...candidate,
+      automation: {
+        ...candidate.automation,
+        [nextPatternIndex]: {
+          level: [...sourceAutomation.level],
+          tone: [...sourceAutomation.tone],
+        },
+      },
+      patterns: {
+        ...candidate.patterns,
+        [nextPatternIndex]: sourcePattern.map(cloneStepEvents),
+      },
+    };
+  });
+
+  const retargetedProject = {
+    ...nextProject,
+    arrangerClips: syncArrangerClips(
+      nextProject.arrangerClips.map((candidate) => (
+        candidate.id === clip.id ? { ...candidate, patternIndex: nextPatternIndex } : candidate
+      )),
+      nextProject.tracks,
+      nextProject.transport.patternCount,
+    ),
+  };
+
+  const nextContext = getClipContext(retargetedProject, clipId);
+  return nextContext ? { ...nextContext, project: retargetedProject } : null;
 };
 
 const updateTrack = (
@@ -407,6 +514,7 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
         },
         ui: {
           ...action.session.ui,
+          selectedArrangerClipId: ensureSelectedArrangerClipId(action.session.project, action.session.ui.selectedArrangerClipId),
           selectedTrackId: ensureSelectedTrackId(action.session.project, action.session.ui.selectedTrackId),
         },
       };
@@ -424,6 +532,13 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
       return nextSelectedTrackId === state.ui.selectedTrackId
         ? state
         : { ...state, ui: { ...state.ui, selectedTrackId: nextSelectedTrackId } };
+    }
+
+    case 'SET_SELECTED_ARRANGER_CLIP': {
+      const nextSelectedClipId = ensureSelectedArrangerClipId(present, action.clipId);
+      return nextSelectedClipId === state.ui.selectedArrangerClipId
+        ? state
+        : { ...state, ui: { ...state.ui, selectedArrangerClipId: nextSelectedClipId } };
     }
 
     case 'SET_PROJECT_NAME': {
@@ -582,6 +697,65 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
         })
       )));
 
+    case 'TOGGLE_CLIP_PATTERN_STEP': {
+      const editableClip = getUniqueClipPatternProject(present, action.clipId);
+      if (!editableClip) {
+        return state;
+      }
+
+      const { clip, project: nextProjectSeed, track } = editableClip;
+      const nextProject = updateTrack(nextProjectSeed, track.id, (candidate) => (
+        updatePatternSteps(candidate, clip.patternIndex, present.transport.stepsPerPattern, (nextSteps) => {
+          const existingStep = cloneStepEvents(nextSteps[action.stepIndex] ?? []);
+          const targetNote = action.note ?? defaultNoteForTrack(track);
+          const existingNoteIndex = existingStep.findIndex((entry) => entry.note === targetNote);
+
+          if (action.mode === 'add') {
+            if (existingNoteIndex >= 0) {
+              return nextSteps;
+            }
+
+            const templateEvent = existingStep.at(-1);
+            nextSteps[action.stepIndex] = [
+              ...existingStep,
+              createStepEvent(targetNote, templateEvent ?? {}),
+            ].sort((left, right) => compareNotesDescending(left.note, right.note));
+            return nextSteps;
+          }
+
+          if (action.mode === 'remove') {
+            if (existingNoteIndex === -1) {
+              return nextSteps;
+            }
+
+            nextSteps[action.stepIndex] = existingStep.filter((_, noteIndex) => noteIndex !== existingNoteIndex);
+            return nextSteps;
+          }
+
+          if (!action.note) {
+            nextSteps[action.stepIndex] = existingStep.length > 0
+              ? []
+              : [createStepEvent(targetNote)];
+            return nextSteps;
+          }
+
+          if (existingNoteIndex >= 0) {
+            nextSteps[action.stepIndex] = existingStep.filter((_, noteIndex) => noteIndex !== existingNoteIndex);
+            return nextSteps;
+          }
+
+          const templateEvent = existingStep.at(-1);
+          nextSteps[action.stepIndex] = [
+            ...existingStep,
+            createStepEvent(targetNote, templateEvent ?? {}),
+          ].sort((left, right) => compareNotesDescending(left.note, right.note));
+          return nextSteps;
+        })
+      ));
+
+      return commitProject(state, nextProject, clip.trackId, clip.id);
+    }
+
     case 'SHIFT_PATTERN':
       return commitProject(state, updateTrack(present, action.trackId, (track) => {
         const patternId = present.transport.currentPattern;
@@ -734,6 +908,42 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
         };
       }));
 
+    case 'UPDATE_CLIP_PATTERN_STEP_EVENT': {
+      const editableClip = getUniqueClipPatternProject(present, action.clipId);
+      if (!editableClip) {
+        return state;
+      }
+
+      const { clip, project: nextProjectSeed, track } = editableClip;
+      const nextProject = updateTrack(nextProjectSeed, track.id, (candidate) => {
+        const currentPattern = candidate.patterns[clip.patternIndex] ?? createEmptyPattern(present.transport.stepsPerPattern);
+        const targetStep = currentPattern[action.stepIndex];
+
+        if (!targetStep || !targetStep[action.noteIndex]) {
+          return candidate;
+        }
+
+        const nextSteps = [...currentPattern];
+        const nextStep = cloneStepEvents(targetStep);
+        const targetEvent = nextStep[action.noteIndex];
+        nextStep[action.noteIndex] = createStepEvent(targetEvent.note, {
+          ...targetEvent,
+          ...action.updates,
+        });
+        nextSteps[action.stepIndex] = nextStep.sort((left, right) => compareNotesDescending(left.note, right.note));
+
+        return {
+          ...candidate,
+          patterns: {
+            ...candidate.patterns,
+            [clip.patternIndex]: nextSteps,
+          },
+        };
+      });
+
+      return commitProject(state, nextProject, clip.trackId, clip.id);
+    }
+
     case 'UPDATE_PATTERN_AUTOMATION_STEP':
       return commitProject(state, updateTrack(present, action.trackId, (track) => (
         updateTrackAutomationPattern(
@@ -750,6 +960,103 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
           }),
         )
       )));
+
+    case 'UPDATE_CLIP_PATTERN_AUTOMATION_STEP': {
+      const editableClip = getUniqueClipPatternProject(present, action.clipId);
+      if (!editableClip) {
+        return state;
+      }
+
+      const { clip, project: nextProjectSeed, track } = editableClip;
+      const nextProject = updateTrack(nextProjectSeed, track.id, (candidate) => (
+        updateTrackAutomationPattern(
+          candidate,
+          clip.patternIndex,
+          present.transport.stepsPerPattern,
+          (patternAutomation) => ({
+            ...patternAutomation,
+            [action.lane]: patternAutomation[action.lane].map((entry, entryIndex) => (
+              entryIndex === action.stepIndex
+                ? clamp(action.value, 0, 1)
+                : entry
+            )),
+          }),
+        )
+      ));
+
+      return commitProject(state, nextProject, clip.trackId, clip.id);
+    }
+
+    case 'TRANSFORM_CLIP_PATTERN': {
+      const editableClip = getUniqueClipPatternProject(present, action.clipId);
+      if (!editableClip) {
+        return state;
+      }
+
+      const { clip, project: nextProjectSeed, track } = editableClip;
+      let nextProject = nextProjectSeed;
+
+      if (action.transform === 'reset-automation') {
+        nextProject = updateTrack(nextProject, track.id, (candidate) => (
+          updateTrackAutomationPattern(
+            candidate,
+            clip.patternIndex,
+            present.transport.stepsPerPattern,
+            () => ({
+              level: Array.from({ length: present.transport.stepsPerPattern }, () => 0.5),
+              tone: Array.from({ length: present.transport.stepsPerPattern }, () => 0.5),
+            }),
+          )
+        ));
+
+        return commitProject(state, nextProject, clip.trackId, clip.id);
+      }
+
+      nextProject = updateTrack(nextProject, track.id, (candidate) => (
+        updatePatternSteps(candidate, clip.patternIndex, present.transport.stepsPerPattern, (currentPattern) => {
+          switch (action.transform) {
+            case 'clear':
+              return createEmptyPattern(present.transport.stepsPerPattern);
+            case 'shift-left':
+              return currentPattern.every((step) => step.length === 0)
+                ? currentPattern
+                : [...currentPattern.slice(1).map(cloneStepEvents), []];
+            case 'shift-right':
+              return currentPattern.every((step) => step.length === 0)
+                ? currentPattern
+                : [[], ...currentPattern.slice(0, -1).map(cloneStepEvents)];
+            case 'transpose':
+              if (track.type === 'kick' || track.type === 'snare' || track.type === 'hihat') {
+                return currentPattern;
+              }
+
+              return currentPattern.map((step) => (
+                step.map((event) => ({ ...event, note: transposeNote(event.note, action.value ?? 0) }))
+              ));
+            case 'double-density': {
+              const nextPattern = currentPattern.map(cloneStepEvents);
+              for (let stepIndex = 0; stepIndex < currentPattern.length - 1; stepIndex += 1) {
+                if (currentPattern[stepIndex].length > 0 && nextPattern[stepIndex + 1].length === 0) {
+                  nextPattern[stepIndex + 1] = cloneStepEvents(currentPattern[stepIndex]);
+                }
+              }
+              return nextPattern;
+            }
+            case 'halve-density':
+              return currentPattern.map((step, stepIndex) => (stepIndex % 2 === 0 ? cloneStepEvents(step) : []));
+            case 'randomize-velocity':
+              return currentPattern.map((step) => step.map((event) => createStepEvent(event.note, {
+                ...event,
+                velocity: clamp(event.velocity + ((Math.random() * 0.16) - 0.08), 0.1, 1),
+              })));
+            default:
+              return currentPattern;
+          }
+        })
+      ));
+
+      return commitProject(state, nextProject, clip.trackId, clip.id);
+    }
 
     case 'CREATE_TRACK': {
       const nextTrack = buildTrack(action.trackType, {
@@ -783,21 +1090,23 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
         return state;
       }
 
+      const duplicatedClip = buildArrangerClip(sourceClip.trackId, present.transport, {
+        beatLength: sourceClip.beatLength,
+        patternIndex: sourceClip.patternIndex,
+        startBeat: sourceClip.startBeat + sourceClip.beatLength,
+      });
+
       return commitProject(state, {
         ...present,
         arrangerClips: syncArrangerClips(
           [
             ...present.arrangerClips,
-            buildArrangerClip(sourceClip.trackId, present.transport, {
-              beatLength: sourceClip.beatLength,
-              patternIndex: sourceClip.patternIndex,
-              startBeat: sourceClip.startBeat + sourceClip.beatLength,
-            }),
+            duplicatedClip,
           ],
           present.tracks,
           present.transport.patternCount,
         ),
-      }, sourceClip.trackId);
+      }, sourceClip.trackId, duplicatedClip.id);
     }
 
     case 'LOOP_ARRANGER_CLIP': {
@@ -822,7 +1131,7 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
           present.tracks,
           present.transport.patternCount,
         ),
-      }, sourceClip.trackId);
+      }, sourceClip.trackId, sourceClip.id);
     }
 
     case 'MAKE_CLIP_PATTERN_UNIQUE': {
@@ -871,7 +1180,7 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
           nextProject.tracks,
           nextProject.transport.patternCount,
         ),
-      }, sourceTrack.id);
+      }, sourceTrack.id, sourceClip.id);
     }
 
     case 'SPLIT_ARRANGER_CLIP': {
@@ -880,9 +1189,24 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
         return state;
       }
 
-      const halfLength = Math.floor(sourceClip.beatLength / 8) * 4;
-      const firstLength = clamp(halfLength, 4, sourceClip.beatLength - 4);
+      const requestedSplitBeat = typeof action.splitAtBeat === 'number'
+        ? clamp(
+            Math.round(action.splitAtBeat / ARRANGER_SNAP) * ARRANGER_SNAP,
+            sourceClip.startBeat + 4,
+            sourceClip.startBeat + sourceClip.beatLength - 4,
+          )
+        : sourceClip.startBeat + clamp(
+            Math.floor(sourceClip.beatLength / 8) * 4,
+            4,
+            sourceClip.beatLength - 4,
+          );
+      const firstLength = requestedSplitBeat - sourceClip.startBeat;
       const secondLength = sourceClip.beatLength - firstLength;
+      const splitClip = buildArrangerClip(sourceClip.trackId, present.transport, {
+        beatLength: secondLength,
+        patternIndex: sourceClip.patternIndex,
+        startBeat: sourceClip.startBeat + firstLength,
+      });
 
       return commitProject(state, {
         ...present,
@@ -893,16 +1217,12 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
                 ? { ...clip, beatLength: firstLength }
                 : clip
             )),
-            buildArrangerClip(sourceClip.trackId, present.transport, {
-              beatLength: secondLength,
-              patternIndex: sourceClip.patternIndex,
-              startBeat: sourceClip.startBeat + firstLength,
-            }),
+            splitClip,
           ],
           present.tracks,
           present.transport.patternCount,
         ),
-      }, sourceClip.trackId);
+      }, sourceClip.trackId, splitClip.id);
     }
 
     case 'DUPLICATE_TRACK': {
@@ -964,33 +1284,38 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
       const laneTail = present.arrangerClips
         .filter((clip) => clip.trackId === targetTrackId)
         .reduce((maxBeat, clip) => Math.max(maxBeat, clip.startBeat + clip.beatLength), 0);
+      const nextClip = buildArrangerClip(targetTrackId, present.transport, {
+        beatLength: present.transport.stepsPerPattern,
+        patternIndex: present.transport.currentPattern,
+        startBeat: laneTail,
+      });
 
       return commitProject(state, {
         ...present,
         arrangerClips: syncArrangerClips(
           [
             ...present.arrangerClips,
-            buildArrangerClip(targetTrackId, present.transport, {
-              beatLength: present.transport.stepsPerPattern,
-              patternIndex: present.transport.currentPattern,
-              startBeat: laneTail,
-            }),
+            nextClip,
           ],
           present.tracks,
           present.transport.patternCount,
         ),
-      }, targetTrackId);
+      }, targetTrackId, nextClip.id);
     }
 
-    case 'REMOVE_ARRANGER_CLIP':
+    case 'REMOVE_ARRANGER_CLIP': {
+      const nextArrangerClips = syncArrangerClips(
+        present.arrangerClips.filter((clip) => clip.id !== action.clipId),
+        present.tracks,
+        present.transport.patternCount,
+      );
+      const fallbackClipId = nextArrangerClips[0]?.id ?? null;
+
       return commitProject(state, {
         ...present,
-        arrangerClips: syncArrangerClips(
-          present.arrangerClips.filter((clip) => clip.id !== action.clipId),
-          present.tracks,
-          present.transport.patternCount,
-        ),
-      });
+        arrangerClips: nextArrangerClips,
+      }, state.ui.selectedTrackId, state.ui.selectedArrangerClipId === action.clipId ? fallbackClipId : state.ui.selectedArrangerClipId);
+    }
 
     case 'UPDATE_ARRANGER_CLIP':
       return commitProject(state, {
@@ -1002,7 +1327,7 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
           present.tracks,
           present.transport.patternCount,
         ),
-      });
+      }, state.ui.selectedTrackId, action.clipId);
 
     case 'UNDO': {
       if (state.history.past.length === 0) {
@@ -1068,7 +1393,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
 
   const project = editorState.history.present;
-  const { activeView, selectedTrackId } = editorState.ui;
+  const { activeView, selectedArrangerClipId, selectedTrackId } = editorState.ui;
   const arrangerClips = project.arrangerClips ?? [];
   const songLengthInBeats = arrangerClips.reduce(
     (maxBeat, clip) => Math.max(maxBeat, clip.startBeat + clip.beatLength),
@@ -1410,7 +1735,9 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       renameTrack: (trackId, name) => dispatch({ type: 'SET_TRACK_NAME', name, trackId }),
       saveProject,
       saveStatus,
+      selectedArrangerClipId,
       selectedTrackId,
+      setSelectedArrangerClipId: (clipId) => dispatch({ type: 'SET_SELECTED_ARRANGER_CLIP', clipId }),
       shiftPatternAt: (trackId, patternIndex, direction) => dispatch({ type: 'SHIFT_PATTERN_AT', direction, trackId, patternIndex }),
       shiftPattern: (trackId, direction) => dispatch({ type: 'SHIFT_PATTERN', direction, trackId }),
       setActiveView: (view) => dispatch({ type: 'SET_ACTIVE_VIEW', view }),
@@ -1423,9 +1750,10 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       setTrackSource: (trackId, source) => dispatch({ type: 'SET_TRACK_SOURCE', source, trackId }),
       setTransportMode: (mode) => dispatch({ type: 'SET_TRANSPORT_MODE', mode }),
       songLengthInBeats,
-      splitArrangerClip: (clipId) => dispatch({ type: 'SPLIT_ARRANGER_CLIP', clipId }),
+      splitArrangerClip: (clipId, splitAtBeat) => dispatch({ type: 'SPLIT_ARRANGER_CLIP', clipId, splitAtBeat }),
       stepsPerPattern: project.transport.stepsPerPattern,
       stop,
+      toggleClipPatternStep: (clipId, stepIndex, note, mode) => dispatch({ type: 'TOGGLE_CLIP_PATTERN_STEP', clipId, mode, note, stepIndex }),
       toggleMute: (trackId) => dispatch({ type: 'TOGGLE_MUTE', trackId }),
       togglePlay,
       togglePatternStep: (trackId, patternIndex, stepIndex, note) => dispatch({ type: 'TOGGLE_PATTERN_STEP', note, patternIndex, stepIndex, trackId }),
@@ -1434,11 +1762,14 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       toggleSolo: (trackId) => dispatch({ type: 'TOGGLE_SOLO', trackId }),
       toggleStep: (trackId, stepIndex, note) => dispatch({ type: 'TOGGLE_STEP', note, stepIndex, trackId }),
       tracks: project.tracks,
+      transformClipPattern: (clipId, transform, value) => dispatch({ type: 'TRANSFORM_CLIP_PATTERN', clipId, transform, value }),
       transposePatternAt: (trackId, patternIndex, semitones) => dispatch({ type: 'TRANSPOSE_PATTERN_AT', semitones, trackId, patternIndex }),
       transposePattern: (trackId, semitones) => dispatch({ type: 'TRANSPOSE_PATTERN', semitones, trackId }),
       transportMode: project.transport.mode,
       undo: () => dispatch({ type: 'UNDO' }),
       updateArrangerClip: (clipId, updates) => dispatch({ type: 'UPDATE_ARRANGER_CLIP', clipId, updates }),
+      updateClipPatternAutomationStep: (clipId, stepIndex, lane, value) => dispatch({ type: 'UPDATE_CLIP_PATTERN_AUTOMATION_STEP', clipId, stepIndex, lane, value }),
+      updateClipPatternStepEvent: (clipId, stepIndex, noteIndex, updates) => dispatch({ type: 'UPDATE_CLIP_PATTERN_STEP_EVENT', clipId, noteIndex, stepIndex, updates }),
       updatePatternAutomationStep: (trackId, patternIndex, stepIndex, lane, value) => dispatch({ type: 'UPDATE_PATTERN_AUTOMATION_STEP', trackId, patternIndex, stepIndex, lane, value }),
       updatePatternStepEvent: (trackId, patternIndex, stepIndex, noteIndex, updates) => dispatch({ type: 'UPDATE_PATTERN_STEP_EVENT', noteIndex, stepIndex, trackId, patternIndex, updates }),
       updateStepEvent: (trackId, stepIndex, noteIndex, updates) => dispatch({ type: 'UPDATE_STEP_EVENT', noteIndex, stepIndex, trackId, updates }),
