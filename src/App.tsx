@@ -65,7 +65,7 @@ const ViewRouter = () => {
 };
 
 const StudioShell = () => {
-  const { isSettingsOpen } = useAudio();
+  const { isSettingsOpen, toggleSettings } = useAudio();
 
   return (
     <div className="app-shell h-screen w-screen overflow-hidden antialiased text-[var(--text-primary)]">
@@ -76,9 +76,23 @@ const StudioShell = () => {
         <div className="flex flex-1 min-h-0 gap-3 px-3 pb-3">
           <SideNav />
           <div className="chrome-frame flex min-h-0 flex-1 flex-col gap-3 p-3">
-            <div className="flex min-h-0 flex-1 gap-3">
+            <div className="relative flex min-h-0 flex-1">
               <ViewRouter />
-              {isSettingsOpen && <SettingsSidebar />}
+              {isSettingsOpen && (
+                <>
+                  <button
+                    aria-label="Close studio setup"
+                    className="absolute inset-0 z-20 bg-[rgba(1,3,6,0.58)] xl:hidden"
+                    onClick={toggleSettings}
+                  />
+                  <div
+                    className="absolute inset-y-0 right-0 z-30"
+                    style={{ width: 'min(360px, calc(100% - 1rem))' }}
+                  >
+                    <SettingsSidebar />
+                  </div>
+                </>
+              )}
             </div>
             <DeviceRack />
           </div>

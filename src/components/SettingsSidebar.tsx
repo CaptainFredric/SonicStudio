@@ -57,7 +57,7 @@ export const SettingsSidebar = () => {
   }
 
   return (
-    <aside className="surface-panel w-[360px] shrink-0 overflow-auto p-4">
+    <aside className="surface-panel h-full w-full overflow-auto p-4">
       <input
         ref={fileInputRef}
         accept=".json,.sonicstudio.json,application/json"

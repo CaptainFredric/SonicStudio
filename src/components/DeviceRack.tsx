@@ -45,7 +45,7 @@ export const DeviceRack = () => {
 
   if (!track) {
     return (
-      <section className="surface-panel flex h-[330px] items-center justify-center">
+      <section className="surface-panel flex min-h-[240px] max-h-[42vh] items-center justify-center overflow-hidden p-4">
         <div className="text-center">
           <div className="section-label">Device rack</div>
           <p className="mt-3 text-sm text-[var(--text-secondary)]">Select a track to load its source, tone, and output chain.</p>
@@ -55,9 +55,9 @@ export const DeviceRack = () => {
   }
 
   return (
-    <section className="surface-panel h-[360px] overflow-auto p-3">
-      <div className="grid h-full min-w-[1720px] grid-cols-[240px_1fr_0.95fr_1.05fr_0.95fr_1.05fr_1.45fr] gap-3">
-        <div className="surface-panel-strong flex flex-col justify-between p-4">
+    <section className="surface-panel min-h-[280px] max-h-[42vh] overflow-auto p-3">
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-12">
+        <div className="surface-panel-strong flex flex-col justify-between p-4 md:col-span-2 xl:col-span-3">
           <div>
             <div className="section-label">Selected track</div>
             <div className="mt-4 flex items-center gap-3">
@@ -141,7 +141,7 @@ export const DeviceRack = () => {
           </div>
         </div>
 
-        <RackSection icon={<Waves className="h-4 w-4 text-[var(--accent)]" />} title="Source">
+        <RackSection className="md:col-span-1 xl:col-span-3" icon={<Waves className="h-4 w-4 text-[var(--accent)]" />} title="Source">
           <div className="grid gap-4">
             <label className="text-xs text-[var(--text-secondary)]">
               <span className="section-label mb-2 block">Engine</span>
@@ -313,7 +313,7 @@ export const DeviceRack = () => {
           </div>
         </RackSection>
 
-        <RackSection icon={<Sparkles className="h-4 w-4 text-[var(--accent)]" />} title="Envelope">
+        <RackSection className="md:col-span-1 xl:col-span-2" icon={<Sparkles className="h-4 w-4 text-[var(--accent)]" />} title="Envelope">
           <div className="grid grid-cols-2 gap-x-4 gap-y-5">
             <Knob label="Attack" max={1} min={0.001} onChange={(value) => setTrackParams(track.id, { attack: value })} unit="s" value={track.params.attack} />
             <Knob label="Decay" max={2} min={0.01} onChange={(value) => setTrackParams(track.id, { decay: value })} unit="s" value={track.params.decay} />
@@ -322,7 +322,7 @@ export const DeviceRack = () => {
           </div>
         </RackSection>
 
-        <RackSection icon={<Activity className="h-4 w-4 text-[var(--accent)]" />} title="Filter">
+        <RackSection className="md:col-span-1 xl:col-span-2" icon={<Activity className="h-4 w-4 text-[var(--accent)]" />} title="Filter">
           <div className="grid h-full gap-4">
             <label className="text-xs text-[var(--text-secondary)]">
               <span className="section-label mb-2 block">Mode</span>
@@ -345,15 +345,15 @@ export const DeviceRack = () => {
           </div>
         </RackSection>
 
-        <RackSection icon={<SlidersHorizontal className="h-4 w-4 text-[var(--accent)]" />} title="Motion">
+        <RackSection className="md:col-span-1 xl:col-span-2" icon={<SlidersHorizontal className="h-4 w-4 text-[var(--accent)]" />} title="Motion">
           <div className="grid grid-cols-2 gap-4">
             <Knob color="#8ab4ff" label="Vib rate" max={12} min={0.1} onChange={(value) => setTrackParams(track.id, { vibratoRate: value })} unit="Hz" value={track.params.vibratoRate} />
             <Knob color="#8ab4ff" label="Vib depth" max={1} min={0} onChange={(value) => setTrackParams(track.id, { vibratoDepth: value })} value={track.params.vibratoDepth} />
           </div>
         </RackSection>
 
-        <RackSection icon={<Zap className="h-4 w-4 text-[var(--accent)]" />} title="Drive & space">
-          <div className="grid grid-cols-5 gap-4">
+        <RackSection className="md:col-span-2 xl:col-span-4" icon={<Zap className="h-4 w-4 text-[var(--accent)]" />} title="Drive & space">
+          <div className="grid grid-cols-3 gap-4 xl:grid-cols-5">
             <Knob color="#96b9f3" label="Chorus" max={1} min={0} onChange={(value) => setTrackParams(track.id, { chorusSend: value })} value={track.params.chorusSend} />
             <Knob color="#d79cff" label="Crush" max={1} min={0} onChange={(value) => setTrackParams(track.id, { bitCrush: value })} value={track.params.bitCrush} />
             <Knob color="#f08f86" label="Drive" max={1} min={0} onChange={(value) => setTrackParams(track.id, { distortion: value })} value={track.params.distortion} />
@@ -362,7 +362,7 @@ export const DeviceRack = () => {
           </div>
         </RackSection>
 
-        <div className="surface-panel-strong flex flex-col p-4">
+        <div className="surface-panel-strong flex flex-col p-4 md:col-span-2 xl:col-span-4">
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="section-label">Master output</div>
@@ -393,7 +393,7 @@ export const DeviceRack = () => {
                   : 'Audition plays the current synth voice with its motion and space settings, so you can shape tone without starting transport.'}
               </div>
             </div>
-            <div className="min-h-0 flex-1 overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
+            <div className="min-h-[180px] flex-1 overflow-hidden rounded-2xl border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
               <Visualizer />
             </div>
           </div>
@@ -405,14 +405,16 @@ export const DeviceRack = () => {
 
 const RackSection = ({
   children,
+  className = '',
   icon,
   title,
 }: {
   children: React.ReactNode;
+  className?: string;
   icon: React.ReactNode;
   title: string;
 }) => (
-  <div className="surface-panel-strong flex flex-col p-4">
+  <div className={`surface-panel-strong flex flex-col p-4 ${className}`}>
     <div className="flex items-center gap-2">
       {icon}
       <span className="section-label">{title}</span>

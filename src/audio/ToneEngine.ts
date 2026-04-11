@@ -83,6 +83,7 @@ class ToneEngine {
     this.tracksState = project.tracks;
     this.transportMode = project.transport.mode;
     this.setBpm(project.transport.bpm);
+    this.updateTransportLoop();
 
     const loopLength = this.getLoopLength();
     if (this.currentStep >= loopLength) {
@@ -103,6 +104,15 @@ class ToneEngine {
     );
 
     return Math.max(clipTail, this.stepsPerPattern);
+  }
+
+  private updateTransportLoop() {
+    const loopLength = this.getLoopLength();
+    const sixteenthDuration = Tone.Time('16n').toSeconds();
+
+    Tone.Transport.loop = true;
+    Tone.Transport.loopStart = 0;
+    Tone.Transport.loopEnd = loopLength * sixteenthDuration;
   }
 
   private resolvePatternStep(track: Track, songStep: number): { note: StepValue; patternIndex: number; stepIndex: number } | null {
@@ -237,12 +247,19 @@ class ToneEngine {
       return false;
     }
 
+    this.updateTransportLoop();
+
+    if (Tone.Transport.state !== 'paused') {
+      Tone.Transport.position = this.currentStep * Tone.Time('16n').toSeconds();
+    }
+
     Tone.Transport.start();
     return true;
   }
 
   public stop() {
     Tone.Transport.stop();
+    Tone.Transport.position = 0;
     this.currentStep = 0;
     this.stepCallbacks.forEach((callback) => callback(0, this.currentPattern));
   }
