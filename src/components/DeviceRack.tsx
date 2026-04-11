@@ -9,6 +9,7 @@ import {
   Zap,
 } from 'lucide-react';
 
+import { getDefaultSamplePreset, getSamplePresetMeta, getSamplePresetOptions } from '../audio/sampleLibrary';
 import { useAudio } from '../context/AudioContext';
 import { Knob } from './Knob';
 import { Visualizer } from './Visualizer';
@@ -28,6 +29,8 @@ export const DeviceRack = () => {
     updateTrackVolume,
   } = useAudio();
   const track = tracks.find((candidate) => candidate.id === selectedTrackId) ?? null;
+  const sampleOptions = track ? getSamplePresetOptions(track.type) : [];
+  const activeSampleMeta = track ? getSamplePresetMeta(track.source.samplePreset) : null;
 
   if (!track) {
     return (
@@ -57,11 +60,17 @@ export const DeviceRack = () => {
             </div>
             <div className="mt-4 rounded-2xl border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
               <div className="section-label">Character</div>
-              <div className="mt-2 text-sm text-[var(--text-primary)]">{waveformLabel(track.source.waveform)} · {filterLabel(track.params.filterMode)}</div>
+              <div className="mt-2 text-sm text-[var(--text-primary)]">
+                {track.source.engine === 'sample'
+                  ? `${activeSampleMeta?.label ?? 'Sample'} · ${filterLabel(track.params.filterMode)}`
+                  : `${waveformLabel(track.source.waveform)} · ${filterLabel(track.params.filterMode)}`}
+              </div>
               <div className="mt-1 text-xs text-[var(--text-secondary)]">
-                {track.type === 'bass' || track.type === 'lead'
-                  ? 'Playable synth voice with oscillator shaping, motion, and widening.'
-                  : 'Percussive or texture lane with deeper color and output shaping.'}
+                {track.source.engine === 'sample'
+                  ? 'Built-in sampled source running through the same motion and space chain as the synth engine.'
+                  : track.type === 'bass' || track.type === 'lead'
+                    ? 'Playable synth voice with oscillator shaping, motion, and widening.'
+                    : 'Percussive or texture lane with deeper color and output shaping.'}
               </div>
             </div>
           </div>
@@ -104,6 +113,43 @@ export const DeviceRack = () => {
         <RackSection icon={<Waves className="h-4 w-4 text-[var(--accent)]" />} title="Source">
           <div className="grid gap-4">
             <label className="text-xs text-[var(--text-secondary)]">
+              <span className="section-label mb-2 block">Engine</span>
+              <select
+                className="control-field h-11 w-full px-3 text-sm"
+                onChange={(event) => {
+                  const engine = event.target.value as typeof track.source.engine;
+                  setTrackSource(track.id, {
+                    engine,
+                    samplePreset: engine === 'sample' ? getDefaultSamplePreset(track.type) : track.source.samplePreset,
+                  });
+                }}
+                value={track.source.engine}
+              >
+                <option value="synth">Synth</option>
+                <option value="sample">Sample</option>
+              </select>
+            </label>
+
+            {track.source.engine === 'sample' ? (
+              <label className="text-xs text-[var(--text-secondary)]">
+                <span className="section-label mb-2 block">Sample preset</span>
+                <select
+                  className="control-field h-11 w-full px-3 text-sm"
+                  onChange={(event) => setTrackSource(track.id, { samplePreset: event.target.value as typeof track.source.samplePreset })}
+                  value={track.source.samplePreset}
+                >
+                  {sampleOptions.map((option) => (
+                    <option key={option.preset} value={option.preset}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <span className="mt-2 block text-[11px] leading-5 text-[var(--text-secondary)]">
+                  {activeSampleMeta?.description ?? 'Built-in sample source.'}
+                </span>
+              </label>
+            ) : (
+              <label className="text-xs text-[var(--text-secondary)]">
               <span className="section-label mb-2 block">Waveform</span>
               <select
                 className="control-field h-11 w-full px-3 text-sm"
@@ -117,6 +163,7 @@ export const DeviceRack = () => {
                 ))}
               </select>
             </label>
+            )}
             <div className="grid grid-cols-3 gap-4">
               <Knob
                 color="#7dd3fc"
@@ -130,6 +177,7 @@ export const DeviceRack = () => {
               <Knob
                 color="#7dd3fc"
                 label="Detune"
+                disabled={track.source.engine === 'sample'}
                 max={1200}
                 min={-1200}
                 onChange={(value) => setTrackSource(track.id, { detune: value })}
@@ -138,6 +186,7 @@ export const DeviceRack = () => {
               />
               <Knob
                 color="#7dd3fc"
+                disabled={track.source.engine === 'sample'}
                 label="Glide"
                 max={0.2}
                 min={0}
@@ -146,6 +195,11 @@ export const DeviceRack = () => {
                 value={track.source.portamento}
               />
             </div>
+            {track.source.engine === 'sample' && (
+              <div className="rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3 text-[11px] leading-5 text-[var(--text-secondary)]">
+                Sample mode keeps octave transpose active for musical playback. Fine detune and glide stay synth-only for now so the first version remains reliable in the browser.
+              </div>
+            )}
           </div>
         </RackSection>
 
@@ -218,7 +272,11 @@ export const DeviceRack = () => {
             <div className="rounded-2xl border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
               <div className="section-label">Source notes</div>
               <div className="mt-3 space-y-2 text-sm text-[var(--text-secondary)]">
-                <p>{track.type === 'lead' ? 'Lead voices respond best to saw and square shapes, then chorus, vibrato, and filter mode for movement.' : 'Bass, drum, and texture lanes now carry persistent tone-shaping controls for much deeper sketching.'}</p>
+                <p>{track.source.engine === 'sample'
+                  ? 'Sample mode gives each lane a built-in source preset, then lets the same filter, chorus, crusher, and space chain reshape it.'
+                  : track.type === 'lead'
+                    ? 'Lead voices respond best to saw and square shapes, then chorus, vibrato, and filter mode for movement.'
+                    : 'Bass, drum, and texture lanes now carry persistent tone-shaping controls for much deeper sketching.'}</p>
                 <p>Crusher handles grit, chorus opens width, and vibrato adds motion without forcing more notes into the pattern.</p>
                 <p>Song mode still reads clips lane by lane, so the patterns you place in the arranger drive the actual transport while the rack shapes the tone in real time.</p>
               </div>

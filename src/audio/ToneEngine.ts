@@ -1,5 +1,6 @@
 import * as Tone from 'tone';
 
+import { getSamplePresetMeta, getSampleUrl } from './sampleLibrary';
 import type {
   ArrangementClip,
   NoteEvent,
@@ -14,7 +15,8 @@ type TrackInstrument =
   | Tone.NoiseSynth
   | Tone.MetalSynth
   | Tone.MonoSynth
-  | Tone.PolySynth;
+  | Tone.PolySynth
+  | Tone.Sampler;
 
 interface TrackGraph {
   channel: Tone.Channel;
@@ -28,6 +30,7 @@ interface TrackGraph {
   reverb: Tone.Freeverb;
   type: Track['type'];
   vibrato: Tone.Vibrato;
+  voiceSignature: string;
 }
 
 class ToneEngine {
@@ -131,6 +134,12 @@ class ToneEngine {
 
   private triggerTrack(graph: TrackGraph, track: Track, step: NoteEvent, time: number) {
     const duration = Tone.Time('16n').toSeconds() * step.gate;
+
+    if (track.source.engine === 'sample') {
+      const instrument = graph.instrument as Tone.Sampler;
+      instrument.triggerAttackRelease(this.resolvePlayableNote(track, step.note), duration, time, step.velocity);
+      return;
+    }
 
     switch (track.type) {
       case 'kick':
@@ -236,7 +245,50 @@ class ToneEngine {
     };
   }
 
-  private createInstrument(type: Track['type']): TrackInstrument {
+  private resolvePlayableNote(track: Track, note: string) {
+    const semitoneShift = track.source.octaveShift * 12;
+    if (semitoneShift === 0) {
+      return note;
+    }
+
+    const match = note.match(/^([A-G]#?)(-?\d+)$/);
+    if (!match) {
+      return note;
+    }
+
+    const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const pitchClass = noteNames.indexOf(match[1]);
+    if (pitchClass === -1) {
+      return note;
+    }
+
+    const midi = (Number(match[2]) + 1) * 12 + pitchClass + semitoneShift;
+    const clampedMidi = Math.max(24, Math.min(96, midi));
+    const nextPitch = noteNames[clampedMidi % 12];
+    const octave = Math.floor(clampedMidi / 12) - 1;
+    return `${nextPitch}${octave}`;
+  }
+
+  private buildVoiceSignature(track: Track) {
+    return track.source.engine === 'sample'
+      ? `${track.type}:sample:${track.source.samplePreset}`
+      : `${track.type}:synth`;
+  }
+
+  private createInstrument(track: Track): TrackInstrument {
+    if (track.source.engine === 'sample') {
+      const preset = getSamplePresetMeta(track.source.samplePreset);
+
+      return new Tone.Sampler({
+        attack: 0,
+        release: 1,
+        urls: {
+          [preset.rootNote]: getSampleUrl(track.source.samplePreset),
+        },
+      });
+    }
+
+    const type = track.type;
     switch (type) {
       case 'kick':
         return new Tone.MembraneSynth();
@@ -265,7 +317,7 @@ class ToneEngine {
     const filter = new Tone.Filter(2000, 'lowpass');
     const dist = new Tone.Distortion(0);
     const vibrato = new Tone.Vibrato(4, 0);
-    const instrument = this.createInstrument(track.type);
+    const instrument = this.createInstrument(track);
 
     channel.connect(this.masterLimiter!);
     channel.connect(meter);
@@ -296,13 +348,14 @@ class ToneEngine {
       reverb,
       type: track.type,
       vibrato,
+      voiceSignature: this.buildVoiceSignature(track),
     };
   }
 
   private ensureTrackGraph(track: Track): TrackGraph {
     const existing = this.trackGraphs[track.id];
 
-    if (existing && existing.type === track.type) {
+    if (existing && existing.type === track.type && existing.voiceSignature === this.buildVoiceSignature(track)) {
       return existing;
     }
 
@@ -336,6 +389,10 @@ class ToneEngine {
   }
 
   private applySourceShape(graph: TrackGraph, track: Track) {
+    if (track.source.engine === 'sample') {
+      return;
+    }
+
     const noteDetune = track.source.detune + track.source.octaveShift * 1200;
 
     if (track.type === 'bass') {
@@ -390,14 +447,20 @@ class ToneEngine {
 
       this.applySourceShape(graph, track);
 
-      graph.instrument.set({
-        envelope: {
-          attack: track.params.attack,
-          decay: track.params.decay,
+      if (track.source.engine === 'sample') {
+        (graph.instrument as Tone.Sampler).set({
           release: track.params.release,
-          sustain: track.params.sustain,
-        },
-      });
+        });
+      } else {
+        graph.instrument.set({
+          envelope: {
+            attack: track.params.attack,
+            decay: track.params.decay,
+            release: track.params.release,
+            sustain: track.params.sustain,
+          },
+        });
+      }
     });
 
     Object.keys(this.trackGraphs).forEach((trackId) => {

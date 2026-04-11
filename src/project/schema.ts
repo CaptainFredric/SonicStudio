@@ -3,6 +3,8 @@ export type InstrumentType = 'kick' | 'snare' | 'hihat' | 'bass' | 'lead' | 'pad
 export type TransportMode = 'PATTERN' | 'SONG';
 export type OscillatorShape = 'sine' | 'triangle' | 'sawtooth' | 'square';
 export type FilterMode = 'lowpass' | 'bandpass' | 'highpass';
+export type SourceEngine = 'synth' | 'sample';
+export type SamplePreset = 'kick-thud' | 'snare-crack' | 'hat-air' | 'bass-pluck' | 'lead-glass' | 'pad-haze' | 'pluck-mallet' | 'fx-rise';
 
 export interface NoteEvent {
   gate: number;
@@ -47,8 +49,10 @@ export interface SynthParams {
 
 export interface TrackSource {
   detune: number;
+  engine: SourceEngine;
   octaveShift: number;
   portamento: number;
+  samplePreset: SamplePreset;
   waveform: OscillatorShape;
 }
 
@@ -127,8 +131,10 @@ export const INITIAL_PARAMS: SynthParams = {
 
 export const INITIAL_SOURCE: TrackSource = {
   detune: 0,
+  engine: 'synth',
   octaveShift: 0,
   portamento: 0,
+  samplePreset: 'lead-glass',
   waveform: 'sawtooth',
 };
 
@@ -145,54 +151,54 @@ const TRACK_PRESETS: Record<
   kick: {
     color: '#f87171',
     name: 'Deep Kick',
-    source: { octaveShift: -2, waveform: 'sine' },
+    source: { octaveShift: -2, samplePreset: 'kick-thud', waveform: 'sine' },
     volume: -6,
   },
   snare: {
     color: '#fb923c',
     name: 'Sharp Snare',
-    source: { waveform: 'square' },
+    source: { samplePreset: 'snare-crack', waveform: 'square' },
     volume: -6,
   },
   hihat: {
     color: '#fbbf24',
     name: 'Neon Hat',
-    source: { detune: 12, waveform: 'square' },
+    source: { detune: 12, samplePreset: 'hat-air', waveform: 'square' },
     volume: -15,
   },
   bass: {
     color: '#60a5fa',
     name: 'Obsidian Bass',
     params: { attack: 0.01, decay: 0.18, release: 0.4, sustain: 0.55 },
-    source: { octaveShift: -1, portamento: 0.03, waveform: 'square' },
+    source: { octaveShift: -1, portamento: 0.03, samplePreset: 'bass-pluck', waveform: 'square' },
     volume: -6,
   },
   lead: {
     color: '#7dd3fc',
     name: 'Prism Lead',
     params: { chorusSend: 0.18, delaySend: 0.4, reverbSend: 0.3, release: 1.3, vibratoDepth: 0.1, vibratoRate: 5.2 },
-    source: { octaveShift: 0, portamento: 0.05, waveform: 'sawtooth' },
+    source: { octaveShift: 0, portamento: 0.05, samplePreset: 'lead-glass', waveform: 'sawtooth' },
     volume: -12,
   },
   pad: {
     color: '#67e8f9',
     name: 'Glass Pad',
     params: { attack: 0.18, chorusSend: 0.24, decay: 0.4, delaySend: 0.24, reverbSend: 0.48, release: 2.2, sustain: 0.72, vibratoDepth: 0.05, vibratoRate: 3.6 },
-    source: { octaveShift: 0, portamento: 0.02, waveform: 'triangle' },
+    source: { octaveShift: 0, portamento: 0.02, samplePreset: 'pad-haze', waveform: 'triangle' },
     volume: -16,
   },
   pluck: {
     color: '#c084fc',
     name: 'Pulse Pluck',
     params: { attack: 0.003, bitCrush: 0.08, decay: 0.16, release: 0.32, sustain: 0.18 },
-    source: { octaveShift: 0, portamento: 0, waveform: 'square' },
+    source: { octaveShift: 0, portamento: 0, samplePreset: 'pluck-mallet', waveform: 'square' },
     volume: -14,
   },
   fx: {
     color: '#fb7185',
     name: 'Motion FX',
     params: { attack: 0.02, bitCrush: 0.18, chorusSend: 0.16, decay: 0.6, delaySend: 0.58, distortion: 0.12, filterMode: 'bandpass', release: 1.4, reverbSend: 0.4, sustain: 0.38, vibratoDepth: 0.22, vibratoRate: 6.4 },
-    source: { detune: 18, octaveShift: 1, portamento: 0.07, waveform: 'sawtooth' },
+    source: { detune: 18, octaveShift: 1, portamento: 0.07, samplePreset: 'fx-rise', waveform: 'sawtooth' },
     volume: -18,
   },
 };
@@ -231,6 +237,22 @@ const isOscillatorShape = (value: unknown): value is OscillatorShape => (
   || value === 'square'
 );
 
+const isSourceEngine = (value: unknown): value is SourceEngine => (
+  value === 'synth'
+  || value === 'sample'
+);
+
+const isSamplePreset = (value: unknown): value is SamplePreset => (
+  value === 'kick-thud'
+  || value === 'snare-crack'
+  || value === 'hat-air'
+  || value === 'bass-pluck'
+  || value === 'lead-glass'
+  || value === 'pad-haze'
+  || value === 'pluck-mallet'
+  || value === 'fx-rise'
+);
+
 const isFilterMode = (value: unknown): value is FilterMode => (
   value === 'lowpass'
   || value === 'bandpass'
@@ -254,6 +276,9 @@ const normalizeSource = (
       -2400,
       2400,
     ),
+    engine: isSourceEngine(candidate.engine)
+      ? candidate.engine
+      : presetSource?.engine ?? INITIAL_SOURCE.engine,
     octaveShift: clamp(
       typeof candidate.octaveShift === 'number' ? Math.round(candidate.octaveShift) : presetSource?.octaveShift ?? INITIAL_SOURCE.octaveShift,
       -3,
@@ -264,6 +289,9 @@ const normalizeSource = (
       0,
       0.2,
     ),
+    samplePreset: isSamplePreset(candidate.samplePreset)
+      ? candidate.samplePreset
+      : presetSource?.samplePreset ?? INITIAL_SOURCE.samplePreset,
     waveform: isOscillatorShape(candidate.waveform)
       ? candidate.waveform
       : presetSource?.waveform ?? INITIAL_SOURCE.waveform,

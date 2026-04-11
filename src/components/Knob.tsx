@@ -2,6 +2,7 @@ import React from 'react';
 
 interface KnobProps {
   color?: string;
+  disabled?: boolean;
   label: string;
   max: number;
   min: number;
@@ -20,13 +21,14 @@ export const Knob = ({
   step,
   unit = '',
   color = 'var(--accent)',
+  disabled = false,
 }: KnobProps) => {
   const percentage = ((value - min) / (max - min)) * 100;
   const rotation = (percentage / 100) * 270 - 135;
   const formattedValue = formatValue(value, unit);
 
   return (
-    <div className="flex flex-col items-center gap-2">
+    <div className={`flex flex-col items-center gap-2 ${disabled ? 'opacity-45' : ''}`}>
       <div className="relative flex h-14 w-14 items-center justify-center border border-[var(--border-soft)] bg-[var(--bg-control)]" style={{borderRadius: '2px'}}>
         <svg className="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 56 56">
           <circle cx="28" cy="28" fill="none" r="22" stroke="rgba(255,255,255,0.08)" strokeWidth="4" />
@@ -35,7 +37,7 @@ export const Knob = ({
             cy="28"
             fill="none"
             r="22"
-            stroke={color}
+            stroke={disabled ? 'rgba(255,255,255,0.16)' : color}
             strokeDasharray={`${(percentage / 100) * 138} 138`}
             strokeLinecap="round"
             strokeWidth="4"
@@ -48,7 +50,8 @@ export const Knob = ({
         />
 
         <input
-          className="absolute inset-0 opacity-0 cursor-ns-resize"
+          className={`absolute inset-0 opacity-0 ${disabled ? 'cursor-not-allowed' : 'cursor-ns-resize'}`}
+          disabled={disabled}
           max={max}
           min={min}
           onChange={(event) => onChange(Number(event.target.value))}
