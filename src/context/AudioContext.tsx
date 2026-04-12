@@ -53,7 +53,7 @@ import {
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 type RenderMode = 'mix' | 'stems' | null;
-export type ExportScope = 'pattern' | 'song' | 'clip-window';
+export type ExportScope = 'pattern' | 'song' | 'clip-window' | 'loop-window';
 
 interface RenderState {
   active: boolean;
@@ -2044,6 +2044,47 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
     setIsPlaying(false);
   };
 
+  const buildWindowRenderProject = (
+    rangeStart: number,
+    rangeEnd: number,
+    label: string,
+    fileSuffix: string,
+  ): { fileSuffix: string; label: string; project: Project } | null => {
+    const normalizedStart = Math.max(0, Math.round(rangeStart));
+    const normalizedEnd = Math.max(normalizedStart + 1, Math.round(rangeEnd));
+    if (normalizedEnd <= normalizedStart) {
+      return null;
+    }
+
+    const clippedProject = cloneProject(project);
+    clippedProject.arrangerClips = clippedProject.arrangerClips
+      .filter((clip) => clip.startBeat < normalizedEnd && clip.startBeat + clip.beatLength > normalizedStart)
+      .map((clip) => ({
+        ...clip,
+        beatLength: Math.max(
+          1,
+          Math.min(clip.startBeat + clip.beatLength, normalizedEnd) - Math.max(clip.startBeat, normalizedStart),
+        ),
+        startBeat: Math.max(clip.startBeat, normalizedStart) - normalizedStart,
+      }));
+    clippedProject.markers = clippedProject.markers
+      .filter((marker) => marker.beat >= normalizedStart && marker.beat < normalizedEnd)
+      .map((marker) => ({
+        ...marker,
+        beat: marker.beat - normalizedStart,
+      }));
+    clippedProject.transport = {
+      ...clippedProject.transport,
+      mode: 'SONG',
+    };
+
+    return {
+      fileSuffix,
+      label,
+      project: clippedProject,
+    };
+  };
+
   const buildRenderProject = (scope: ExportScope): { fileSuffix: string; label: string; project: Project } | null => {
     if (scope === 'pattern') {
       return {
@@ -2073,31 +2114,30 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       };
     }
 
+    if (scope === 'loop-window') {
+      if (loopRangeStartBeat === null || loopRangeEndBeat === null) {
+        return null;
+      }
+
+      return buildWindowRenderProject(
+        loopRangeStartBeat,
+        loopRangeEndBeat,
+        'Loop window',
+        `loop-${loopRangeStartBeat + 1}-${loopRangeEndBeat}`,
+      );
+    }
+
     const selectedClip = project.arrangerClips.find((clip) => clip.id === selectedArrangerClipId);
     if (!selectedClip) {
       return null;
     }
 
-    const rangeStart = selectedClip.startBeat;
-    const rangeEnd = selectedClip.startBeat + selectedClip.beatLength;
-    const clippedProject = cloneProject(project);
-    clippedProject.arrangerClips = clippedProject.arrangerClips
-      .filter((clip) => clip.startBeat < rangeEnd && clip.startBeat + clip.beatLength > rangeStart)
-      .map((clip) => ({
-        ...clip,
-        beatLength: Math.max(1, Math.min(clip.startBeat + clip.beatLength, rangeEnd) - Math.max(clip.startBeat, rangeStart)),
-        startBeat: Math.max(clip.startBeat, rangeStart) - rangeStart,
-      }));
-    clippedProject.transport = {
-      ...clippedProject.transport,
-      mode: 'SONG',
-    };
-
-    return {
-      fileSuffix: `clip-${selectedClip.patternIndex + 1}`,
-      label: 'Selected clip window',
-      project: clippedProject,
-    };
+    return buildWindowRenderProject(
+      selectedClip.startBeat,
+      selectedClip.startBeat + selectedClip.beatLength,
+      'Selected clip window',
+      `clip-${selectedClip.patternIndex + 1}`,
+    );
   };
 
   const newSession = () => {

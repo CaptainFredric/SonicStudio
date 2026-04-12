@@ -134,6 +134,13 @@ export interface MasterSettings {
   tone: number;
 }
 
+export interface MasterPresetDefinition {
+  description: string;
+  id: 'balanced' | 'club' | 'open-air';
+  label: string;
+  settings: MasterSettings;
+}
+
 export interface Project {
   master: MasterSettings;
   metadata: ProjectMetadata;
@@ -172,6 +179,42 @@ export const INITIAL_MASTER: MasterSettings = {
   outputGain: 0,
   tone: 0.55,
 };
+
+export const MASTER_PRESET_DEFINITIONS: MasterPresetDefinition[] = [
+  {
+    description: 'Even output contour for general songwriting and revision prints.',
+    id: 'balanced',
+    label: 'Balanced',
+    settings: {
+      glueCompression: 0.42,
+      limiterCeiling: -0.2,
+      outputGain: 0,
+      tone: 0.55,
+    },
+  },
+  {
+    description: 'Tighter glue and firmer output for rhythm-heavy reference mixes.',
+    id: 'club',
+    label: 'Club',
+    settings: {
+      glueCompression: 0.64,
+      limiterCeiling: -0.1,
+      outputGain: 1.5,
+      tone: 0.48,
+    },
+  },
+  {
+    description: 'Lighter glue and more air for spacious sketches and melodic work.',
+    id: 'open-air',
+    label: 'Open Air',
+    settings: {
+      glueCompression: 0.24,
+      limiterCeiling: -0.35,
+      outputGain: -0.5,
+      tone: 0.68,
+    },
+  },
+];
 
 export const INITIAL_PARAMS: SynthParams = {
   cutoff: 2000,

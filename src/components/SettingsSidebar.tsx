@@ -10,12 +10,21 @@ import {
 } from 'lucide-react';
 
 import { useAudio } from '../context/AudioContext';
-import { SESSION_TEMPLATE_DEFINITIONS } from '../project/schema';
+import { MASTER_PRESET_DEFINITIONS, SESSION_TEMPLATE_DEFINITIONS, type MasterSettings } from '../project/schema';
 import { getStudioReadinessAssessment } from '../utils/readiness';
 
 const PATTERN_OPTIONS = [2, 4, 6, 8];
 const STEP_OPTIONS = [8, 16, 32, 64];
-type BounceScope = 'pattern' | 'song' | 'clip-window';
+type BounceScope = 'pattern' | 'song' | 'clip-window' | 'loop-window';
+
+const MASTER_MATCH_EPSILON = 0.015;
+
+const isMasterPresetMatch = (current: MasterSettings, target: MasterSettings) => (
+  Math.abs(current.glueCompression - target.glueCompression) <= MASTER_MATCH_EPSILON
+  && Math.abs(current.tone - target.tone) <= MASTER_MATCH_EPSILON
+  && Math.abs(current.outputGain - target.outputGain) <= 0.11
+  && Math.abs(current.limiterCeiling - target.limiterCeiling) <= 0.06
+);
 
 export const SettingsSidebar = () => {
   const {
@@ -28,6 +37,8 @@ export const SettingsSidebar = () => {
     isSettingsOpen,
     lastSavedAt,
     loadSessionTemplate,
+    loopRangeEndBeat,
+    loopRangeStartBeat,
     master,
     newSession,
     patternCount,
@@ -43,6 +54,7 @@ export const SettingsSidebar = () => {
     setStepsPerPattern,
     setTransportMode,
     songLengthInBeats,
+    songMarkers,
     stepsPerPattern,
     toggleMute,
     toggleSettings,
@@ -57,6 +69,10 @@ export const SettingsSidebar = () => {
   const [draftTrackName, setDraftTrackName] = useState(selectedTrack?.name ?? '');
   const [bounceScope, setBounceScope] = useState<BounceScope>(transportMode === 'SONG' ? 'song' : 'pattern');
   const readiness = getStudioReadinessAssessment();
+  const activeMasterPreset = MASTER_PRESET_DEFINITIONS.find((preset) => (
+    isMasterPresetMatch(master, preset.settings)
+  )) ?? null;
+  const hasLoopWindow = loopRangeStartBeat !== null && loopRangeEndBeat !== null;
 
   useEffect(() => {
     setDraftTrackName(selectedTrack?.name ?? '');
@@ -64,11 +80,11 @@ export const SettingsSidebar = () => {
 
   useEffect(() => {
     setBounceScope((current) => (
-      current === 'clip-window'
+      current === 'clip-window' || (current === 'loop-window' && hasLoopWindow)
         ? current
         : transportMode === 'SONG' ? 'song' : 'pattern'
     ));
-  }, [transportMode]);
+  }, [hasLoopWindow, transportMode]);
 
   if (!isSettingsOpen) {
     return null;
@@ -165,6 +181,15 @@ export const SettingsSidebar = () => {
               <SegmentButton active={bounceScope === 'pattern'} label="Pattern" onClick={() => setBounceScope('pattern')} />
               <SegmentButton active={bounceScope === 'song'} label="Song" onClick={() => setBounceScope('song')} />
               <SegmentButton
+                active={bounceScope === 'loop-window'}
+                label="Loop window"
+                onClick={() => {
+                  if (transportMode === 'SONG' && hasLoopWindow) {
+                    setBounceScope('loop-window');
+                  }
+                }}
+              />
+              <SegmentButton
                 active={bounceScope === 'clip-window'}
                 label="Clip window"
                 onClick={() => {
@@ -179,23 +204,42 @@ export const SettingsSidebar = () => {
                 ? selectedArrangerClipId
                   ? 'Bounce the currently selected song clip range across the full session mix.'
                   : 'Select a song clip first if you want to print a focused range.'
+                : bounceScope === 'loop-window'
+                  ? hasLoopWindow
+                    ? 'Bounce the active loop span. This is the fastest way to print a section pass while you are refining it.'
+                    : 'Switch to song transport and set a loop span first if you want a section-focused render.'
                 : bounceScope === 'song'
                   ? 'Bounce the full arranger timeline as it currently stands.'
                   : 'Bounce the current pattern bank for rapid iteration.'}
             </div>
+            {bounceScope === 'loop-window' && (
+              <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
+                {songMarkers.length > 0
+                  ? 'Markers and loop buttons in song view work together here, so you can audition and print the same section without rebuilding a clip window.'
+                  : 'Add a few markers in song view if you want section work to stay easier to navigate as the arrangement grows.'}
+              </div>
+            )}
           </div>
           <div className="mt-4 grid grid-cols-2 gap-2">
             <ActionButton disabled={renderState.active} icon={<Sparkles className="h-3.5 w-3.5" />} label="New session" onClick={newSession} />
             <ActionButton disabled={renderState.active} icon={<Layers3 className="h-3.5 w-3.5" />} label="Save now" onClick={saveProject} />
             <ActionButton disabled={renderState.active} icon={<FolderOpen className="h-3.5 w-3.5" />} label="Load JSON" onClick={() => fileInputRef.current?.click()} />
             <ActionButton
-              disabled={renderState.active || (bounceScope === 'clip-window' && !selectedArrangerClipId)}
+              disabled={
+                renderState.active
+                || (bounceScope === 'clip-window' && !selectedArrangerClipId)
+                || (bounceScope === 'loop-window' && !hasLoopWindow)
+              }
               icon={<Download className="h-3.5 w-3.5" />}
               label={renderState.mode === 'mix' ? 'Printing mix' : 'Bounce WAV'}
               onClick={() => void exportAudioMix(bounceScope)}
             />
             <ActionButton
-              disabled={renderState.active || (bounceScope === 'clip-window' && !selectedArrangerClipId)}
+              disabled={
+                renderState.active
+                || (bounceScope === 'clip-window' && !selectedArrangerClipId)
+                || (bounceScope === 'loop-window' && !hasLoopWindow)
+              }
               icon={<Download className="h-3.5 w-3.5" />}
               label={renderState.mode === 'stems' ? 'Printing stems' : 'Export stems'}
               onClick={() => void exportTrackStems(bounceScope)}
@@ -369,6 +413,37 @@ export const SettingsSidebar = () => {
           <div className="flex items-center gap-2 text-[var(--text-primary)]">
             <SlidersHorizontal className="h-4 w-4 text-[var(--accent)]" />
             <span className="section-label">Master Output</span>
+          </div>
+          <div className="mt-4">
+            <div className="flex items-center justify-between gap-3">
+              <span className="section-label">Master profile</span>
+              <span className="font-mono text-xs text-[var(--accent-strong)]">
+                {activeMasterPreset ? activeMasterPreset.label : 'Custom'}
+              </span>
+            </div>
+            <div className="mt-3 grid gap-3">
+              {MASTER_PRESET_DEFINITIONS.map((preset) => (
+                <button
+                  key={preset.id}
+                  className="rounded-2xl border px-4 py-3 text-left transition-colors"
+                  data-active={activeMasterPreset?.id === preset.id}
+                  onClick={() => setMasterSettings(preset.settings)}
+                  style={{
+                    background: activeMasterPreset?.id === preset.id ? 'rgba(114,217,255,0.08)' : 'rgba(255,255,255,0.02)',
+                    borderColor: activeMasterPreset?.id === preset.id ? 'rgba(114,217,255,0.22)' : 'var(--border-soft)',
+                  }}
+                  type="button"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-semibold text-[var(--text-primary)]">{preset.label}</span>
+                    <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--accent-strong)]">
+                      {Math.round(preset.settings.glueCompression * 100)} glue
+                    </span>
+                  </div>
+                  <div className="mt-2 text-[12px] leading-5 text-[var(--text-secondary)]">{preset.description}</div>
+                </button>
+              ))}
+            </div>
           </div>
           <div className="mt-4 grid grid-cols-2 gap-3">
             <MetricCell label="Output" value={`${master.outputGain.toFixed(1)} dB`} />

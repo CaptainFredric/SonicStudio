@@ -14,7 +14,17 @@ import {
 } from 'lucide-react';
 
 import { useAudio } from '../context/AudioContext';
+import { MASTER_PRESET_DEFINITIONS, type MasterSettings } from '../project/schema';
 import { getStudioReadinessAssessment } from '../utils/readiness';
+
+const MASTER_MATCH_EPSILON = 0.015;
+
+const isMasterPresetMatch = (current: MasterSettings, target: MasterSettings) => (
+  Math.abs(current.glueCompression - target.glueCompression) <= MASTER_MATCH_EPSILON
+  && Math.abs(current.tone - target.tone) <= MASTER_MATCH_EPSILON
+  && Math.abs(current.outputGain - target.outputGain) <= 0.11
+  && Math.abs(current.limiterCeiling - target.limiterCeiling) <= 0.06
+);
 
 export const TopBar = () => {
   const {
@@ -57,6 +67,9 @@ export const TopBar = () => {
   const [draftProjectName, setDraftProjectName] = useState(projectName);
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
   const readiness = getStudioReadinessAssessment();
+  const activeMasterPreset = MASTER_PRESET_DEFINITIONS.find((preset) => (
+    isMasterPresetMatch(master, preset.settings)
+  )) ?? null;
 
   useEffect(() => {
     setDraftProjectName(projectName);
@@ -269,8 +282,8 @@ export const TopBar = () => {
               value={`${master.outputGain.toFixed(1)} dB`}
             />
             <MiniStat
-              label="Glue"
-              value={`${Math.round(master.glueCompression * 100)}%`}
+              label="Profile"
+              value={activeMasterPreset ? activeMasterPreset.label : 'Custom'}
             />
           </div>
           <div className="mt-3 grid gap-2 sm:grid-cols-3">
