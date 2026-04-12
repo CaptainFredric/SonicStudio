@@ -158,7 +158,19 @@ export interface MasterPresetDefinition {
   settings: MasterSettings;
 }
 
+export interface BounceHistoryEntry {
+  exportedAt: string;
+  id: string;
+  label: string;
+  masterSnapshotName: string | null;
+  mode: 'mix' | 'stems';
+  normalization: 'none' | 'peak';
+  scope: 'pattern' | 'song' | 'clip-window' | 'loop-window';
+  tailMode: 'short' | 'standard' | 'long';
+}
+
 export interface Project {
+  bounceHistory: BounceHistoryEntry[];
   master: MasterSettings;
   masterSnapshots: MasterSnapshot[];
   metadata: ProjectMetadata;
@@ -189,7 +201,7 @@ export const MAX_PATTERN_COUNT = 8;
 export const MAX_STEPS_PER_PATTERN = 64;
 export const MIN_PATTERN_COUNT = 1;
 export const MIN_STEPS_PER_PATTERN = 8;
-export const PROJECT_SCHEMA_VERSION = 10;
+export const PROJECT_SCHEMA_VERSION = 11;
 
 export const INITIAL_MASTER: MasterSettings = {
   glueCompression: 0.42,
@@ -484,6 +496,7 @@ const createProjectFrame = (
   return {
     buildProject: (arrangerClips: ArrangementClip[], markers: SongMarker[] = []): Project => ({
       arrangerClips,
+      bounceHistory: [],
       master: INITIAL_MASTER,
       masterSnapshots: [],
       markers,
@@ -952,6 +965,53 @@ const normalizeMasterSnapshots = (input: unknown): MasterSnapshot[] => {
     })
     .filter((snapshot): snapshot is MasterSnapshot => snapshot !== null)
     .slice(0, 8);
+};
+
+const normalizeBounceHistory = (input: unknown): BounceHistoryEntry[] => {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+
+  return input
+    .map((entry) => {
+      if (!isRecord(entry)) {
+        return null;
+      }
+
+      const mode = entry.mode === 'stems' ? 'stems' : entry.mode === 'mix' ? 'mix' : null;
+      const scope = entry.scope === 'pattern'
+        || entry.scope === 'song'
+        || entry.scope === 'clip-window'
+        || entry.scope === 'loop-window'
+        ? entry.scope
+        : null;
+      const normalization = entry.normalization === 'peak' ? 'peak' : entry.normalization === 'none' ? 'none' : null;
+      const tailMode = entry.tailMode === 'short'
+        || entry.tailMode === 'standard'
+        || entry.tailMode === 'long'
+        ? entry.tailMode
+        : null;
+
+      if (!mode || !scope || !normalization || !tailMode) {
+        return null;
+      }
+
+      return {
+        exportedAt: typeof entry.exportedAt === 'string' ? entry.exportedAt : new Date().toISOString(),
+        id: typeof entry.id === 'string' && entry.id ? entry.id : createId('bounce-history'),
+        label: typeof entry.label === 'string' && entry.label.trim() ? entry.label.trim().slice(0, 40) : 'Reference print',
+        masterSnapshotName: typeof entry.masterSnapshotName === 'string' && entry.masterSnapshotName.trim()
+          ? entry.masterSnapshotName.trim().slice(0, 28)
+          : null,
+        mode,
+        normalization,
+        scope,
+        tailMode,
+      } satisfies BounceHistoryEntry;
+    })
+    .filter((entry): entry is BounceHistoryEntry => entry !== null)
+    .slice(-12)
+    .reverse();
 };
 
 const normalizeTrack = (
@@ -1499,6 +1559,7 @@ export const normalizeProject = (input: unknown): Project | null => {
 
   return {
     arrangerClips: resolvedArrangerClips,
+    bounceHistory: normalizeBounceHistory(input.bounceHistory),
     master: normalizeMaster(input.master),
     masterSnapshots: normalizeMasterSnapshots(input.masterSnapshots),
     markers: normalizeSongMarkers(input.markers, maxMarkerBeat),

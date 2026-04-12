@@ -41,6 +41,7 @@ export const SettingsSidebar = () => {
   const {
     arrangerClips,
     bpm,
+    bounceHistory,
     exportAudioMix,
     exportTrackStems,
     exportSession,
@@ -56,6 +57,7 @@ export const SettingsSidebar = () => {
     patternCount,
     renderState,
     renameTrack,
+    rerunBounceHistory,
     saveProject,
     saveMasterSnapshot,
     saveStatus,
@@ -307,6 +309,42 @@ export const SettingsSidebar = () => {
               })}
             />
             <ActionButton disabled={renderState.active} icon={<Layers3 className="h-3.5 w-3.5" />} label="Export JSON" onClick={exportSession} />
+          </div>
+          <div className="mt-4">
+            <div className="flex items-center justify-between gap-3">
+              <span className="section-label">Recent prints</span>
+              <span className="font-mono text-xs text-[var(--accent-strong)]">{bounceHistory.length}</span>
+            </div>
+            <div className="mt-3 grid gap-2">
+              {bounceHistory.length > 0 ? bounceHistory.map((entry) => (
+                <div key={entry.id} className="rounded-2xl border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold text-[var(--text-primary)]">{entry.label}</div>
+                      <div className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
+                        {entry.mode === 'stems' ? 'Stems' : 'Mix'} · {entry.scope} · {entry.normalization === 'peak' ? 'Peak safe' : 'Raw'} · {entry.tailMode}
+                        {entry.masterSnapshotName ? ` · ${entry.masterSnapshotName}` : ''}
+                      </div>
+                    </div>
+                    <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--accent-strong)]">
+                      {new Date(entry.exportedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                    </span>
+                  </div>
+                  <div className="mt-3">
+                    <ActionButton
+                      disabled={renderState.active}
+                      icon={<Download className="h-3.5 w-3.5" />}
+                      label="Repeat print"
+                      onClick={() => void rerunBounceHistory(entry.id)}
+                    />
+                  </div>
+                </div>
+              )) : (
+                <div className="rounded-2xl border border-dashed border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-4 py-4 text-[11px] leading-5 text-[var(--text-secondary)]">
+                  Print history will show the scope, output treatment, and mix state you trusted most recently, so repeating a known-good export becomes one action.
+                </div>
+              )}
+            </div>
           </div>
         </section>
 

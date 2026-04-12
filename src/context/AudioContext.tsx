@@ -25,6 +25,7 @@ import {
   resizeTrackPatterns,
   type ArrangementClip,
   type AppView,
+  type BounceHistoryEntry,
   type InstrumentType,
   type MasterSnapshot,
   type MasterSettings,
@@ -84,6 +85,7 @@ interface AudioContextType {
   applyTrackVoicePreset: (trackId: string, presetId: string) => void;
   applyMasterSnapshot: (snapshotId: string) => void;
   arrangerClips: ArrangementClip[];
+  bounceHistory: BounceHistoryEntry[];
   bpm: number;
   canRedo: boolean;
   canUndo: boolean;
@@ -178,6 +180,7 @@ interface AudioContextType {
   deleteSampleSlice: (trackId: string, sliceIndex: number) => void;
   deleteMasterSnapshot: (snapshotId: string) => void;
   masterSnapshots: MasterSnapshot[];
+  rerunBounceHistory: (entryId: string) => Promise<void>;
   saveMasterSnapshot: (snapshotId?: string | null) => void;
 }
 
@@ -195,6 +198,7 @@ interface EditorState {
 type EditorAction =
   | { type: 'ADD_ARRANGER_CLIP'; trackId?: string }
   | { type: 'APPLY_TRACK_VOICE_PRESET'; presetId: string; trackId: string }
+  | { type: 'APPEND_BOUNCE_HISTORY'; entry: BounceHistoryEntry }
   | { type: 'APPLY_MASTER_SNAPSHOT'; snapshotId: string }
   | { type: 'CLEAR_TRACK'; trackId: string }
   | { type: 'CLEAR_PATTERN_AT'; trackId: string; patternIndex: number }
@@ -483,6 +487,19 @@ const commitProject = (
 };
 
 const buildMasterSnapshotName = (project: Project) => `Snapshot ${project.masterSnapshots.length + 1}`;
+const formatBounceScopeLabel = (scope: ExportScope) => {
+  switch (scope) {
+    case 'clip-window':
+      return 'Clip window';
+    case 'loop-window':
+      return 'Loop window';
+    case 'pattern':
+      return 'Pattern';
+    case 'song':
+    default:
+      return 'Song';
+  }
+};
 
 const getClipContext = (project: Project, clipId: string) => {
   const clip = project.arrangerClips.find((candidate) => candidate.id === clipId);
@@ -779,6 +796,12 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
   const { present } = state.history;
 
   switch (action.type) {
+    case 'APPEND_BOUNCE_HISTORY':
+      return commitProject(state, {
+        ...present,
+        bounceHistory: [action.entry, ...present.bounceHistory].slice(0, 12),
+      });
+
     case 'APPLY_MASTER_SNAPSHOT': {
       const snapshot = present.masterSnapshots.find((candidate) => candidate.id === action.snapshotId);
       if (!snapshot) {
@@ -2282,6 +2305,34 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
     URL.revokeObjectURL(url);
   };
 
+  const appendBounceHistory = (
+    mode: 'mix' | 'stems',
+    scope: ExportScope,
+    options: { normalization?: BounceNormalizationMode; tailMode?: BounceTailMode },
+    label: string,
+  ) => {
+    const matchingSnapshot = project.masterSnapshots.find((snapshot) => (
+      snapshot.settings.glueCompression === project.master.glueCompression
+      && snapshot.settings.limiterCeiling === project.master.limiterCeiling
+      && snapshot.settings.outputGain === project.master.outputGain
+      && snapshot.settings.tone === project.master.tone
+    ));
+
+    dispatch({
+      type: 'APPEND_BOUNCE_HISTORY',
+      entry: {
+        exportedAt: new Date().toISOString(),
+        id: `bounce-history_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        label,
+        masterSnapshotName: matchingSnapshot?.name ?? null,
+        mode,
+        normalization: options.normalization ?? 'none',
+        scope,
+        tailMode: options.tailMode ?? 'standard',
+      },
+    });
+  };
+
   const bounceProjectRecording = async (
     renderProject: Project,
     options: { tailMode?: BounceTailMode } = {},
@@ -2382,6 +2433,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
         normalization: options.normalization ?? 'none',
       });
       downloadBlob(wavBlob, `${sanitizeExportFileName(project.metadata.name)}-${renderPayload.fileSuffix}-mix.wav`);
+      appendBounceHistory('mix', scope, options, `${formatBounceScopeLabel(scope)} mix`);
       setRenderState((current) => ({
         ...current,
         phase: 'Mix ready',
@@ -2468,6 +2520,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
         }
       }
 
+      appendBounceHistory('stems', scope, options, `${formatBounceScopeLabel(scope)} stems`);
       setRenderState((current) => ({
         ...current,
         currentTrackName: null,
@@ -2502,6 +2555,25 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const rerunBounceHistory = async (entryId: string) => {
+    const entry = project.bounceHistory.find((candidate) => candidate.id === entryId);
+    if (!entry) {
+      return;
+    }
+
+    const options = {
+      normalization: entry.normalization,
+      tailMode: entry.tailMode,
+    } satisfies { normalization: BounceNormalizationMode; tailMode: BounceTailMode };
+
+    if (entry.mode === 'stems') {
+      await exportTrackStems(entry.scope, options);
+      return;
+    }
+
+    await exportAudioMix(entry.scope, options);
+  };
+
   return (
     <AudioContext.Provider value={{
       activeView,
@@ -2510,6 +2582,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       applyTrackVoicePreset: (trackId, presetId) => dispatch({ type: 'APPLY_TRACK_VOICE_PRESET', presetId, trackId }),
       arrangerClips,
       bpm: project.transport.bpm,
+      bounceHistory: project.bounceHistory,
       canRedo: editorState.history.future.length > 0,
       canUndo: editorState.history.past.length > 0,
       clearPatternAt: (trackId, patternIndex) => dispatch({ type: 'CLEAR_PATTERN_AT', trackId, patternIndex }),
@@ -2551,6 +2624,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       removeTrack: (trackId) => dispatch({ type: 'REMOVE_TRACK', trackId }),
       renameProject: (name) => dispatch({ type: 'SET_PROJECT_NAME', name }),
       renameTrack: (trackId, name) => dispatch({ type: 'SET_TRACK_NAME', name, trackId }),
+      rerunBounceHistory,
       saveProject,
       saveMasterSnapshot: (snapshotId) => dispatch({ type: 'SAVE_MASTER_SNAPSHOT', snapshotId }),
       saveStatus,
