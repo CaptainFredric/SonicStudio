@@ -54,6 +54,8 @@ import {
 import {
   convertRecordingBlobToWavWithAnalysis,
   downloadBlob,
+  type AudioRenderAnalysis,
+  type RenderTargetProfileId,
   sanitizeExportFileName,
 } from '../utils/export';
 
@@ -61,7 +63,7 @@ type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 type RenderMode = 'mix' | 'stems' | null;
 export type ExportScope = 'pattern' | 'song' | 'clip-window' | 'loop-window';
 export type BounceTailMode = 'short' | 'standard' | 'long';
-export type BounceNormalizationMode = 'none' | 'peak';
+export type BounceNormalizationMode = 'none' | 'peak' | 'target';
 
 interface RenderState {
   active: boolean;
@@ -102,8 +104,8 @@ interface AudioContextType {
   currentPattern: number;
   currentStep: number;
   duplicateArrangerClip: (clipId: string) => void;
-  exportAudioMix: (scope?: ExportScope, options?: { normalization?: BounceNormalizationMode; tailMode?: BounceTailMode }) => Promise<void>;
-  exportTrackStems: (scope?: ExportScope, options?: { normalization?: BounceNormalizationMode; tailMode?: BounceTailMode }) => Promise<void>;
+  exportAudioMix: (scope?: ExportScope, options?: { normalization?: BounceNormalizationMode; tailMode?: BounceTailMode; targetProfileId?: RenderTargetProfileId }) => Promise<void>;
+  exportTrackStems: (scope?: ExportScope, options?: { normalization?: BounceNormalizationMode; tailMode?: BounceTailMode; targetProfileId?: RenderTargetProfileId }) => Promise<void>;
   master: MasterSettings;
   loopArrangerClip: (clipId: string, copies: number) => void;
   makeClipPatternUnique: (clipId: string) => void;
@@ -2545,15 +2547,9 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
   const appendBounceHistory = (
     mode: 'mix' | 'stems',
     scope: ExportScope,
-    options: { normalization?: BounceNormalizationMode; tailMode?: BounceTailMode },
+    options: { normalization?: BounceNormalizationMode; tailMode?: BounceTailMode; targetProfileId?: RenderTargetProfileId },
     label: string,
-    analysis?: {
-      durationSeconds: number;
-      peakDb: number;
-      quality: 'clean' | 'hot' | 'quiet';
-      rmsDb: number;
-      sampleRate: number;
-    },
+    analysis?: AudioRenderAnalysis,
   ) => {
     const matchingSnapshot = project.masterSnapshots.find((snapshot) => (
       snapshot.settings.glueCompression === project.master.glueCompression
@@ -2574,13 +2570,19 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
         masterSnapshotName: matchingSnapshot?.name ?? null,
         mode,
         normalization: options.normalization ?? 'none',
+        crestDb: analysis?.crestDb,
         peakDb: analysis?.peakDb,
         quality: analysis?.quality,
+        recommendation: analysis?.recommendation,
         rmsDb: analysis?.rmsDb,
         sampleRate: analysis?.sampleRate,
         scope,
         tailMode: options.tailMode ?? 'standard',
         durationSeconds: analysis?.durationSeconds,
+        targetDeltaDb: analysis?.targetDeltaDb,
+        targetLabel: analysis?.targetLabel,
+        targetProfileId: options.normalization === 'target' ? (options.targetProfileId ?? 'streaming') : undefined,
+        targetVerdict: analysis?.targetVerdict,
       },
     });
   };
@@ -2645,7 +2647,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
 
   const exportAudioMix = async (
     scope: ExportScope = project.transport.mode === 'SONG' ? 'song' : 'pattern',
-    options: { normalization?: BounceNormalizationMode; tailMode?: BounceTailMode } = {},
+    options: { normalization?: BounceNormalizationMode; tailMode?: BounceTailMode; targetProfileId?: RenderTargetProfileId } = {},
   ) => {
     const renderPayload = buildRenderProject(scope);
     if (!renderPayload) {
@@ -2683,6 +2685,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
 
       const { analysis, wavBlob } = await convertRecordingBlobToWavWithAnalysis(recording, {
         normalization: options.normalization ?? 'none',
+        targetProfileId: options.targetProfileId,
       });
       downloadBlob(wavBlob, `${sanitizeExportFileName(project.metadata.name)}-${renderPayload.fileSuffix}-mix.wav`);
       appendBounceHistory('mix', scope, options, `${formatBounceScopeLabel(scope)} mix`, analysis);
@@ -2700,7 +2703,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
 
   const exportTrackStems = async (
     scope: ExportScope = project.transport.mode === 'SONG' ? 'song' : 'pattern',
-    options: { normalization?: BounceNormalizationMode; tailMode?: BounceTailMode } = {},
+    options: { normalization?: BounceNormalizationMode; tailMode?: BounceTailMode; targetProfileId?: RenderTargetProfileId } = {},
   ) => {
     const renderPayload = buildRenderProject(scope);
     if (!renderPayload) {
@@ -2759,6 +2762,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
 
         const { wavBlob } = await convertRecordingBlobToWavWithAnalysis(recording, {
           normalization: options.normalization ?? 'none',
+          targetProfileId: options.targetProfileId,
         });
         downloadBlob(
           wavBlob,
@@ -2816,7 +2820,8 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
     const options = {
       normalization: entry.normalization,
       tailMode: entry.tailMode,
-    } satisfies { normalization: BounceNormalizationMode; tailMode: BounceTailMode };
+      targetProfileId: entry.targetProfileId,
+    } satisfies { normalization: BounceNormalizationMode; tailMode: BounceTailMode; targetProfileId?: RenderTargetProfileId };
 
     if (entry.mode === 'stems') {
       await exportTrackStems(entry.scope, options);

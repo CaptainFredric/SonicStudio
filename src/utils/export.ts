@@ -26,17 +26,75 @@ export interface ExportResult {
 }
 
 export interface WavConversionOptions {
-  normalization?: 'none' | 'peak';
+  normalization?: 'none' | 'peak' | 'target';
   peakTargetDb?: number;
+  targetProfileId?: RenderTargetProfileId;
 }
 
+export type RenderTargetProfileId = 'draft' | 'streaming' | 'club' | 'open';
+export type TargetVerdict = 'aligned' | 'loud' | 'soft' | 'flat' | 'spiky';
+
 export interface AudioRenderAnalysis {
+  crestDb: number;
   durationSeconds: number;
   peakDb: number;
   quality: 'clean' | 'hot' | 'quiet';
+  recommendation?: string;
   rmsDb: number;
   sampleRate: number;
+  targetDeltaDb?: number;
+  targetLabel?: string;
+  targetProfileId?: RenderTargetProfileId;
+  targetVerdict?: TargetVerdict;
 }
+
+interface RenderTargetProfile {
+  description: string;
+  id: RenderTargetProfileId;
+  label: string;
+  peakTargetDb: number;
+  rmsToleranceDb: number;
+  targetRmsDb: number;
+}
+
+export const RENDER_TARGET_PROFILES: RenderTargetProfile[] = [
+  {
+    description: 'Quick reference prints with a bit more headroom while the arrangement is still moving.',
+    id: 'draft',
+    label: 'Draft',
+    peakTargetDb: -1.5,
+    rmsToleranceDb: 1.8,
+    targetRmsDb: -18,
+  },
+  {
+    description: 'Balanced print target for general streaming references and portfolio exports.',
+    id: 'streaming',
+    label: 'Streaming',
+    peakTargetDb: -1,
+    rmsToleranceDb: 1.5,
+    targetRmsDb: -14,
+  },
+  {
+    description: 'Hotter reference target for denser electronic mixes and club leaning drafts.',
+    id: 'club',
+    label: 'Club',
+    peakTargetDb: -0.8,
+    rmsToleranceDb: 1.5,
+    targetRmsDb: -10.5,
+  },
+  {
+    description: 'More dynamic reference target with cleaner crest for spacious or cinematic work.',
+    id: 'open',
+    label: 'Open Air',
+    peakTargetDb: -1.2,
+    rmsToleranceDb: 1.8,
+    targetRmsDb: -16,
+  },
+];
+
+const getRenderTargetProfile = (profileId?: RenderTargetProfileId) => (
+  RENDER_TARGET_PROFILES.find((profile) => profile.id === profileId) ?? RENDER_TARGET_PROFILES[1]
+);
 
 const getAudioContextConstructor = () => {
   if (typeof window === 'undefined') {
@@ -152,16 +210,21 @@ const createProcessedAudioBuffer = (
   const normalization = options.normalization ?? 'none';
   const peakTargetDb = options.peakTargetDb ?? -1;
   const peakTargetLinear = Math.pow(10, peakTargetDb / 20);
+  const targetProfile = normalization === 'target' ? getRenderTargetProfile(options.targetProfileId) : null;
+  const targetLinear = targetProfile ? Math.pow(10, targetProfile.targetRmsDb / 20) : null;
 
   let peak = 0;
+  let squareSum = 0;
   for (let channelIndex = 0; channelIndex < channelCount; channelIndex += 1) {
     const sourceChannel = sourceBuffer.getChannelData(channelIndex);
     const destinationChannel = processedBuffer.getChannelData(channelIndex);
     destinationChannel.set(sourceChannel);
 
-    if (normalization === 'peak') {
-      for (let sampleIndex = 0; sampleIndex < sourceChannel.length; sampleIndex += 1) {
-        peak = Math.max(peak, Math.abs(sourceChannel[sampleIndex] ?? 0));
+    for (let sampleIndex = 0; sampleIndex < sourceChannel.length; sampleIndex += 1) {
+      const sample = sourceChannel[sampleIndex] ?? 0;
+      peak = Math.max(peak, Math.abs(sample));
+      if (normalization === 'target') {
+        squareSum += sample * sample;
       }
     }
   }
@@ -176,10 +239,28 @@ const createProcessedAudioBuffer = (
     }
   }
 
+  if (normalization === 'target' && peak > 0 && targetLinear) {
+    const totalSamples = Math.max(1, channelCount * sourceBuffer.length);
+    const currentRms = Math.sqrt(squareSum / totalSamples);
+    const rmsGain = currentRms > 0 ? targetLinear / currentRms : 1;
+    const peakGain = peakTargetLinear / peak;
+    const gain = Math.min(rmsGain, peakGain, 1.6);
+
+    for (let channelIndex = 0; channelIndex < channelCount; channelIndex += 1) {
+      const destinationChannel = processedBuffer.getChannelData(channelIndex);
+      for (let sampleIndex = 0; sampleIndex < destinationChannel.length; sampleIndex += 1) {
+        destinationChannel[sampleIndex] *= gain;
+      }
+    }
+  }
+
   return processedBuffer;
 };
 
-const analyzeAudioBuffer = (audioBuffer: AudioBuffer): AudioRenderAnalysis => {
+const analyzeAudioBuffer = (
+  audioBuffer: AudioBuffer,
+  options: WavConversionOptions = {},
+): AudioRenderAnalysis => {
   const channelCount = audioBuffer.numberOfChannels;
   const sampleCount = audioBuffer.length;
 
@@ -201,18 +282,53 @@ const analyzeAudioBuffer = (audioBuffer: AudioBuffer): AudioRenderAnalysis => {
   const rms = Math.sqrt(squareSum / totalSamples);
   const peakDb = peak > 0 ? 20 * Math.log10(peak) : -96;
   const rmsDb = rms > 0 ? 20 * Math.log10(rms) : -96;
+  const crestDb = peakDb - rmsDb;
   const quality = peakDb > -0.3
     ? 'hot'
     : rmsDb < -28
       ? 'quiet'
       : 'clean';
 
+  const targetProfile = options.normalization === 'target' ? getRenderTargetProfile(options.targetProfileId) : null;
+  let targetVerdict: TargetVerdict | undefined;
+  let targetDeltaDb: number | undefined;
+  let recommendation: string | undefined;
+
+  if (targetProfile) {
+    const rmsDelta = rmsDb - targetProfile.targetRmsDb;
+    targetDeltaDb = Number(rmsDelta.toFixed(1));
+
+    if (Math.abs(rmsDelta) <= targetProfile.rmsToleranceDb) {
+      targetVerdict = crestDb < 6 ? 'flat' : crestDb > 18 ? 'spiky' : 'aligned';
+    } else if (rmsDelta > 0) {
+      targetVerdict = 'loud';
+    } else {
+      targetVerdict = 'soft';
+    }
+
+    recommendation = targetVerdict === 'aligned'
+      ? 'Energy sits close to the selected print target.'
+      : targetVerdict === 'loud'
+        ? 'Back off master gain or glue if this print feels too pushed for its target.'
+        : targetVerdict === 'soft'
+          ? 'Push gain or density a bit harder if you want this print to land closer to its target.'
+          : targetVerdict === 'flat'
+            ? 'Energy is on target, but crest is low. Ease the compressor or transient handling if it feels smeared.'
+            : 'Energy is on target, but crest is high. Tighten peaks if you want a more settled reference print.';
+  }
+
   return {
+    crestDb: Number(crestDb.toFixed(1)),
     durationSeconds: audioBuffer.duration,
     peakDb: Number(peakDb.toFixed(1)),
     quality,
+    recommendation,
     rmsDb: Number(rmsDb.toFixed(1)),
     sampleRate: audioBuffer.sampleRate,
+    targetDeltaDb,
+    targetLabel: targetProfile?.label,
+    targetProfileId: targetProfile?.id,
+    targetVerdict,
   };
 };
 
@@ -288,7 +404,7 @@ export const convertRecordingBlobToWavWithAnalysis = async (
     const processed = createProcessedAudioBuffer(decoded, options);
 
     return {
-      analysis: analyzeAudioBuffer(processed),
+      analysis: analyzeAudioBuffer(processed, options),
       wavBlob: encodeAudioBufferToWav(decoded, options),
     };
   } finally {

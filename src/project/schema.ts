@@ -175,19 +175,25 @@ export interface MasterPresetDefinition {
 }
 
 export interface BounceHistoryEntry {
+  crestDb?: number;
   durationSeconds?: number;
   exportedAt: string;
   id: string;
   label: string;
   masterSnapshotName: string | null;
   mode: 'mix' | 'stems';
-  normalization: 'none' | 'peak';
+  normalization: 'none' | 'peak' | 'target';
   peakDb?: number;
   quality?: 'clean' | 'hot' | 'quiet';
+  recommendation?: string;
   rmsDb?: number;
   sampleRate?: number;
   scope: 'pattern' | 'song' | 'clip-window' | 'loop-window';
   tailMode: 'short' | 'standard' | 'long';
+  targetDeltaDb?: number;
+  targetLabel?: string;
+  targetProfileId?: 'draft' | 'streaming' | 'club' | 'open';
+  targetVerdict?: 'aligned' | 'loud' | 'soft' | 'flat' | 'spiky';
 }
 
 export interface Project {
@@ -1068,7 +1074,13 @@ const normalizeBounceHistory = (input: unknown): BounceHistoryEntry[] => {
         || entry.scope === 'loop-window'
         ? entry.scope
         : null;
-      const normalization = entry.normalization === 'peak' ? 'peak' : entry.normalization === 'none' ? 'none' : null;
+      const normalization = entry.normalization === 'peak'
+        ? 'peak'
+        : entry.normalization === 'none'
+          ? 'none'
+          : entry.normalization === 'target'
+            ? 'target'
+            : null;
       const tailMode = entry.tailMode === 'short'
         || entry.tailMode === 'standard'
         || entry.tailMode === 'long'
@@ -1080,6 +1092,7 @@ const normalizeBounceHistory = (input: unknown): BounceHistoryEntry[] => {
       }
 
       return {
+        crestDb: typeof entry.crestDb === 'number' ? clamp(entry.crestDb, 0, 48) : undefined,
         durationSeconds: typeof entry.durationSeconds === 'number' ? clamp(entry.durationSeconds, 0, 7200) : undefined,
         exportedAt: typeof entry.exportedAt === 'string' ? entry.exportedAt : new Date().toISOString(),
         id: typeof entry.id === 'string' && entry.id ? entry.id : createId('bounce-history'),
@@ -1091,10 +1104,30 @@ const normalizeBounceHistory = (input: unknown): BounceHistoryEntry[] => {
         normalization,
         peakDb: typeof entry.peakDb === 'number' ? clamp(entry.peakDb, -96, 3) : undefined,
         quality: entry.quality === 'clean' || entry.quality === 'hot' || entry.quality === 'quiet' ? entry.quality : undefined,
+        recommendation: typeof entry.recommendation === 'string' && entry.recommendation.trim()
+          ? entry.recommendation.trim().slice(0, 180)
+          : undefined,
         rmsDb: typeof entry.rmsDb === 'number' ? clamp(entry.rmsDb, -96, 0) : undefined,
         sampleRate: typeof entry.sampleRate === 'number' ? clamp(Math.round(entry.sampleRate), 8000, 192000) : undefined,
         scope,
         tailMode,
+        targetDeltaDb: typeof entry.targetDeltaDb === 'number' ? clamp(entry.targetDeltaDb, -24, 24) : undefined,
+        targetLabel: typeof entry.targetLabel === 'string' && entry.targetLabel.trim()
+          ? entry.targetLabel.trim().slice(0, 20)
+          : undefined,
+        targetProfileId: entry.targetProfileId === 'draft'
+          || entry.targetProfileId === 'streaming'
+          || entry.targetProfileId === 'club'
+          || entry.targetProfileId === 'open'
+          ? entry.targetProfileId
+          : undefined,
+        targetVerdict: entry.targetVerdict === 'aligned'
+          || entry.targetVerdict === 'loud'
+          || entry.targetVerdict === 'soft'
+          || entry.targetVerdict === 'flat'
+          || entry.targetVerdict === 'spiky'
+          ? entry.targetVerdict
+          : undefined,
       } satisfies BounceHistoryEntry;
     })
     .filter((entry): entry is BounceHistoryEntry => entry !== null)

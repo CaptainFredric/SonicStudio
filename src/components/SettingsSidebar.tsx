@@ -17,6 +17,7 @@ import {
 import { useAudio, type BounceNormalizationMode, type BounceTailMode } from '../context/AudioContext';
 import { MASTER_PRESET_DEFINITIONS, SESSION_TEMPLATE_DEFINITIONS, type MasterSettings } from '../project/schema';
 import { getStudioReadinessAssessment } from '../utils/readiness';
+import { RENDER_TARGET_PROFILES, type RenderTargetProfileId } from '../utils/export';
 
 const PATTERN_OPTIONS = [2, 4, 6, 8];
 const STEP_OPTIONS = [8, 16, 32, 64];
@@ -27,6 +28,7 @@ const MASTER_MATCH_EPSILON = 0.015;
 const BOUNCE_NORMALIZATION_OPTIONS: Array<{ description: string; label: string; value: BounceNormalizationMode }> = [
   { description: 'Keep the raw bounce level exactly as the current master path produced it.', label: 'Raw', value: 'none' },
   { description: 'Lift the bounce safely toward a cleaner peak reference without clipping.', label: 'Peak safe', value: 'peak' },
+  { description: 'Aim the print toward a chosen loudness profile and grade how close it landed.', label: 'Target', value: 'target' },
 ];
 const BOUNCE_TAIL_OPTIONS: Array<{ description: string; label: string; value: BounceTailMode }> = [
   { description: 'Fast print for dry or tightly gated phrases.', label: 'Short', value: 'short' },
@@ -96,6 +98,7 @@ export const SettingsSidebar = () => {
   const [bounceScope, setBounceScope] = useState<BounceScope>(transportMode === 'SONG' ? 'song' : 'pattern');
   const [bounceNormalization, setBounceNormalization] = useState<BounceNormalizationMode>('peak');
   const [bounceTailMode, setBounceTailMode] = useState<BounceTailMode>('standard');
+  const [targetProfileId, setTargetProfileId] = useState<RenderTargetProfileId>('streaming');
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('WORKSPACE');
   const [trackQuery, setTrackQuery] = useState('');
   const readiness = getStudioReadinessAssessment();
@@ -304,6 +307,25 @@ export const SettingsSidebar = () => {
                 {BOUNCE_TAIL_OPTIONS.find((option) => option.value === bounceTailMode)?.description}
               </div>
             </div>
+            {bounceNormalization === 'target' ? (
+              <div>
+                <div className="section-label">Print target</div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {RENDER_TARGET_PROFILES.map((profile) => (
+                    <React.Fragment key={profile.id}>
+                      <SegmentButton
+                        active={targetProfileId === profile.id}
+                        label={profile.label}
+                        onClick={() => setTargetProfileId(profile.id)}
+                      />
+                    </React.Fragment>
+                  ))}
+                </div>
+                <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
+                  {RENDER_TARGET_PROFILES.find((profile) => profile.id === targetProfileId)?.description}
+                </div>
+              </div>
+            ) : null}
           </div>
           <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
             <ActionButton disabled={renderState.active} icon={<Sparkles className="h-3.5 w-3.5" />} label="New session" onClick={newSession} />
@@ -320,6 +342,7 @@ export const SettingsSidebar = () => {
               onClick={() => void exportAudioMix(bounceScope, {
                 normalization: bounceNormalization,
                 tailMode: bounceTailMode,
+                targetProfileId,
               })}
             />
             <ActionButton
@@ -333,6 +356,7 @@ export const SettingsSidebar = () => {
               onClick={() => void exportTrackStems(bounceScope, {
                 normalization: bounceNormalization,
                 tailMode: bounceTailMode,
+                targetProfileId,
               })}
             />
             <ActionButton disabled={renderState.active} icon={<Layers3 className="h-3.5 w-3.5" />} label="Export JSON" onClick={exportSession} />
@@ -349,7 +373,7 @@ export const SettingsSidebar = () => {
                     <div>
                       <div className="text-sm font-semibold text-[var(--text-primary)]">{entry.label}</div>
                       <div className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
-                        {entry.mode === 'stems' ? 'Stems' : 'Mix'} · {entry.scope} · {entry.normalization === 'peak' ? 'Peak safe' : 'Raw'} · {entry.tailMode}
+                        {entry.mode === 'stems' ? 'Stems' : 'Mix'} · {entry.scope} · {entry.normalization === 'peak' ? 'Peak safe' : entry.normalization === 'target' ? `Target ${entry.targetLabel ?? 'Streaming'}` : 'Raw'} · {entry.tailMode}
                         {entry.masterSnapshotName ? ` · ${entry.masterSnapshotName}` : ''}
                       </div>
                     </div>
@@ -372,14 +396,59 @@ export const SettingsSidebar = () => {
                         <span className="text-[11px] text-[var(--text-secondary)]">
                           Peak {entry.peakDb.toFixed(1)} dBFS · RMS {entry.rmsDb.toFixed(1)} dBFS
                         </span>
+                        {entry.crestDb !== undefined ? (
+                          <span className="text-[11px] text-[var(--text-secondary)]">
+                            Crest {entry.crestDb.toFixed(1)} dB
+                          </span>
+                        ) : null}
                       </div>
+                      {entry.targetVerdict ? (
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <span
+                            className="rounded-full border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em]"
+                            style={{
+                              borderColor: entry.targetVerdict === 'aligned'
+                                ? 'rgba(114,217,255,0.26)'
+                                : entry.targetVerdict === 'loud'
+                                  ? 'rgba(248,113,113,0.32)'
+                                  : entry.targetVerdict === 'soft'
+                                    ? 'rgba(251,191,36,0.32)'
+                                    : 'rgba(167,139,250,0.32)',
+                              color: entry.targetVerdict === 'aligned'
+                                ? '#b6f1ff'
+                                : entry.targetVerdict === 'loud'
+                                  ? '#fca5a5'
+                                  : entry.targetVerdict === 'soft'
+                                    ? '#fde68a'
+                                    : '#ddd6fe',
+                            }}
+                          >
+                            {entry.targetVerdict === 'aligned'
+                              ? 'On target'
+                              : entry.targetVerdict === 'loud'
+                                ? 'Too loud'
+                                : entry.targetVerdict === 'soft'
+                                  ? 'Too soft'
+                                  : entry.targetVerdict === 'flat'
+                                    ? 'Too flat'
+                                    : 'Too spiky'}
+                          </span>
+                          {entry.targetDeltaDb !== undefined ? (
+                            <span className="text-[11px] text-[var(--text-secondary)]">
+                              {entry.targetDeltaDb > 0 ? '+' : ''}{entry.targetDeltaDb.toFixed(1)} dB vs target
+                            </span>
+                          ) : null}
+                        </div>
+                      ) : null}
                       <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
                         {entry.durationSeconds ? `${entry.durationSeconds.toFixed(1)}s` : 'Unknown length'} · {Math.round(entry.sampleRate / 100) / 10} kHz
-                        {entry.quality === 'hot'
-                          ? ' · reduce output gain or widen headroom before trusting this print'
-                          : entry.quality === 'quiet'
-                            ? ' · consider more output gain or stronger glue before sharing this print'
-                            : ' · headroom and loudness look usable for a reference print'}
+                        {entry.recommendation
+                          ? ` · ${entry.recommendation}`
+                          : entry.quality === 'hot'
+                            ? ' · reduce output gain or widen headroom before trusting this print'
+                            : entry.quality === 'quiet'
+                              ? ' · consider more output gain or stronger glue before sharing this print'
+                              : ' · headroom and loudness look usable for a reference print'}
                       </div>
                     </div>
                   ) : null}
