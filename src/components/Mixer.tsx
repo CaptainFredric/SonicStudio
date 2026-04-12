@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { SlidersHorizontal } from 'lucide-react';
 
 import { useAudio } from '../context/AudioContext';
@@ -123,6 +123,10 @@ export const Mixer = () => {
     RHYTHM: false,
     TEXTURE: false,
   });
+  const mixerViewportRef = useRef<HTMLDivElement | null>(null);
+  const [mixerScrollLeft, setMixerScrollLeft] = useState(0);
+  const [mixerViewportWidth, setMixerViewportWidth] = useState(0);
+  const [mixerScrollWidth, setMixerScrollWidth] = useState(0);
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -181,6 +185,41 @@ export const Mixer = () => {
 
     return sections;
   }, [groupedTracks, pinnedTracks]);
+  const maxMixerScrollLeft = Math.max(0, mixerScrollWidth - mixerViewportWidth);
+
+  useEffect(() => {
+    const node = mixerViewportRef.current;
+    if (!node) {
+      return undefined;
+    }
+
+    const syncMixerViewport = () => {
+      setMixerScrollLeft(node.scrollLeft);
+      setMixerViewportWidth(node.clientWidth);
+      setMixerScrollWidth(node.scrollWidth);
+    };
+
+    syncMixerViewport();
+    node.addEventListener('scroll', syncMixerViewport, { passive: true });
+    window.addEventListener('resize', syncMixerViewport);
+
+    return () => {
+      node.removeEventListener('scroll', syncMixerViewport);
+      window.removeEventListener('resize', syncMixerViewport);
+    };
+  }, [mixerScope, mixerSections.length, tracks.length]);
+
+  const scrollMixerByViewport = (direction: -1 | 1) => {
+    const node = mixerViewportRef.current;
+    if (!node) {
+      return;
+    }
+
+    node.scrollTo({
+      behavior: 'smooth',
+      left: Math.max(0, Math.min(maxMixerScrollLeft, node.scrollLeft + direction * Math.max(180, node.clientWidth * 0.72))),
+    });
+  };
 
   return (
     <section className="surface-panel flex flex-1 min-h-0 flex-col overflow-hidden">
@@ -216,7 +255,23 @@ export const Mixer = () => {
         </div>
       </div>
 
-      <div className="flex-1 overflow-x-auto overflow-y-hidden p-5 [scroll-behavior:smooth] [-webkit-overflow-scrolling:touch]">
+      <div
+        className="flex-1 overflow-x-auto overflow-y-hidden p-5 [scroll-behavior:smooth] [-webkit-overflow-scrolling:touch]"
+        onWheel={(event) => {
+          const node = mixerViewportRef.current;
+          if (!node || Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
+            return;
+          }
+
+          if (node.scrollWidth <= node.clientWidth) {
+            return;
+          }
+
+          event.preventDefault();
+          node.scrollLeft += event.deltaY;
+        }}
+        ref={mixerViewportRef}
+      >
         <div className="flex h-full min-h-[560px] gap-6 scroll-snap-x-mandatory">
           <div className="scroll-snap-align-start">
             <div className="surface-panel-strong flex h-full min-h-[560px] w-[184px] shrink-0 flex-col p-4">
@@ -393,6 +448,50 @@ export const Mixer = () => {
               </div>
             </div>
           ))}
+        </div>
+      </div>
+      <div className="border-t border-[var(--border-soft)] px-5 py-3">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+          <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+            Use the strip, trackpad, or mouse wheel to move across grouped mixer lanes.
+          </div>
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <button
+              className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+              onClick={() => scrollMixerByViewport(-1)}
+              type="button"
+            >
+              Left
+            </button>
+            <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+              {Math.round(mixerScrollLeft)}
+            </span>
+            <input
+              className="sonic-scroll-strip"
+              max={maxMixerScrollLeft}
+              min={0}
+              onChange={(event) => {
+                if (!mixerViewportRef.current) {
+                  return;
+                }
+
+                mixerViewportRef.current.scrollLeft = Number(event.target.value);
+              }}
+              step={12}
+              type="range"
+              value={Math.min(mixerScrollLeft, maxMixerScrollLeft)}
+            />
+            <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+              {Math.round(Math.min(mixerScrollWidth, mixerScrollLeft + mixerViewportWidth))}
+            </span>
+            <button
+              className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+              onClick={() => scrollMixerByViewport(1)}
+              type="button"
+            >
+              Right
+            </button>
+          </div>
         </div>
       </div>
     </section>

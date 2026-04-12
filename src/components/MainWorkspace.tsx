@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowDown,
   ArrowLeftRight,
@@ -82,6 +82,9 @@ export const MainWorkspace = () => {
     RHYTHM: false,
     TEXTURE: false,
   });
+  const gridViewportRef = useRef<HTMLDivElement | null>(null);
+  const [gridScrollLeft, setGridScrollLeft] = useState(0);
+  const [gridViewportWidth, setGridViewportWidth] = useState(0);
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
   const selectedTrackPattern = selectedTrack?.patterns[currentPattern] ?? Array.from({ length: stepsPerPattern }, () => []);
   const selectedStep = selectedTrackPattern[selectedStepIndex] ?? [];
@@ -111,6 +114,10 @@ export const MainWorkspace = () => {
   const laneHeaderWidthClass = compactLanes ? 'w-[252px]' : 'w-[284px]';
   const laneHeaderPaddingClass = compactLanes ? 'px-4 py-3' : 'px-5 py-4';
   const laneGridPaddingClass = compactLanes ? 'px-2 py-1.5' : 'px-2 py-2';
+  const laneHeaderWidth = compactLanes ? 252 : 284;
+  const stepCellWidth = compactLanes ? 54 : 64;
+  const stepGridWidth = stepsPerPattern * stepCellWidth;
+  const maxGridScrollLeft = Math.max(0, stepGridWidth - gridViewportWidth);
   const pinnedVisibleTracks = useMemo(() => (
     laneScope === 'PINNED'
       ? []
@@ -152,6 +159,39 @@ export const MainWorkspace = () => {
     const firstActiveStep = selectedTrackPattern.findIndex((step) => step.length > 0);
     setSelectedStepIndex(firstActiveStep >= 0 ? firstActiveStep : 0);
   }, [currentPattern, selectedTrack?.id, selectedTrackPattern]);
+
+  useEffect(() => {
+    const node = gridViewportRef.current;
+    if (!node) {
+      return undefined;
+    }
+
+    const syncGridViewport = () => {
+      setGridScrollLeft(node.scrollLeft);
+      setGridViewportWidth(node.clientWidth);
+    };
+
+    syncGridViewport();
+    node.addEventListener('scroll', syncGridViewport, { passive: true });
+    window.addEventListener('resize', syncGridViewport);
+
+    return () => {
+      node.removeEventListener('scroll', syncGridViewport);
+      window.removeEventListener('resize', syncGridViewport);
+    };
+  }, [compactLanes, laneScope, stepsPerPattern, visibleTrackSections.length]);
+
+  const scrollGridByViewport = (direction: -1 | 1) => {
+    const node = gridViewportRef.current;
+    if (!node) {
+      return;
+    }
+
+    node.scrollTo({
+      behavior: 'smooth',
+      left: Math.max(0, Math.min(maxGridScrollLeft, node.scrollLeft + direction * Math.max(180, node.clientWidth * 0.72))),
+    });
+  };
 
   return (
     <section className="surface-panel flex flex-1 min-h-0 flex-col overflow-hidden">
@@ -227,29 +267,47 @@ export const MainWorkspace = () => {
           </div>
 
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <div className="flex h-12 border-b border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]">
-              <div className={`${laneHeaderWidthClass} shrink-0 border-r border-[var(--border-soft)] px-5 py-3`}>
-                <div className="flex items-center gap-2">
-                  <Music2 className="h-4 w-4 text-[var(--accent)]" />
-                  <span className="section-label">Tracks</span>
-                </div>
-              </div>
-              <div className="flex flex-1">
-                {Array.from({ length: stepsPerPattern }, (_, stepIndex) => stepIndex).map((stepIndex) => (
-                  <button
-                    className={`flex-1 border-r border-[var(--border-soft)] flex items-center justify-center ${stepIndex % 4 === 0 ? 'bg-[rgba(255,255,255,0.035)]' : ''} ${selectedStepIndex === stepIndex ? 'text-[var(--accent-strong)]' : ''}`}
-                    key={stepIndex}
-                    onClick={() => setSelectedStepIndex(stepIndex)}
-                  >
-                    <span className={`font-mono text-[11px] ${stepIndex % 4 === 0 ? 'text-[var(--text-primary)]' : 'text-[var(--text-tertiary)]'}`}>
-                      {stepIndex + 1}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
+            <div
+              className="flex-1 overflow-auto rounded-[18px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]"
+              onWheel={(event) => {
+                const node = gridViewportRef.current;
+                if (!node || Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
+                  return;
+                }
 
-            <div className="flex-1 overflow-auto">
+                if (node.scrollWidth <= node.clientWidth) {
+                  return;
+                }
+
+                event.preventDefault();
+                node.scrollLeft += event.deltaY;
+              }}
+              ref={gridViewportRef}
+            >
+              <div style={{ minWidth: `${laneHeaderWidth + stepGridWidth}px` }}>
+                <div className="sticky top-0 z-10 flex h-12 border-b border-[var(--border-soft)] bg-[rgba(8,12,17,0.96)] backdrop-blur">
+                  <div className={`${laneHeaderWidthClass} shrink-0 border-r border-[var(--border-soft)] px-5 py-3`}>
+                    <div className="flex items-center gap-2">
+                      <Music2 className="h-4 w-4 text-[var(--accent)]" />
+                      <span className="section-label">Tracks</span>
+                    </div>
+                  </div>
+                  <div className="flex" style={{ width: `${stepGridWidth}px` }}>
+                    {Array.from({ length: stepsPerPattern }, (_, stepIndex) => stepIndex).map((stepIndex) => (
+                      <button
+                        className={`shrink-0 border-r border-[var(--border-soft)] flex items-center justify-center ${stepIndex % 4 === 0 ? 'bg-[rgba(255,255,255,0.035)]' : ''} ${selectedStepIndex === stepIndex ? 'text-[var(--accent-strong)]' : ''}`}
+                        key={stepIndex}
+                        onClick={() => setSelectedStepIndex(stepIndex)}
+                        style={{ width: `${stepCellWidth}px` }}
+                      >
+                        <span className={`font-mono text-[11px] ${stepIndex % 4 === 0 ? 'text-[var(--text-primary)]' : 'text-[var(--text-tertiary)]'}`}>
+                          {stepIndex + 1}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
               {visibleTracks.length === 0 ? (
                 <div className="flex h-full items-center justify-center px-6 py-10 text-center text-sm text-[var(--text-secondary)]">
                   No lanes match the current scope. Change the filter or add activity to the current pattern.
@@ -376,7 +434,7 @@ export const MainWorkspace = () => {
                           </div>
                         </div>
 
-                        <div className={`flex flex-1 gap-[2px] ${laneGridPaddingClass}`}>
+                        <div className={`flex gap-[2px] ${laneGridPaddingClass}`} style={{ width: `${stepGridWidth}px` }}>
                           {patternSteps.map((value, stepIndex) => {
                             const isActive = value.length > 0;
                             const isCurrent = currentStep === stepIndex;
@@ -387,7 +445,7 @@ export const MainWorkspace = () => {
 
                             return (
                               <button
-                                className={`relative flex-1 border transition-colors ${compactLanes ? 'min-h-[38px]' : 'min-h-[48px]'} ${isActive ? 'border-transparent' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.05)]'} ${isCurrent ? 'ring-1 ring-inset ring-[rgba(255,255,255,0.08)]' : ''} ${isSelectedStep ? 'outline outline-1 outline-offset-0 outline-[rgba(125,211,252,0.26)]' : ''}`}
+                                className={`relative shrink-0 border transition-colors ${compactLanes ? 'min-h-[38px]' : 'min-h-[48px]'} ${isActive ? 'border-transparent' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.05)]'} ${isCurrent ? 'ring-1 ring-inset ring-[rgba(255,255,255,0.08)]' : ''} ${isSelectedStep ? 'outline outline-1 outline-offset-0 outline-[rgba(125,211,252,0.26)]' : ''}`}
                                 key={`${track.id}-${stepIndex}`}
                                 onClick={() => {
                                   setSelectedTrackId(track.id);
@@ -398,8 +456,11 @@ export const MainWorkspace = () => {
                                   ? {
                                       background: isCurrent ? track.color : `${track.color}cc`,
                                       boxShadow: 'inset 0 0 0 1px rgba(15, 23, 42, 0.12)',
+                                      width: `${stepCellWidth - 2}px`,
                                     }
-                                  : undefined}
+                                  : {
+                                      width: `${stepCellWidth - 2}px`,
+                                    }}
                               >
                                 {isActive && !['kick', 'snare', 'hihat'].includes(track.type) && leadEvent && (
                                   <span className="absolute bottom-1 right-1 font-mono text-[9px] font-medium text-black/60">
@@ -428,6 +489,51 @@ export const MainWorkspace = () => {
                   })}
                 </div>
               ))}
+              </div>
+            </div>
+            <div className="mt-3 rounded-[16px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)] px-4 py-3">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+                <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+                  Use the strip, trackpad, or mouse wheel to move across the pattern when step counts grow.
+                </div>
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  <button
+                    className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                    onClick={() => scrollGridByViewport(-1)}
+                    type="button"
+                  >
+                    Left
+                  </button>
+                  <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+                    {Math.floor(gridScrollLeft / stepCellWidth) + 1}
+                  </span>
+                  <input
+                    className="sonic-scroll-strip"
+                    max={maxGridScrollLeft}
+                    min={0}
+                    onChange={(event) => {
+                      if (!gridViewportRef.current) {
+                        return;
+                      }
+
+                      gridViewportRef.current.scrollLeft = Number(event.target.value);
+                    }}
+                    step={stepCellWidth}
+                    type="range"
+                    value={Math.min(gridScrollLeft, maxGridScrollLeft)}
+                  />
+                  <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+                    {Math.min(stepsPerPattern, Math.ceil((gridScrollLeft + gridViewportWidth) / stepCellWidth))}
+                  </span>
+                  <button
+                    className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                    onClick={() => scrollGridByViewport(1)}
+                    type="button"
+                  >
+                    Right
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

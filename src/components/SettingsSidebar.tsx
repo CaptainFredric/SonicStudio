@@ -6,6 +6,7 @@ import {
   FolderOpen,
   Gauge,
   Layers3,
+  Search,
   Save,
   SlidersHorizontal,
   Sparkles,
@@ -69,6 +70,7 @@ export const SettingsSidebar = () => {
     saveStatus,
     selectedArrangerClipId,
     selectedTrackId,
+    setSelectedTrackId,
     setBpm,
     setMasterSettings,
     setPatternCount,
@@ -95,6 +97,7 @@ export const SettingsSidebar = () => {
   const [bounceNormalization, setBounceNormalization] = useState<BounceNormalizationMode>('peak');
   const [bounceTailMode, setBounceTailMode] = useState<BounceTailMode>('standard');
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('WORKSPACE');
+  const [trackQuery, setTrackQuery] = useState('');
   const readiness = getStudioReadinessAssessment();
   const activeMasterPreset = MASTER_PRESET_DEFINITIONS.find((preset) => (
     isMasterPresetMatch(master, preset.settings)
@@ -103,6 +106,14 @@ export const SettingsSidebar = () => {
     isMasterPresetMatch(master, snapshot.settings)
   )) ?? null;
   const hasLoopWindow = loopRangeStartBeat !== null && loopRangeEndBeat !== null;
+  const filteredTracks = tracks.filter((track) => {
+    const normalizedQuery = trackQuery.trim().toLowerCase();
+    if (!normalizedQuery) {
+      return true;
+    }
+
+    return track.name.toLowerCase().includes(normalizedQuery) || track.type.toLowerCase().includes(normalizedQuery);
+  }).slice(0, 8);
 
   useEffect(() => {
     setDraftTrackName(selectedTrack?.name ?? '');
@@ -387,6 +398,37 @@ export const SettingsSidebar = () => {
                 </div>
               )}
             </div>
+          </div>
+        </section>
+
+        <section className="surface-panel-strong p-4">
+          <div className="flex items-center gap-2 text-[var(--text-primary)]">
+            <Search className="h-4 w-4 text-[var(--accent)]" />
+            <span className="section-label">Track jump</span>
+          </div>
+          <input
+            aria-label="Track jump"
+            className="control-field mt-4 h-11 w-full px-3 text-sm"
+            onChange={(event) => setTrackQuery(event.target.value)}
+            placeholder="Find a track by name or type"
+            value={trackQuery}
+          />
+          <div className="mt-3 flex flex-wrap gap-2">
+            {filteredTracks.length > 0 ? filteredTracks.map((track) => (
+              <button
+                className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                data-active={selectedTrackId === track.id}
+                key={track.id}
+                onClick={() => setSelectedTrackId(track.id)}
+              >
+                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: track.color }} />
+                {track.name}
+              </button>
+            )) : (
+              <div className="text-[11px] leading-5 text-[var(--text-secondary)]">
+                No tracks match the current query.
+              </div>
+            )}
           </div>
         </section>
 
