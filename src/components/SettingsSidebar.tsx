@@ -151,7 +151,7 @@ export const SettingsSidebar = () => {
             <Sparkles className="h-4 w-4 text-[var(--accent)]" />
             <span className="section-label">Session</span>
           </div>
-          <div className="mt-4 grid grid-cols-3 gap-3 text-sm text-[var(--text-secondary)]">
+          <div className="mt-4 grid grid-cols-1 gap-3 text-sm text-[var(--text-secondary)] sm:grid-cols-3">
             <MetricCell label="Tracks" value={String(tracks.length)} />
             <MetricCell label="Clips" value={String(arrangerClips.length)} />
             <MetricCell label="Status" value={renderState.active ? renderState.phase : formatSaveLabel(saveStatus, lastSavedAt)} />
@@ -242,7 +242,7 @@ export const SettingsSidebar = () => {
               </div>
             )}
           </div>
-          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <div className="mt-4 grid gap-4 xl:grid-cols-2">
             <div>
               <div className="section-label">Normalization</div>
               <div className="mt-2 flex flex-wrap gap-2">
@@ -278,7 +278,7 @@ export const SettingsSidebar = () => {
               </div>
             </div>
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-2">
+          <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
             <ActionButton disabled={renderState.active} icon={<Sparkles className="h-3.5 w-3.5" />} label="New session" onClick={newSession} />
             <ActionButton disabled={renderState.active} icon={<Layers3 className="h-3.5 w-3.5" />} label="Save now" onClick={saveProject} />
             <ActionButton disabled={renderState.active} icon={<FolderOpen className="h-3.5 w-3.5" />} label="Load JSON" onClick={() => fileInputRef.current?.click()} />
@@ -521,7 +521,7 @@ export const SettingsSidebar = () => {
                 {activeMasterSnapshot ? activeMasterSnapshot.name : 'Unsaved'}
               </span>
             </div>
-            <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
               <ActionButton
                 disabled={renderState.active}
                 icon={<Save className="h-3.5 w-3.5" />}
@@ -602,7 +602,7 @@ export const SettingsSidebar = () => {
               ))}
             </div>
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-3">
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <MetricCell label="Output" value={`${master.outputGain.toFixed(1)} dB`} />
             <MetricCell label="Ceiling" value={`${master.limiterCeiling.toFixed(1)} dB`} />
           </div>
@@ -681,7 +681,7 @@ export const SettingsSidebar = () => {
             <Gauge className="h-4 w-4 text-[var(--accent)]" />
             <span className="section-label">Readiness</span>
           </div>
-          <div className="mt-4 grid grid-cols-3 gap-3 text-sm text-[var(--text-secondary)]">
+          <div className="mt-4 grid grid-cols-1 gap-3 text-sm text-[var(--text-secondary)] sm:grid-cols-3">
             <MetricCell label="Overall" value={`${readiness.overallScore}%`} />
             <MetricCell label="GarageBand fit" value={`${readiness.competitorScore}%`} />
             <MetricCell label="Monetization" value={`${readiness.monetizationScore}%`} />
@@ -721,7 +721,7 @@ const ActionButton = ({
   onClick: () => void;
 }) => (
   <button
-    className="control-field flex h-10 items-center gap-2 px-3 text-left text-sm font-medium text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+    className="control-field flex min-w-0 items-center gap-2 px-3 py-2 text-left text-sm font-medium text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-50"
     disabled={disabled}
     onClick={onClick}
   >

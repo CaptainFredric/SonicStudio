@@ -80,7 +80,7 @@ export const TopBar = () => {
   };
 
   return (
-    <header className="surface-panel px-5 py-4 sm:px-6">
+    <header className="surface-panel px-3 py-3 sm:px-6 sm:py-4">
       <div className="flex min-w-0 flex-col gap-4 2xl:flex-row 2xl:items-center 2xl:justify-between">
         <div className="flex min-w-0 flex-col gap-4 xl:flex-row xl:items-center xl:gap-5">
           <div className="flex min-w-0 items-center gap-3 xl:min-w-[220px]">
@@ -136,13 +136,13 @@ export const TopBar = () => {
 
         {!isInitialized ? (
           <button
-            className="h-11 self-start border border-[rgba(130,201,187,0.24)] bg-[var(--accent-muted)] px-5 text-sm font-semibold text-[var(--accent-strong)] transition-colors hover:border-[rgba(130,201,187,0.36)] hover:text-[var(--text-primary)]"
+            className="h-11 w-full self-start border border-[rgba(130,201,187,0.24)] bg-[var(--accent-muted)] px-5 text-sm font-semibold text-[var(--accent-strong)] transition-colors hover:border-[rgba(130,201,187,0.36)] hover:text-[var(--text-primary)] sm:w-auto"
             onClick={initAudio}
           >
             Initialize audio
           </button>
         ) : (
-          <div className="grid gap-3 xl:grid-cols-[auto_auto_auto_auto_auto] xl:items-stretch">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[auto_auto_auto_auto_auto] xl:items-stretch">
             <div className="surface-panel-muted flex items-center gap-1 p-1">
               <IconBtn disabled={!canUndo} label="Undo" onClick={undo}>
                 <Undo2 className="h-4 w-4" />
@@ -183,7 +183,7 @@ export const TopBar = () => {
               </div>
             </div>
 
-            <div className="surface-panel-muted min-w-[96px] px-4 py-3">
+            <div className="surface-panel-muted min-w-0 px-4 py-3">
               <div className="section-label mb-1">Tempo</div>
               <div className="flex items-center gap-2">
                 <input
@@ -205,7 +205,7 @@ export const TopBar = () => {
               <div className="mt-1 text-[11px] text-[var(--text-secondary)]">{Math.max(1, Math.ceil(songLengthInBeats / 16))} bars of arrangement runway</div>
             </div>
 
-              <div className="surface-panel-muted min-w-[148px] px-4 py-3">
+              <div className="surface-panel-muted min-w-0 px-4 py-3">
                 <div className="section-label mb-1">Session</div>
                 <div className={`text-sm font-medium ${saveStatus === 'error' ? 'text-[var(--danger)]' : saveStatus === 'saving' ? 'text-[var(--warning)]' : 'text-[var(--accent-strong)]'}`}>
                   {formatSaveLabel(saveStatus, lastSavedAt)}

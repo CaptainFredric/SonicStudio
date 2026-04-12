@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { AudioProvider, useAudio } from './context/AudioContext';
 import { TopBar } from './components/TopBar';
 import { MainWorkspace as Sequencer } from './components/MainWorkspace';
@@ -7,7 +7,7 @@ import { Mixer } from './components/Mixer';
 import { DeviceRack } from './components/DeviceRack';
 import { SettingsSidebar } from './components/SettingsSidebar';
 import { Arranger } from './components/Arranger';
-import { Music, LayoutGrid, Volume2, Settings, Layers3 } from 'lucide-react';
+import { Music, LayoutGrid, Volume2, Settings, Layers3, ChevronDown, ChevronUp, SlidersHorizontal } from 'lucide-react';
 
 const SideNav = () => {
   const { activeView, isSettingsOpen, setActiveView, toggleSettings } = useAudio();
@@ -65,7 +65,9 @@ const ViewRouter = () => {
 };
 
 const StudioShell = () => {
-  const { isSettingsOpen, toggleSettings } = useAudio();
+  const { isSettingsOpen, selectedTrackId, toggleSettings, tracks } = useAudio();
+  const [isMobileRackOpen, setIsMobileRackOpen] = useState(true);
+  const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
 
   return (
     <div className="app-shell h-screen w-screen overflow-hidden antialiased text-[var(--text-primary)]">
@@ -73,7 +75,7 @@ const StudioShell = () => {
         <div className="px-3 pt-3">
           <TopBar />
         </div>
-        <div className="flex flex-1 min-h-0 gap-3 px-3 pb-3">
+        <div className="flex min-h-0 flex-1 flex-col gap-3 px-3 pb-3 sm:flex-row">
           <SideNav />
           <div className="chrome-frame flex min-h-0 flex-1 flex-col gap-3 p-3">
             <div className="relative flex min-h-0 flex-1">
@@ -94,7 +96,27 @@ const StudioShell = () => {
                 </>
               )}
             </div>
-            <DeviceRack />
+            <div className="lg:hidden">
+              <button
+                className="surface-panel-muted flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+                onClick={() => setIsMobileRackOpen((current) => !current)}
+                type="button"
+              >
+                <div className="min-w-0">
+                  <div className="section-label">Sound desk</div>
+                  <div className="mt-1 text-sm font-medium text-[var(--text-primary)]">
+                    {selectedTrack ? `${selectedTrack.name} · ${selectedTrack.type}` : 'Select a track to shape its sound'}
+                  </div>
+                </div>
+                <div className="flex items-center gap-3 text-[var(--text-secondary)]">
+                  <SlidersHorizontal className="h-4 w-4 text-[var(--accent)]" />
+                  {isMobileRackOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                </div>
+              </button>
+            </div>
+            <div className={`${isMobileRackOpen ? 'block' : 'hidden'} lg:block`}>
+              <DeviceRack />
+            </div>
           </div>
         </div>
       </div>
