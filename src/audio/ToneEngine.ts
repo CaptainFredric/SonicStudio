@@ -45,14 +45,20 @@ class ToneEngine {
   private masterCompressor: Tone.Compressor | null = null;
   private masterEq: Tone.EQ3 | null = null;
   private masterGain: Tone.Gain | null = null;
+  private masterHighpass: Tone.Filter | null = null;
   private masterLimiter: Tone.Limiter | null = null;
+  private masterLowpass: Tone.Filter | null = null;
   private masterMeter: Tone.Meter | null = null;
   private masterSettings: MasterSettings = {
     glueCompression: 0.42,
+    highCutHz: 18000,
     limiterCeiling: -0.2,
+    lowCutHz: 28,
     outputGain: 0,
+    stereoWidth: 0.5,
     tone: 0.55,
   };
+  private masterWidener: Tone.StereoWidener | null = null;
   private stepCallbacks: ((step: number, pattern: number) => void)[] = [];
   private stepsPerPattern = 16;
   private trackGraphs: Record<string, TrackGraph> = {};
@@ -73,13 +79,19 @@ class ToneEngine {
 
     this.masterCompressor = new Tone.Compressor({ ratio: 4, threshold: -24 }).toDestination();
     this.masterLimiter = new Tone.Limiter(-0.1);
+    this.masterHighpass = new Tone.Filter({ frequency: 28, rolloff: -24, type: 'highpass' });
+    this.masterLowpass = new Tone.Filter({ frequency: 18000, rolloff: -24, type: 'lowpass' });
     this.masterEq = new Tone.EQ3({ high: 0, low: 0, mid: 0 });
+    this.masterWidener = new Tone.StereoWidener(0.5);
     this.masterGain = new Tone.Gain(1);
     this.masterMeter = new Tone.Meter();
     this.analyzer = new Tone.Analyser('fft', 256);
     this.recorder = new Tone.Recorder();
-    this.masterLimiter.connect(this.masterEq);
-    this.masterEq.connect(this.masterGain);
+    this.masterLimiter.connect(this.masterHighpass);
+    this.masterHighpass.connect(this.masterLowpass);
+    this.masterLowpass.connect(this.masterEq);
+    this.masterEq.connect(this.masterWidener);
+    this.masterWidener.connect(this.masterGain);
     this.masterGain.connect(this.masterCompressor);
     this.masterGain.connect(this.masterMeter);
     this.masterCompressor.connect(this.analyzer);
@@ -131,15 +143,18 @@ class ToneEngine {
   }
 
   private applyMasterSettings() {
-    if (!this.masterCompressor || !this.masterLimiter || !this.masterEq || !this.masterGain) {
+    if (!this.masterCompressor || !this.masterLimiter || !this.masterEq || !this.masterGain || !this.masterHighpass || !this.masterLowpass || !this.masterWidener) {
       return;
     }
 
     const glue = this.masterSettings.glueCompression;
     this.masterCompressor.ratio.value = 1 + (glue * 7);
     this.masterCompressor.threshold.value = -12 - (glue * 18);
+    this.masterHighpass.frequency.value = this.masterSettings.lowCutHz;
+    this.masterLowpass.frequency.value = this.masterSettings.highCutHz;
     this.masterLimiter.threshold.value = this.masterSettings.limiterCeiling;
     this.masterGain.gain.value = Tone.dbToGain(this.masterSettings.outputGain);
+    this.masterWidener.width.value = this.masterSettings.stereoWidth;
     this.masterEq.low.value = (0.5 - this.masterSettings.tone) * 10;
     this.masterEq.high.value = (this.masterSettings.tone - 0.5) * 10;
     this.masterEq.mid.value = (this.masterSettings.tone - 0.5) * 2;

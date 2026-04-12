@@ -35,8 +35,11 @@ const BOUNCE_TAIL_OPTIONS: Array<{ description: string; label: string; value: Bo
 
 const isMasterPresetMatch = (current: MasterSettings, target: MasterSettings) => (
   Math.abs(current.glueCompression - target.glueCompression) <= MASTER_MATCH_EPSILON
+  && Math.abs(current.highCutHz - target.highCutHz) <= 120
   && Math.abs(current.tone - target.tone) <= MASTER_MATCH_EPSILON
+  && Math.abs(current.lowCutHz - target.lowCutHz) <= 4
   && Math.abs(current.outputGain - target.outputGain) <= 0.11
+  && Math.abs(current.stereoWidth - target.stereoWidth) <= MASTER_MATCH_EPSILON
   && Math.abs(current.limiterCeiling - target.limiterCeiling) <= 0.06
 );
 
@@ -669,6 +672,8 @@ export const SettingsSidebar = () => {
             <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <MetricCell label="Output" value={`${master.outputGain.toFixed(1)} dB`} />
               <MetricCell label="Ceiling" value={`${master.limiterCeiling.toFixed(1)} dB`} />
+              <MetricCell label="Width" value={`${Math.round(master.stereoWidth * 100)}%`} />
+              <MetricCell label="Band" value={`${Math.round(master.lowCutHz)} Hz to ${Math.round(master.highCutHz / 100) / 10} kHz`} />
             </div>
             <div className="mt-4 space-y-4">
               <div>
@@ -701,6 +706,56 @@ export const SettingsSidebar = () => {
                   type="range"
                   value={master.tone}
                 />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="section-label">Stereo width</span>
+                  <span className="font-mono text-xs text-[var(--text-secondary)]">{Math.round(master.stereoWidth * 100)}</span>
+                </div>
+                <input
+                  className="mt-3"
+                  max="1"
+                  min="0"
+                  onChange={(event) => setMasterSettings({ stereoWidth: Number(event.target.value) })}
+                  step="0.01"
+                  type="range"
+                  value={master.stereoWidth}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="section-label">Low cut</span>
+                    <span className="font-mono text-xs text-[var(--text-secondary)]">{Math.round(master.lowCutHz)} Hz</span>
+                  </div>
+                  <input
+                    className="mt-3"
+                    max="240"
+                    min="20"
+                    onChange={(event) => setMasterSettings({ lowCutHz: Number(event.target.value) })}
+                    step="1"
+                    type="range"
+                    value={master.lowCutHz}
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="section-label">High cut</span>
+                    <span className="font-mono text-xs text-[var(--text-secondary)]">{Math.round(master.highCutHz / 100) / 10} kHz</span>
+                  </div>
+                  <input
+                    className="mt-3"
+                    max="20000"
+                    min="6000"
+                    onChange={(event) => setMasterSettings({ highCutHz: Number(event.target.value) })}
+                    step="100"
+                    type="range"
+                    value={master.highCutHz}
+                  />
+                </div>
               </div>
 
               <div>

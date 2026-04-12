@@ -22,8 +22,11 @@ const MASTER_MATCH_EPSILON = 0.015;
 
 const isMasterPresetMatch = (current: MasterSettings, target: MasterSettings) => (
   Math.abs(current.glueCompression - target.glueCompression) <= MASTER_MATCH_EPSILON
+  && Math.abs(current.highCutHz - target.highCutHz) <= 120
   && Math.abs(current.tone - target.tone) <= MASTER_MATCH_EPSILON
+  && Math.abs(current.lowCutHz - target.lowCutHz) <= 4
   && Math.abs(current.outputGain - target.outputGain) <= 0.11
+  && Math.abs(current.stereoWidth - target.stereoWidth) <= MASTER_MATCH_EPSILON
   && Math.abs(current.limiterCeiling - target.limiterCeiling) <= 0.06
 );
 

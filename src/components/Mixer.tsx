@@ -260,6 +260,22 @@ export const Mixer = () => {
                     value={master.tone}
                   />
                 </div>
+
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="section-label">Width</span>
+                    <span className="font-mono text-[10px] text-[var(--text-secondary)]">{Math.round(master.stereoWidth * 100)}</span>
+                  </div>
+                  <input
+                    className="mt-3"
+                    max="1"
+                    min="0"
+                    onChange={(event) => setMasterSettings({ stereoWidth: Number(event.target.value) })}
+                    step="0.01"
+                    type="range"
+                    value={master.stereoWidth}
+                  />
+                </div>
               </div>
 
               <div className="mt-6 flex flex-1 items-center justify-center gap-5">
@@ -286,6 +302,46 @@ export const Mixer = () => {
                 <div className="flex items-center justify-between border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-2">
                   <span className="section-label">Output</span>
                   <span className="font-mono text-xs text-[var(--text-primary)]">{master.outputGain.toFixed(1)} dB</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="flex items-center justify-between border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-2">
+                    <span className="section-label">Low cut</span>
+                    <span className="font-mono text-[10px] text-[var(--text-primary)]">{Math.round(master.lowCutHz)} Hz</span>
+                  </div>
+                  <div className="flex items-center justify-between border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-2">
+                    <span className="section-label">High cut</span>
+                    <span className="font-mono text-[10px] text-[var(--text-primary)]">{Math.round(master.highCutHz / 100) / 10} kHz</span>
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="section-label">Low cut</span>
+                    <span className="font-mono text-[10px] text-[var(--text-secondary)]">{Math.round(master.lowCutHz)} Hz</span>
+                  </div>
+                  <input
+                    className="mt-3"
+                    max="240"
+                    min="20"
+                    onChange={(event) => setMasterSettings({ lowCutHz: Number(event.target.value) })}
+                    step="1"
+                    type="range"
+                    value={master.lowCutHz}
+                  />
+                </div>
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="section-label">High cut</span>
+                    <span className="font-mono text-[10px] text-[var(--text-secondary)]">{Math.round(master.highCutHz / 100) / 10} kHz</span>
+                  </div>
+                  <input
+                    className="mt-3"
+                    max="20000"
+                    min="6000"
+                    onChange={(event) => setMasterSettings({ highCutHz: Number(event.target.value) })}
+                    step="100"
+                    type="range"
+                    value={master.highCutHz}
+                  />
                 </div>
                 <div>
                   <div className="flex items-center justify-between">

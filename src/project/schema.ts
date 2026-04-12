@@ -139,8 +139,11 @@ export interface TransportSettings {
 
 export interface MasterSettings {
   glueCompression: number;
+  highCutHz: number;
   limiterCeiling: number;
+  lowCutHz: number;
   outputGain: number;
+  stereoWidth: number;
   tone: number;
 }
 
@@ -217,8 +220,11 @@ export const PROJECT_SCHEMA_VERSION = 12;
 
 export const INITIAL_MASTER: MasterSettings = {
   glueCompression: 0.42,
+  highCutHz: 18000,
   limiterCeiling: -0.2,
+  lowCutHz: 28,
   outputGain: 0,
+  stereoWidth: 0.5,
   tone: 0.55,
 };
 
@@ -229,8 +235,11 @@ export const MASTER_PRESET_DEFINITIONS: MasterPresetDefinition[] = [
     label: 'Balanced',
     settings: {
       glueCompression: 0.42,
+      highCutHz: 18000,
       limiterCeiling: -0.2,
+      lowCutHz: 28,
       outputGain: 0,
+      stereoWidth: 0.5,
       tone: 0.55,
     },
   },
@@ -240,8 +249,11 @@ export const MASTER_PRESET_DEFINITIONS: MasterPresetDefinition[] = [
     label: 'Club',
     settings: {
       glueCompression: 0.64,
+      highCutHz: 16800,
       limiterCeiling: -0.1,
+      lowCutHz: 42,
       outputGain: 1.5,
+      stereoWidth: 0.44,
       tone: 0.48,
     },
   },
@@ -251,8 +263,11 @@ export const MASTER_PRESET_DEFINITIONS: MasterPresetDefinition[] = [
     label: 'Open Air',
     settings: {
       glueCompression: 0.24,
+      highCutHz: 19600,
       limiterCeiling: -0.35,
+      lowCutHz: 24,
       outputGain: -0.5,
+      stereoWidth: 0.68,
       tone: 0.68,
     },
   },
@@ -938,15 +953,30 @@ const normalizeMaster = (master: unknown): MasterSettings => {
       0,
       1,
     ),
+    highCutHz: clamp(
+      typeof candidate.highCutHz === 'number' ? candidate.highCutHz : INITIAL_MASTER.highCutHz,
+      6000,
+      20000,
+    ),
     limiterCeiling: clamp(
       typeof candidate.limiterCeiling === 'number' ? candidate.limiterCeiling : INITIAL_MASTER.limiterCeiling,
       -1.2,
       0,
     ),
+    lowCutHz: clamp(
+      typeof candidate.lowCutHz === 'number' ? candidate.lowCutHz : INITIAL_MASTER.lowCutHz,
+      20,
+      240,
+    ),
     outputGain: clamp(
       typeof candidate.outputGain === 'number' ? candidate.outputGain : INITIAL_MASTER.outputGain,
       -12,
       12,
+    ),
+    stereoWidth: clamp(
+      typeof candidate.stereoWidth === 'number' ? candidate.stereoWidth : INITIAL_MASTER.stereoWidth,
+      0,
+      1,
     ),
     tone: clamp(
       typeof candidate.tone === 'number' ? candidate.tone : INITIAL_MASTER.tone,

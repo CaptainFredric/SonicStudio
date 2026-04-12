@@ -2447,8 +2447,11 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
   ) => {
     const matchingSnapshot = project.masterSnapshots.find((snapshot) => (
       snapshot.settings.glueCompression === project.master.glueCompression
+      && snapshot.settings.highCutHz === project.master.highCutHz
       && snapshot.settings.limiterCeiling === project.master.limiterCeiling
+      && snapshot.settings.lowCutHz === project.master.lowCutHz
       && snapshot.settings.outputGain === project.master.outputGain
+      && snapshot.settings.stereoWidth === project.master.stereoWidth
       && snapshot.settings.tone === project.master.tone
     ));
 
