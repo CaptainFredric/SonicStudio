@@ -1,9 +1,31 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { SlidersHorizontal } from 'lucide-react';
 
 import { useAudio } from '../context/AudioContext';
 import { engine } from '../audio/ToneEngine';
 import type { Track } from '../project/schema';
+
+type MixerScope = 'ALL' | 'PINNED' | 'RHYTHM' | 'MUSICAL' | 'TEXTURE';
+type MixerGroupKey = 'PINNED' | 'RHYTHM' | 'MUSICAL' | 'TEXTURE';
+
+const MIXER_GROUP_LABELS: Record<MixerGroupKey, string> = {
+  MUSICAL: 'Musical',
+  PINNED: 'Pinned',
+  RHYTHM: 'Rhythm',
+  TEXTURE: 'Texture',
+};
+
+const getMixerGroup = (track: Track): Exclude<MixerGroupKey, 'PINNED'> => {
+  if (track.type === 'kick' || track.type === 'snare' || track.type === 'hihat') {
+    return 'RHYTHM';
+  }
+
+  if (track.type === 'fx') {
+    return 'TEXTURE';
+  }
+
+  return 'MUSICAL';
+};
 
 const VUChannel: React.FC<{ track: Track }> = ({ track }) => {
   const { updateTrackPan, updateTrackVolume, toggleMute, toggleSolo } = useAudio();
@@ -81,8 +103,15 @@ const VUChannel: React.FC<{ track: Track }> = ({ track }) => {
 };
 
 export const Mixer = () => {
-  const { master, setMasterSettings, tracks } = useAudio();
+  const { master, pinnedTrackIds, setMasterSettings, tracks } = useAudio();
   const [masterLevel, setMasterLevel] = useState(-100);
+  const [mixerScope, setMixerScope] = useState<MixerScope>('ALL');
+  const [collapsedGroups, setCollapsedGroups] = useState<Record<MixerGroupKey, boolean>>({
+    MUSICAL: false,
+    PINNED: false,
+    RHYTHM: false,
+    TEXTURE: false,
+  });
 
   useEffect(() => {
     const interval = window.setInterval(() => {
@@ -95,6 +124,52 @@ export const Mixer = () => {
   }, []);
 
   const masterLevelHeight = Math.max(0, Math.min(100, ((masterLevel + 60) / 60) * 100));
+  const visibleTracks = useMemo(() => tracks.filter((track) => {
+    switch (mixerScope) {
+      case 'PINNED':
+        return pinnedTrackIds.includes(track.id);
+      case 'RHYTHM':
+        return getMixerGroup(track) === 'RHYTHM';
+      case 'MUSICAL':
+        return getMixerGroup(track) === 'MUSICAL';
+      case 'TEXTURE':
+        return getMixerGroup(track) === 'TEXTURE';
+      case 'ALL':
+      default:
+        return true;
+    }
+  }), [mixerScope, pinnedTrackIds, tracks]);
+  const pinnedTracks = useMemo(() => (
+    mixerScope === 'PINNED'
+      ? visibleTracks
+      : visibleTracks.filter((track) => pinnedTrackIds.includes(track.id))
+  ), [mixerScope, pinnedTrackIds, visibleTracks]);
+  const groupedTracks = useMemo(() => {
+    const remainingTracks = mixerScope === 'PINNED'
+      ? []
+      : visibleTracks.filter((track) => !pinnedTrackIds.includes(track.id));
+
+    return (
+      (['RHYTHM', 'MUSICAL', 'TEXTURE'] as const).map((groupKey) => ({
+        groupKey,
+        label: MIXER_GROUP_LABELS[groupKey],
+        tracks: remainingTracks.filter((track) => getMixerGroup(track) === groupKey),
+      })).filter((group) => group.tracks.length > 0)
+    );
+  }, [mixerScope, pinnedTrackIds, visibleTracks]);
+  const mixerSections = useMemo(() => {
+    const sections: Array<{ key: MixerGroupKey; label: string; tracks: Track[] }> = [];
+
+    if (pinnedTracks.length > 0) {
+      sections.push({ key: 'PINNED', label: MIXER_GROUP_LABELS.PINNED, tracks: pinnedTracks });
+    }
+
+    groupedTracks.forEach((group) => {
+      sections.push({ key: group.groupKey, label: group.label, tracks: group.tracks });
+    });
+
+    return sections;
+  }, [groupedTracks, pinnedTracks]);
 
   return (
     <section className="surface-panel flex flex-1 min-h-0 flex-col overflow-hidden">
@@ -105,12 +180,33 @@ export const Mixer = () => {
         </div>
         <div className="hidden md:flex items-center gap-2 text-sm text-[var(--text-secondary)]">
           <SlidersHorizontal className="h-4 w-4 text-[var(--accent)]" />
-          <span>{tracks.length} active tracks</span>
+          <span>{visibleTracks.length} visible of {tracks.length}</span>
+        </div>
+      </div>
+
+      <div className="border-b border-[var(--border-soft)] px-5 py-3">
+        <div className="flex flex-wrap gap-2">
+          {([
+            ['ALL', 'All strips'],
+            ['PINNED', 'Pinned'],
+            ['RHYTHM', 'Rhythm'],
+            ['MUSICAL', 'Musical'],
+            ['TEXTURE', 'Texture'],
+          ] as const).map(([scope, label]) => (
+            <button
+              key={scope}
+              className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+              data-active={mixerScope === scope}
+              onClick={() => setMixerScope(scope)}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       </div>
 
       <div className="flex-1 overflow-x-auto overflow-y-hidden p-5 [scroll-behavior:smooth] [-webkit-overflow-scrolling:touch]">
-        <div className="flex h-full min-h-[560px] gap-4 scroll-snap-x-mandatory">
+        <div className="flex h-full min-h-[560px] gap-6 scroll-snap-x-mandatory">
           <div className="scroll-snap-align-start">
             <div className="surface-panel-strong flex h-full min-h-[560px] w-[184px] shrink-0 flex-col p-4">
               <div className="flex items-center gap-3">
@@ -198,9 +294,36 @@ export const Mixer = () => {
               </div>
             </div>
           </div>
-          {tracks.map((track) => (
-            <div key={track.id} className="scroll-snap-align-start">
-              <VUChannel track={track} />
+          {mixerSections.length === 0 ? (
+            <div className="flex min-h-[560px] min-w-[240px] items-center justify-center rounded-[24px] border border-dashed border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-6 py-8 text-center text-sm text-[var(--text-secondary)]">
+              No mixer strips match the current scope.
+            </div>
+          ) : mixerSections.map(({ key, label, tracks: sectionTracks }) => (
+            <div key={key} className="scroll-snap-align-start">
+              <div className="flex h-full min-h-[560px] flex-col rounded-[24px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.015)] p-3">
+                <button
+                  className="flex items-center justify-between gap-3 rounded-[18px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-4 py-3 text-left"
+                  onClick={() => setCollapsedGroups((current) => ({ ...current, [key]: !current[key] }))}
+                >
+                  <div>
+                    <div className="section-label">{label}</div>
+                    <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+                      {sectionTracks.length} strip{sectionTracks.length === 1 ? '' : 's'}
+                    </div>
+                  </div>
+                  <span className="font-mono text-xs text-[var(--text-secondary)]">{collapsedGroups[key] ? '+' : '−'}</span>
+                </button>
+
+                {!collapsedGroups[key] && (
+                  <div className="mt-3 flex h-full min-h-[500px] gap-4">
+                    {sectionTracks.map((track) => (
+                      <div key={track.id} className="scroll-snap-align-start">
+                        <VUChannel track={track} />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>
