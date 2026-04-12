@@ -17,6 +17,7 @@ import {
   createTrack as buildTrack,
   defaultNoteForTrack,
   duplicateTrack as buildDuplicateTrack,
+  getTrackVoicePresetDefinitions,
   MAX_PATTERN_COUNT,
   MAX_STEPS_PER_PATTERN,
   MIN_PATTERN_COUNT,
@@ -36,6 +37,7 @@ import {
   type SynthParams,
   type Track,
   type TrackSource,
+  type TrackVoicePresetDefinition,
   type TransportMode,
 } from '../project/schema';
 import {
@@ -76,6 +78,7 @@ const IDLE_RENDER_STATE: RenderState = {
 interface AudioContextType {
   activeView: AppView;
   addArrangerClip: (trackId?: string) => void;
+  applyTrackVoicePreset: (trackId: string, presetId: string) => void;
   arrangerClips: ArrangementClip[];
   bpm: number;
   canRedo: boolean;
@@ -184,6 +187,7 @@ interface EditorState {
 
 type EditorAction =
   | { type: 'ADD_ARRANGER_CLIP'; trackId?: string }
+  | { type: 'APPLY_TRACK_VOICE_PRESET'; presetId: string; trackId: string }
   | { type: 'CLEAR_TRACK'; trackId: string }
   | { type: 'CLEAR_PATTERN_AT'; trackId: string; patternIndex: number }
   | { type: 'CREATE_SONG_MARKER'; beat: number; name?: string }
@@ -666,6 +670,20 @@ const mergeTrackSource = (
   };
 };
 
+const applyTrackVoicePresetDefinition = (
+  track: Track,
+  preset: TrackVoicePresetDefinition,
+): Track => {
+  const nextTrack = mergeTrackSource(track, preset.source ?? {});
+  return {
+    ...nextTrack,
+    params: {
+      ...nextTrack.params,
+      ...(preset.params ?? {}),
+    },
+  };
+};
+
 const resizeProjectTransport = (
   project: Project,
   patternCount: number,
@@ -744,6 +762,22 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
   const { present } = state.history;
 
   switch (action.type) {
+    case 'APPLY_TRACK_VOICE_PRESET': {
+      const track = present.tracks.find((candidate) => candidate.id === action.trackId);
+      if (!track) {
+        return state;
+      }
+
+      const preset = getTrackVoicePresetDefinitions(track.type).find((candidate) => candidate.id === action.presetId);
+      if (!preset) {
+        return state;
+      }
+
+      return commitProject(state, updateTrack(present, action.trackId, (candidate) => (
+        applyTrackVoicePresetDefinition(candidate, preset)
+      )));
+    }
+
     case 'HYDRATE_SESSION':
       return {
         history: {
@@ -2387,6 +2421,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
     <AudioContext.Provider value={{
       activeView,
       addArrangerClip: (trackId) => dispatch({ type: 'ADD_ARRANGER_CLIP', trackId }),
+      applyTrackVoicePreset: (trackId, presetId) => dispatch({ type: 'APPLY_TRACK_VOICE_PRESET', presetId, trackId }),
       arrangerClips,
       bpm: project.transport.bpm,
       canRedo: editorState.history.future.length > 0,

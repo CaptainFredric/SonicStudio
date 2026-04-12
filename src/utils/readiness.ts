@@ -19,8 +19,8 @@ const READINESS_SLICES: ReadinessSlice[] = [
   },
   {
     label: 'Sound design',
-    score: 81,
-    rationale: 'The rack now supports real slice regions, trigger modes, slice-local gain and reverse, and step-mapped sample behavior, so sample tracks are materially closer to usable instruments instead of trimmed audio placeholders.',
+    score: 83,
+    rationale: 'The rack now supports real slice regions, trigger modes, slice-local gain and reverse, step-mapped sample behavior, and now track-type voice starts that apply usable sound-shaping states in one action, so sample and synth tracks are materially closer to usable instruments instead of raw placeholders.',
   },
   {
     label: 'Editing ergonomics',
@@ -34,8 +34,8 @@ const READINESS_SLICES: ReadinessSlice[] = [
   },
   {
     label: 'Product finish',
-    score: 78,
-    rationale: 'Track management, pinned lane focus, grouped session organization, visible readiness, bounce feedback, targeted print ranges, active loop-window printing, concrete master presets, real starter scenes, persistent section markers, section-level duplication, and section audition looping make the studio feel more deliberate on first use and during longer sessions, but trust cues, collaboration, and account-level product features are still early.',
+    score: 79,
+    rationale: 'Track management, pinned lane focus, grouped session organization, visible readiness, bounce feedback, targeted print ranges, active loop-window printing, concrete master presets, real starter scenes, persistent section markers, section-level duplication, section audition looping, and now track-type voice starts make the studio feel more deliberate on first use and during longer sessions, but trust cues, collaboration, and account-level product features are still early.',
   },
 ];
 

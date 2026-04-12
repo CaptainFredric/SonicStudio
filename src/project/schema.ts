@@ -16,6 +16,16 @@ export interface SessionTemplateDefinition {
   label: string;
 }
 
+export interface TrackVoicePresetDefinition {
+  description: string;
+  focus: string;
+  id: string;
+  label: string;
+  params?: Partial<SynthParams>;
+  source?: Partial<TrackSource>;
+  trackTypes: InstrumentType[];
+}
+
 export interface SampleSliceMemory {
   end: number;
   gain: number;
@@ -346,6 +356,67 @@ export const SESSION_TEMPLATE_DEFINITIONS: SessionTemplateDefinition[] = [
     label: 'Ambient Drift',
   },
 ];
+
+export const TRACK_VOICE_PRESET_DEFINITIONS: TrackVoicePresetDefinition[] = [
+  {
+    description: 'Tighter low end and shorter body for kicks or bass lines that need to sit forward.',
+    focus: 'Punch and control',
+    id: 'tight-impact',
+    label: 'Tight Impact',
+    params: { attack: 0.004, cutoff: 1600, decay: 0.14, distortion: 0.08, release: 0.26, resonance: 1.3, sustain: 0.22 },
+    source: { octaveShift: -1, samplePlayback: 'oneshot', waveform: 'sine' },
+    trackTypes: ['kick', 'bass'],
+  },
+  {
+    description: 'Sharper transient and brighter noise contour for snare, hat, or FX punctuation.',
+    focus: 'Edge and bite',
+    id: 'bright-snap',
+    label: 'Bright Snap',
+    params: { bitCrush: 0.12, cutoff: 4800, decay: 0.12, filterMode: 'highpass', release: 0.18, resonance: 1.9 },
+    source: { detune: 8, samplePlayback: 'oneshot', sampleTriggerMode: 'step-mapped', waveform: 'square' },
+    trackTypes: ['snare', 'hihat', 'fx'],
+  },
+  {
+    description: 'More glide, midrange body, and motion for bass or melodic hooks that need to lead the phrase.',
+    focus: 'Movement and phrasing',
+    id: 'glide-current',
+    label: 'Glide Current',
+    params: { cutoff: 2200, delaySend: 0.16, release: 0.62, resonance: 1.4, vibratoDepth: 0.08, vibratoRate: 4.6 },
+    source: { detune: 3, octaveShift: 0, portamento: 0.09, samplePlayback: 'pitched', waveform: 'sawtooth' },
+    trackTypes: ['bass', 'lead', 'pluck'],
+  },
+  {
+    description: 'Wide, airy sustain with softer tone shaping for pad beds and slower harmonic movement.',
+    focus: 'Width and wash',
+    id: 'air-canopy',
+    label: 'Air Canopy',
+    params: { attack: 0.26, chorusSend: 0.3, cutoff: 2600, delaySend: 0.18, reverbSend: 0.62, release: 3.2, sustain: 0.84, vibratoDepth: 0.04, vibratoRate: 2.8 },
+    source: { portamento: 0.01, samplePlayback: 'pitched', waveform: 'triangle' },
+    trackTypes: ['pad', 'lead'],
+  },
+  {
+    description: 'Shorter envelope and brighter top for plucks, hats, and small rhythmic accents.',
+    focus: 'Fast articulation',
+    id: 'needle-pluck',
+    label: 'Needle Pluck',
+    params: { attack: 0.002, bitCrush: 0.04, cutoff: 4200, decay: 0.1, release: 0.18, sustain: 0.12 },
+    source: { detune: 0, portamento: 0, samplePlayback: 'pitched', waveform: 'square' },
+    trackTypes: ['pluck', 'hihat', 'lead'],
+  },
+  {
+    description: 'Longer wash and more dramatic modulation for FX beds, transitions, and spacious hooks.',
+    focus: 'Texture and lift',
+    id: 'drift-bloom',
+    label: 'Drift Bloom',
+    params: { attack: 0.08, chorusSend: 0.24, cutoff: 3400, delaySend: 0.52, distortion: 0.08, reverbSend: 0.56, release: 1.9, vibratoDepth: 0.18, vibratoRate: 5.8 },
+    source: { detune: 12, samplePlayback: 'oneshot', sampleTriggerMode: 'active-slice', waveform: 'sawtooth' },
+    trackTypes: ['fx', 'pad', 'lead'],
+  },
+];
+
+export const getTrackVoicePresetDefinitions = (trackType: InstrumentType) => (
+  TRACK_VOICE_PRESET_DEFINITIONS.filter((preset) => preset.trackTypes.includes(trackType))
+);
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 const clampSampleEdge = (value: number, min: number, max: number) => clamp(value, min, max);

@@ -15,7 +15,7 @@ import {
 
 import { MAX_CUSTOM_SAMPLE_BYTES, getDefaultSamplePreset, getSamplePresetMeta, getSamplePresetOptions } from '../audio/sampleLibrary';
 import { useAudio } from '../context/AudioContext';
-import { defaultNoteForTrack } from '../project/schema';
+import { defaultNoteForTrack, getTrackVoicePresetDefinitions } from '../project/schema';
 import { Knob } from './Knob';
 import { Visualizer } from './Visualizer';
 
@@ -43,6 +43,7 @@ export const DeviceRack = () => {
     createSampleSlice,
     currentPattern,
     deleteSampleSlice,
+    applyTrackVoicePreset,
     isRecording,
     previewTrack,
     selectSampleSlice,
@@ -57,6 +58,7 @@ export const DeviceRack = () => {
   } = useAudio();
   const track = tracks.find((candidate) => candidate.id === selectedTrackId) ?? null;
   const sampleOptions = track ? getSamplePresetOptions(track.type) : [];
+  const trackVoicePresets = track ? getTrackVoicePresetDefinitions(track.type) : [];
   const activeSampleMeta = track ? getSamplePresetMeta(track.source.samplePreset) : null;
   const sampleWindowWidth = Math.max(0.05, track ? track.source.sampleEnd - track.source.sampleStart : 1);
   const selectedSampleSlice = track && typeof track.source.activeSampleSlice === 'number'
@@ -273,6 +275,31 @@ export const DeviceRack = () => {
               <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
                 <RackSection icon={<Waves className="h-4 w-4 text-[var(--accent)]" />} title="Source routing">
                   <div className="grid gap-4">
+                    <div className="rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
+                      <div className="section-label">Voice starts</div>
+                      <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
+                        Apply a full sound starting point for this lane, then fine tune from there.
+                      </div>
+                      <div className="mt-3 grid gap-2">
+                        {trackVoicePresets.map((preset) => (
+                          <button
+                            key={preset.id}
+                            className="rounded-[12px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3 text-left transition-colors hover:border-[rgba(114,217,255,0.26)] hover:bg-[rgba(114,217,255,0.05)]"
+                            onClick={() => applyTrackVoicePreset(track.id, preset.id)}
+                            type="button"
+                          >
+                            <div className="flex items-center justify-between gap-3">
+                              <span className="text-sm font-semibold text-[var(--text-primary)]">{preset.label}</span>
+                              <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--accent-strong)]">
+                                {preset.focus}
+                              </span>
+                            </div>
+                            <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">{preset.description}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
                     <label className="text-xs text-[var(--text-secondary)]">
                       <span className="section-label mb-2 block">Engine</span>
                       <select
