@@ -30,6 +30,14 @@ export interface WavConversionOptions {
   peakTargetDb?: number;
 }
 
+export interface AudioRenderAnalysis {
+  durationSeconds: number;
+  peakDb: number;
+  quality: 'clean' | 'hot' | 'quiet';
+  rmsDb: number;
+  sampleRate: number;
+}
+
 const getAudioContextConstructor = () => {
   if (typeof window === 'undefined') {
     return null;
@@ -171,6 +179,43 @@ const createProcessedAudioBuffer = (
   return processedBuffer;
 };
 
+const analyzeAudioBuffer = (audioBuffer: AudioBuffer): AudioRenderAnalysis => {
+  const channelCount = audioBuffer.numberOfChannels;
+  const sampleCount = audioBuffer.length;
+
+  let peak = 0;
+  let squareSum = 0;
+
+  for (let channelIndex = 0; channelIndex < channelCount; channelIndex += 1) {
+    const samples = audioBuffer.getChannelData(channelIndex);
+
+    for (let sampleIndex = 0; sampleIndex < sampleCount; sampleIndex += 1) {
+      const sample = samples[sampleIndex] ?? 0;
+      const absolute = Math.abs(sample);
+      peak = Math.max(peak, absolute);
+      squareSum += sample * sample;
+    }
+  }
+
+  const totalSamples = Math.max(1, channelCount * sampleCount);
+  const rms = Math.sqrt(squareSum / totalSamples);
+  const peakDb = peak > 0 ? 20 * Math.log10(peak) : -96;
+  const rmsDb = rms > 0 ? 20 * Math.log10(rms) : -96;
+  const quality = peakDb > -0.3
+    ? 'hot'
+    : rmsDb < -28
+      ? 'quiet'
+      : 'clean';
+
+  return {
+    durationSeconds: audioBuffer.duration,
+    peakDb: Number(peakDb.toFixed(1)),
+    quality,
+    rmsDb: Number(rmsDb.toFixed(1)),
+    sampleRate: audioBuffer.sampleRate,
+  };
+};
+
 export const encodeAudioBufferToWav = (
   audioBuffer: AudioBuffer,
   options: WavConversionOptions = {},
@@ -221,6 +266,14 @@ export const convertRecordingBlobToWav = async (
   recording: Blob,
   options: WavConversionOptions = {},
 ): Promise<Blob> => {
+  const result = await convertRecordingBlobToWavWithAnalysis(recording, options);
+  return result.wavBlob;
+};
+
+export const convertRecordingBlobToWavWithAnalysis = async (
+  recording: Blob,
+  options: WavConversionOptions = {},
+): Promise<{ analysis: AudioRenderAnalysis; wavBlob: Blob }> => {
   const AudioContextConstructor = getAudioContextConstructor();
 
   if (!AudioContextConstructor) {
@@ -232,7 +285,12 @@ export const convertRecordingBlobToWav = async (
   try {
     const arrayBuffer = await recording.arrayBuffer();
     const decoded = await context.decodeAudioData(arrayBuffer.slice(0));
-    return encodeAudioBufferToWav(decoded, options);
+    const processed = createProcessedAudioBuffer(decoded, options);
+
+    return {
+      analysis: analyzeAudioBuffer(processed),
+      wavBlob: encodeAudioBufferToWav(decoded, options),
+    };
   } finally {
     await context.close();
   }
@@ -291,6 +349,7 @@ function generateChecksum(data: Uint8Array): string {
 
 export const ExportUtils = {
   convertRecordingBlobToWav,
+  convertRecordingBlobToWavWithAnalysis,
   downloadBlob,
   encodeAudioBufferToWav,
   exportToMIDI,

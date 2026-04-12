@@ -173,12 +173,17 @@ export interface MasterPresetDefinition {
 }
 
 export interface BounceHistoryEntry {
+  durationSeconds?: number;
   exportedAt: string;
   id: string;
   label: string;
   masterSnapshotName: string | null;
   mode: 'mix' | 'stems';
   normalization: 'none' | 'peak';
+  peakDb?: number;
+  quality?: 'clean' | 'hot' | 'quiet';
+  rmsDb?: number;
+  sampleRate?: number;
   scope: 'pattern' | 'song' | 'clip-window' | 'loop-window';
   tailMode: 'short' | 'standard' | 'long';
 }
@@ -1045,7 +1050,7 @@ const normalizeBounceHistory = (input: unknown): BounceHistoryEntry[] => {
   }
 
   return input
-    .map((entry) => {
+    .map((entry): BounceHistoryEntry | null => {
       if (!isRecord(entry)) {
         return null;
       }
@@ -1069,6 +1074,7 @@ const normalizeBounceHistory = (input: unknown): BounceHistoryEntry[] => {
       }
 
       return {
+        durationSeconds: typeof entry.durationSeconds === 'number' ? clamp(entry.durationSeconds, 0, 7200) : undefined,
         exportedAt: typeof entry.exportedAt === 'string' ? entry.exportedAt : new Date().toISOString(),
         id: typeof entry.id === 'string' && entry.id ? entry.id : createId('bounce-history'),
         label: typeof entry.label === 'string' && entry.label.trim() ? entry.label.trim().slice(0, 40) : 'Reference print',
@@ -1077,6 +1083,10 @@ const normalizeBounceHistory = (input: unknown): BounceHistoryEntry[] => {
           : null,
         mode,
         normalization,
+        peakDb: typeof entry.peakDb === 'number' ? clamp(entry.peakDb, -96, 3) : undefined,
+        quality: entry.quality === 'clean' || entry.quality === 'hot' || entry.quality === 'quiet' ? entry.quality : undefined,
+        rmsDb: typeof entry.rmsDb === 'number' ? clamp(entry.rmsDb, -96, 0) : undefined,
+        sampleRate: typeof entry.sampleRate === 'number' ? clamp(Math.round(entry.sampleRate), 8000, 192000) : undefined,
         scope,
         tailMode,
       } satisfies BounceHistoryEntry;

@@ -346,6 +346,32 @@ export const SettingsSidebar = () => {
                       {new Date(entry.exportedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                     </span>
                   </div>
+                  {entry.quality && entry.peakDb !== undefined && entry.rmsDb !== undefined && entry.sampleRate ? (
+                    <div className="mt-3 rounded-2xl border border-[var(--border-soft)] bg-[rgba(255,255,255,0.025)] px-3 py-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span
+                          className="rounded-full border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em]"
+                          style={{
+                            borderColor: entry.quality === 'hot' ? 'rgba(248,113,113,0.32)' : entry.quality === 'quiet' ? 'rgba(251,191,36,0.32)' : 'rgba(114,217,255,0.26)',
+                            color: entry.quality === 'hot' ? '#fca5a5' : entry.quality === 'quiet' ? '#fde68a' : '#b6f1ff',
+                          }}
+                        >
+                          {entry.quality === 'hot' ? 'Hot print' : entry.quality === 'quiet' ? 'Quiet print' : 'Clean print'}
+                        </span>
+                        <span className="text-[11px] text-[var(--text-secondary)]">
+                          Peak {entry.peakDb.toFixed(1)} dBFS · RMS {entry.rmsDb.toFixed(1)} dBFS
+                        </span>
+                      </div>
+                      <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
+                        {entry.durationSeconds ? `${entry.durationSeconds.toFixed(1)}s` : 'Unknown length'} · {Math.round(entry.sampleRate / 100) / 10} kHz
+                        {entry.quality === 'hot'
+                          ? ' · reduce output gain or widen headroom before trusting this print'
+                          : entry.quality === 'quiet'
+                            ? ' · consider more output gain or stronger glue before sharing this print'
+                            : ' · headroom and loudness look usable for a reference print'}
+                      </div>
+                    </div>
+                  ) : null}
                   <div className="mt-3">
                     <ActionButton
                       disabled={renderState.active}

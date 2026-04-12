@@ -51,7 +51,7 @@ import {
   persistSession,
 } from '../project/storage';
 import {
-  convertRecordingBlobToWav,
+  convertRecordingBlobToWavWithAnalysis,
   downloadBlob,
   sanitizeExportFileName,
 } from '../utils/export';
@@ -2444,6 +2444,13 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
     scope: ExportScope,
     options: { normalization?: BounceNormalizationMode; tailMode?: BounceTailMode },
     label: string,
+    analysis?: {
+      durationSeconds: number;
+      peakDb: number;
+      quality: 'clean' | 'hot' | 'quiet';
+      rmsDb: number;
+      sampleRate: number;
+    },
   ) => {
     const matchingSnapshot = project.masterSnapshots.find((snapshot) => (
       snapshot.settings.glueCompression === project.master.glueCompression
@@ -2464,8 +2471,13 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
         masterSnapshotName: matchingSnapshot?.name ?? null,
         mode,
         normalization: options.normalization ?? 'none',
+        peakDb: analysis?.peakDb,
+        quality: analysis?.quality,
+        rmsDb: analysis?.rmsDb,
+        sampleRate: analysis?.sampleRate,
         scope,
         tailMode: options.tailMode ?? 'standard',
+        durationSeconds: analysis?.durationSeconds,
       },
     });
   };
@@ -2566,11 +2578,11 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
         progress: Math.max(current.progress, 0.98),
       }));
 
-      const wavBlob = await convertRecordingBlobToWav(recording, {
+      const { analysis, wavBlob } = await convertRecordingBlobToWavWithAnalysis(recording, {
         normalization: options.normalization ?? 'none',
       });
       downloadBlob(wavBlob, `${sanitizeExportFileName(project.metadata.name)}-${renderPayload.fileSuffix}-mix.wav`);
-      appendBounceHistory('mix', scope, options, `${formatBounceScopeLabel(scope)} mix`);
+      appendBounceHistory('mix', scope, options, `${formatBounceScopeLabel(scope)} mix`, analysis);
       setRenderState((current) => ({
         ...current,
         phase: 'Mix ready',
@@ -2642,7 +2654,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
           progress: Math.max(current.progress, progressBase + (progressWeight * 0.98)),
         }));
 
-        const wavBlob = await convertRecordingBlobToWav(recording, {
+        const { wavBlob } = await convertRecordingBlobToWavWithAnalysis(recording, {
           normalization: options.normalization ?? 'none',
         });
         downloadBlob(
