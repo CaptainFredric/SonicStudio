@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ArrowDown,
+  ArrowUp,
   Braces,
   Copy,
   Eraser,
@@ -194,6 +196,7 @@ export const Arranger = () => {
     loopRangeEndBeat,
     loopRangeStartBeat,
     makeClipPatternUnique,
+    moveTrack,
     patternCount,
     pinnedTrackIds,
     removeArrangerClip,
@@ -1831,6 +1834,26 @@ export const Arranger = () => {
                                 }}
                               >
                                 <Pin className="h-3.5 w-3.5" />
+                              </LaneStateButton>
+                              <LaneStateButton
+                                active={false}
+                                label="Move track lane up"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  moveTrack(track.id, 'up');
+                                }}
+                              >
+                                <ArrowUp className="h-3.5 w-3.5" />
+                              </LaneStateButton>
+                              <LaneStateButton
+                                active={false}
+                                label="Move track lane down"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  moveTrack(track.id, 'down');
+                                }}
+                              >
+                                <ArrowDown className="h-3.5 w-3.5" />
                               </LaneStateButton>
                             </div>
                           </button>

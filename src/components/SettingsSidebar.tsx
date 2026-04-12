@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  ArrowDown,
+  ArrowUp,
   Download,
   FolderOpen,
   Gauge,
@@ -79,6 +81,7 @@ export const SettingsSidebar = () => {
     transportMode,
     updateTrackPan,
     updateTrackVolume,
+    moveTrack,
     applyMasterSnapshot,
     deleteMasterSnapshot,
   } = useAudio();
@@ -511,6 +514,22 @@ export const SettingsSidebar = () => {
                 <div className="grid grid-cols-2 gap-3">
                   <MetricCell label="Waveform" value={selectedTrack.source.waveform} />
                   <MetricCell label="Octave" value={String(selectedTrack.source.octaveShift)} />
+                </div>
+
+                <div>
+                  <div className="section-label">Lane order</div>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <ActionButton
+                      icon={<ArrowUp className="h-3.5 w-3.5" />}
+                      label="Move up"
+                      onClick={() => moveTrack(selectedTrack.id, 'up')}
+                    />
+                    <ActionButton
+                      icon={<ArrowDown className="h-3.5 w-3.5" />}
+                      label="Move down"
+                      onClick={() => moveTrack(selectedTrack.id, 'down')}
+                    />
+                  </div>
                 </div>
 
                 <div>

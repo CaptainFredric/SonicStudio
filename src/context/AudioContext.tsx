@@ -103,6 +103,7 @@ interface AudioContextType {
   master: MasterSettings;
   loopArrangerClip: (clipId: string, copies: number) => void;
   makeClipPatternUnique: (clipId: string) => void;
+  moveTrack: (trackId: string, direction: 'up' | 'down') => void;
   duplicateTrack: (trackId: string) => void;
   exportSession: () => void;
   importSession: (file: File) => Promise<boolean>;
@@ -220,6 +221,7 @@ type EditorAction =
   | { type: 'MAKE_CLIP_PATTERN_UNIQUE'; clipId: string }
   | { type: 'SPLIT_ARRANGER_CLIP'; clipId: string; splitAtBeat?: number }
   | { type: 'DUPLICATE_TRACK'; trackId: string }
+  | { type: 'MOVE_TRACK'; direction: 'up' | 'down'; trackId: string }
   | { type: 'HYDRATE_SESSION'; session: StudioSession }
   | { type: 'REDO' }
   | { type: 'REMOVE_ARRANGER_CLIP'; clipId: string }
@@ -498,6 +500,27 @@ const buildMasterSnapshotName = (project: Project) => `Snapshot ${project.master
 const buildTrackSnapshotName = (project: Project, track: Track) => {
   const matchingCount = project.trackSnapshots.filter((snapshot) => snapshot.trackType === track.type).length;
   return `${track.name.slice(0, 18)} ${matchingCount + 1}`.trim();
+};
+const moveItem = <T,>(items: T[], fromIndex: number, toIndex: number) => {
+  if (
+    fromIndex < 0
+    || toIndex < 0
+    || fromIndex >= items.length
+    || toIndex >= items.length
+    || fromIndex === toIndex
+  ) {
+    return items;
+  }
+
+  const nextItems = [...items];
+  const [movedItem] = nextItems.splice(fromIndex, 1);
+
+  if (!movedItem) {
+    return items;
+  }
+
+  nextItems.splice(toIndex, 0, movedItem);
+  return nextItems;
 };
 const formatBounceScopeLabel = (scope: ExportScope) => {
   switch (scope) {
@@ -1931,6 +1954,30 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
       }, duplicatedTrack.id);
     }
 
+    case 'MOVE_TRACK': {
+      const sourceIndex = present.tracks.findIndex((track) => track.id === action.trackId);
+      if (sourceIndex < 0) {
+        return state;
+      }
+
+      const targetIndex = action.direction === 'up' ? sourceIndex - 1 : sourceIndex + 1;
+      if (targetIndex < 0 || targetIndex >= present.tracks.length) {
+        return state;
+      }
+
+      const nextTracks = moveItem(present.tracks, sourceIndex, targetIndex);
+
+      return commitProject(state, {
+        ...present,
+        arrangerClips: syncArrangerClips(
+          present.arrangerClips,
+          nextTracks,
+          present.transport.patternCount,
+        ),
+        tracks: nextTracks,
+      });
+    }
+
     case 'REMOVE_TRACK': {
       if (!present.tracks.some((track) => track.id === action.trackId)) {
         return state;
@@ -2684,6 +2731,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       exportTrackStems,
       loopArrangerClip: (clipId, copies) => dispatch({ type: 'LOOP_ARRANGER_CLIP', clipId, copies }),
       makeClipPatternUnique: (clipId) => dispatch({ type: 'MAKE_CLIP_PATTERN_UNIQUE', clipId }),
+      moveTrack: (trackId, direction) => dispatch({ type: 'MOVE_TRACK', direction, trackId }),
       createSongMarker: (beat, name) => dispatch({ type: 'CREATE_SONG_MARKER', beat, name }),
       duplicateSongRange: (startBeat, endBeat, label) => dispatch({ type: 'DUPLICATE_SONG_RANGE', endBeat, label, startBeat }),
       duplicateTrack: (trackId) => dispatch({ type: 'DUPLICATE_TRACK', trackId }),

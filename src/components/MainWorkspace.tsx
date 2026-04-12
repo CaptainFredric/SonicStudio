@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+  ArrowDown,
   ArrowLeftRight,
+  ArrowUp,
   Copy,
   Eraser,
   Focus,
@@ -54,6 +56,7 @@ export const MainWorkspace = () => {
     currentStep,
     currentPattern,
     duplicateTrack,
+    moveTrack,
     pinnedTrackIds,
     previewTrack,
     removeTrack,
@@ -339,6 +342,18 @@ export const MainWorkspace = () => {
                               >
                                 <Pin className="h-3.5 w-3.5" />
                               </StateActionBtn>
+                              <RowActionBtn label="Move track up" onClick={(event) => {
+                                event.stopPropagation();
+                                moveTrack(track.id, 'up');
+                              }}>
+                                <ArrowUp className="h-3.5 w-3.5" />
+                              </RowActionBtn>
+                              <RowActionBtn label="Move track down" onClick={(event) => {
+                                event.stopPropagation();
+                                moveTrack(track.id, 'down');
+                              }}>
+                                <ArrowDown className="h-3.5 w-3.5" />
+                              </RowActionBtn>
                               <RowActionBtn label="Duplicate track" onClick={(event) => {
                                 event.stopPropagation();
                                 duplicateTrack(track.id);
