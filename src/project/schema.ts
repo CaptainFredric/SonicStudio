@@ -144,6 +144,13 @@ export interface MasterSettings {
   tone: number;
 }
 
+export interface MasterSnapshot {
+  id: string;
+  name: string;
+  settings: MasterSettings;
+  updatedAt: string;
+}
+
 export interface MasterPresetDefinition {
   description: string;
   id: 'balanced' | 'club' | 'open-air';
@@ -153,6 +160,7 @@ export interface MasterPresetDefinition {
 
 export interface Project {
   master: MasterSettings;
+  masterSnapshots: MasterSnapshot[];
   metadata: ProjectMetadata;
   transport: TransportSettings;
   tracks: Track[];
@@ -181,7 +189,7 @@ export const MAX_PATTERN_COUNT = 8;
 export const MAX_STEPS_PER_PATTERN = 64;
 export const MIN_PATTERN_COUNT = 1;
 export const MIN_STEPS_PER_PATTERN = 8;
-export const PROJECT_SCHEMA_VERSION = 9;
+export const PROJECT_SCHEMA_VERSION = 10;
 
 export const INITIAL_MASTER: MasterSettings = {
   glueCompression: 0.42,
@@ -477,6 +485,7 @@ const createProjectFrame = (
     buildProject: (arrangerClips: ArrangementClip[], markers: SongMarker[] = []): Project => ({
       arrangerClips,
       master: INITIAL_MASTER,
+      masterSnapshots: [],
       markers,
       metadata: buildProjectMetadata(projectName),
       tracks,
@@ -919,6 +928,30 @@ const normalizeMaster = (master: unknown): MasterSettings => {
       1,
     ),
   };
+};
+
+const normalizeMasterSnapshots = (input: unknown): MasterSnapshot[] => {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+
+  return input
+    .map((snapshot, index) => {
+      if (!isRecord(snapshot)) {
+        return null;
+      }
+
+      return {
+        id: typeof snapshot.id === 'string' && snapshot.id ? snapshot.id : createId('master-snapshot'),
+        name: typeof snapshot.name === 'string' && snapshot.name.trim()
+          ? snapshot.name.trim().slice(0, 28)
+          : `Snapshot ${index + 1}`,
+        settings: normalizeMaster(snapshot.settings),
+        updatedAt: typeof snapshot.updatedAt === 'string' ? snapshot.updatedAt : new Date().toISOString(),
+      } satisfies MasterSnapshot;
+    })
+    .filter((snapshot): snapshot is MasterSnapshot => snapshot !== null)
+    .slice(0, 8);
 };
 
 const normalizeTrack = (
@@ -1467,6 +1500,7 @@ export const normalizeProject = (input: unknown): Project | null => {
   return {
     arrangerClips: resolvedArrangerClips,
     master: normalizeMaster(input.master),
+    masterSnapshots: normalizeMasterSnapshots(input.masterSnapshots),
     markers: normalizeSongMarkers(input.markers, maxMarkerBeat),
     metadata: {
       createdAt,

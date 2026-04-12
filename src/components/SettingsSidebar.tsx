@@ -4,8 +4,10 @@ import {
   FolderOpen,
   Gauge,
   Layers3,
+  Save,
   SlidersHorizontal,
   Sparkles,
+  Trash2,
   X,
 } from 'lucide-react';
 
@@ -49,11 +51,13 @@ export const SettingsSidebar = () => {
     loopRangeEndBeat,
     loopRangeStartBeat,
     master,
+    masterSnapshots,
     newSession,
     patternCount,
     renderState,
     renameTrack,
     saveProject,
+    saveMasterSnapshot,
     saveStatus,
     selectedArrangerClipId,
     selectedTrackId,
@@ -72,6 +76,8 @@ export const SettingsSidebar = () => {
     transportMode,
     updateTrackPan,
     updateTrackVolume,
+    applyMasterSnapshot,
+    deleteMasterSnapshot,
   } = useAudio();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
@@ -82,6 +88,9 @@ export const SettingsSidebar = () => {
   const readiness = getStudioReadinessAssessment();
   const activeMasterPreset = MASTER_PRESET_DEFINITIONS.find((preset) => (
     isMasterPresetMatch(master, preset.settings)
+  )) ?? null;
+  const activeMasterSnapshot = masterSnapshots.find((snapshot) => (
+    isMasterPresetMatch(master, snapshot.settings)
   )) ?? null;
   const hasLoopWindow = loopRangeStartBeat !== null && loopRangeEndBeat !== null;
 
@@ -466,6 +475,63 @@ export const SettingsSidebar = () => {
           <div className="flex items-center gap-2 text-[var(--text-primary)]">
             <SlidersHorizontal className="h-4 w-4 text-[var(--accent)]" />
             <span className="section-label">Master Output</span>
+          </div>
+          <div className="mt-4">
+            <div className="flex items-center justify-between gap-3">
+              <span className="section-label">Mix recall</span>
+              <span className="font-mono text-xs text-[var(--accent-strong)]">
+                {activeMasterSnapshot ? activeMasterSnapshot.name : 'Unsaved'}
+              </span>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <ActionButton
+                disabled={renderState.active}
+                icon={<Save className="h-3.5 w-3.5" />}
+                label={activeMasterSnapshot ? 'Update current' : 'Save current'}
+                onClick={() => saveMasterSnapshot(activeMasterSnapshot?.id ?? null)}
+              />
+              <ActionButton
+                disabled={renderState.active || masterSnapshots.length === 0}
+                icon={<Layers3 className="h-3.5 w-3.5" />}
+                label="Store new"
+                onClick={() => saveMasterSnapshot()}
+              />
+            </div>
+            <div className="mt-3 grid gap-2">
+              {masterSnapshots.length > 0 ? masterSnapshots.map((snapshot) => (
+                <div key={snapshot.id} className="rounded-2xl border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold text-[var(--text-primary)]">{snapshot.name}</div>
+                      <div className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
+                        Glue {Math.round(snapshot.settings.glueCompression * 100)} · Tone {Math.round(snapshot.settings.tone * 100)} · Gain {snapshot.settings.outputGain.toFixed(1)} dB
+                      </div>
+                    </div>
+                    <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--accent-strong)]">
+                      {activeMasterSnapshot?.id === snapshot.id ? 'Live' : 'Stored'}
+                    </span>
+                  </div>
+                  <div className="mt-3 flex gap-2">
+                    <ActionButton
+                      disabled={renderState.active}
+                      icon={<Gauge className="h-3.5 w-3.5" />}
+                      label="Apply"
+                      onClick={() => applyMasterSnapshot(snapshot.id)}
+                    />
+                    <ActionButton
+                      disabled={renderState.active}
+                      icon={<Trash2 className="h-3.5 w-3.5" />}
+                      label="Delete"
+                      onClick={() => deleteMasterSnapshot(snapshot.id)}
+                    />
+                  </div>
+                </div>
+              )) : (
+                <div className="rounded-2xl border border-dashed border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-4 py-4 text-[11px] leading-5 text-[var(--text-secondary)]">
+                  Save master states you trust, then flip between them while checking a section print. That is much safer than rebuilding a mix from memory.
+                </div>
+              )}
+            </div>
           </div>
           <div className="mt-4">
             <div className="flex items-center justify-between gap-3">

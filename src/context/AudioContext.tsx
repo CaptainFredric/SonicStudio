@@ -26,6 +26,7 @@ import {
   type ArrangementClip,
   type AppView,
   type InstrumentType,
+  type MasterSnapshot,
   type MasterSettings,
   type NoteEvent,
   type Project,
@@ -81,6 +82,7 @@ interface AudioContextType {
   activeView: AppView;
   addArrangerClip: (trackId?: string) => void;
   applyTrackVoicePreset: (trackId: string, presetId: string) => void;
+  applyMasterSnapshot: (snapshotId: string) => void;
   arrangerClips: ArrangementClip[];
   bpm: number;
   canRedo: boolean;
@@ -174,6 +176,9 @@ interface AudioContextType {
   updateTrackPan: (trackId: string, pan: number) => void;
   updateTrackVolume: (trackId: string, volume: number) => void;
   deleteSampleSlice: (trackId: string, sliceIndex: number) => void;
+  deleteMasterSnapshot: (snapshotId: string) => void;
+  masterSnapshots: MasterSnapshot[];
+  saveMasterSnapshot: (snapshotId?: string | null) => void;
 }
 
 interface HistoryState {
@@ -190,12 +195,14 @@ interface EditorState {
 type EditorAction =
   | { type: 'ADD_ARRANGER_CLIP'; trackId?: string }
   | { type: 'APPLY_TRACK_VOICE_PRESET'; presetId: string; trackId: string }
+  | { type: 'APPLY_MASTER_SNAPSHOT'; snapshotId: string }
   | { type: 'CLEAR_TRACK'; trackId: string }
   | { type: 'CLEAR_PATTERN_AT'; trackId: string; patternIndex: number }
   | { type: 'CREATE_SONG_MARKER'; beat: number; name?: string }
   | { type: 'CREATE_TRACK'; trackType: InstrumentType }
   | { type: 'CREATE_SAMPLE_SLICE'; trackId: string; slice?: Partial<SampleSliceMemory> }
   | { type: 'DELETE_SAMPLE_SLICE'; trackId: string; sliceIndex: number }
+  | { type: 'DELETE_MASTER_SNAPSHOT'; snapshotId: string }
   | { type: 'DUPLICATE_ARRANGER_CLIP'; clipId: string }
   | { type: 'DUPLICATE_SONG_RANGE'; endBeat: number; label?: string; startBeat: number }
   | { type: 'LOOP_ARRANGER_CLIP'; clipId: string; copies: number }
@@ -226,6 +233,7 @@ type EditorAction =
   | { type: 'SET_TRACK_PARAMS'; params: Partial<SynthParams>; trackId: string }
   | { type: 'SET_TRACK_SOURCE'; source: Partial<TrackSource>; trackId: string }
   | { type: 'SET_TRANSPORT_MODE'; mode: TransportMode }
+  | { type: 'SAVE_MASTER_SNAPSHOT'; snapshotId?: string | null }
   | { type: 'TOGGLE_MUTE'; trackId: string }
   | { type: 'TOGGLE_PAN'; pan: number; trackId: string }
   | { type: 'TOGGLE_SETTINGS' }
@@ -473,6 +481,8 @@ const commitProject = (
     },
   };
 };
+
+const buildMasterSnapshotName = (project: Project) => `Snapshot ${project.masterSnapshots.length + 1}`;
 
 const getClipContext = (project: Project, clipId: string) => {
   const clip = project.arrangerClips.find((candidate) => candidate.id === clipId);
@@ -769,6 +779,20 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
   const { present } = state.history;
 
   switch (action.type) {
+    case 'APPLY_MASTER_SNAPSHOT': {
+      const snapshot = present.masterSnapshots.find((candidate) => candidate.id === action.snapshotId);
+      if (!snapshot) {
+        return state;
+      }
+
+      return commitProject(state, {
+        ...present,
+        master: {
+          ...snapshot.settings,
+        },
+      });
+    }
+
     case 'APPLY_TRACK_VOICE_PRESET': {
       const track = present.tracks.find((candidate) => candidate.id === action.trackId);
       if (!track) {
@@ -974,6 +998,43 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
         },
       });
 
+    case 'SAVE_MASTER_SNAPSHOT': {
+      const timestamp = new Date().toISOString();
+
+      if (action.snapshotId) {
+        const didUpdate = present.masterSnapshots.some((snapshot) => snapshot.id === action.snapshotId);
+        if (!didUpdate) {
+          return state;
+        }
+
+        return commitProject(state, {
+          ...present,
+          masterSnapshots: present.masterSnapshots.map((snapshot) => (
+            snapshot.id === action.snapshotId
+              ? {
+                  ...snapshot,
+                  settings: { ...present.master },
+                  updatedAt: timestamp,
+                }
+              : snapshot
+          )),
+        });
+      }
+
+      return commitProject(state, {
+        ...present,
+        masterSnapshots: [
+          ...present.masterSnapshots.slice(-7),
+          {
+            id: `master-snapshot_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+            name: buildMasterSnapshotName(present),
+            settings: { ...present.master },
+            updatedAt: timestamp,
+          },
+        ],
+      });
+    }
+
     case 'SET_PATTERN_COUNT':
       return commitProject(state, resizeProjectTransport(present, action.patternCount, present.transport.stepsPerPattern));
 
@@ -1010,6 +1071,12 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
 
         return mergedTrack;
       }));
+
+    case 'DELETE_MASTER_SNAPSHOT':
+      return commitProject(state, {
+        ...present,
+        masterSnapshots: present.masterSnapshots.filter((snapshot) => snapshot.id !== action.snapshotId),
+      });
 
     case 'SELECT_SAMPLE_SLICE':
       return commitProject(state, updateTrack(present, action.trackId, (track) => ({
@@ -2439,6 +2506,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
     <AudioContext.Provider value={{
       activeView,
       addArrangerClip: (trackId) => dispatch({ type: 'ADD_ARRANGER_CLIP', trackId }),
+      applyMasterSnapshot: (snapshotId) => dispatch({ type: 'APPLY_MASTER_SNAPSHOT', snapshotId }),
       applyTrackVoicePreset: (trackId, presetId) => dispatch({ type: 'APPLY_TRACK_VOICE_PRESET', presetId, trackId }),
       arrangerClips,
       bpm: project.transport.bpm,
@@ -2470,6 +2538,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       loopRangeStartBeat,
       loadSessionTemplate,
       master: project.master,
+      masterSnapshots: project.masterSnapshots,
       newSession,
       patternCount: project.transport.patternCount,
       pinnedTrackIds,
@@ -2483,6 +2552,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       renameProject: (name) => dispatch({ type: 'SET_PROJECT_NAME', name }),
       renameTrack: (trackId, name) => dispatch({ type: 'SET_TRACK_NAME', name, trackId }),
       saveProject,
+      saveMasterSnapshot: (snapshotId) => dispatch({ type: 'SAVE_MASTER_SNAPSHOT', snapshotId }),
       saveStatus,
       selectedArrangerClipId,
       selectedTrackId,
@@ -2533,6 +2603,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       updateTrackPan: (trackId, pan) => dispatch({ type: 'TOGGLE_PAN', pan, trackId }),
       updateTrackVolume: (trackId, volume) => dispatch({ type: 'TOGGLE_VOLUME', trackId, volume }),
       deleteSampleSlice: (trackId, sliceIndex) => dispatch({ type: 'DELETE_SAMPLE_SLICE', sliceIndex, trackId }),
+      deleteMasterSnapshot: (snapshotId) => dispatch({ type: 'DELETE_MASTER_SNAPSHOT', snapshotId }),
     }}>
       {children}
     </AudioContext.Provider>
