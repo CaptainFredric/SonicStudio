@@ -163,15 +163,7 @@ export const TopBar = () => {
           </div>
         </div>
 
-        {!isInitialized ? (
-          <button
-            className="h-11 w-full self-start border border-[rgba(130,201,187,0.24)] bg-[var(--accent-muted)] px-5 text-sm font-semibold text-[var(--accent-strong)] transition-colors hover:border-[rgba(130,201,187,0.36)] hover:text-[var(--text-primary)]"
-            onClick={initAudio}
-          >
-            Initialize audio
-          </button>
-        ) : (
-          <div className="surface-panel-muted grid gap-3 px-4 py-3 lg:grid-cols-[auto_auto_minmax(0,1fr)]">
+        <div className="surface-panel-muted grid gap-3 px-4 py-3 lg:grid-cols-[auto_auto_minmax(0,1fr)]">
             <div className="flex items-center gap-1 rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-1">
               <IconBtn disabled={!canUndo} label="Undo" onClick={undo}>
                 <Undo2 className="h-4 w-4" />
@@ -238,12 +230,14 @@ export const TopBar = () => {
                 <div className="section-label mb-1">Audio</div>
                 <button
                   className="control-chip flex h-10 items-center justify-center px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                  data-active="true"
+                  data-active={isInitialized ? 'true' : 'false'}
                   onClick={() => void initAudio()}
                 >
-                  Re arm
+                  {isInitialized ? 'Re arm' : 'Wake audio'}
                 </button>
-                <div className="mt-1 text-[11px] text-[var(--text-secondary)]">Resume sound if the browser suspended audio.</div>
+                <div className="mt-1 text-[11px] text-[var(--text-secondary)]">
+                  {isInitialized ? 'Resume sound if the browser suspended audio.' : 'Play or audition can also start audio automatically.'}
+                </div>
               </div>
 
               <div className="min-w-0">
@@ -253,12 +247,11 @@ export const TopBar = () => {
                 </div>
                 <div className="mt-1 flex items-center gap-2 text-[11px] text-[var(--text-secondary)]">
                   <Radio className="h-3 w-3 text-[var(--accent)]" />
-                  {loopSummary}
+                  {isInitialized ? loopSummary : 'Audio is idle until first interaction'}
                 </div>
               </div>
             </div>
           </div>
-        )}
       </div>
 
       <div className="mt-3 grid gap-3 2xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
