@@ -164,7 +164,7 @@ export const DeviceRack = () => {
 
   return (
     <section className="surface-panel min-h-[320px] max-h-[46vh] overflow-auto p-3">
-      <div className="grid gap-3 xl:grid-cols-[300px_minmax(0,1fr)]">
+      <div className="grid gap-3 2xl:grid-cols-[300px_minmax(0,1fr)]">
         <div className="surface-panel-strong flex min-h-[280px] flex-col justify-between p-4">
           <div>
             <div className="flex items-start justify-between gap-3">
@@ -321,7 +321,7 @@ export const DeviceRack = () => {
           </div>
         </div>
 
-        <div className="surface-panel-strong min-h-[280px] p-4">
+        <div className="surface-panel-strong min-h-[280px] min-w-0 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-soft)] pb-4">
             <div>
               <div className="section-label">Sound desk</div>
@@ -353,7 +353,7 @@ export const DeviceRack = () => {
 
           <div className="mt-4">
             {activeRackView === 'SOURCE' && (
-              <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+              <div className="grid gap-4 2xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
                 <RackSection icon={<Waves className="h-4 w-4 text-[var(--accent)]" />} title="Source routing">
                   <div className="grid gap-4">
                     {isSampleTrack && (
@@ -833,9 +833,9 @@ export const DeviceRack = () => {
             )}
 
             {activeRackView === 'SHAPE' && (
-              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+              <div className="grid gap-4 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
                 <RackSection icon={<Sparkles className="h-4 w-4 text-[var(--accent)]" />} title="Envelope">
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-5">
+                  <div className="grid gap-x-4 gap-y-5 sm:grid-cols-2">
                     <Knob label="Attack" max={1} min={0.001} onChange={(value) => setTrackParams(track.id, { attack: value })} unit="s" value={track.params.attack} />
                     <Knob label="Decay" max={2} min={0.01} onChange={(value) => setTrackParams(track.id, { decay: value })} unit="s" value={track.params.decay} />
                     <Knob label="Sustain" max={1} min={0} onChange={(value) => setTrackParams(track.id, { sustain: value })} value={track.params.sustain} />
@@ -869,7 +869,7 @@ export const DeviceRack = () => {
             )}
 
             {activeRackView === 'SPACE' && (
-              <div className="grid gap-4 xl:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)]">
+              <div className="grid gap-4 2xl:grid-cols-[minmax(0,0.72fr)_minmax(0,1.28fr)]">
                 <RackSection icon={<SlidersHorizontal className="h-4 w-4 text-[var(--accent)]" />} title="Motion">
                   <div className="grid gap-4 sm:grid-cols-2">
                     <Knob color="#8ab4ff" label="Vib rate" max={12} min={0.1} onChange={(value) => setTrackParams(track.id, { vibratoRate: value })} unit="Hz" value={track.params.vibratoRate} />
@@ -878,7 +878,7 @@ export const DeviceRack = () => {
                 </RackSection>
 
                 <RackSection icon={<Zap className="h-4 w-4 text-[var(--accent)]" />} title="Drive and space">
-                  <div className="grid gap-4 sm:grid-cols-3 xl:grid-cols-5">
+                  <div className="grid gap-4 sm:grid-cols-2 2xl:grid-cols-5">
                     <Knob color="#96b9f3" label="Chorus" max={1} min={0} onChange={(value) => setTrackParams(track.id, { chorusSend: value })} value={track.params.chorusSend} />
                     <Knob color="#d79cff" label="Crush" max={1} min={0} onChange={(value) => setTrackParams(track.id, { bitCrush: value })} value={track.params.bitCrush} />
                     <Knob color="#f08f86" label="Drive" max={1} min={0} onChange={(value) => setTrackParams(track.id, { distortion: value })} value={track.params.distortion} />
