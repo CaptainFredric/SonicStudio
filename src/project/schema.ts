@@ -131,7 +131,9 @@ export interface ProjectMetadata {
 
 export interface TransportSettings {
   bpm: number;
+  countInBars: number;
   currentPattern: number;
+  metronomeEnabled: boolean;
   mode: TransportMode;
   patternCount: number;
   stepsPerPattern: number;
@@ -515,7 +517,9 @@ const createProjectFrame = (
 ) => {
   const transport: TransportSettings = {
     bpm,
+    countInBars: 0,
     currentPattern: 0,
+    metronomeEnabled: false,
     mode,
     patternCount,
     stepsPerPattern,
@@ -938,11 +942,13 @@ const normalizeTransport = (transport: unknown): TransportSettings => {
 
   return {
     bpm: clamp(typeof candidate.bpm === 'number' ? candidate.bpm : 128, 40, 240),
+    countInBars: clamp(typeof candidate.countInBars === 'number' ? Math.round(candidate.countInBars) : 0, 0, 2),
     currentPattern: clamp(
       typeof candidate.currentPattern === 'number' ? Math.round(candidate.currentPattern) : 0,
       0,
       patternCount - 1,
     ),
+    metronomeEnabled: candidate.metronomeEnabled === true,
     mode: candidate.mode === 'SONG' ? 'SONG' : 'PATTERN',
     patternCount,
     stepsPerPattern,

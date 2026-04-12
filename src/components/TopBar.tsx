@@ -34,6 +34,9 @@ export const TopBar = () => {
     bpm,
     canRedo,
     canUndo,
+    countInActive,
+    countInBars,
+    countInBeatsRemaining,
     currentPattern,
     initAudio,
     isInitialized,
@@ -43,6 +46,7 @@ export const TopBar = () => {
     loopRangeEndBeat,
     loopRangeStartBeat,
     master,
+    metronomeEnabled,
     patternCount,
     projectName,
     redo,
@@ -53,7 +57,9 @@ export const TopBar = () => {
     selectedTrackId,
     setActiveView,
     setBpm,
+    setCountInBars,
     setCurrentPattern,
+    setMetronomeEnabled,
     setTransportMode,
     songLengthInBeats,
     stop,
@@ -88,6 +94,11 @@ export const TopBar = () => {
     : transportMode === 'SONG'
       ? 'Arranger timeline is active'
       : 'Pattern loop is active';
+  const transportSummary = countInActive
+    ? `Count in ${countInBeatsRemaining} beat${countInBeatsRemaining === 1 ? '' : 's'}`
+    : isInitialized
+      ? loopSummary
+      : 'Audio is idle until first interaction';
 
   return (
     <header className="surface-panel px-3 py-3 sm:px-5 sm:py-3">
@@ -184,6 +195,25 @@ export const TopBar = () => {
                     onClick={() => setTransportMode('SONG')}
                   />
                 </div>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <ModeButton
+                    active={metronomeEnabled}
+                    label={metronomeEnabled ? 'Metronome on' : 'Metronome off'}
+                    onClick={() => setMetronomeEnabled(!metronomeEnabled)}
+                  />
+                  <div className="flex items-center gap-1 rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-1">
+                    {[0, 1, 2].map((bars) => (
+                      <React.Fragment key={bars}>
+                        <PatternButton
+                          active={countInBars === bars}
+                          onClick={() => setCountInBars(bars)}
+                        >
+                          {bars === 0 ? 'No count' : `${bars} bar`}
+                        </PatternButton>
+                      </React.Fragment>
+                    ))}
+                  </div>
+                </div>
               </div>
 
               <div className="min-w-0">
@@ -217,7 +247,11 @@ export const TopBar = () => {
                   {isInitialized ? 'Re arm' : 'Wake audio'}
                 </button>
                 <div className="mt-1 text-[11px] text-[var(--text-secondary)]">
-                  {isInitialized ? 'Resume sound if the browser suspended audio.' : 'Play or audition can also start audio automatically.'}
+                  {metronomeEnabled
+                    ? `Metronome is armed${countInBars > 0 ? ` with ${countInBars} bar count in` : ''}.`
+                    : isInitialized
+                      ? 'Resume sound if the browser suspended audio.'
+                      : 'Play or audition can also start audio automatically.'}
                 </div>
               </div>
 
@@ -228,7 +262,7 @@ export const TopBar = () => {
                 </div>
                 <div className="mt-1 flex items-center gap-2 text-[11px] text-[var(--text-secondary)]">
                   <Radio className="h-3 w-3 text-[var(--accent)]" />
-                  {isInitialized ? loopSummary : 'Audio is idle until first interaction'}
+                  {transportSummary}
                 </div>
               </div>
             </div>

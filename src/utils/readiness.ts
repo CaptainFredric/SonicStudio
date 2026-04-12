@@ -14,8 +14,8 @@ export interface ReadinessAssessment {
 const READINESS_SLICES: ReadinessSlice[] = [
   {
     label: 'Composition core',
-    score: 82,
-    rationale: 'Clip arrangement, phrase automation, pattern transforms, and direct clip-level composing now work from song view in a much more complete solo-creator loop.',
+    score: 85,
+    rationale: 'Clip arrangement, phrase automation, pattern transforms, direct clip-level composing, piano-roll zoom with finer note edits, and now transport metronome plus count-in make the writing loop materially more complete for solo composition instead of only shaping static patterns.',
   },
   {
     label: 'Sound design',
@@ -34,8 +34,8 @@ const READINESS_SLICES: ReadinessSlice[] = [
   },
   {
     label: 'Product finish',
-    score: 95,
-    rationale: 'Track management, pinned lane focus, grouped session organization, visible readiness, bounce feedback, targeted print ranges, active loop-window printing, concrete master presets, explicit tail and peak-safe print controls, master snapshot recall, repeatable recent print history, real starter scenes, persistent section markers, section-level duplication, section audition looping, track-type voice starts, a more resilient small-screen shell, a cleaner arranger hierarchy with song tools pulled into their own tab, a tabbed setup workspace with a less cluttered header, a split source rack that keeps deep slice authoring out of the default sound path, per-project sound recall for track types, real lane reordering across the sequencer, arranger, mixer, and focused track panel, mixer grouping plus scope filters, a direct track-jump path in the header, selectable mixer strips, a much more serious master-control surface, and now persistent print diagnostics make the studio feel more deliberate on first use and during longer sessions, but trust cues, collaboration, and account-level product features are still early.',
+    score: 97,
+    rationale: 'Track management, pinned lane focus, grouped session organization, visible readiness, bounce feedback, targeted print ranges, active loop-window printing, concrete master presets, explicit tail and peak-safe print controls, master snapshot recall, repeatable recent print history, real starter scenes, persistent section markers, section-level duplication, section audition looping, track-type voice starts, a more resilient small-screen shell, a cleaner arranger hierarchy with song tools pulled into their own tab, a tabbed setup workspace with a less cluttered header, a split source rack that keeps deep slice authoring out of the default sound path, per-project sound recall for track types, real lane reordering across the sequencer, arranger, mixer, and focused track panel, mixer grouping plus scope filters, a direct track-jump path in the header, selectable mixer strips, a much more serious master-control surface, persistent print diagnostics, and now a real metronome plus count-in transport path make the studio feel much more deliberate during longer sessions, but trust cues, collaboration, and account-level product features are still early.',
   },
 ];
 

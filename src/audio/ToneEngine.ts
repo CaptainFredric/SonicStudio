@@ -49,6 +49,8 @@ class ToneEngine {
   private masterLimiter: Tone.Limiter | null = null;
   private masterLowpass: Tone.Filter | null = null;
   private masterMeter: Tone.Meter | null = null;
+  private metronomeEnabled = false;
+  private metronomeSynth: Tone.Synth | null = null;
   private masterSettings: MasterSettings = {
     glueCompression: 0.42,
     highCutHz: 18000,
@@ -85,6 +87,11 @@ class ToneEngine {
     this.masterWidener = new Tone.StereoWidener(0.5);
     this.masterGain = new Tone.Gain(1);
     this.masterMeter = new Tone.Meter();
+    this.metronomeSynth = new Tone.Synth({
+      envelope: { attack: 0.001, decay: 0.06, release: 0.03, sustain: 0 },
+      oscillator: { type: 'square' },
+      volume: -12,
+    });
     this.analyzer = new Tone.Analyser('fft', 256);
     this.recorder = new Tone.Recorder();
     this.masterLimiter.connect(this.masterHighpass);
@@ -94,6 +101,7 @@ class ToneEngine {
     this.masterWidener.connect(this.masterGain);
     this.masterGain.connect(this.masterCompressor);
     this.masterGain.connect(this.masterMeter);
+    this.metronomeSynth.connect(this.masterLimiter);
     this.masterCompressor.connect(this.analyzer);
     this.masterCompressor.connect(this.recorder);
 
@@ -117,6 +125,7 @@ class ToneEngine {
     this.arrangerClips = project.arrangerClips;
     this.currentPattern = project.transport.currentPattern;
     this.masterSettings = project.master;
+    this.metronomeEnabled = project.transport.metronomeEnabled;
     this.stepsPerPattern = project.transport.stepsPerPattern;
     this.tracksState = project.tracks;
     this.transportMode = project.transport.mode;
@@ -278,6 +287,10 @@ class ToneEngine {
     const songStep = this.currentStep;
     let displayedPattern = this.currentPattern;
 
+    if (this.metronomeEnabled && songStep % 4 === 0) {
+      this.triggerMetronomeTick(songStep % 16 === 0, time);
+    }
+
     this.tracksState.forEach((track) => {
       if (track.muted) {
         return;
@@ -393,6 +406,22 @@ class ToneEngine {
     };
 
     this.triggerTrack(graph, track, previewNote, Tone.now() + 0.02);
+  }
+
+  public previewMetronomeTick(accent: boolean = false) {
+    if (!this.isInitialized) {
+      return;
+    }
+
+    this.triggerMetronomeTick(accent, Tone.now() + 0.02);
+  }
+
+  private triggerMetronomeTick(accent: boolean, time: number) {
+    if (!this.metronomeSynth) {
+      return;
+    }
+
+    this.metronomeSynth.triggerAttackRelease(accent ? 'C6' : 'G5', accent ? '32n' : '64n', time, accent ? 0.95 : 0.58);
   }
 
   private resolvePlayableNote(track: Track, note: string) {

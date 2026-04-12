@@ -4,6 +4,7 @@ import React, {
   useEffect,
   useEffectEvent,
   useReducer,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -91,6 +92,9 @@ interface AudioContextType {
   bpm: number;
   canRedo: boolean;
   canUndo: boolean;
+  countInActive: boolean;
+  countInBars: number;
+  countInBeatsRemaining: number;
   clearPatternAt: (trackId: string, patternIndex: number) => void;
   clearTrack: (trackId: string) => void;
   createTrack: (trackType: InstrumentType) => void;
@@ -117,6 +121,7 @@ interface AudioContextType {
   loopRangeStartBeat: number | null;
   loadSessionTemplate: (templateId: SessionTemplateId) => void;
   newSession: () => void;
+  metronomeEnabled: boolean;
   patternCount: number;
   previewTrack: (trackId: string, note?: string, sampleSliceIndex?: number) => Promise<void>;
   projectName: string;
@@ -136,6 +141,7 @@ interface AudioContextType {
   shiftPattern: (trackId: string, direction: 'left' | 'right') => void;
   setActiveView: (view: AppView) => void;
   setBpm: (bpm: number) => void;
+  setCountInBars: (bars: number) => void;
   setMasterSettings: (settings: Partial<MasterSettings>) => void;
   setCurrentPattern: (pattern: number) => void;
   setPatternCount: (patternCount: number) => void;
@@ -143,6 +149,7 @@ interface AudioContextType {
   setStepsPerPattern: (stepsPerPattern: number) => void;
   setTrackParams: (id: string, params: Partial<SynthParams>) => void;
   setTrackSource: (id: string, source: Partial<TrackSource>) => void;
+  setMetronomeEnabled: (enabled: boolean) => void;
   songMarkers: SongMarker[];
   setClipPatternStepSlice: (clipId: string, stepIndex: number, sliceIndex: number | null, note?: string) => void;
   setLoopRange: (startBeat: number | null, endBeat: number | null) => void;
@@ -233,6 +240,7 @@ type EditorAction =
   | { type: 'SHIFT_PATTERN_AT'; direction: 'left' | 'right'; trackId: string; patternIndex: number }
   | { type: 'SET_ACTIVE_VIEW'; view: AppView }
   | { type: 'SET_BPM'; bpm: number }
+  | { type: 'SET_COUNT_IN_BARS'; bars: number }
   | { type: 'SET_LOOP_RANGE'; endBeat: number | null; startBeat: number | null }
   | { type: 'SET_MASTER_SETTINGS'; settings: Partial<MasterSettings> }
   | { type: 'SET_CURRENT_PATTERN'; pattern: number }
@@ -245,6 +253,7 @@ type EditorAction =
   | { type: 'SET_TRACK_NAME'; name: string; trackId: string }
   | { type: 'SET_TRACK_PARAMS'; params: Partial<SynthParams>; trackId: string }
   | { type: 'SET_TRACK_SOURCE'; source: Partial<TrackSource>; trackId: string }
+  | { type: 'SET_METRONOME_ENABLED'; enabled: boolean }
   | { type: 'SET_TRANSPORT_MODE'; mode: TransportMode }
   | { type: 'SAVE_MASTER_SNAPSHOT'; snapshotId?: string | null }
   | { type: 'SAVE_TRACK_SNAPSHOT'; snapshotId?: string | null; trackId: string }
@@ -1041,6 +1050,35 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
         transport: {
           ...present.transport,
           bpm: nextBpm,
+        },
+      });
+    }
+
+    case 'SET_METRONOME_ENABLED': {
+      if (present.transport.metronomeEnabled === action.enabled) {
+        return state;
+      }
+
+      return commitProject(state, {
+        ...present,
+        transport: {
+          ...present.transport,
+          metronomeEnabled: action.enabled,
+        },
+      });
+    }
+
+    case 'SET_COUNT_IN_BARS': {
+      const nextBars = clamp(Math.round(action.bars), 0, 2);
+      if (nextBars === present.transport.countInBars) {
+        return state;
+      }
+
+      return commitProject(state, {
+        ...present,
+        transport: {
+          ...present.transport,
+          countInBars: nextBars,
         },
       });
     }
@@ -2115,12 +2153,15 @@ export const useAudio = () => {
 export const AudioProvider = ({ children }: { children: ReactNode }) => {
   const [editorState, dispatch] = useReducer(editorReducer, undefined, createInitialEditorState);
   const [currentStep, setCurrentStep] = useState(0);
+  const [countInActive, setCountInActive] = useState(false);
+  const [countInBeatsRemaining, setCountInBeatsRemaining] = useState(0);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [renderState, setRenderState] = useState<RenderState>(IDLE_RENDER_STATE);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+  const countInTokenRef = useRef(0);
 
   const project = editorState.history.present;
   const {
@@ -2187,12 +2228,67 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
     setIsInitialized(true);
   };
 
-  const togglePlay = async () => {
-    await initAudio();
+  const cancelCountIn = () => {
+    countInTokenRef.current += 1;
+    setCountInActive(false);
+    setCountInBeatsRemaining(0);
+  };
+
+  const startPlaybackWithCountIn = async () => {
+    const bars = project.transport.countInBars;
+    if (bars <= 0) {
+      setIsPlaying(engine.togglePlayback());
+      return;
+    }
+
+    const beatDurationMs = (60 / project.transport.bpm) * 1000;
+    const totalBeats = bars * 4;
+    const token = countInTokenRef.current + 1;
+    countInTokenRef.current = token;
+    setCountInActive(true);
+    setCountInBeatsRemaining(totalBeats);
+
+    for (let beatIndex = 0; beatIndex < totalBeats; beatIndex += 1) {
+      if (countInTokenRef.current !== token) {
+        return;
+      }
+
+      engine.previewMetronomeTick(beatIndex % 4 === 0);
+      setCountInBeatsRemaining(totalBeats - beatIndex);
+
+      await new Promise((resolve) => {
+        window.setTimeout(resolve, beatDurationMs);
+      });
+    }
+
+    if (countInTokenRef.current !== token) {
+      return;
+    }
+
+    setCountInActive(false);
+    setCountInBeatsRemaining(0);
     setIsPlaying(engine.togglePlayback());
   };
 
+  const togglePlay = async () => {
+    await initAudio();
+
+    if (countInActive) {
+      cancelCountIn();
+      return;
+    }
+
+    if (isPlaying) {
+      cancelCountIn();
+      setIsPlaying(engine.togglePlayback());
+      return;
+    }
+
+    await startPlaybackWithCountIn();
+  };
+
   const stop = () => {
+    cancelCountIn();
     engine.stop();
     setCurrentStep(0);
     setIsPlaying(false);
@@ -2259,6 +2355,12 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
     if (event.code === 'Space') {
       event.preventDefault();
       void togglePlay();
+      return;
+    }
+
+    if (!isModifierPressed && normalizedKey === 'm') {
+      event.preventDefault();
+      dispatch({ type: 'SET_METRONOME_ENABLED', enabled: !project.transport.metronomeEnabled });
       return;
     }
 
@@ -2335,6 +2437,8 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       }));
     clippedProject.transport = {
       ...clippedProject.transport,
+      countInBars: 0,
+      metronomeEnabled: false,
       mode: 'SONG',
     };
 
@@ -2354,6 +2458,8 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
           ...cloneProject(project),
           transport: {
             ...project.transport,
+            countInBars: 0,
+            metronomeEnabled: false,
             mode: 'PATTERN',
           },
         },
@@ -2368,6 +2474,8 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
           ...cloneProject(project),
           transport: {
             ...project.transport,
+            countInBars: 0,
+            metronomeEnabled: false,
             mode: 'SONG',
           },
         },
@@ -2730,6 +2838,9 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       bounceHistory: project.bounceHistory,
       canRedo: editorState.history.future.length > 0,
       canUndo: editorState.history.past.length > 0,
+      countInActive,
+      countInBars: project.transport.countInBars,
+      countInBeatsRemaining,
       clearPatternAt: (trackId, patternIndex) => dispatch({ type: 'CLEAR_PATTERN_AT', trackId, patternIndex }),
       clearTrack: (trackId) => dispatch({ type: 'CLEAR_TRACK', trackId }),
       createTrack: (trackType) => dispatch({ type: 'CREATE_TRACK', trackType }),
@@ -2758,6 +2869,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       loadSessionTemplate,
       master: project.master,
       masterSnapshots: project.masterSnapshots,
+      metronomeEnabled: project.transport.metronomeEnabled,
       newSession,
       patternCount: project.transport.patternCount,
       pinnedTrackIds,
@@ -2782,6 +2894,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       shiftPattern: (trackId, direction) => dispatch({ type: 'SHIFT_PATTERN', direction, trackId }),
       setActiveView: (view) => dispatch({ type: 'SET_ACTIVE_VIEW', view }),
       setBpm: (bpm) => dispatch({ type: 'SET_BPM', bpm }),
+      setCountInBars: (bars) => dispatch({ type: 'SET_COUNT_IN_BARS', bars }),
       setMasterSettings: (settings) => dispatch({ type: 'SET_MASTER_SETTINGS', settings }),
       setCurrentPattern: (pattern) => dispatch({ type: 'SET_CURRENT_PATTERN', pattern }),
       setPatternCount: (patternCount) => dispatch({ type: 'SET_PATTERN_COUNT', patternCount }),
@@ -2792,6 +2905,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       setStepsPerPattern: (stepsPerPattern) => dispatch({ type: 'SET_STEPS_PER_PATTERN', stepsPerPattern }),
       setTrackParams: (trackId, params) => dispatch({ type: 'SET_TRACK_PARAMS', params, trackId }),
       setTrackSource: (trackId, source) => dispatch({ type: 'SET_TRACK_SOURCE', source, trackId }),
+      setMetronomeEnabled: (enabled) => dispatch({ type: 'SET_METRONOME_ENABLED', enabled }),
       setTransportMode: (mode) => dispatch({ type: 'SET_TRANSPORT_MODE', mode }),
       songMarkers,
       songLengthInBeats,
