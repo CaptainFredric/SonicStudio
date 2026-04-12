@@ -22,6 +22,7 @@ import { Visualizer } from './Visualizer';
 const WAVEFORM_OPTIONS = ['sine', 'triangle', 'sawtooth', 'square'] as const;
 const FILTER_OPTIONS = ['lowpass', 'bandpass', 'highpass'] as const;
 type RackView = 'SOURCE' | 'SHAPE' | 'SPACE';
+type SourceSubView = 'CORE' | 'SLICES';
 
 const SAMPLE_WINDOW_PRESETS = [
   { end: 0.25, key: 'attack', label: 'Attack', start: 0 },
@@ -67,10 +68,12 @@ export const DeviceRack = () => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [sampleStatus, setSampleStatus] = useState<string | null>(null);
   const [activeRackView, setActiveRackView] = useState<RackView>('SOURCE');
+  const [activeSourceSubView, setActiveSourceSubView] = useState<SourceSubView>('CORE');
 
   useEffect(() => {
     setSampleStatus(null);
     setActiveRackView('SOURCE');
+    setActiveSourceSubView('CORE');
   }, [track?.id]);
 
   if (!track) {
@@ -83,6 +86,8 @@ export const DeviceRack = () => {
       </section>
     );
   }
+
+  const isSampleTrack = track.source.engine === 'sample';
 
   const applyCurrentWindowAsSlice = () => {
     if (!track) {
@@ -275,6 +280,23 @@ export const DeviceRack = () => {
               <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
                 <RackSection icon={<Waves className="h-4 w-4 text-[var(--accent)]" />} title="Source routing">
                   <div className="grid gap-4">
+                    {isSampleTrack && (
+                      <div className="flex flex-wrap gap-2">
+                        <RackTab
+                          active={activeSourceSubView === 'CORE'}
+                          icon={<SlidersHorizontal className="h-3.5 w-3.5" />}
+                          label="Core"
+                          onClick={() => setActiveSourceSubView('CORE')}
+                        />
+                        <RackTab
+                          active={activeSourceSubView === 'SLICES'}
+                          icon={<Sparkles className="h-3.5 w-3.5" />}
+                          label="Slices"
+                          onClick={() => setActiveSourceSubView('SLICES')}
+                        />
+                      </div>
+                    )}
+
                     <div className="rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
                       <div className="section-label">Voice starts</div>
                       <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
@@ -318,7 +340,7 @@ export const DeviceRack = () => {
                       </select>
                     </label>
 
-                    {track.source.engine === 'sample' ? (
+                    {track.source.engine === 'sample' && activeSourceSubView === 'CORE' ? (
                       <div className="grid gap-3">
                         <label className="text-xs text-[var(--text-secondary)]">
                           <span className="section-label mb-2 block">Sample preset</span>
@@ -553,7 +575,11 @@ export const DeviceRack = () => {
                           </div>
                         </div>
 
-                        <div className="rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
+                      </div>
+                    ) : null}
+
+                    {track.source.engine === 'sample' && activeSourceSubView === 'SLICES' ? (
+                      <div className="rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
                           <div className="flex items-center justify-between gap-3">
                             <div>
                               <div className="section-label">Slices</div>
@@ -667,9 +693,10 @@ export const DeviceRack = () => {
                               </div>
                             </div>
                           )}
-                        </div>
                       </div>
-                    ) : (
+                    ) : null}
+
+                    {track.source.engine !== 'sample' ? (
                       <label className="text-xs text-[var(--text-secondary)]">
                         <span className="section-label mb-2 block">Waveform</span>
                         <select
@@ -684,7 +711,7 @@ export const DeviceRack = () => {
                           ))}
                         </select>
                       </label>
-                    )}
+                    ) : null}
                   </div>
                 </RackSection>
 
