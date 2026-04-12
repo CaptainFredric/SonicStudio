@@ -5,6 +5,7 @@ import {
   FolderUp,
   Gauge,
   Play,
+  Save,
   Sparkles,
   SlidersHorizontal,
   Trash2,
@@ -45,17 +46,21 @@ export const DeviceRack = () => {
     currentPattern,
     deleteSampleSlice,
     applyTrackVoicePreset,
+    applyTrackSnapshot,
     isRecording,
     previewTrack,
+    saveTrackSnapshot,
     selectSampleSlice,
     selectedTrackId,
     setTrackParams,
     setTrackSource,
+    trackSnapshots,
     toggleRecording,
     tracks,
     updateSampleSlice,
     updateTrackPan,
     updateTrackVolume,
+    deleteTrackSnapshot,
   } = useAudio();
   const track = tracks.find((candidate) => candidate.id === selectedTrackId) ?? null;
   const sampleOptions = track ? getSamplePresetOptions(track.type) : [];
@@ -69,6 +74,13 @@ export const DeviceRack = () => {
   const [sampleStatus, setSampleStatus] = useState<string | null>(null);
   const [activeRackView, setActiveRackView] = useState<RackView>('SOURCE');
   const [activeSourceSubView, setActiveSourceSubView] = useState<SourceSubView>('CORE');
+  const matchingTrackSnapshots = trackSnapshots.filter((snapshot) => snapshot.trackType === track.type);
+  const activeTrackSnapshot = matchingTrackSnapshots.find((snapshot) => (
+    snapshot.volume === track.volume
+    && snapshot.pan === track.pan
+    && JSON.stringify(snapshot.params) === JSON.stringify(track.params)
+    && JSON.stringify(snapshot.source) === JSON.stringify(track.source)
+  )) ?? null;
 
   useEffect(() => {
     setSampleStatus(null);
@@ -187,6 +199,70 @@ export const DeviceRack = () => {
 
           <div className="mt-4 overflow-hidden rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
             <Visualizer />
+          </div>
+
+          <div className="mt-4 rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="section-label">Sound recall</div>
+                <div className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
+                  Save a lane sound you trust, then reapply it to the same instrument class without rebuilding it.
+                </div>
+              </div>
+              <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--accent-strong)]">
+                {matchingTrackSnapshots.length}
+              </span>
+            </div>
+
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+              <button
+                className="control-chip flex items-center justify-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                onClick={() => saveTrackSnapshot(track.id, activeTrackSnapshot?.id ?? null)}
+              >
+                <Save className="h-3.5 w-3.5" />
+                {activeTrackSnapshot ? 'Update current sound' : 'Store current sound'}
+              </button>
+              {activeTrackSnapshot && (
+                <div className="rounded-[10px] border border-[var(--border-soft)] bg-[rgba(114,217,255,0.08)] px-3 py-2 text-[11px] text-[var(--accent-strong)]">
+                  Active recall: {activeTrackSnapshot.name}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-3 grid gap-2">
+              {matchingTrackSnapshots.length > 0 ? matchingTrackSnapshots.slice(-4).reverse().map((snapshot) => (
+                <div key={snapshot.id} className="rounded-[12px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium text-[var(--text-primary)]">{snapshot.name}</div>
+                      <div className="mt-1 text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+                        {new Date(snapshot.updatedAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        className="ghost-icon-button flex h-8 w-8 items-center justify-center"
+                        onClick={() => applyTrackSnapshot(track.id, snapshot.id)}
+                        title="Apply sound recall"
+                      >
+                        <Play className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        className="ghost-icon-button flex h-8 w-8 items-center justify-center text-[var(--danger)]"
+                        onClick={() => deleteTrackSnapshot(snapshot.id)}
+                        title="Delete sound recall"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )) : (
+                <div className="text-[11px] leading-5 text-[var(--text-secondary)]">
+                  No saved sounds for this lane type yet.
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="mt-4 space-y-4">

@@ -38,6 +38,7 @@ import {
   type StudioUIState,
   type SynthParams,
   type Track,
+  type TrackSnapshot,
   type TrackSource,
   type TrackVoicePresetDefinition,
   type TransportMode,
@@ -83,6 +84,7 @@ interface AudioContextType {
   activeView: AppView;
   addArrangerClip: (trackId?: string) => void;
   applyTrackVoicePreset: (trackId: string, presetId: string) => void;
+  applyTrackSnapshot: (trackId: string, snapshotId: string) => void;
   applyMasterSnapshot: (snapshotId: string) => void;
   arrangerClips: ArrangementClip[];
   bounceHistory: BounceHistoryEntry[];
@@ -179,9 +181,12 @@ interface AudioContextType {
   updateTrackVolume: (trackId: string, volume: number) => void;
   deleteSampleSlice: (trackId: string, sliceIndex: number) => void;
   deleteMasterSnapshot: (snapshotId: string) => void;
+  deleteTrackSnapshot: (snapshotId: string) => void;
   masterSnapshots: MasterSnapshot[];
   rerunBounceHistory: (entryId: string) => Promise<void>;
   saveMasterSnapshot: (snapshotId?: string | null) => void;
+  saveTrackSnapshot: (trackId: string, snapshotId?: string | null) => void;
+  trackSnapshots: TrackSnapshot[];
 }
 
 interface HistoryState {
@@ -198,6 +203,7 @@ interface EditorState {
 type EditorAction =
   | { type: 'ADD_ARRANGER_CLIP'; trackId?: string }
   | { type: 'APPLY_TRACK_VOICE_PRESET'; presetId: string; trackId: string }
+  | { type: 'APPLY_TRACK_SNAPSHOT'; snapshotId: string; trackId: string }
   | { type: 'APPEND_BOUNCE_HISTORY'; entry: BounceHistoryEntry }
   | { type: 'APPLY_MASTER_SNAPSHOT'; snapshotId: string }
   | { type: 'CLEAR_TRACK'; trackId: string }
@@ -207,6 +213,7 @@ type EditorAction =
   | { type: 'CREATE_SAMPLE_SLICE'; trackId: string; slice?: Partial<SampleSliceMemory> }
   | { type: 'DELETE_SAMPLE_SLICE'; trackId: string; sliceIndex: number }
   | { type: 'DELETE_MASTER_SNAPSHOT'; snapshotId: string }
+  | { type: 'DELETE_TRACK_SNAPSHOT'; snapshotId: string }
   | { type: 'DUPLICATE_ARRANGER_CLIP'; clipId: string }
   | { type: 'DUPLICATE_SONG_RANGE'; endBeat: number; label?: string; startBeat: number }
   | { type: 'LOOP_ARRANGER_CLIP'; clipId: string; copies: number }
@@ -238,6 +245,7 @@ type EditorAction =
   | { type: 'SET_TRACK_SOURCE'; source: Partial<TrackSource>; trackId: string }
   | { type: 'SET_TRANSPORT_MODE'; mode: TransportMode }
   | { type: 'SAVE_MASTER_SNAPSHOT'; snapshotId?: string | null }
+  | { type: 'SAVE_TRACK_SNAPSHOT'; snapshotId?: string | null; trackId: string }
   | { type: 'TOGGLE_MUTE'; trackId: string }
   | { type: 'TOGGLE_PAN'; pan: number; trackId: string }
   | { type: 'TOGGLE_SETTINGS' }
@@ -487,6 +495,10 @@ const commitProject = (
 };
 
 const buildMasterSnapshotName = (project: Project) => `Snapshot ${project.masterSnapshots.length + 1}`;
+const buildTrackSnapshotName = (project: Project, track: Track) => {
+  const matchingCount = project.trackSnapshots.filter((snapshot) => snapshot.trackType === track.type).length;
+  return `${track.name.slice(0, 18)} ${matchingCount + 1}`.trim();
+};
 const formatBounceScopeLabel = (scope: ExportScope) => {
   switch (scope) {
     case 'clip-window':
@@ -832,6 +844,26 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
       )));
     }
 
+    case 'APPLY_TRACK_SNAPSHOT': {
+      const track = present.tracks.find((candidate) => candidate.id === action.trackId);
+      if (!track) {
+        return state;
+      }
+
+      const snapshot = present.trackSnapshots.find((candidate) => candidate.id === action.snapshotId);
+      if (!snapshot || snapshot.trackType !== track.type) {
+        return state;
+      }
+
+      return commitProject(state, updateTrack(present, action.trackId, (candidate) => ({
+        ...candidate,
+        pan: snapshot.pan,
+        params: { ...snapshot.params },
+        source: { ...snapshot.source },
+        volume: snapshot.volume,
+      })));
+    }
+
     case 'HYDRATE_SESSION':
       return {
         history: {
@@ -1058,6 +1090,55 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
       });
     }
 
+    case 'SAVE_TRACK_SNAPSHOT': {
+      const track = present.tracks.find((candidate) => candidate.id === action.trackId);
+      if (!track) {
+        return state;
+      }
+
+      const timestamp = new Date().toISOString();
+
+      if (action.snapshotId) {
+        const didUpdate = present.trackSnapshots.some((snapshot) => snapshot.id === action.snapshotId && snapshot.trackType === track.type);
+        if (!didUpdate) {
+          return state;
+        }
+
+        return commitProject(state, {
+          ...present,
+          trackSnapshots: present.trackSnapshots.map((snapshot) => (
+            snapshot.id === action.snapshotId
+              ? {
+                  ...snapshot,
+                  pan: track.pan,
+                  params: { ...track.params },
+                  source: { ...track.source },
+                  updatedAt: timestamp,
+                  volume: track.volume,
+                }
+              : snapshot
+          )),
+        });
+      }
+
+      return commitProject(state, {
+        ...present,
+        trackSnapshots: [
+          ...present.trackSnapshots.slice(-15),
+          {
+            id: `track-snapshot_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+            name: buildTrackSnapshotName(present, track),
+            pan: track.pan,
+            params: { ...track.params },
+            source: { ...track.source },
+            trackType: track.type,
+            updatedAt: timestamp,
+            volume: track.volume,
+          },
+        ],
+      });
+    }
+
     case 'SET_PATTERN_COUNT':
       return commitProject(state, resizeProjectTransport(present, action.patternCount, present.transport.stepsPerPattern));
 
@@ -1099,6 +1180,12 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
       return commitProject(state, {
         ...present,
         masterSnapshots: present.masterSnapshots.filter((snapshot) => snapshot.id !== action.snapshotId),
+      });
+
+    case 'DELETE_TRACK_SNAPSHOT':
+      return commitProject(state, {
+        ...present,
+        trackSnapshots: present.trackSnapshots.filter((snapshot) => snapshot.id !== action.snapshotId),
       });
 
     case 'SELECT_SAMPLE_SLICE':
@@ -2579,6 +2666,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       activeView,
       addArrangerClip: (trackId) => dispatch({ type: 'ADD_ARRANGER_CLIP', trackId }),
       applyMasterSnapshot: (snapshotId) => dispatch({ type: 'APPLY_MASTER_SNAPSHOT', snapshotId }),
+      applyTrackSnapshot: (trackId, snapshotId) => dispatch({ type: 'APPLY_TRACK_SNAPSHOT', snapshotId, trackId }),
       applyTrackVoicePreset: (trackId, presetId) => dispatch({ type: 'APPLY_TRACK_VOICE_PRESET', presetId, trackId }),
       arrangerClips,
       bpm: project.transport.bpm,
@@ -2627,6 +2715,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       rerunBounceHistory,
       saveProject,
       saveMasterSnapshot: (snapshotId) => dispatch({ type: 'SAVE_MASTER_SNAPSHOT', snapshotId }),
+      saveTrackSnapshot: (trackId, snapshotId) => dispatch({ type: 'SAVE_TRACK_SNAPSHOT', snapshotId, trackId }),
       saveStatus,
       selectedArrangerClipId,
       selectedTrackId,
@@ -2660,6 +2749,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       toggleSolo: (trackId) => dispatch({ type: 'TOGGLE_SOLO', trackId }),
       toggleStep: (trackId, stepIndex, note) => dispatch({ type: 'TOGGLE_STEP', note, stepIndex, trackId }),
       tracks: project.tracks,
+      trackSnapshots: project.trackSnapshots,
       togglePinnedTrack: (trackId) => dispatch({ type: 'TOGGLE_PINNED_TRACK', trackId }),
       transformClipPattern: (clipId, transform, value) => dispatch({ type: 'TRANSFORM_CLIP_PATTERN', clipId, transform, value }),
       transposePatternAt: (trackId, patternIndex, semitones) => dispatch({ type: 'TRANSPOSE_PATTERN_AT', semitones, trackId, patternIndex }),
@@ -2678,6 +2768,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       updateTrackVolume: (trackId, volume) => dispatch({ type: 'TOGGLE_VOLUME', trackId, volume }),
       deleteSampleSlice: (trackId, sliceIndex) => dispatch({ type: 'DELETE_SAMPLE_SLICE', sliceIndex, trackId }),
       deleteMasterSnapshot: (snapshotId) => dispatch({ type: 'DELETE_MASTER_SNAPSHOT', snapshotId }),
+      deleteTrackSnapshot: (snapshotId) => dispatch({ type: 'DELETE_TRACK_SNAPSHOT', snapshotId }),
     }}>
       {children}
     </AudioContext.Provider>

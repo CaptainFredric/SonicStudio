@@ -151,6 +151,17 @@ export interface MasterSnapshot {
   updatedAt: string;
 }
 
+export interface TrackSnapshot {
+  id: string;
+  name: string;
+  pan: number;
+  params: SynthParams;
+  source: TrackSource;
+  trackType: InstrumentType;
+  updatedAt: string;
+  volume: number;
+}
+
 export interface MasterPresetDefinition {
   description: string;
   id: 'balanced' | 'club' | 'open-air';
@@ -174,6 +185,7 @@ export interface Project {
   master: MasterSettings;
   masterSnapshots: MasterSnapshot[];
   metadata: ProjectMetadata;
+  trackSnapshots: TrackSnapshot[];
   transport: TransportSettings;
   tracks: Track[];
   arrangerClips: ArrangementClip[];
@@ -201,7 +213,7 @@ export const MAX_PATTERN_COUNT = 8;
 export const MAX_STEPS_PER_PATTERN = 64;
 export const MIN_PATTERN_COUNT = 1;
 export const MIN_STEPS_PER_PATTERN = 8;
-export const PROJECT_SCHEMA_VERSION = 11;
+export const PROJECT_SCHEMA_VERSION = 12;
 
 export const INITIAL_MASTER: MasterSettings = {
   glueCompression: 0.42,
@@ -501,6 +513,7 @@ const createProjectFrame = (
       masterSnapshots: [],
       markers,
       metadata: buildProjectMetadata(projectName),
+      trackSnapshots: [],
       tracks,
       transport,
     }),
@@ -965,6 +978,35 @@ const normalizeMasterSnapshots = (input: unknown): MasterSnapshot[] => {
     })
     .filter((snapshot): snapshot is MasterSnapshot => snapshot !== null)
     .slice(0, 8);
+};
+
+const normalizeTrackSnapshots = (input: unknown): TrackSnapshot[] => {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+
+  return input
+    .map((snapshot, index) => {
+      if (!isRecord(snapshot)) {
+        return null;
+      }
+
+      const trackType = isInstrumentType(snapshot.trackType) ? snapshot.trackType : 'lead';
+      return {
+        id: typeof snapshot.id === 'string' && snapshot.id ? snapshot.id : createId('track-snapshot'),
+        name: typeof snapshot.name === 'string' && snapshot.name.trim()
+          ? snapshot.name.trim().slice(0, 28)
+          : `Sound ${index + 1}`,
+        pan: clamp(typeof snapshot.pan === 'number' ? snapshot.pan : 0, -1, 1),
+        params: normalizeParams(snapshot.params),
+        source: normalizeSource(trackType, snapshot.source),
+        trackType,
+        updatedAt: typeof snapshot.updatedAt === 'string' ? snapshot.updatedAt : new Date().toISOString(),
+        volume: clamp(typeof snapshot.volume === 'number' ? snapshot.volume : 0, -60, 6),
+      } satisfies TrackSnapshot;
+    })
+    .filter((snapshot): snapshot is TrackSnapshot => snapshot !== null)
+    .slice(-16);
 };
 
 const normalizeBounceHistory = (input: unknown): BounceHistoryEntry[] => {
@@ -1570,6 +1612,7 @@ export const normalizeProject = (input: unknown): Project | null => {
       updatedAt,
       version: PROJECT_SCHEMA_VERSION,
     },
+    trackSnapshots: normalizeTrackSnapshots(input.trackSnapshots),
     tracks,
     transport,
   };
