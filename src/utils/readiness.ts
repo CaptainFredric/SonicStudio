@@ -29,8 +29,8 @@ const READINESS_SLICES: ReadinessSlice[] = [
   },
   {
     label: 'Audio output',
-    score: 94,
-    rationale: 'WAV bounce, stem export, a real master output path, visible bounce progress, targeted bounce scopes for pattern, song, selected clip, and active loop window, concrete master presets, explicit tail and print normalization controls, master snapshot recall, repeatable recent print history, real master width plus low-cut and high-cut control threaded through presets, snapshots, the engine, and print settings, persistent print analysis with peak, RMS, duration, sample-rate, and quality flags, and now target-aware print profiles with crest, delta, verdict, and recommendation feedback make the output path materially more trustworthy, though offline rendering and deeper mastering analysis are still missing.',
+    score: 95,
+    rationale: 'WAV bounce, stem export, a real master output path, visible bounce progress, targeted bounce scopes for pattern, song, selected clip, and active loop window, concrete master presets, explicit tail and print normalization controls, master snapshot recall, repeatable recent print history, real master width plus low-cut and high-cut control threaded through presets, snapshots, the engine, and print settings, persistent print analysis with peak, RMS, duration, sample-rate, and quality flags, target-aware print profiles with crest, delta, verdict, and recommendation feedback, and now real scoped MIDI export for taking pattern, clip-window, loop-window, or song material into another tool make the output path materially more trustworthy, though offline rendering and deeper mastering analysis are still missing.',
   },
   {
     label: 'Product finish',

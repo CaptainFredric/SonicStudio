@@ -2,7 +2,7 @@
 // JSON snapshot export is implemented today, and recorder output can now be
 // converted into WAV downloads for mix and stem export flows.
 
-import type { Project } from '../project/schema';
+import type { NoteEvent, Project, Track } from '../project/schema';
 
 export interface ExportOptions {
   format: 'midi' | 'wav' | 'mp3' | 'json' | 'flac' | 'ogg';
@@ -23,6 +23,15 @@ export interface ExportResult {
   timestamp: string;
   message?: string;
   downloadUrl?: string;
+}
+
+interface MidiTrackEvent {
+  channel: number;
+  noteNumber: number;
+  tick: number;
+  trackName: string;
+  type: 'note-off' | 'note-on';
+  velocity: number;
 }
 
 export interface WavConversionOptions {
@@ -180,6 +189,208 @@ export async function exportToJSON(
 export const sanitizeExportFileName = (name: string) => (
   name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'sonicstudio-export'
 );
+
+const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const MIDI_PPQ = 96;
+const STEP_TICKS = MIDI_PPQ / 4;
+
+const noteToMidi = (note: string): number | null => {
+  const match = note.match(/^([A-G]#?)(-?\d+)$/);
+  if (!match) {
+    return null;
+  }
+
+  const pitchClass = NOTE_NAMES.indexOf(match[1]);
+  if (pitchClass === -1) {
+    return null;
+  }
+
+  return (Number(match[2]) + 1) * 12 + pitchClass;
+};
+
+const encodeVariableLength = (value: number) => {
+  let buffer = value & 0x7f;
+  const bytes = [];
+
+  while ((value >>= 7) > 0) {
+    buffer <<= 8;
+    buffer |= ((value & 0x7f) | 0x80);
+  }
+
+  while (true) {
+    bytes.push(buffer & 0xff);
+    if (buffer & 0x80) {
+      buffer >>= 8;
+      continue;
+    }
+    break;
+  }
+
+  return bytes;
+};
+
+const writeUint32 = (value: number) => ([
+  (value >> 24) & 0xff,
+  (value >> 16) & 0xff,
+  (value >> 8) & 0xff,
+  value & 0xff,
+]);
+
+const writeUint16 = (value: number) => ([
+  (value >> 8) & 0xff,
+  value & 0xff,
+]);
+
+const writeTextMetaEvent = (metaType: number, text: string) => {
+  const textBytes = Array.from(new TextEncoder().encode(text));
+  return [0x00, 0xff, metaType, ...encodeVariableLength(textBytes.length), ...textBytes];
+};
+
+const collectPatternMidiEvents = (
+  track: Track,
+  patternIndex: number,
+  startStep: number,
+  stepLength: number,
+): MidiTrackEvent[] => {
+  const pattern = track.patterns[patternIndex] ?? [];
+  const events: MidiTrackEvent[] = [];
+
+  for (let stepOffset = 0; stepOffset < stepLength; stepOffset += 1) {
+    const localStep = stepOffset % Math.max(1, pattern.length || stepLength);
+    const stepEvents = pattern[localStep] ?? [];
+
+    for (const noteEvent of stepEvents) {
+      const noteNumber = noteToMidi(noteEvent.note);
+      if (noteNumber === null) {
+        continue;
+      }
+
+      const startTick = (startStep + stepOffset) * STEP_TICKS;
+      const durationTicks = Math.max(1, Math.round(Math.max(0.125, noteEvent.gate) * STEP_TICKS));
+      const velocity = Math.max(1, Math.min(127, Math.round(noteEvent.velocity * 127)));
+
+      events.push({
+        channel: 0,
+        noteNumber,
+        tick: startTick,
+        trackName: track.name,
+        type: 'note-on',
+        velocity,
+      });
+      events.push({
+        channel: 0,
+        noteNumber,
+        tick: startTick + durationTicks,
+        trackName: track.name,
+        type: 'note-off',
+        velocity: 0,
+      });
+    }
+  }
+
+  return events;
+};
+
+const buildProjectMidiTracks = (project: Project) => {
+  const trackGroups = project.tracks.map((track) => {
+    if (project.transport.mode === 'PATTERN') {
+      return {
+        name: track.name,
+        events: collectPatternMidiEvents(track, project.transport.currentPattern, 0, project.transport.stepsPerPattern),
+      };
+    }
+
+    const clips = project.arrangerClips
+      .filter((clip) => clip.trackId === track.id)
+      .sort((left, right) => left.startBeat - right.startBeat);
+
+    const events = clips.flatMap((clip) => (
+      collectPatternMidiEvents(track, clip.patternIndex, clip.startBeat, clip.beatLength)
+    ));
+
+    return {
+      name: track.name,
+      events,
+    };
+  });
+
+  return trackGroups
+    .filter((group) => group.events.length > 0)
+    .map((group, index) => ({
+      ...group,
+      channel: index % 16,
+    }));
+};
+
+const encodeMidiTrack = (
+  name: string,
+  events: MidiTrackEvent[],
+  channel: number,
+) => {
+  const sortedEvents = [...events].sort((left, right) => {
+    if (left.tick !== right.tick) {
+      return left.tick - right.tick;
+    }
+
+    if (left.type === right.type) {
+      return left.noteNumber - right.noteNumber;
+    }
+
+    return left.type === 'note-off' ? -1 : 1;
+  });
+
+  const bytes = [
+    ...writeTextMetaEvent(0x03, name),
+  ];
+  let lastTick = 0;
+
+  for (const event of sortedEvents) {
+    const delta = Math.max(0, event.tick - lastTick);
+    bytes.push(...encodeVariableLength(delta));
+    bytes.push(event.type === 'note-on' ? 0x90 | channel : 0x80 | channel, event.noteNumber, event.velocity);
+    lastTick = event.tick;
+  }
+
+  bytes.push(0x00, 0xff, 0x2f, 0x00);
+
+  return [
+    0x4d, 0x54, 0x72, 0x6b,
+    ...writeUint32(bytes.length),
+    ...bytes,
+  ];
+};
+
+const encodeProjectToMidi = (project: Project) => {
+  const microsecondsPerQuarter = Math.round(60_000_000 / Math.max(40, Math.min(240, project.transport.bpm)));
+  const midiTracks = buildProjectMidiTracks(project);
+  const headerTrack = [
+    ...writeTextMetaEvent(0x03, `${project.metadata.name} Tempo`),
+    0x00, 0xff, 0x51, 0x03,
+    (microsecondsPerQuarter >> 16) & 0xff,
+    (microsecondsPerQuarter >> 8) & 0xff,
+    microsecondsPerQuarter & 0xff,
+    0x00, 0xff, 0x2f, 0x00,
+  ];
+  const headerChunk = [
+    0x4d, 0x54, 0x72, 0x6b,
+    ...writeUint32(headerTrack.length),
+    ...headerTrack,
+  ];
+  const trackChunks = midiTracks.map((track) => encodeMidiTrack(track.name, track.events, track.channel));
+  const header = [
+    0x4d, 0x54, 0x68, 0x64,
+    0x00, 0x00, 0x00, 0x06,
+    ...writeUint16(1),
+    ...writeUint16(trackChunks.length + 1),
+    ...writeUint16(MIDI_PPQ),
+  ];
+
+  return new Uint8Array([
+    ...header,
+    ...headerChunk,
+    ...trackChunks.flat(),
+  ]);
+};
 
 export const downloadBlob = (blob: Blob, fileName: string) => {
   if (typeof window === 'undefined') {
@@ -412,7 +623,23 @@ export const convertRecordingBlobToWavWithAnalysis = async (
   }
 };
 
-export const exportToMIDI = async (_project: Project, _options: Partial<ExportOptions> = {}) => unsupportedExport('midi');
+export const exportToMIDI = async (project: Project, _options: Partial<ExportOptions> = {}): Promise<ExportResult> => {
+  const startTime = performance.now();
+  const midiData = encodeProjectToMidi(project);
+  const blob = new Blob([midiData], { type: 'audio/midi' });
+  const fileName = `${sanitizeExportFileName(project.metadata.name)}-${project.transport.mode === 'SONG' ? 'song' : 'pattern'}.mid`;
+  downloadBlob(blob, fileName);
+  const duration = performance.now() - startTime;
+
+  return {
+    success: true,
+    format: 'midi',
+    size: midiData.length,
+    duration,
+    checksum: generateChecksum(midiData),
+    timestamp: new Date().toISOString(),
+  };
+};
 export const exportToWAV = async (_project: Project, _options: Partial<ExportOptions> = {}) => unsupportedExport('wav');
 export const exportToMP3 = async (_project: Project, _options: Partial<ExportOptions> = {}) => unsupportedExport('mp3');
 export const exportToFLAC = async (_project: Project, _options: Partial<ExportOptions> = {}) => unsupportedExport('flac');

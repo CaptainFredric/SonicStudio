@@ -52,6 +52,7 @@ export const SettingsSidebar = () => {
     bpm,
     bounceHistory,
     exportAudioMix,
+    exportMidi,
     exportTrackStems,
     exportSession,
     importSession,
@@ -358,6 +359,16 @@ export const SettingsSidebar = () => {
                 tailMode: bounceTailMode,
                 targetProfileId,
               })}
+            />
+            <ActionButton
+              disabled={
+                renderState.active
+                || (bounceScope === 'clip-window' && !selectedArrangerClipId)
+                || (bounceScope === 'loop-window' && !hasLoopWindow)
+              }
+              icon={<Download className="h-3.5 w-3.5" />}
+              label="Export MIDI"
+              onClick={() => void exportMidi(bounceScope)}
             />
             <ActionButton disabled={renderState.active} icon={<Layers3 className="h-3.5 w-3.5" />} label="Export JSON" onClick={exportSession} />
           </div>

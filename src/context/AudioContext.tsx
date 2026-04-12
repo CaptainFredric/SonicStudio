@@ -54,6 +54,7 @@ import {
 import {
   convertRecordingBlobToWavWithAnalysis,
   downloadBlob,
+  exportToMIDI,
   type AudioRenderAnalysis,
   type RenderTargetProfileId,
   sanitizeExportFileName,
@@ -105,6 +106,7 @@ interface AudioContextType {
   currentStep: number;
   duplicateArrangerClip: (clipId: string) => void;
   exportAudioMix: (scope?: ExportScope, options?: { normalization?: BounceNormalizationMode; tailMode?: BounceTailMode; targetProfileId?: RenderTargetProfileId }) => Promise<void>;
+  exportMidi: (scope?: ExportScope) => Promise<void>;
   exportTrackStems: (scope?: ExportScope, options?: { normalization?: BounceNormalizationMode; tailMode?: BounceTailMode; targetProfileId?: RenderTargetProfileId }) => Promise<void>;
   master: MasterSettings;
   loopArrangerClip: (clipId: string, copies: number) => void;
@@ -2701,6 +2703,17 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const exportMidi = async (
+    scope: ExportScope = project.transport.mode === 'SONG' ? 'song' : 'pattern',
+  ) => {
+    const renderPayload = buildRenderProject(scope);
+    if (!renderPayload) {
+      return;
+    }
+
+    await exportToMIDI(renderPayload.project, { format: 'midi' });
+  };
+
   const exportTrackStems = async (
     scope: ExportScope = project.transport.mode === 'SONG' ? 'song' : 'pattern',
     options: { normalization?: BounceNormalizationMode; tailMode?: BounceTailMode; targetProfileId?: RenderTargetProfileId } = {},
@@ -2854,6 +2867,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       currentStep,
       duplicateArrangerClip: (clipId) => dispatch({ type: 'DUPLICATE_ARRANGER_CLIP', clipId }),
       exportAudioMix,
+      exportMidi,
       exportTrackStems,
       loopArrangerClip: (clipId, copies) => dispatch({ type: 'LOOP_ARRANGER_CLIP', clipId, copies }),
       makeClipPatternUnique: (clipId) => dispatch({ type: 'MAKE_CLIP_PATTERN_UNIQUE', clipId }),
