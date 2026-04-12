@@ -24,8 +24,8 @@ const READINESS_SLICES: ReadinessSlice[] = [
   },
   {
     label: 'Editing ergonomics',
-    score: 94,
-    rationale: 'The sequencer and arranger now expose lane scope filters, pinned lanes, group collapse, compact density, visible mute and solo controls, stronger timeline navigation, starter scenes, persistent section markers, section-level duplication, and section audition looping, so larger sessions stay easier to scan, restructure, and rehearse without losing focus.',
+    score: 95,
+    rationale: 'The sequencer and arranger now expose lane scope filters, pinned lanes, group collapse, compact density, visible mute and solo controls, stronger timeline navigation, a dedicated horizontal song scrubber, lower-frequency section tools moved out of the main composition path, starter scenes, persistent section markers, section-level duplication, and section audition looping, so larger sessions stay easier to scan, restructure, and rehearse without losing focus.',
   },
   {
     label: 'Audio output',
@@ -34,8 +34,8 @@ const READINESS_SLICES: ReadinessSlice[] = [
   },
   {
     label: 'Product finish',
-    score: 86,
-    rationale: 'Track management, pinned lane focus, grouped session organization, visible readiness, bounce feedback, targeted print ranges, active loop-window printing, concrete master presets, explicit tail and peak-safe print controls, master snapshot recall, repeatable recent print history, real starter scenes, persistent section markers, section-level duplication, section audition looping, track-type voice starts, and now a more resilient small-screen shell make the studio feel more deliberate on first use and during longer sessions, but trust cues, collaboration, and account-level product features are still early.',
+    score: 87,
+    rationale: 'Track management, pinned lane focus, grouped session organization, visible readiness, bounce feedback, targeted print ranges, active loop-window printing, concrete master presets, explicit tail and peak-safe print controls, master snapshot recall, repeatable recent print history, real starter scenes, persistent section markers, section-level duplication, section audition looping, track-type voice starts, a more resilient small-screen shell, and now a cleaner arranger hierarchy with song tools pulled into their own tab make the studio feel more deliberate on first use and during longer sessions, but trust cues, collaboration, and account-level product features are still early.',
   },
 ];
 

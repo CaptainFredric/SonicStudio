@@ -31,6 +31,7 @@ type PaintMode = 'add' | 'remove';
 type LaneScope = 'ALL' | 'ACTIVE' | 'FOCUSED' | 'PINNED' | 'DRUMS' | 'MUSICAL';
 type LaneGroupKey = 'RHYTHM' | 'MUSICAL' | 'TEXTURE';
 type LaneSectionKey = LaneGroupKey | 'PINNED';
+type InspectorTab = 'CLIP' | 'SECTIONS';
 
 interface DragState {
   clipId: string;
@@ -237,6 +238,7 @@ export const Arranger = () => {
   });
   const [compactLaneView, setCompactLaneView] = useState(false);
   const [zoomPreset, setZoomPreset] = useState<ZoomPreset>('SECTION');
+  const [inspectorTab, setInspectorTab] = useState<InspectorTab>('CLIP');
   const [viewportWidth, setViewportWidth] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
   const timelineRef = useRef<HTMLDivElement | null>(null);
@@ -287,6 +289,7 @@ export const Arranger = () => {
   const totalDurationSeconds = songLengthInBeats * (60 / bpm) * 0.25;
   const visibleStartStep = Math.floor(scrollLeft / pixelsPerStep);
   const visibleEndStep = Math.ceil((scrollLeft + viewportWidth) / pixelsPerStep);
+  const maxTimelineScrollLeft = Math.max(0, timelineWidth - viewportWidth);
   const selectedPhraseActiveSteps = selectedClipPattern.filter((step) => step.length > 0).length;
   const selectedPhraseNoteCount = selectedClipPattern.reduce((sum, step) => sum + step.length, 0);
   const selectedAutomationLevel = selectedClipAutomation.level[selectedPhraseStepIndex] ?? 0.5;
@@ -385,6 +388,12 @@ export const Arranger = () => {
     setSelectedPhraseStepIndex(0);
     setSelectedPhraseNoteIndex(null);
   }, [selectedArrangerClipId]);
+
+  useEffect(() => {
+    if (selectedClip) {
+      setInspectorTab('CLIP');
+    }
+  }, [selectedClip?.id]);
 
   useEffect(() => {
     if (!dragState) {
@@ -720,6 +729,35 @@ export const Arranger = () => {
     ? `${selectedClipTrack.name} · Pattern ${String.fromCharCode(65 + selectedClip.patternIndex)} · ${selectedClip.beatLength} steps · ${selectedPhraseActiveSteps} active`
     : 'Select a clip to compose directly in song view';
 
+  const scrollTimelineByViewport = (direction: -1 | 1) => {
+    if (!timelineRef.current) {
+      return;
+    }
+
+    timelineRef.current.scrollTo({
+      behavior: 'smooth',
+      left: Math.max(0, Math.min(maxTimelineScrollLeft, timelineRef.current.scrollLeft + direction * Math.max(160, viewportWidth * 0.72))),
+    });
+  };
+
+  const handleTimelineWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+    const node = timelineRef.current;
+    if (!node || node.scrollWidth <= node.clientWidth) {
+      return;
+    }
+
+    if (event.deltaX !== 0) {
+      return;
+    }
+
+    if (Math.abs(event.deltaY) < Math.abs(event.deltaX)) {
+      return;
+    }
+
+    event.preventDefault();
+    node.scrollLeft += event.deltaY;
+  };
+
   return (
     <section className="surface-panel flex min-h-0 flex-1 flex-col overflow-hidden">
       <div className="border-b border-[var(--border-soft)] px-5 py-4">
@@ -741,7 +779,7 @@ export const Arranger = () => {
         </div>
 
         <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1.6fr)_auto_auto_auto]">
-          <div className="surface-panel-strong px-4 py-3">
+          <div className="surface-panel-strong arranger-summary-panel px-4 py-3">
             <div className="section-label">Song overview</div>
             <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-[var(--text-primary)]">
               <span>{timelineSteps} steps</span>
@@ -900,89 +938,15 @@ export const Arranger = () => {
                 Start {selectedClip.startBeat + 1} · Length {selectedClip.beatLength} · Snap {snapSize}
               </div>
             )}
-            <div className="mt-4 space-y-2">
-              {songMarkers.length === 0 ? (
-                <div className="text-[11px] leading-5 text-[var(--text-secondary)]">
-                  Add section markers from the playhead or selected clip to keep longer arrangements legible.
-                </div>
-              ) : songMarkers.map((marker) => (
-                <div key={marker.id} className="rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
-                  <div className="flex items-center gap-2">
-                    <input
-                      className="control-field h-9 flex-1 px-3 text-xs font-medium"
-                      onChange={(event) => updateSongMarker(marker.id, { name: event.target.value })}
-                      value={marker.name}
-                    />
-                    <button
-                      className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                      onClick={() => jumpToBoundary(marker.beat)}
-                    >
-                      Jump
-                    </button>
-                    <button
-                      className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--danger)]"
-                      onClick={() => removeSongMarker(marker.id)}
-                    >
-                      Drop
-                    </button>
-                  </div>
-                  <div className="mt-2 flex items-center justify-between gap-3 text-[11px] text-[var(--text-secondary)]">
-                    <span>Step {marker.beat + 1}</span>
-                    <input
-                      className="control-field h-8 w-24 px-2 text-right font-mono text-xs"
-                      min={0}
-                      onChange={(event) => updateSongMarker(marker.id, { beat: Number(event.target.value) })}
-                      type="number"
-                      value={marker.beat}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-4 border-t border-[var(--border-soft)] pt-4">
-              <div className="section-label">Sections</div>
-              <div className="mt-3 space-y-2">
-                {sectionRanges.map((section) => (
-                  <div key={section.id} className="rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <div className="text-sm font-semibold text-[var(--text-primary)]">{section.label}</div>
-                        <div className="mt-1 text-[11px] text-[var(--text-secondary)]">
-                          Steps {section.startBeat + 1} to {section.endBeat} · {section.clipCount} clip{section.clipCount === 1 ? '' : 's'}
-                        </div>
-                      </div>
-                  <div className="flex gap-2">
-                    <button
-                      className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                      onClick={() => jumpToBoundary(section.startBeat)}
-                    >
-                      Jump
-                    </button>
-                    <button
-                      className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                      data-active={loopRangeStartBeat === section.startBeat && loopRangeEndBeat === section.endBeat}
-                      onClick={() => {
-                        if (loopRangeStartBeat === section.startBeat && loopRangeEndBeat === section.endBeat) {
-                          setLoopRange(null, null);
-                          return;
-                        }
-
-                        setLoopRange(section.startBeat, section.endBeat);
-                      }}
-                    >
-                      {loopRangeStartBeat === section.startBeat && loopRangeEndBeat === section.endBeat ? 'Looping' : 'Loop'}
-                    </button>
-                    <button
-                      className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                      onClick={() => duplicateSongRange(section.startBeat, section.endBeat, section.label)}
-                    >
-                      Duplicate
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
+            <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px] text-[var(--text-secondary)]">
+              <span>{markerCount} marker{markerCount === 1 ? '' : 's'}</span>
+              <span>{sectionRanges.length} section{sectionRanges.length === 1 ? '' : 's'}</span>
+              <button
+                className="control-chip ml-auto px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                onClick={() => setInspectorTab('SECTIONS')}
+              >
+                Open song tools
+              </button>
             </div>
           </div>
         </div>
@@ -1019,19 +983,164 @@ export const Arranger = () => {
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 gap-4 p-5">
-        <div className="surface-panel-strong sonic-sidebar w-[380px] shrink-0 overflow-y-auto p-4">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 p-5 2xl:flex-row">
+        <div className="surface-panel-strong sonic-sidebar w-full shrink-0 overflow-y-auto p-4 2xl:w-[340px]">
           <div className="sticky top-0 z-10 -mx-4 -mt-4 border-b border-[var(--border-soft)] bg-[rgba(8,12,17,0.96)] px-4 py-4 backdrop-blur">
             <div className="flex items-center gap-2">
               <Layers3 className="h-4 w-4 text-[var(--accent)]" />
               <div className="section-label">Clip composer</div>
             </div>
             <div className="mt-2 text-sm text-[var(--text-secondary)]">
-              {selectedClip && selectedClipTrack ? phraseSummary : 'Select a clip to compose, transform, and arrange it from one surface.'}
+              {inspectorTab === 'CLIP'
+                ? selectedClip && selectedClipTrack ? phraseSummary : 'Select a clip to compose, transform, and arrange it from one surface.'
+                : 'Markers, looping, and section duplication live here so they stop crowding the composition path.'}
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button
+                className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                data-active={inspectorTab === 'CLIP'}
+                onClick={() => setInspectorTab('CLIP')}
+              >
+                Clip
+              </button>
+              <button
+                className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                data-active={inspectorTab === 'SECTIONS'}
+                onClick={() => setInspectorTab('SECTIONS')}
+              >
+                Song tools
+              </button>
             </div>
           </div>
 
-          {selectedClip && selectedClipTrack ? (
+          {inspectorTab === 'SECTIONS' ? (
+            <div className="space-y-4 pt-4">
+              <div className="rounded-[16px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="section-label">Marker actions</div>
+                    <div className="mt-2 text-xs text-[var(--text-secondary)]">
+                      Keep song structure legible without keeping marker editors on screen all the time.
+                    </div>
+                  </div>
+                  <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+                    {markerCount} total
+                  </span>
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button
+                    className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                    onClick={() => createSongMarker(currentStep, `Step ${currentStep + 1}`)}
+                  >
+                    Mark playhead
+                  </button>
+                  {selectedClip && (
+                    <button
+                      className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                      onClick={() => createSongMarker(selectedClip.startBeat, `Clip ${selectedClip.patternIndex + 1}`)}
+                    >
+                      Mark clip start
+                    </button>
+                  )}
+                </div>
+                <div className="mt-4 space-y-2">
+                  {songMarkers.length === 0 ? (
+                    <div className="text-[11px] leading-5 text-[var(--text-secondary)]">
+                      Add section markers from the playhead or selected clip to keep longer arrangements legible.
+                    </div>
+                  ) : songMarkers.map((marker) => (
+                    <div key={marker.id} className="rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+                      <div className="flex items-center gap-2">
+                        <input
+                          className="control-field h-9 flex-1 px-3 text-xs font-medium"
+                          onChange={(event) => updateSongMarker(marker.id, { name: event.target.value })}
+                          value={marker.name}
+                        />
+                        <button
+                          className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                          onClick={() => jumpToBoundary(marker.beat)}
+                        >
+                          Jump
+                        </button>
+                        <button
+                          className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--danger)]"
+                          onClick={() => removeSongMarker(marker.id)}
+                        >
+                          Drop
+                        </button>
+                      </div>
+                      <div className="mt-2 flex items-center justify-between gap-3 text-[11px] text-[var(--text-secondary)]">
+                        <span>Step {marker.beat + 1}</span>
+                        <input
+                          className="control-field h-8 w-24 px-2 text-right font-mono text-xs"
+                          min={0}
+                          onChange={(event) => updateSongMarker(marker.id, { beat: Number(event.target.value) })}
+                          type="number"
+                          value={marker.beat}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-[16px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="section-label">Sections</div>
+                    <div className="mt-2 text-xs text-[var(--text-secondary)]">
+                      Work at section scale once the song stops fitting in your head as one phrase.
+                    </div>
+                  </div>
+                  <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+                    {sectionRanges.length} total
+                  </span>
+                </div>
+                <div className="mt-4 space-y-2">
+                  {sectionRanges.map((section) => (
+                    <div key={section.id} className="rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-semibold text-[var(--text-primary)]">{section.label}</div>
+                          <div className="mt-1 text-[11px] text-[var(--text-secondary)]">
+                            Steps {section.startBeat + 1} to {section.endBeat} · {section.clipCount} clip{section.clipCount === 1 ? '' : 's'}
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                            onClick={() => jumpToBoundary(section.startBeat)}
+                          >
+                            Jump
+                          </button>
+                          <button
+                            className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                            data-active={loopRangeStartBeat === section.startBeat && loopRangeEndBeat === section.endBeat}
+                            onClick={() => {
+                              if (loopRangeStartBeat === section.startBeat && loopRangeEndBeat === section.endBeat) {
+                                setLoopRange(null, null);
+                                return;
+                              }
+
+                              setLoopRange(section.startBeat, section.endBeat);
+                            }}
+                          >
+                            {loopRangeStartBeat === section.startBeat && loopRangeEndBeat === section.endBeat ? 'Looping' : 'Loop'}
+                          </button>
+                          <button
+                            className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                            onClick={() => duplicateSongRange(section.startBeat, section.endBeat, section.label)}
+                          >
+                            Duplicate
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : selectedClip && selectedClipTrack ? (
             <div className="space-y-4 pt-4">
               <div className="rounded-[16px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-4">
                 <div className="flex items-center justify-between gap-3">
@@ -1603,12 +1712,30 @@ export const Arranger = () => {
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="mb-3 flex items-center justify-between gap-4">
             <div className="section-label">Timeline</div>
-            <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-              {totalBars} bars · snap {snapSize} steps · {zoomPreset.toLowerCase()} zoom
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                onClick={() => scrollTimelineByViewport(-1)}
+              >
+                Scroll left
+              </button>
+              <button
+                className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                onClick={() => scrollTimelineByViewport(1)}
+              >
+                Scroll right
+              </button>
+              <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+                {totalBars} bars · snap {snapSize} steps · {zoomPreset.toLowerCase()} zoom
+              </div>
             </div>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-auto rounded-[18px] border border-[var(--border-soft)] bg-[rgba(0,0,0,0.24)]" ref={timelineRef}>
+          <div
+            className="timeline-shell min-h-0 flex-1 overflow-auto rounded-[18px] border border-[var(--border-soft)] bg-[rgba(0,0,0,0.24)]"
+            onWheel={handleTimelineWheel}
+            ref={timelineRef}
+          >
             <div className="min-h-full p-4" style={{ minWidth: `${timelineWidth}px` }}>
               <div className="grid" style={{ gridTemplateColumns: `${laneLabelWidth}px minmax(0, 1fr)` }}>
                 <div className="sticky left-0 z-10 border-b border-r border-[var(--border-soft)] bg-[rgba(8,12,17,0.96)] px-4 py-3 backdrop-blur" style={{ width: `${laneLabelWidth}px` }}>
@@ -1812,6 +1939,36 @@ export const Arranger = () => {
                     })}
                   </React.Fragment>
                 ))}
+              </div>
+            </div>
+          </div>
+          <div className="mt-3 rounded-[16px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)] px-4 py-3">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+              <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+                Drag the strip or use the trackpad and mouse wheel to move across the song span.
+              </div>
+              <div className="flex min-w-0 flex-1 items-center gap-3">
+                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+                  {visibleStartStep + 1}
+                </span>
+                <input
+                  className="sonic-scroll-strip"
+                  max={maxTimelineScrollLeft}
+                  min={0}
+                  onChange={(event) => {
+                    if (!timelineRef.current) {
+                      return;
+                    }
+
+                    timelineRef.current.scrollLeft = Number(event.target.value);
+                  }}
+                  step={Math.max(1, snapSize * pixelsPerStep)}
+                  type="range"
+                  value={Math.min(scrollLeft, maxTimelineScrollLeft)}
+                />
+                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+                  {Math.max(visibleStartStep + 1, visibleEndStep)}
+                </span>
               </div>
             </div>
           </div>

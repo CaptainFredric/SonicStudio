@@ -91,6 +91,14 @@
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
 }
 
+.arranger-summary-panel {
+  background:
+    radial-gradient(circle at top right, rgba(114, 217, 255, 0.08), transparent 30%),
+    linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0) 24%),
+    linear-gradient(135deg, rgba(114,217,255,0.045), transparent 26%),
+    var(--bg-panel-strong);
+}
+
 .surface-panel-muted {
   background: var(--bg-panel-muted);
   border: 1px solid var(--border-soft);
@@ -257,6 +265,44 @@ input[type=range]:focus {
   border: 1px solid rgba(114, 217, 255, 0.12);
   border-radius: 6px;
   box-shadow: var(--shadow-panel);
+}
+
+.timeline-shell {
+  background:
+    linear-gradient(180deg, rgba(114, 217, 255, 0.05), rgba(114, 217, 255, 0) 14%),
+    linear-gradient(90deg, rgba(255,255,255,0.012), transparent 20%),
+    rgba(0,0,0,0.24);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+}
+
+.timeline-shell::-webkit-scrollbar {
+  height: 12px;
+}
+
+.timeline-shell::-webkit-scrollbar-thumb {
+  background: rgba(114, 217, 255, 0.24);
+}
+
+.timeline-shell::-webkit-scrollbar-thumb:hover {
+  background: rgba(114, 217, 255, 0.34);
+}
+
+.sonic-scroll-strip {
+  touch-action: pan-x;
+}
+
+.sonic-scroll-strip::-webkit-slider-runnable-track {
+  height: 6px;
+  background:
+    linear-gradient(90deg, rgba(114, 217, 255, 0.24), rgba(114, 217, 255, 0.08)),
+    rgba(151, 163, 180, 0.16);
+}
+
+.sonic-scroll-strip::-moz-range-track {
+  height: 6px;
+  background:
+    linear-gradient(90deg, rgba(114, 217, 255, 0.24), rgba(114, 217, 255, 0.08)),
+    rgba(151, 163, 180, 0.16);
 }
 
 .nav-button {
