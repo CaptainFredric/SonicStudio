@@ -27,8 +27,8 @@ const getMixerGroup = (track: Track): Exclude<MixerGroupKey, 'PINNED'> => {
   return 'MUSICAL';
 };
 
-const VUChannel: React.FC<{ track: Track }> = ({ track }) => {
-  const { updateTrackPan, updateTrackVolume, toggleMute, toggleSolo } = useAudio();
+const VUChannel: React.FC<{ selected: boolean; track: Track }> = ({ selected, track }) => {
+  const { setSelectedTrackId, updateTrackPan, updateTrackVolume, toggleMute, toggleSolo } = useAudio();
   const [level, setLevel] = useState(-100);
 
   useEffect(() => {
@@ -44,7 +44,18 @@ const VUChannel: React.FC<{ track: Track }> = ({ track }) => {
   const levelHeight = Math.max(0, Math.min(100, ((level + 60) / 60) * 100));
 
   return (
-    <div className="surface-panel-strong w-[148px] shrink-0 p-4 flex flex-col">
+    <div
+      className={`surface-panel-strong w-[148px] shrink-0 p-4 flex flex-col cursor-pointer transition-colors ${selected ? 'bg-[rgba(124,211,252,0.08)] ring-1 ring-[rgba(124,211,252,0.24)]' : ''}`}
+      onClick={() => setSelectedTrackId(track.id)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          setSelectedTrackId(track.id);
+        }
+      }}
+      role="button"
+      tabIndex={0}
+    >
       <div className="flex items-center gap-3">
         <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: track.color }} />
         <div className="min-w-0">
@@ -103,7 +114,7 @@ const VUChannel: React.FC<{ track: Track }> = ({ track }) => {
 };
 
 export const Mixer = () => {
-  const { master, pinnedTrackIds, setMasterSettings, tracks } = useAudio();
+  const { master, pinnedTrackIds, selectedTrackId, setMasterSettings, tracks } = useAudio();
   const [masterLevel, setMasterLevel] = useState(-100);
   const [mixerScope, setMixerScope] = useState<MixerScope>('ALL');
   const [collapsedGroups, setCollapsedGroups] = useState<Record<MixerGroupKey, boolean>>({
@@ -318,7 +329,7 @@ export const Mixer = () => {
                   <div className="mt-3 flex h-full min-h-[500px] gap-4">
                     {sectionTracks.map((track) => (
                       <div key={track.id} className="scroll-snap-align-start">
-                        <VUChannel track={track} />
+                        <VUChannel selected={selectedTrackId === track.id} track={track} />
                       </div>
                     ))}
                   </div>

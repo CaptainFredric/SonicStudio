@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Circle,
   Compass,
@@ -7,6 +7,7 @@ import {
   Radio,
   Redo2,
   Save,
+  Search,
   SlidersHorizontal,
   Square,
   Undo2,
@@ -54,6 +55,7 @@ export const TopBar = () => {
     setActiveView,
     setBpm,
     setCurrentPattern,
+    setSelectedTrackId,
     setTransportMode,
     songMarkers,
     songLengthInBeats,
@@ -65,11 +67,23 @@ export const TopBar = () => {
     undo,
   } = useAudio();
   const [draftProjectName, setDraftProjectName] = useState(projectName);
+  const [trackQuery, setTrackQuery] = useState('');
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
   const readiness = getStudioReadinessAssessment();
   const activeMasterPreset = MASTER_PRESET_DEFINITIONS.find((preset) => (
     isMasterPresetMatch(master, preset.settings)
   )) ?? null;
+  const filteredTracks = useMemo(() => {
+    const normalizedQuery = trackQuery.trim().toLowerCase();
+    if (!normalizedQuery) {
+      return tracks.slice(0, 6);
+    }
+
+    return tracks.filter((track) => (
+      track.name.toLowerCase().includes(normalizedQuery)
+      || track.type.toLowerCase().includes(normalizedQuery)
+    )).slice(0, 6);
+  }, [trackQuery, tracks]);
 
   useEffect(() => {
     setDraftProjectName(projectName);
@@ -285,6 +299,36 @@ export const TopBar = () => {
               label="Profile"
               value={activeMasterPreset ? activeMasterPreset.label : 'Custom'}
             />
+          </div>
+          <div className="mt-3 rounded-[16px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+            <div className="flex items-center gap-2">
+              <Search className="h-3.5 w-3.5 text-[var(--accent)]" />
+              <span className="section-label">Track jump</span>
+            </div>
+            <input
+              aria-label="Track jump"
+              className="control-field mt-3 h-10 w-full px-3 text-sm"
+              onChange={(event) => setTrackQuery(event.target.value)}
+              placeholder="Find a track by name or type"
+              value={trackQuery}
+            />
+            <div className="mt-3 flex flex-wrap gap-2">
+              {filteredTracks.length > 0 ? filteredTracks.map((track) => (
+                <button
+                  key={track.id}
+                  className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                  data-active={selectedTrackId === track.id}
+                  onClick={() => setSelectedTrackId(track.id)}
+                >
+                  <span className="h-2 w-2 rounded-full" style={{ backgroundColor: track.color }} />
+                  {track.name}
+                </button>
+              )) : (
+                <div className="text-[11px] leading-5 text-[var(--text-secondary)]">
+                  No tracks match the current query.
+                </div>
+              )}
+            </div>
           </div>
           <div className="mt-3 rounded-[12px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
             <div className="flex flex-wrap items-center gap-3">
