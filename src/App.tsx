@@ -55,7 +55,7 @@ const SideNav = () => {
 const ViewRouter = () => {
   const { activeView } = useAudio();
   return (
-    <main className="flex-1 min-h-0 relative overflow-auto">
+    <main className="flex min-h-[440px] flex-col overflow-visible lg:min-h-[520px]">
       {activeView === 'SEQUENCER' && <Sequencer />}
       {activeView === 'PIANO_ROLL' && <PianoRoll />}
       {activeView === 'MIXER' && <Mixer />}
@@ -70,15 +70,15 @@ const StudioShell = () => {
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
 
   return (
-    <div className="app-shell h-screen w-screen overflow-hidden antialiased text-[var(--text-primary)]">
-      <div className="flex h-full flex-col overflow-hidden">
+    <div className="app-shell min-h-screen w-full overflow-x-hidden antialiased text-[var(--text-primary)]">
+      <div className="flex min-h-screen flex-col">
         <div className="px-3 pt-3">
           <TopBar />
         </div>
-        <div className="flex min-h-0 flex-1 flex-col gap-3 px-3 pb-3 sm:flex-row">
+        <div className="flex flex-1 flex-col gap-3 px-3 pb-3 sm:flex-row">
           <SideNav />
-          <div className="chrome-frame flex min-h-0 flex-1 flex-col gap-3 p-3">
-            <div className="relative flex min-h-0 flex-1">
+          <div className="chrome-frame flex min-w-0 flex-1 flex-col gap-3 p-3">
+            <div className="relative min-h-[440px] lg:min-h-[520px]">
               <ViewRouter />
               {isSettingsOpen && (
                 <>

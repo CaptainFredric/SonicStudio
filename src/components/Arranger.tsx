@@ -1792,10 +1792,18 @@ export const Arranger = () => {
 
                       return (
                         <React.Fragment key={track.id}>
-                          <button
+                          <div
                             className={`sticky left-0 z-10 flex items-center gap-3 border-b border-r border-[var(--border-soft)] px-4 py-4 text-left transition-colors ${isSelectedTrack ? 'bg-[rgba(124,211,252,0.09)]' : 'bg-[rgba(8,12,17,0.96)] hover:bg-[rgba(255,255,255,0.03)]'}`}
                             onClick={() => setSelectedTrackId(track.id)}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault();
+                                setSelectedTrackId(track.id);
+                              }
+                            }}
+                            role="button"
                             style={{ width: `${laneLabelWidth}px` }}
+                            tabIndex={0}
                           >
                             <span className="h-3 w-3 rounded-full" style={{ backgroundColor: track.color }} />
                             <div className="min-w-0">
@@ -1856,7 +1864,7 @@ export const Arranger = () => {
                                 <ArrowDown className="h-3.5 w-3.5" />
                               </LaneStateButton>
                             </div>
-                          </button>
+                          </div>
                           <div className="relative border-b border-[var(--border-soft)] py-3">
                             <div className="absolute inset-0">
                               {Array.from({ length: timelineSteps }, (_, stepIndex) => (
