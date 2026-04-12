@@ -96,10 +96,22 @@ export const TopBar = () => {
     renameProject(draftProjectName);
   };
 
+  const focusTitle = selectedTrack
+    ? `${selectedTrack.name} · ${selectedTrack.type}${selectedArrangerClipId ? ' · clip focused' : ''}`
+    : 'No track selected';
+  const focusMeta = selectedTrack
+    ? `${selectedTrack.source.engine === 'sample' ? 'Sample lane' : 'Synth lane'} · Pattern ${String.fromCharCode(65 + currentPattern)}${selectedArrangerClipId ? ' · selected clip' : ''} · ${transportMode === 'SONG' ? 'Song transport' : 'Pattern transport'}`
+    : 'Pick a track to keep editing and sound design tied together.';
+  const loopSummary = loopRangeStartBeat !== null && loopRangeEndBeat !== null
+    ? `Looping steps ${loopRangeStartBeat + 1}-${loopRangeEndBeat}`
+    : transportMode === 'SONG'
+      ? 'Arranger timeline is active'
+      : 'Pattern loop is active';
+
   return (
     <header className="surface-panel px-3 py-3 sm:px-6 sm:py-4">
-      <div className="flex min-w-0 flex-col gap-4 2xl:flex-row 2xl:items-center 2xl:justify-between">
-        <div className="flex min-w-0 flex-col gap-4 xl:flex-row xl:items-center xl:gap-5">
+      <div className="grid gap-3 xl:grid-cols-[minmax(0,1.15fr)_minmax(340px,0.85fr)]">
+        <div className="grid min-w-0 gap-3 lg:grid-cols-[auto_minmax(0,1fr)]">
           <div className="flex min-w-0 items-center gap-3 xl:min-w-[220px]">
             <div className="surface-panel-strong flex h-12 w-12 items-center justify-center" style={{ borderRadius: '2px' }}>
               <Waves className="h-5 w-5 text-[var(--accent)]" />
@@ -110,7 +122,7 @@ export const TopBar = () => {
             </div>
           </div>
 
-          <div className="grid min-w-0 flex-1 gap-3 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
+          <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
             <div className="surface-panel-muted px-4 py-3">
               <div className="section-label mb-2">Project</div>
               <input
@@ -153,14 +165,14 @@ export const TopBar = () => {
 
         {!isInitialized ? (
           <button
-            className="h-11 w-full self-start border border-[rgba(130,201,187,0.24)] bg-[var(--accent-muted)] px-5 text-sm font-semibold text-[var(--accent-strong)] transition-colors hover:border-[rgba(130,201,187,0.36)] hover:text-[var(--text-primary)] sm:w-auto"
+            className="h-11 w-full self-start border border-[rgba(130,201,187,0.24)] bg-[var(--accent-muted)] px-5 text-sm font-semibold text-[var(--accent-strong)] transition-colors hover:border-[rgba(130,201,187,0.36)] hover:text-[var(--text-primary)]"
             onClick={initAudio}
           >
             Initialize audio
           </button>
         ) : (
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[auto_auto_auto_auto_auto] xl:items-stretch">
-            <div className="surface-panel-muted flex items-center gap-1 p-1">
+          <div className="surface-panel-muted grid gap-3 px-4 py-3 lg:grid-cols-[auto_auto_minmax(0,1fr)]">
+            <div className="flex items-center gap-1 rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-1">
               <IconBtn disabled={!canUndo} label="Undo" onClick={undo}>
                 <Undo2 className="h-4 w-4" />
               </IconBtn>
@@ -172,7 +184,7 @@ export const TopBar = () => {
               </IconBtn>
             </div>
 
-            <div className="surface-panel-muted flex items-center gap-1 p-1">
+            <div className="flex items-center gap-1 rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-1">
               <TransportBtn active={isRecording} label="Record" onClick={toggleRecording} tone="record">
                 <Circle className="h-4 w-4 fill-current" />
               </TransportBtn>
@@ -184,126 +196,122 @@ export const TopBar = () => {
               </TransportBtn>
             </div>
 
-            <div className="surface-panel-muted px-4 py-3">
-              <div className="section-label mb-2">Playback mode</div>
-              <div className="flex items-center gap-2">
-                <ModeButton
-                  active={transportMode === 'PATTERN'}
-                  label="Pattern"
-                  onClick={() => setTransportMode('PATTERN')}
-                />
-                <ModeButton
-                  active={transportMode === 'SONG'}
-                  label="Song"
-                  onClick={() => setTransportMode('SONG')}
-                />
+            <div className="grid gap-3 md:grid-cols-[auto_auto_minmax(120px,auto)_minmax(132px,auto)]">
+              <div>
+                <div className="section-label mb-2">Playback mode</div>
+                <div className="flex items-center gap-2">
+                  <ModeButton
+                    active={transportMode === 'PATTERN'}
+                    label="Pattern"
+                    onClick={() => setTransportMode('PATTERN')}
+                  />
+                  <ModeButton
+                    active={transportMode === 'SONG'}
+                    label="Song"
+                    onClick={() => setTransportMode('SONG')}
+                  />
+                </div>
               </div>
-            </div>
 
-            <div className="surface-panel-muted min-w-0 px-4 py-3">
-              <div className="section-label mb-1">Tempo</div>
-              <div className="flex items-center gap-2">
-                <input
-                  className="w-16 bg-transparent font-mono text-sm text-[var(--text-primary)] focus:outline-none"
-                  max="240"
-                  min="40"
-                  onChange={(event) => setBpm(Number(event.target.value))}
-                  type="number"
-                  value={bpm}
-                />
-                <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">BPM</span>
+              <div className="min-w-0">
+                <div className="section-label mb-1">Tempo</div>
+                <div className="flex items-center gap-2">
+                  <input
+                    className="w-16 bg-transparent font-mono text-sm text-[var(--text-primary)] focus:outline-none"
+                    max="240"
+                    min="40"
+                    onChange={(event) => setBpm(Number(event.target.value))}
+                    type="number"
+                    value={bpm}
+                  />
+                  <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">BPM</span>
+                </div>
               </div>
-            </div>
 
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-            <div className="surface-panel-muted min-w-[148px] px-4 py-3">
-              <div className="section-label mb-1">Song span</div>
-              <div className="text-sm font-medium text-[var(--text-primary)]">{songLengthInBeats} steps</div>
-              <div className="mt-1 text-[11px] text-[var(--text-secondary)]">{Math.max(1, Math.ceil(songLengthInBeats / 16))} bars of arrangement runway</div>
-            </div>
+              <div className="min-w-0">
+                <div className="section-label mb-1">Song span</div>
+                <div className="text-sm font-medium text-[var(--text-primary)]">{songLengthInBeats} steps</div>
+                <div className="mt-1 text-[11px] text-[var(--text-secondary)]">{Math.max(1, Math.ceil(songLengthInBeats / 16))} bars of arrangement runway</div>
+              </div>
 
-              <div className="surface-panel-muted min-w-0 px-4 py-3">
+              <div className="min-w-0">
                 <div className="section-label mb-1">Session</div>
                 <div className={`text-sm font-medium ${saveStatus === 'error' ? 'text-[var(--danger)]' : saveStatus === 'saving' ? 'text-[var(--warning)]' : 'text-[var(--accent-strong)]'}`}>
                   {formatSaveLabel(saveStatus, lastSavedAt)}
                 </div>
                 <div className="mt-1 flex items-center gap-2 text-[11px] text-[var(--text-secondary)]">
                   <Radio className="h-3 w-3 text-[var(--accent)]" />
-                  {loopRangeStartBeat !== null && loopRangeEndBeat !== null
-                    ? `Looping steps ${loopRangeStartBeat + 1}-${loopRangeEndBeat}`
-                    : transportMode === 'SONG' ? 'Arranger timeline is active' : 'Pattern loop is active'}
+                  {loopSummary}
                 </div>
               </div>
             </div>
           </div>
         )}
       </div>
-      <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
-        <div className="surface-panel-strong px-4 py-3">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <div className="section-label">Current focus</div>
-              <div className="mt-1 text-sm font-medium text-[var(--text-primary)]">
-                {selectedTrack
-                  ? `${selectedTrack.name} · ${selectedTrack.type}${selectedArrangerClipId ? ' · clip focused' : ''}`
-                  : 'No track selected'}
-              </div>
-              <div className="mt-1 text-[11px] text-[var(--text-secondary)]">
-                {selectedTrack
-                  ? `${selectedTrack.source.engine === 'sample' ? 'Sample lane' : 'Synth lane'} · Pattern ${String.fromCharCode(65 + currentPattern)}${selectedArrangerClipId ? ' · selected song clip' : ''} · ${transportMode === 'SONG' ? 'Song transport' : 'Pattern transport'}`
-                  : 'Pick a track to keep editing and sound design tied together.'}
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <WorkflowButton
-                active={activeView === 'SEQUENCER'}
-                icon={<Compass className="h-3.5 w-3.5" />}
-                label="Grid"
-                onClick={() => setActiveView('SEQUENCER')}
-              />
-              <WorkflowButton
-                active={activeView === 'PIANO_ROLL'}
-                icon={<SlidersHorizontal className="h-3.5 w-3.5" />}
-                label="Notes"
-                onClick={() => setActiveView('PIANO_ROLL')}
-              />
-              <WorkflowButton
-                active={activeView === 'ARRANGER'}
-                icon={<Layers3 className="h-3.5 w-3.5" />}
-                label="Song"
-                onClick={() => setActiveView('ARRANGER')}
-              />
-            </div>
-          </div>
-          </div>
 
+      <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
+        <div className="surface-panel-strong px-4 py-3">
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div className="min-w-0">
+                <div className="section-label">Current focus</div>
+                <div className="mt-1 truncate text-sm font-medium text-[var(--text-primary)]">{focusTitle}</div>
+                <div className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">{focusMeta}</div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <WorkflowButton
+                  active={activeView === 'SEQUENCER'}
+                  icon={<Compass className="h-3.5 w-3.5" />}
+                  label="Grid"
+                  onClick={() => setActiveView('SEQUENCER')}
+                />
+                <WorkflowButton
+                  active={activeView === 'PIANO_ROLL'}
+                  icon={<SlidersHorizontal className="h-3.5 w-3.5" />}
+                  label="Notes"
+                  onClick={() => setActiveView('PIANO_ROLL')}
+                />
+                <WorkflowButton
+                  active={activeView === 'ARRANGER'}
+                  icon={<Layers3 className="h-3.5 w-3.5" />}
+                  label="Song"
+                  onClick={() => setActiveView('ARRANGER')}
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+              <MiniStat
+                label="Track"
+                value={selectedTrack ? selectedTrack.name : 'None'}
+              />
+              <MiniStat
+                label="Pattern"
+                value={String.fromCharCode(65 + currentPattern)}
+              />
+              <MiniStat
+                label="Clip"
+                value={selectedArrangerClipId ? 'Selected' : 'None'}
+              />
+              <MiniStat
+                label="Profile"
+                value={activeMasterPreset ? activeMasterPreset.label : 'Custom'}
+              />
+            </div>
+
+            <div className="grid gap-2 md:grid-cols-[minmax(0,1fr)_auto_auto_auto]">
+              <div className="rounded-[10px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-2 text-[11px] leading-5 text-[var(--text-secondary)]">
+                The fastest loop should be choose track, place phrase, shape tone, then move back into song view.
+              </div>
+              <MiniStat label="Master" value={`${master.outputGain.toFixed(1)} dB`} />
+              <MiniStat label="Pinned" value={String(pinnedTrackIds.length)} />
+              <MiniStat label="Sections" value={String(songMarkers.length)} />
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-3">
           <div className="surface-panel-muted px-4 py-3">
-            <div className="section-label">Working rhythm</div>
-          <div className="mt-2 grid gap-2 sm:grid-cols-3">
-            <MiniStat
-              label="Track"
-              value={selectedTrack ? selectedTrack.name : 'None'}
-            />
-            <MiniStat
-              label="Pattern"
-              value={String.fromCharCode(65 + currentPattern)}
-            />
-            <MiniStat
-              label="Clip"
-              value={selectedArrangerClipId ? 'Selected' : 'None'}
-            />
-          </div>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
-            <MiniStat
-              label="Master"
-              value={`${master.outputGain.toFixed(1)} dB`}
-            />
-            <MiniStat
-              label="Profile"
-              value={activeMasterPreset ? activeMasterPreset.label : 'Custom'}
-            />
-          </div>
-          <div className="mt-3 rounded-[16px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
             <div className="flex items-center gap-2">
               <Search className="h-3.5 w-3.5 text-[var(--accent)]" />
               <span className="section-label">Track jump</span>
@@ -315,11 +323,11 @@ export const TopBar = () => {
               placeholder="Find a track by name or type"
               value={trackQuery}
             />
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
               {filteredTracks.length > 0 ? filteredTracks.map((track) => (
                 <button
                   key={track.id}
-                  className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                  className="control-chip flex shrink-0 items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
                   data-active={selectedTrackId === track.id}
                   onClick={() => setSelectedTrackId(track.id)}
                 >
@@ -333,17 +341,18 @@ export const TopBar = () => {
               )}
             </div>
           </div>
-          <div className="mt-3 rounded-[12px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="section-label">Readiness</span>
-              <span className="text-xs font-semibold text-[var(--text-primary)]">{readiness.overallScore}% overall</span>
-              <span className="text-xs text-[var(--text-secondary)]">{readiness.competitorScore}% GarageBand fit</span>
-              <span className="text-xs text-[var(--text-secondary)]">{readiness.monetizationScore}% monetization</span>
-              <span className="ml-auto text-xs text-[var(--text-secondary)]">{pinnedTrackIds.length} pinned · {songMarkers.length} sections</span>
+
+          <div className="surface-panel-muted px-4 py-3">
+            <div className="section-label">Readiness</div>
+            <div className="mt-3 grid gap-2 sm:grid-cols-3">
+              <MiniStat label="Overall" value={`${readiness.overallScore}%`} />
+              <MiniStat label="GarageBand fit" value={`${readiness.competitorScore}%`} />
+              <MiniStat label="Monetization" value={`${readiness.monetizationScore}%`} />
             </div>
           </div>
+
           {renderState.active && (
-            <div className="mt-3 rounded-[16px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+            <div className="surface-panel-muted px-4 py-3">
               <div className="flex items-center justify-between gap-3">
                 <span className="section-label">{renderState.mode === 'stems' ? 'Stem bounce' : 'Mix bounce'}</span>
                 <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--accent-strong)]">{Math.round(renderState.progress * 100)}%</span>
@@ -360,9 +369,6 @@ export const TopBar = () => {
               </div>
             </div>
           )}
-          <div className="mt-3 text-[11px] leading-5 text-[var(--text-secondary)]">
-            The fastest loop in SonicStudio should be choose track, place phrase, shape tone, then move back into song view. This strip keeps that cycle visible.
-          </div>
         </div>
       </div>
     </header>
