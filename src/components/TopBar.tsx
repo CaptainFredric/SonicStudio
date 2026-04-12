@@ -110,7 +110,7 @@ export const TopBar = () => {
 
   return (
     <header className="surface-panel px-3 py-3 sm:px-6 sm:py-4">
-      <div className="grid gap-3 xl:grid-cols-[minmax(0,1.15fr)_minmax(340px,0.85fr)]">
+      <div className="grid gap-3 2xl:grid-cols-[minmax(0,1.15fr)_minmax(340px,0.85fr)]">
         <div className="grid min-w-0 gap-3 lg:grid-cols-[auto_minmax(0,1fr)]">
           <div className="flex min-w-0 items-center gap-3 xl:min-w-[220px]">
             <div className="surface-panel-strong flex h-12 w-12 items-center justify-center" style={{ borderRadius: '2px' }}>
@@ -118,7 +118,7 @@ export const TopBar = () => {
             </div>
             <div className="min-w-0">
               <h1 className="text-[18px] font-semibold tracking-tight text-[var(--text-primary)]">SonicStudio</h1>
-              <p className="mt-1 text-xs text-[var(--text-secondary)]">Clip arrangement, expressive sequencing, and sound design in one instrument desk</p>
+              <p className="mt-1 hidden text-xs text-[var(--text-secondary)] sm:block">Clip arrangement, expressive sequencing, and sound design in one instrument desk</p>
             </div>
           </div>
 
@@ -196,7 +196,7 @@ export const TopBar = () => {
               </TransportBtn>
             </div>
 
-            <div className="grid gap-3 md:grid-cols-[auto_auto_minmax(120px,auto)_minmax(132px,auto)]">
+            <div className="grid gap-3 md:grid-cols-[auto_auto_minmax(110px,auto)_minmax(120px,auto)_minmax(132px,auto)]">
               <div>
                 <div className="section-label mb-2">Playback mode</div>
                 <div className="flex items-center gap-2">
@@ -235,6 +235,18 @@ export const TopBar = () => {
               </div>
 
               <div className="min-w-0">
+                <div className="section-label mb-1">Audio</div>
+                <button
+                  className="control-chip flex h-10 items-center justify-center px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                  data-active="true"
+                  onClick={() => void initAudio()}
+                >
+                  Re arm
+                </button>
+                <div className="mt-1 text-[11px] text-[var(--text-secondary)]">Resume sound if the browser suspended audio.</div>
+              </div>
+
+              <div className="min-w-0">
                 <div className="section-label mb-1">Session</div>
                 <div className={`text-sm font-medium ${saveStatus === 'error' ? 'text-[var(--danger)]' : saveStatus === 'saving' ? 'text-[var(--warning)]' : 'text-[var(--accent-strong)]'}`}>
                   {formatSaveLabel(saveStatus, lastSavedAt)}
@@ -249,7 +261,7 @@ export const TopBar = () => {
         )}
       </div>
 
-      <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
+      <div className="mt-3 grid gap-3 2xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
         <div className="surface-panel-strong px-4 py-3">
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">

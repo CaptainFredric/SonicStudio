@@ -71,11 +71,11 @@ class ToneEngine {
   public recorder: Tone.Recorder | null = null;
 
   async init() {
+    await Tone.start();
+
     if (this.isInitialized) {
       return;
     }
-
-    await Tone.start();
 
     this.masterCompressor = new Tone.Compressor({ ratio: 4, threshold: -24 }).toDestination();
     this.masterLimiter = new Tone.Limiter(-0.1);

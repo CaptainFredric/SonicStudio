@@ -155,7 +155,7 @@ interface AudioContextType {
   stop: () => void;
   toggleClipPatternStep: (clipId: string, stepIndex: number, note?: string, mode?: 'add' | 'remove' | 'toggle') => void;
   toggleMute: (trackId: string) => void;
-  togglePlay: () => void;
+  togglePlay: () => Promise<void>;
   togglePatternStep: (trackId: string, patternIndex: number, stepIndex: number, note?: string) => void;
   toggleRecording: () => Promise<void>;
   toggleSettings: () => void;
@@ -2187,7 +2187,8 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
     setIsInitialized(true);
   };
 
-  const togglePlay = () => {
+  const togglePlay = async () => {
+    await initAudio();
     setIsPlaying(engine.togglePlayback());
   };
 
@@ -2212,7 +2213,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
     setIsRecording(true);
 
     if (!isPlaying) {
-      togglePlay();
+      await togglePlay();
     }
   };
 
@@ -2257,13 +2258,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
 
     if (event.code === 'Space') {
       event.preventDefault();
-
-      if (!isInitialized) {
-        void initAudio();
-        return;
-      }
-
-      togglePlay();
+      void togglePlay();
       return;
     }
 
