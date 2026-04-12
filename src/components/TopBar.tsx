@@ -222,7 +222,7 @@ export const TopBar = () => {
         )}
       </div>
       <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
-        <div className="surface-panel-muted px-4 py-3">
+        <div className="surface-panel-strong px-4 py-3">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <div className="section-label">Current focus</div>
@@ -258,10 +258,10 @@ export const TopBar = () => {
               />
             </div>
           </div>
-        </div>
+          </div>
 
-        <div className="surface-panel-muted px-4 py-3">
-          <div className="section-label">Working rhythm</div>
+          <div className="surface-panel-muted px-4 py-3">
+            <div className="section-label">Working rhythm</div>
           <div className="mt-2 grid gap-2 sm:grid-cols-3">
             <MiniStat
               label="Track"
@@ -286,29 +286,14 @@ export const TopBar = () => {
               value={activeMasterPreset ? activeMasterPreset.label : 'Custom'}
             />
           </div>
-          <div className="mt-3 grid gap-2 sm:grid-cols-3">
-            <MiniStat
-              label="Readiness"
-              value={`${readiness.overallScore}%`}
-            />
-            <MiniStat
-              label="GarageBand fit"
-              value={`${readiness.competitorScore}%`}
-            />
-            <MiniStat
-              label="Monetization"
-              value={`${readiness.monetizationScore}%`}
-            />
-          </div>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
-            <MiniStat
-              label="Pinned lanes"
-              value={String(pinnedTrackIds.length)}
-            />
-            <MiniStat
-              label="Sections"
-              value={String(songMarkers.length)}
-            />
+          <div className="mt-3 rounded-[12px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="section-label">Readiness</span>
+              <span className="text-xs font-semibold text-[var(--text-primary)]">{readiness.overallScore}% overall</span>
+              <span className="text-xs text-[var(--text-secondary)]">{readiness.competitorScore}% GarageBand fit</span>
+              <span className="text-xs text-[var(--text-secondary)]">{readiness.monetizationScore}% monetization</span>
+              <span className="ml-auto text-xs text-[var(--text-secondary)]">{pinnedTrackIds.length} pinned · {songMarkers.length} sections</span>
+            </div>
           </div>
           {renderState.active && (
             <div className="mt-3 rounded-[16px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">

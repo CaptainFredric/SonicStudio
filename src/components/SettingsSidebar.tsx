@@ -18,6 +18,7 @@ import { getStudioReadinessAssessment } from '../utils/readiness';
 const PATTERN_OPTIONS = [2, 4, 6, 8];
 const STEP_OPTIONS = [8, 16, 32, 64];
 type BounceScope = 'pattern' | 'song' | 'clip-window' | 'loop-window';
+type SettingsTab = 'WORKSPACE' | 'TRACK' | 'OUTPUT';
 
 const MASTER_MATCH_EPSILON = 0.015;
 const BOUNCE_NORMALIZATION_OPTIONS: Array<{ description: string; label: string; value: BounceNormalizationMode }> = [
@@ -87,6 +88,7 @@ export const SettingsSidebar = () => {
   const [bounceScope, setBounceScope] = useState<BounceScope>(transportMode === 'SONG' ? 'song' : 'pattern');
   const [bounceNormalization, setBounceNormalization] = useState<BounceNormalizationMode>('peak');
   const [bounceTailMode, setBounceTailMode] = useState<BounceTailMode>('standard');
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>('WORKSPACE');
   const readiness = getStudioReadinessAssessment();
   const activeMasterPreset = MASTER_PRESET_DEFINITIONS.find((preset) => (
     isMasterPresetMatch(master, preset.settings)
@@ -146,6 +148,14 @@ export const SettingsSidebar = () => {
       </div>
 
       <div className="mt-4 space-y-4">
+        <div className="grid grid-cols-3 gap-2">
+          <SegmentButton active={settingsTab === 'WORKSPACE'} label="Workspace" onClick={() => setSettingsTab('WORKSPACE')} />
+          <SegmentButton active={settingsTab === 'TRACK'} label="Track" onClick={() => setSettingsTab('TRACK')} />
+          <SegmentButton active={settingsTab === 'OUTPUT'} label="Output" onClick={() => setSettingsTab('OUTPUT')} />
+        </div>
+
+        {settingsTab === 'WORKSPACE' && (
+          <>
         <section className="surface-panel-strong p-4">
           <div className="flex items-center gap-2 text-[var(--text-primary)]">
             <Sparkles className="h-4 w-4 text-[var(--accent)]" />
@@ -416,87 +426,6 @@ export const SettingsSidebar = () => {
 
         <section className="surface-panel-strong p-4">
           <div className="flex items-center gap-2 text-[var(--text-primary)]">
-            <SlidersHorizontal className="h-4 w-4 text-[var(--accent)]" />
-            <span className="section-label">Selected Track</span>
-          </div>
-
-          {selectedTrack ? (
-            <div className="mt-4 space-y-4">
-              <div>
-                <div className="section-label">Name</div>
-                <input
-                  className="control-field mt-2 h-11 w-full px-3 text-sm"
-                  onBlur={() => renameTrack(selectedTrack.id, draftTrackName)}
-                  onChange={(event) => setDraftTrackName(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter') {
-                      renameTrack(selectedTrack.id, draftTrackName);
-                      event.currentTarget.blur();
-                    }
-                  }}
-                  value={draftTrackName}
-                />
-              </div>
-
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <div className="section-label">Instrument</div>
-                  <div className="mt-2 inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium uppercase tracking-[0.16em]" style={{ borderColor: `${selectedTrack.color}55`, color: selectedTrack.color }}>
-                    {selectedTrack.type}
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <StateButton active={selectedTrack.muted} label="Mute" onClick={() => toggleMute(selectedTrack.id)} />
-                  <StateButton active={selectedTrack.solo} label="Solo" onClick={() => toggleSolo(selectedTrack.id)} />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <MetricCell label="Waveform" value={selectedTrack.source.waveform} />
-                <MetricCell label="Octave" value={String(selectedTrack.source.octaveShift)} />
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between">
-                  <span className="section-label">Volume</span>
-                  <span className="font-mono text-xs text-[var(--text-secondary)]">{selectedTrack.volume.toFixed(1)} dB</span>
-                </div>
-                <input
-                  className="mt-3"
-                  max="6"
-                  min="-60"
-                  onChange={(event) => updateTrackVolume(selectedTrack.id, Number(event.target.value))}
-                  step="1"
-                  type="range"
-                  value={selectedTrack.volume}
-                />
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between">
-                  <span className="section-label">Pan</span>
-                  <span className="font-mono text-xs text-[var(--text-secondary)]">{selectedTrack.pan.toFixed(1)}</span>
-                </div>
-                <input
-                  className="mt-3"
-                  max="1"
-                  min="-1"
-                  onChange={(event) => updateTrackPan(selectedTrack.id, Number(event.target.value))}
-                  step="0.1"
-                  type="range"
-                  value={selectedTrack.pan}
-                />
-              </div>
-            </div>
-          ) : (
-            <div className="mt-4 rounded-2xl border border-dashed border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-4 py-6 text-sm text-[var(--text-secondary)]">
-              Select a track from the sequencer, piano roll, mixer, or arranger to edit its identity and channel settings.
-            </div>
-          )}
-        </section>
-
-        <section className="surface-panel-strong p-4">
-          <div className="flex items-center gap-2 text-[var(--text-primary)]">
             <Gauge className="h-4 w-4 text-[var(--accent)]" />
             <span className="section-label">Shortcuts</span>
           </div>
@@ -509,172 +438,6 @@ export const SettingsSidebar = () => {
           </div>
         </section>
 
-        <section className="surface-panel-strong p-4">
-          <div className="flex items-center gap-2 text-[var(--text-primary)]">
-            <SlidersHorizontal className="h-4 w-4 text-[var(--accent)]" />
-            <span className="section-label">Master Output</span>
-          </div>
-          <div className="mt-4">
-            <div className="flex items-center justify-between gap-3">
-              <span className="section-label">Mix recall</span>
-              <span className="font-mono text-xs text-[var(--accent-strong)]">
-                {activeMasterSnapshot ? activeMasterSnapshot.name : 'Unsaved'}
-              </span>
-            </div>
-            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <ActionButton
-                disabled={renderState.active}
-                icon={<Save className="h-3.5 w-3.5" />}
-                label={activeMasterSnapshot ? 'Update current' : 'Save current'}
-                onClick={() => saveMasterSnapshot(activeMasterSnapshot?.id ?? null)}
-              />
-              <ActionButton
-                disabled={renderState.active || masterSnapshots.length === 0}
-                icon={<Layers3 className="h-3.5 w-3.5" />}
-                label="Store new"
-                onClick={() => saveMasterSnapshot()}
-              />
-            </div>
-            <div className="mt-3 grid gap-2">
-              {masterSnapshots.length > 0 ? masterSnapshots.map((snapshot) => (
-                <div key={snapshot.id} className="rounded-2xl border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <div className="text-sm font-semibold text-[var(--text-primary)]">{snapshot.name}</div>
-                      <div className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
-                        Glue {Math.round(snapshot.settings.glueCompression * 100)} · Tone {Math.round(snapshot.settings.tone * 100)} · Gain {snapshot.settings.outputGain.toFixed(1)} dB
-                      </div>
-                    </div>
-                    <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--accent-strong)]">
-                      {activeMasterSnapshot?.id === snapshot.id ? 'Live' : 'Stored'}
-                    </span>
-                  </div>
-                  <div className="mt-3 flex gap-2">
-                    <ActionButton
-                      disabled={renderState.active}
-                      icon={<Gauge className="h-3.5 w-3.5" />}
-                      label="Apply"
-                      onClick={() => applyMasterSnapshot(snapshot.id)}
-                    />
-                    <ActionButton
-                      disabled={renderState.active}
-                      icon={<Trash2 className="h-3.5 w-3.5" />}
-                      label="Delete"
-                      onClick={() => deleteMasterSnapshot(snapshot.id)}
-                    />
-                  </div>
-                </div>
-              )) : (
-                <div className="rounded-2xl border border-dashed border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-4 py-4 text-[11px] leading-5 text-[var(--text-secondary)]">
-                  Save master states you trust, then flip between them while checking a section print. That is much safer than rebuilding a mix from memory.
-                </div>
-              )}
-            </div>
-          </div>
-          <div className="mt-4">
-            <div className="flex items-center justify-between gap-3">
-              <span className="section-label">Master profile</span>
-              <span className="font-mono text-xs text-[var(--accent-strong)]">
-                {activeMasterPreset ? activeMasterPreset.label : 'Custom'}
-              </span>
-            </div>
-            <div className="mt-3 grid gap-3">
-              {MASTER_PRESET_DEFINITIONS.map((preset) => (
-                <button
-                  key={preset.id}
-                  className="rounded-2xl border px-4 py-3 text-left transition-colors"
-                  data-active={activeMasterPreset?.id === preset.id}
-                  onClick={() => setMasterSettings(preset.settings)}
-                  style={{
-                    background: activeMasterPreset?.id === preset.id ? 'rgba(114,217,255,0.08)' : 'rgba(255,255,255,0.02)',
-                    borderColor: activeMasterPreset?.id === preset.id ? 'rgba(114,217,255,0.22)' : 'var(--border-soft)',
-                  }}
-                  type="button"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-sm font-semibold text-[var(--text-primary)]">{preset.label}</span>
-                    <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--accent-strong)]">
-                      {Math.round(preset.settings.glueCompression * 100)} glue
-                    </span>
-                  </div>
-                  <div className="mt-2 text-[12px] leading-5 text-[var(--text-secondary)]">{preset.description}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <MetricCell label="Output" value={`${master.outputGain.toFixed(1)} dB`} />
-            <MetricCell label="Ceiling" value={`${master.limiterCeiling.toFixed(1)} dB`} />
-          </div>
-          <div className="mt-4 space-y-4">
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="section-label">Glue compression</span>
-                <span className="font-mono text-xs text-[var(--text-secondary)]">{Math.round(master.glueCompression * 100)}</span>
-              </div>
-              <input
-                className="mt-3"
-                max="1"
-                min="0"
-                onChange={(event) => setMasterSettings({ glueCompression: Number(event.target.value) })}
-                step="0.01"
-                type="range"
-                value={master.glueCompression}
-              />
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="section-label">Tone</span>
-                <span className="font-mono text-xs text-[var(--text-secondary)]">{Math.round(master.tone * 100)}</span>
-              </div>
-              <input
-                className="mt-3"
-                max="1"
-                min="0"
-                onChange={(event) => setMasterSettings({ tone: Number(event.target.value) })}
-                step="0.01"
-                type="range"
-                value={master.tone}
-              />
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="section-label">Output gain</span>
-                <span className="font-mono text-xs text-[var(--text-secondary)]">{master.outputGain.toFixed(1)} dB</span>
-              </div>
-              <input
-                className="mt-3"
-                max="12"
-                min="-12"
-                onChange={(event) => setMasterSettings({ outputGain: Number(event.target.value) })}
-                step="0.5"
-                type="range"
-                value={master.outputGain}
-              />
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="section-label">Limiter ceiling</span>
-                <span className="font-mono text-xs text-[var(--text-secondary)]">{master.limiterCeiling.toFixed(1)} dB</span>
-              </div>
-              <input
-                className="mt-3"
-                max="0"
-                min="-1.2"
-                onChange={(event) => setMasterSettings({ limiterCeiling: Number(event.target.value) })}
-                step="0.05"
-                type="range"
-                value={master.limiterCeiling}
-              />
-            </div>
-          </div>
-          <div className="mt-4 text-[11px] leading-5 text-[var(--text-secondary)]">
-            Bounce uses these master settings, so the output path is visible before you print a mix or stems.
-          </div>
-        </section>
 
         <section className="surface-panel-strong p-4">
           <div className="flex items-center gap-2 text-[var(--text-primary)]">
@@ -704,6 +467,260 @@ export const SettingsSidebar = () => {
             ))}
           </div>
         </section>
+          </>
+        )}
+
+        {settingsTab === 'TRACK' && (
+          <section className="surface-panel-strong p-4">
+            <div className="flex items-center gap-2 text-[var(--text-primary)]">
+              <SlidersHorizontal className="h-4 w-4 text-[var(--accent)]" />
+              <span className="section-label">Selected Track</span>
+            </div>
+
+            {selectedTrack ? (
+              <div className="mt-4 space-y-4">
+                <div>
+                  <div className="section-label">Name</div>
+                  <input
+                    className="control-field mt-2 h-11 w-full px-3 text-sm"
+                    onBlur={() => renameTrack(selectedTrack.id, draftTrackName)}
+                    onChange={(event) => setDraftTrackName(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        renameTrack(selectedTrack.id, draftTrackName);
+                        event.currentTarget.blur();
+                      }
+                    }}
+                    value={draftTrackName}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="section-label">Instrument</div>
+                    <div className="mt-2 inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium uppercase tracking-[0.16em]" style={{ borderColor: `${selectedTrack.color}55`, color: selectedTrack.color }}>
+                      {selectedTrack.type}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <StateButton active={selectedTrack.muted} label="Mute" onClick={() => toggleMute(selectedTrack.id)} />
+                    <StateButton active={selectedTrack.solo} label="Solo" onClick={() => toggleSolo(selectedTrack.id)} />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <MetricCell label="Waveform" value={selectedTrack.source.waveform} />
+                  <MetricCell label="Octave" value={String(selectedTrack.source.octaveShift)} />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="section-label">Volume</span>
+                    <span className="font-mono text-xs text-[var(--text-secondary)]">{selectedTrack.volume.toFixed(1)} dB</span>
+                  </div>
+                  <input
+                    className="mt-3"
+                    max="6"
+                    min="-60"
+                    onChange={(event) => updateTrackVolume(selectedTrack.id, Number(event.target.value))}
+                    step="1"
+                    type="range"
+                    value={selectedTrack.volume}
+                  />
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="section-label">Pan</span>
+                    <span className="font-mono text-xs text-[var(--text-secondary)]">{selectedTrack.pan.toFixed(1)}</span>
+                  </div>
+                  <input
+                    className="mt-3"
+                    max="1"
+                    min="-1"
+                    onChange={(event) => updateTrackPan(selectedTrack.id, Number(event.target.value))}
+                    step="0.1"
+                    type="range"
+                    value={selectedTrack.pan}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="mt-4 rounded-2xl border border-dashed border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-4 py-6 text-sm text-[var(--text-secondary)]">
+                Select a track from the sequencer, piano roll, mixer, or arranger to edit its identity and channel settings.
+              </div>
+            )}
+          </section>
+        )}
+
+        {settingsTab === 'OUTPUT' && (
+          <section className="surface-panel-strong p-4">
+            <div className="flex items-center gap-2 text-[var(--text-primary)]">
+              <SlidersHorizontal className="h-4 w-4 text-[var(--accent)]" />
+              <span className="section-label">Master Output</span>
+            </div>
+            <div className="mt-4">
+              <div className="flex items-center justify-between gap-3">
+                <span className="section-label">Mix recall</span>
+                <span className="font-mono text-xs text-[var(--accent-strong)]">
+                  {activeMasterSnapshot ? activeMasterSnapshot.name : 'Unsaved'}
+                </span>
+              </div>
+              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <ActionButton
+                  disabled={renderState.active}
+                  icon={<Save className="h-3.5 w-3.5" />}
+                  label={activeMasterSnapshot ? 'Update current' : 'Save current'}
+                  onClick={() => saveMasterSnapshot(activeMasterSnapshot?.id ?? null)}
+                />
+                <ActionButton
+                  disabled={renderState.active || masterSnapshots.length === 0}
+                  icon={<Layers3 className="h-3.5 w-3.5" />}
+                  label="Store new"
+                  onClick={() => saveMasterSnapshot()}
+                />
+              </div>
+              <div className="mt-3 grid gap-2">
+                {masterSnapshots.length > 0 ? masterSnapshots.map((snapshot) => (
+                  <div key={snapshot.id} className="rounded-2xl border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-semibold text-[var(--text-primary)]">{snapshot.name}</div>
+                        <div className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
+                          Glue {Math.round(snapshot.settings.glueCompression * 100)} · Tone {Math.round(snapshot.settings.tone * 100)} · Gain {snapshot.settings.outputGain.toFixed(1)} dB
+                        </div>
+                      </div>
+                      <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--accent-strong)]">
+                        {activeMasterSnapshot?.id === snapshot.id ? 'Live' : 'Stored'}
+                      </span>
+                    </div>
+                    <div className="mt-3 flex gap-2">
+                      <ActionButton
+                        disabled={renderState.active}
+                        icon={<Gauge className="h-3.5 w-3.5" />}
+                        label="Apply"
+                        onClick={() => applyMasterSnapshot(snapshot.id)}
+                      />
+                      <ActionButton
+                        disabled={renderState.active}
+                        icon={<Trash2 className="h-3.5 w-3.5" />}
+                        label="Delete"
+                        onClick={() => deleteMasterSnapshot(snapshot.id)}
+                      />
+                    </div>
+                  </div>
+                )) : (
+                  <div className="rounded-2xl border border-dashed border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-4 py-4 text-[11px] leading-5 text-[var(--text-secondary)]">
+                    Save master states you trust, then flip between them while checking a section print. That is much safer than rebuilding a mix from memory.
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="mt-4">
+              <div className="flex items-center justify-between gap-3">
+                <span className="section-label">Master profile</span>
+                <span className="font-mono text-xs text-[var(--accent-strong)]">
+                  {activeMasterPreset ? activeMasterPreset.label : 'Custom'}
+                </span>
+              </div>
+              <div className="mt-3 grid gap-3">
+                {MASTER_PRESET_DEFINITIONS.map((preset) => (
+                  <button
+                    key={preset.id}
+                    className="rounded-2xl border px-4 py-3 text-left transition-colors"
+                    data-active={activeMasterPreset?.id === preset.id}
+                    onClick={() => setMasterSettings(preset.settings)}
+                    style={{
+                      background: activeMasterPreset?.id === preset.id ? 'rgba(114,217,255,0.08)' : 'rgba(255,255,255,0.02)',
+                      borderColor: activeMasterPreset?.id === preset.id ? 'rgba(114,217,255,0.22)' : 'var(--border-soft)',
+                    }}
+                    type="button"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm font-semibold text-[var(--text-primary)]">{preset.label}</span>
+                      <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--accent-strong)]">
+                        {Math.round(preset.settings.glueCompression * 100)} glue
+                      </span>
+                    </div>
+                    <div className="mt-2 text-[12px] leading-5 text-[var(--text-secondary)]">{preset.description}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <MetricCell label="Output" value={`${master.outputGain.toFixed(1)} dB`} />
+              <MetricCell label="Ceiling" value={`${master.limiterCeiling.toFixed(1)} dB`} />
+            </div>
+            <div className="mt-4 space-y-4">
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="section-label">Glue compression</span>
+                  <span className="font-mono text-xs text-[var(--text-secondary)]">{Math.round(master.glueCompression * 100)}</span>
+                </div>
+                <input
+                  className="mt-3"
+                  max="1"
+                  min="0"
+                  onChange={(event) => setMasterSettings({ glueCompression: Number(event.target.value) })}
+                  step="0.01"
+                  type="range"
+                  value={master.glueCompression}
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="section-label">Tone</span>
+                  <span className="font-mono text-xs text-[var(--text-secondary)]">{Math.round(master.tone * 100)}</span>
+                </div>
+                <input
+                  className="mt-3"
+                  max="1"
+                  min="0"
+                  onChange={(event) => setMasterSettings({ tone: Number(event.target.value) })}
+                  step="0.01"
+                  type="range"
+                  value={master.tone}
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="section-label">Output gain</span>
+                  <span className="font-mono text-xs text-[var(--text-secondary)]">{master.outputGain.toFixed(1)} dB</span>
+                </div>
+                <input
+                  className="mt-3"
+                  max="12"
+                  min="-12"
+                  onChange={(event) => setMasterSettings({ outputGain: Number(event.target.value) })}
+                  step="0.5"
+                  type="range"
+                  value={master.outputGain}
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="section-label">Limiter ceiling</span>
+                  <span className="font-mono text-xs text-[var(--text-secondary)]">{master.limiterCeiling.toFixed(1)} dB</span>
+                </div>
+                <input
+                  className="mt-3"
+                  max="0"
+                  min="-1.2"
+                  onChange={(event) => setMasterSettings({ limiterCeiling: Number(event.target.value) })}
+                  step="0.05"
+                  type="range"
+                  value={master.limiterCeiling}
+                />
+              </div>
+            </div>
+            <div className="mt-4 text-[11px] leading-5 text-[var(--text-secondary)]">
+              Bounce uses these master settings, so the output path is visible before you print a mix or stems.
+            </div>
+          </section>
+        )}
       </div>
     </aside>
   );
