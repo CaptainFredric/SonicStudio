@@ -56,6 +56,8 @@ import {
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 type RenderMode = 'mix' | 'stems' | null;
 export type ExportScope = 'pattern' | 'song' | 'clip-window' | 'loop-window';
+export type BounceTailMode = 'short' | 'standard' | 'long';
+export type BounceNormalizationMode = 'none' | 'peak';
 
 interface RenderState {
   active: boolean;
@@ -90,8 +92,8 @@ interface AudioContextType {
   currentPattern: number;
   currentStep: number;
   duplicateArrangerClip: (clipId: string) => void;
-  exportAudioMix: (scope?: ExportScope) => Promise<void>;
-  exportTrackStems: (scope?: ExportScope) => Promise<void>;
+  exportAudioMix: (scope?: ExportScope, options?: { normalization?: BounceNormalizationMode; tailMode?: BounceTailMode }) => Promise<void>;
+  exportTrackStems: (scope?: ExportScope, options?: { normalization?: BounceNormalizationMode; tailMode?: BounceTailMode }) => Promise<void>;
   master: MasterSettings;
   loopArrangerClip: (clipId: string, copies: number) => void;
   makeClipPatternUnique: (clipId: string) => void;
@@ -249,6 +251,11 @@ const AudioContext = createContext<AudioContextType | null>(null);
 const HISTORY_LIMIT = 100;
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const ARRANGER_SNAP = 4;
+const BOUNCE_TAIL_SECONDS: Record<BounceTailMode, number> = {
+  long: 2.8,
+  short: 0.7,
+  standard: 1.5,
+};
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 const cloneStepEvents = (step: NoteEvent[]) => step.map((event) => ({ ...event }));
@@ -2210,6 +2217,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
 
   const bounceProjectRecording = async (
     renderProject: Project,
+    options: { tailMode?: BounceTailMode } = {},
     updateProgress?: (progress: number, etaSeconds: number) => void,
   ) => {
     if (typeof window === 'undefined' || isRecording) {
@@ -2230,7 +2238,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
         )
       : renderProject.transport.stepsPerPattern;
     const renderDurationSeconds = renderSteps * (60 / renderProject.transport.bpm) * 0.25;
-    const tailSeconds = 1.5;
+    const tailSeconds = BOUNCE_TAIL_SECONDS[options.tailMode ?? 'standard'];
     const bounceDurationMs = Math.max(1200, Math.ceil((renderDurationSeconds + tailSeconds) * 1000));
 
     stop();
@@ -2265,7 +2273,10 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const exportAudioMix = async (scope: ExportScope = project.transport.mode === 'SONG' ? 'song' : 'pattern') => {
+  const exportAudioMix = async (
+    scope: ExportScope = project.transport.mode === 'SONG' ? 'song' : 'pattern',
+    options: { normalization?: BounceNormalizationMode; tailMode?: BounceTailMode } = {},
+  ) => {
     const renderPayload = buildRenderProject(scope);
     if (!renderPayload) {
       return;
@@ -2281,7 +2292,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
     });
 
     try {
-      const recording = await bounceProjectRecording(renderPayload.project, (progress, etaSeconds) => {
+      const recording = await bounceProjectRecording(renderPayload.project, options, (progress, etaSeconds) => {
         setRenderState((current) => ({
           ...current,
           etaSeconds,
@@ -2300,7 +2311,9 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
         progress: Math.max(current.progress, 0.98),
       }));
 
-      const wavBlob = await convertRecordingBlobToWav(recording);
+      const wavBlob = await convertRecordingBlobToWav(recording, {
+        normalization: options.normalization ?? 'none',
+      });
       downloadBlob(wavBlob, `${sanitizeExportFileName(project.metadata.name)}-${renderPayload.fileSuffix}-mix.wav`);
       setRenderState((current) => ({
         ...current,
@@ -2314,7 +2327,10 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const exportTrackStems = async (scope: ExportScope = project.transport.mode === 'SONG' ? 'song' : 'pattern') => {
+  const exportTrackStems = async (
+    scope: ExportScope = project.transport.mode === 'SONG' ? 'song' : 'pattern',
+    options: { normalization?: BounceNormalizationMode; tailMode?: BounceTailMode } = {},
+  ) => {
     const renderPayload = buildRenderProject(scope);
     if (!renderPayload) {
       return;
@@ -2350,7 +2366,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
           progress: progressBase,
         }));
 
-        const recording = await bounceProjectRecording(stemProject, (progress, etaSeconds) => {
+        const recording = await bounceProjectRecording(stemProject, options, (progress, etaSeconds) => {
           setRenderState((current) => ({
             ...current,
             currentTrackName: track.name,
@@ -2370,7 +2386,9 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
           progress: Math.max(current.progress, progressBase + (progressWeight * 0.98)),
         }));
 
-        const wavBlob = await convertRecordingBlobToWav(recording);
+        const wavBlob = await convertRecordingBlobToWav(recording, {
+          normalization: options.normalization ?? 'none',
+        });
         downloadBlob(
           wavBlob,
           `${baseFileName}-${renderPayload.fileSuffix}-${sanitizeExportFileName(track.name)}-stem.wav`,

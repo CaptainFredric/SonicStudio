@@ -9,7 +9,7 @@ import {
   X,
 } from 'lucide-react';
 
-import { useAudio } from '../context/AudioContext';
+import { useAudio, type BounceNormalizationMode, type BounceTailMode } from '../context/AudioContext';
 import { MASTER_PRESET_DEFINITIONS, SESSION_TEMPLATE_DEFINITIONS, type MasterSettings } from '../project/schema';
 import { getStudioReadinessAssessment } from '../utils/readiness';
 
@@ -18,6 +18,15 @@ const STEP_OPTIONS = [8, 16, 32, 64];
 type BounceScope = 'pattern' | 'song' | 'clip-window' | 'loop-window';
 
 const MASTER_MATCH_EPSILON = 0.015;
+const BOUNCE_NORMALIZATION_OPTIONS: Array<{ description: string; label: string; value: BounceNormalizationMode }> = [
+  { description: 'Keep the raw bounce level exactly as the current master path produced it.', label: 'Raw', value: 'none' },
+  { description: 'Lift the bounce safely toward a cleaner peak reference without clipping.', label: 'Peak safe', value: 'peak' },
+];
+const BOUNCE_TAIL_OPTIONS: Array<{ description: string; label: string; value: BounceTailMode }> = [
+  { description: 'Fast print for dry or tightly gated phrases.', label: 'Short', value: 'short' },
+  { description: 'General purpose tail for most references and revisions.', label: 'Standard', value: 'standard' },
+  { description: 'Longer print for pad wash, delay, and reverb decay.', label: 'Long', value: 'long' },
+];
 
 const isMasterPresetMatch = (current: MasterSettings, target: MasterSettings) => (
   Math.abs(current.glueCompression - target.glueCompression) <= MASTER_MATCH_EPSILON
@@ -68,6 +77,8 @@ export const SettingsSidebar = () => {
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
   const [draftTrackName, setDraftTrackName] = useState(selectedTrack?.name ?? '');
   const [bounceScope, setBounceScope] = useState<BounceScope>(transportMode === 'SONG' ? 'song' : 'pattern');
+  const [bounceNormalization, setBounceNormalization] = useState<BounceNormalizationMode>('peak');
+  const [bounceTailMode, setBounceTailMode] = useState<BounceTailMode>('standard');
   const readiness = getStudioReadinessAssessment();
   const activeMasterPreset = MASTER_PRESET_DEFINITIONS.find((preset) => (
     isMasterPresetMatch(master, preset.settings)
@@ -220,6 +231,42 @@ export const SettingsSidebar = () => {
               </div>
             )}
           </div>
+          <div className="mt-4 grid gap-4 lg:grid-cols-2">
+            <div>
+              <div className="section-label">Normalization</div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {BOUNCE_NORMALIZATION_OPTIONS.map((option) => (
+                  <React.Fragment key={option.value}>
+                    <SegmentButton
+                      active={bounceNormalization === option.value}
+                      label={option.label}
+                      onClick={() => setBounceNormalization(option.value)}
+                    />
+                  </React.Fragment>
+                ))}
+              </div>
+              <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
+                {BOUNCE_NORMALIZATION_OPTIONS.find((option) => option.value === bounceNormalization)?.description}
+              </div>
+            </div>
+            <div>
+              <div className="section-label">Tail</div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {BOUNCE_TAIL_OPTIONS.map((option) => (
+                  <React.Fragment key={option.value}>
+                    <SegmentButton
+                      active={bounceTailMode === option.value}
+                      label={option.label}
+                      onClick={() => setBounceTailMode(option.value)}
+                    />
+                  </React.Fragment>
+                ))}
+              </div>
+              <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
+                {BOUNCE_TAIL_OPTIONS.find((option) => option.value === bounceTailMode)?.description}
+              </div>
+            </div>
+          </div>
           <div className="mt-4 grid grid-cols-2 gap-2">
             <ActionButton disabled={renderState.active} icon={<Sparkles className="h-3.5 w-3.5" />} label="New session" onClick={newSession} />
             <ActionButton disabled={renderState.active} icon={<Layers3 className="h-3.5 w-3.5" />} label="Save now" onClick={saveProject} />
@@ -232,7 +279,10 @@ export const SettingsSidebar = () => {
               }
               icon={<Download className="h-3.5 w-3.5" />}
               label={renderState.mode === 'mix' ? 'Printing mix' : 'Bounce WAV'}
-              onClick={() => void exportAudioMix(bounceScope)}
+              onClick={() => void exportAudioMix(bounceScope, {
+                normalization: bounceNormalization,
+                tailMode: bounceTailMode,
+              })}
             />
             <ActionButton
               disabled={
@@ -242,7 +292,10 @@ export const SettingsSidebar = () => {
               }
               icon={<Download className="h-3.5 w-3.5" />}
               label={renderState.mode === 'stems' ? 'Printing stems' : 'Export stems'}
-              onClick={() => void exportTrackStems(bounceScope)}
+              onClick={() => void exportTrackStems(bounceScope, {
+                normalization: bounceNormalization,
+                tailMode: bounceTailMode,
+              })}
             />
             <ActionButton disabled={renderState.active} icon={<Layers3 className="h-3.5 w-3.5" />} label="Export JSON" onClick={exportSession} />
           </div>

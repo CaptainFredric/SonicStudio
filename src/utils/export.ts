@@ -25,6 +25,11 @@ export interface ExportResult {
   downloadUrl?: string;
 }
 
+export interface WavConversionOptions {
+  normalization?: 'none' | 'peak';
+  peakTargetDb?: number;
+}
+
 const getAudioContextConstructor = () => {
   if (typeof window === 'undefined') {
     return null;
@@ -126,10 +131,54 @@ export const downloadBlob = (blob: Blob, fileName: string) => {
   }, 1000);
 };
 
-export const encodeAudioBufferToWav = (audioBuffer: AudioBuffer): Blob => {
-  const channelCount = audioBuffer.numberOfChannels;
-  const sampleRate = audioBuffer.sampleRate;
-  const sampleCount = audioBuffer.length;
+const createProcessedAudioBuffer = (
+  sourceBuffer: AudioBuffer,
+  options: WavConversionOptions = {},
+) => {
+  const channelCount = sourceBuffer.numberOfChannels;
+  const processedBuffer = new AudioBuffer({
+    length: sourceBuffer.length,
+    numberOfChannels: channelCount,
+    sampleRate: sourceBuffer.sampleRate,
+  });
+  const normalization = options.normalization ?? 'none';
+  const peakTargetDb = options.peakTargetDb ?? -1;
+  const peakTargetLinear = Math.pow(10, peakTargetDb / 20);
+
+  let peak = 0;
+  for (let channelIndex = 0; channelIndex < channelCount; channelIndex += 1) {
+    const sourceChannel = sourceBuffer.getChannelData(channelIndex);
+    const destinationChannel = processedBuffer.getChannelData(channelIndex);
+    destinationChannel.set(sourceChannel);
+
+    if (normalization === 'peak') {
+      for (let sampleIndex = 0; sampleIndex < sourceChannel.length; sampleIndex += 1) {
+        peak = Math.max(peak, Math.abs(sourceChannel[sampleIndex] ?? 0));
+      }
+    }
+  }
+
+  if (normalization === 'peak' && peak > 0) {
+    const gain = Math.min(1, peakTargetLinear / peak);
+    for (let channelIndex = 0; channelIndex < channelCount; channelIndex += 1) {
+      const destinationChannel = processedBuffer.getChannelData(channelIndex);
+      for (let sampleIndex = 0; sampleIndex < destinationChannel.length; sampleIndex += 1) {
+        destinationChannel[sampleIndex] *= gain;
+      }
+    }
+  }
+
+  return processedBuffer;
+};
+
+export const encodeAudioBufferToWav = (
+  audioBuffer: AudioBuffer,
+  options: WavConversionOptions = {},
+): Blob => {
+  const processedBuffer = createProcessedAudioBuffer(audioBuffer, options);
+  const channelCount = processedBuffer.numberOfChannels;
+  const sampleRate = processedBuffer.sampleRate;
+  const sampleCount = processedBuffer.length;
   const bytesPerSample = 2;
   const blockAlign = channelCount * bytesPerSample;
   const byteRate = sampleRate * blockAlign;
@@ -152,7 +201,7 @@ export const encodeAudioBufferToWav = (audioBuffer: AudioBuffer): Blob => {
   view.setUint32(40, dataSize, true);
 
   const channels = Array.from({ length: channelCount }, (_, channelIndex) => (
-    audioBuffer.getChannelData(channelIndex)
+    processedBuffer.getChannelData(channelIndex)
   ));
   let offset = 44;
 
@@ -168,7 +217,10 @@ export const encodeAudioBufferToWav = (audioBuffer: AudioBuffer): Blob => {
   return new Blob([buffer], { type: 'audio/wav' });
 };
 
-export const convertRecordingBlobToWav = async (recording: Blob): Promise<Blob> => {
+export const convertRecordingBlobToWav = async (
+  recording: Blob,
+  options: WavConversionOptions = {},
+): Promise<Blob> => {
   const AudioContextConstructor = getAudioContextConstructor();
 
   if (!AudioContextConstructor) {
@@ -180,7 +232,7 @@ export const convertRecordingBlobToWav = async (recording: Blob): Promise<Blob> 
   try {
     const arrayBuffer = await recording.arrayBuffer();
     const decoded = await context.decodeAudioData(arrayBuffer.slice(0));
-    return encodeAudioBufferToWav(decoded);
+    return encodeAudioBufferToWav(decoded, options);
   } finally {
     await context.close();
   }

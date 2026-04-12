@@ -29,13 +29,13 @@ const READINESS_SLICES: ReadinessSlice[] = [
   },
   {
     label: 'Audio output',
-    score: 75,
-    rationale: 'WAV bounce, stem export, a real master output path, visible bounce progress, targeted bounce scopes for pattern, song, selected clip, and active loop window, plus concrete master presets make the print workflow materially more usable, but offline rendering and more deliberate mastering quality are still missing.',
+    score: 78,
+    rationale: 'WAV bounce, stem export, a real master output path, visible bounce progress, targeted bounce scopes for pattern, song, selected clip, and active loop window, concrete master presets, and now explicit tail and peak-safe print controls make the print workflow materially more usable, but offline rendering and more deliberate mastering quality are still missing.',
   },
   {
     label: 'Product finish',
-    score: 79,
-    rationale: 'Track management, pinned lane focus, grouped session organization, visible readiness, bounce feedback, targeted print ranges, active loop-window printing, concrete master presets, real starter scenes, persistent section markers, section-level duplication, section audition looping, and now track-type voice starts make the studio feel more deliberate on first use and during longer sessions, but trust cues, collaboration, and account-level product features are still early.',
+    score: 80,
+    rationale: 'Track management, pinned lane focus, grouped session organization, visible readiness, bounce feedback, targeted print ranges, active loop-window printing, concrete master presets, explicit tail and peak-safe print controls, real starter scenes, persistent section markers, section-level duplication, section audition looping, and track-type voice starts make the studio feel more deliberate on first use and during longer sessions, but trust cues, collaboration, and account-level product features are still early.',
   },
 ];
 
