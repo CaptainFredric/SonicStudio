@@ -9,8 +9,19 @@ import {
 } from './schema';
 
 const STORAGE_KEY = 'sonicstudio:session:v1';
+const CHECKPOINT_STORAGE_KEY = 'sonicstudio:checkpoints:v1';
+const MAX_CHECKPOINTS = 8;
 
 interface PersistedSessionEnvelope {
+  savedAt: string;
+  session: StudioSession;
+  version: 1;
+}
+
+export interface PersistedCheckpoint {
+  id: string;
+  label: string;
+  projectName: string;
   savedAt: string;
   session: StudioSession;
   version: 1;
@@ -162,6 +173,96 @@ export const persistSession = (session: StudioSession): PersistedSessionEnvelope
   } catch {
     return null;
   }
+};
+
+const normalizeCheckpoint = (value: unknown): PersistedCheckpoint | null => {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const session = hydrateSessionPayload(value.session);
+  if (!session) {
+    return null;
+  }
+
+  return {
+    id: typeof value.id === 'string' && value.id ? value.id : `checkpoint_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    label: typeof value.label === 'string' && value.label.trim() ? value.label.trim().slice(0, 40) : 'Recovery point',
+    projectName: typeof value.projectName === 'string' && value.projectName.trim()
+      ? value.projectName.trim().slice(0, 40)
+      : session.project.metadata.name,
+    savedAt: typeof value.savedAt === 'string' ? value.savedAt : new Date().toISOString(),
+    session,
+    version: 1,
+  };
+};
+
+export const listProjectCheckpoints = (): PersistedCheckpoint[] => {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+
+  try {
+    const raw = window.localStorage.getItem(CHECKPOINT_STORAGE_KEY);
+    if (!raw) {
+      return [];
+    }
+
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed
+      .map((entry) => normalizeCheckpoint(entry))
+      .filter((entry): entry is PersistedCheckpoint => entry !== null)
+      .sort((left, right) => new Date(right.savedAt).getTime() - new Date(left.savedAt).getTime())
+      .slice(0, MAX_CHECKPOINTS);
+  } catch {
+    return [];
+  }
+};
+
+export const saveProjectCheckpoint = (session: StudioSession, label: string): PersistedCheckpoint | null => {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  try {
+    const nextEntry: PersistedCheckpoint = {
+      id: `checkpoint_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      label: label.trim().slice(0, 40) || 'Recovery point',
+      projectName: session.project.metadata.name,
+      savedAt: new Date().toISOString(),
+      session,
+      version: 1,
+    };
+    const nextEntries = [nextEntry, ...listProjectCheckpoints()].slice(0, MAX_CHECKPOINTS);
+    window.localStorage.setItem(CHECKPOINT_STORAGE_KEY, JSON.stringify(nextEntries));
+    return nextEntry;
+  } catch {
+    return null;
+  }
+};
+
+export const restoreProjectCheckpoint = (checkpointId: string): StudioSession | null => {
+  const checkpoint = listProjectCheckpoints().find((entry) => entry.id === checkpointId);
+  return checkpoint?.session ?? null;
+};
+
+export const deleteProjectCheckpoint = (checkpointId: string): PersistedCheckpoint[] => {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+
+  const nextEntries = listProjectCheckpoints().filter((entry) => entry.id !== checkpointId);
+  try {
+    window.localStorage.setItem(CHECKPOINT_STORAGE_KEY, JSON.stringify(nextEntries));
+  } catch {
+    return nextEntries;
+  }
+
+  return nextEntries;
 };
 
 export const clearPersistedSession = (): void => {

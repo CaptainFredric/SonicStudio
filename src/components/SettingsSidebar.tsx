@@ -66,10 +66,13 @@ export const SettingsSidebar = () => {
     masterSnapshots,
     newSession,
     patternCount,
+    projectCheckpoints,
     renderState,
     renameTrack,
     rerunBounceHistory,
+    restoreCheckpoint,
     saveProject,
+    saveCheckpoint,
     saveMasterSnapshot,
     saveStatus,
     selectedArrangerClipId,
@@ -92,6 +95,7 @@ export const SettingsSidebar = () => {
     updateTrackVolume,
     moveTrack,
     applyMasterSnapshot,
+    deleteCheckpoint,
     deleteMasterSnapshot,
   } = useAudio();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -348,6 +352,7 @@ export const SettingsSidebar = () => {
           <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
             <ActionButton disabled={renderState.active} icon={<Sparkles className="h-3.5 w-3.5" />} label="New session" onClick={newSession} />
             <ActionButton disabled={renderState.active} icon={<Layers3 className="h-3.5 w-3.5" />} label="Save now" onClick={saveProject} />
+            <ActionButton disabled={renderState.active} icon={<Save className="h-3.5 w-3.5" />} label="Checkpoint" onClick={() => saveCheckpoint()} />
             <ActionButton disabled={renderState.active} icon={<FolderOpen className="h-3.5 w-3.5" />} label="Load JSON" onClick={() => fileInputRef.current?.click()} />
             <ActionButton disabled={renderState.active} icon={<FolderOpen className="h-3.5 w-3.5" />} label="Import MIDI" onClick={() => midiFileInputRef.current?.click()} />
             <ActionButton
@@ -389,6 +394,49 @@ export const SettingsSidebar = () => {
               onClick={() => void exportMidi(bounceScope)}
             />
             <ActionButton disabled={renderState.active} icon={<Layers3 className="h-3.5 w-3.5" />} label="Export JSON" onClick={exportSession} />
+          </div>
+          <div className="mt-4">
+            <div className="flex items-center justify-between gap-3">
+              <span className="section-label">Recovery points</span>
+              <span className="font-mono text-xs text-[var(--accent-strong)]">{projectCheckpoints.length}</span>
+            </div>
+            <div className="mt-3 grid gap-2">
+              {projectCheckpoints.length > 0 ? projectCheckpoints.map((checkpoint) => (
+                <div key={checkpoint.id} className="rounded-2xl border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold text-[var(--text-primary)]">{checkpoint.label}</div>
+                      <div className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
+                        {checkpoint.projectName} · {new Date(checkpoint.savedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+                      </div>
+                    </div>
+                    <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--accent-strong)]">
+                      {new Date(checkpoint.savedAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                    </span>
+                  </div>
+                  <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                    <ActionButton
+                      disabled={renderState.active}
+                      icon={<ArrowUp className="h-3.5 w-3.5" />}
+                      label="Restore"
+                      onClick={() => {
+                        restoreCheckpoint(checkpoint.id);
+                      }}
+                    />
+                    <ActionButton
+                      disabled={renderState.active}
+                      icon={<Trash2 className="h-3.5 w-3.5" />}
+                      label="Delete"
+                      onClick={() => deleteCheckpoint(checkpoint.id)}
+                    />
+                  </div>
+                </div>
+              )) : (
+                <div className="rounded-2xl border border-dashed border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-4 py-4 text-[11px] leading-5 text-[var(--text-secondary)]">
+                  Save a checkpoint before big edits, imports, or arrangement surgery. These stay local and give you a quick way back if a session goes sideways.
+                </div>
+              )}
+            </div>
           </div>
           <div className="mt-4">
             <div className="flex items-center justify-between gap-3">

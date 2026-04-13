@@ -47,9 +47,14 @@ import {
 import {
   createSessionFromTemplate,
   createDefaultSession,
+  deleteProjectCheckpoint,
   hydrateSessionPayload,
+  listProjectCheckpoints,
   loadPersistedSession,
   persistSession,
+  restoreProjectCheckpoint,
+  saveProjectCheckpoint,
+  type PersistedCheckpoint,
 } from '../project/storage';
 import {
   convertRecordingBlobToWavWithAnalysis,
@@ -131,6 +136,7 @@ interface AudioContextType {
   patternCount: number;
   previewTrack: (trackId: string, note?: string, sampleSliceIndex?: number) => Promise<void>;
   projectName: string;
+  projectCheckpoints: PersistedCheckpoint[];
   redo: () => void;
   renderState: RenderState;
   removeArrangerClip: (clipId: string) => void;
@@ -138,7 +144,9 @@ interface AudioContextType {
   removeTrack: (trackId: string) => void;
   renameProject: (name: string) => void;
   renameTrack: (trackId: string, name: string) => void;
+  restoreCheckpoint: (checkpointId: string) => boolean;
   saveProject: () => void;
+  saveCheckpoint: (label?: string) => void;
   saveStatus: SaveStatus;
   pinnedTrackIds: string[];
   selectedArrangerClipId: string | null;
@@ -194,6 +202,7 @@ interface AudioContextType {
   updateTrackPan: (trackId: string, pan: number) => void;
   updateTrackVolume: (trackId: string, volume: number) => void;
   deleteSampleSlice: (trackId: string, sliceIndex: number) => void;
+  deleteCheckpoint: (checkpointId: string) => void;
   deleteMasterSnapshot: (snapshotId: string) => void;
   deleteTrackSnapshot: (snapshotId: string) => void;
   masterSnapshots: MasterSnapshot[];
@@ -2165,6 +2174,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
+  const [projectCheckpoints, setProjectCheckpoints] = useState<PersistedCheckpoint[]>(() => listProjectCheckpoints());
   const [renderState, setRenderState] = useState<RenderState>(IDLE_RENDER_STATE);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const countInTokenRef = useRef(0);
@@ -2391,6 +2401,17 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
   const saveProject = () => {
     setSaveStatus('saving');
     persistCurrentSession();
+  };
+
+  const saveCheckpoint = (label?: string) => {
+    const checkpoint = saveProjectCheckpoint({
+      project: editorState.history.present,
+      ui: editorState.ui,
+    }, label ?? `${project.metadata.name} checkpoint`);
+
+    if (checkpoint) {
+      setProjectCheckpoints(listProjectCheckpoints());
+    }
   };
 
   const previewTrack = async (trackId: string, note?: string, sampleSliceIndex?: number) => {
@@ -2807,6 +2828,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
 
   const importSession = async (file: File) => {
     try {
+      saveCheckpoint('Before JSON import');
       const parsed = JSON.parse(await file.text()) as unknown;
       const session = hydrateSessionPayload(parsed);
 
@@ -2828,6 +2850,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
 
   const importMidiSession = async (file: File) => {
     try {
+      saveCheckpoint('Before MIDI import');
       const session = await importMidiFile(file);
       resetTransportState();
       setLastSavedAt(null);
@@ -2858,6 +2881,19 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
     }
 
     await exportAudioMix(entry.scope, options);
+  };
+
+  const restoreCheckpoint = (checkpointId: string) => {
+    const session = restoreProjectCheckpoint(checkpointId);
+    if (!session) {
+      return false;
+    }
+
+    resetTransportState();
+    setLastSavedAt(null);
+    setSaveStatus('idle');
+    dispatch({ type: 'HYDRATE_SESSION', session });
+    return true;
   };
 
   return (
@@ -2911,6 +2947,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       pinnedTrackIds,
       previewTrack,
       projectName: project.metadata.name,
+      projectCheckpoints,
       redo: () => dispatch({ type: 'REDO' }),
       renderState,
       removeArrangerClip: (clipId) => dispatch({ type: 'REMOVE_ARRANGER_CLIP', clipId }),
@@ -2919,7 +2956,9 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       renameProject: (name) => dispatch({ type: 'SET_PROJECT_NAME', name }),
       renameTrack: (trackId, name) => dispatch({ type: 'SET_TRACK_NAME', name, trackId }),
       rerunBounceHistory,
+      restoreCheckpoint,
       saveProject,
+      saveCheckpoint,
       saveMasterSnapshot: (snapshotId) => dispatch({ type: 'SAVE_MASTER_SNAPSHOT', snapshotId }),
       saveTrackSnapshot: (trackId, snapshotId) => dispatch({ type: 'SAVE_TRACK_SNAPSHOT', snapshotId, trackId }),
       saveStatus,
@@ -2974,6 +3013,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       updateStepEvent: (trackId, stepIndex, noteIndex, updates) => dispatch({ type: 'UPDATE_STEP_EVENT', noteIndex, stepIndex, trackId, updates }),
       updateTrackPan: (trackId, pan) => dispatch({ type: 'TOGGLE_PAN', pan, trackId }),
       updateTrackVolume: (trackId, volume) => dispatch({ type: 'TOGGLE_VOLUME', trackId, volume }),
+      deleteCheckpoint: (checkpointId) => setProjectCheckpoints(deleteProjectCheckpoint(checkpointId)),
       deleteSampleSlice: (trackId, sliceIndex) => dispatch({ type: 'DELETE_SAMPLE_SLICE', sliceIndex, trackId }),
       deleteMasterSnapshot: (snapshotId) => dispatch({ type: 'DELETE_MASTER_SNAPSHOT', snapshotId }),
       deleteTrackSnapshot: (snapshotId) => dispatch({ type: 'DELETE_TRACK_SNAPSHOT', snapshotId }),
