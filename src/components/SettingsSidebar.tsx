@@ -55,6 +55,7 @@ export const SettingsSidebar = () => {
     exportMidi,
     exportTrackStems,
     exportSession,
+    importMidiSession,
     importSession,
     isSettingsOpen,
     lastSavedAt,
@@ -94,6 +95,7 @@ export const SettingsSidebar = () => {
     deleteMasterSnapshot,
   } = useAudio();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const midiFileInputRef = useRef<HTMLInputElement>(null);
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
   const [draftTrackName, setDraftTrackName] = useState(selectedTrack?.name ?? '');
   const [bounceScope, setBounceScope] = useState<BounceScope>(transportMode === 'SONG' ? 'song' : 'pattern');
@@ -148,6 +150,21 @@ export const SettingsSidebar = () => {
           }
 
           await importSession(file);
+          event.target.value = '';
+        }}
+        type="file"
+      />
+      <input
+        ref={midiFileInputRef}
+        accept=".mid,.midi,audio/midi,audio/x-midi"
+        className="hidden"
+        onChange={async (event) => {
+          const file = event.target.files?.[0];
+          if (!file) {
+            return;
+          }
+
+          await importMidiSession(file);
           event.target.value = '';
         }}
         type="file"
@@ -332,6 +349,7 @@ export const SettingsSidebar = () => {
             <ActionButton disabled={renderState.active} icon={<Sparkles className="h-3.5 w-3.5" />} label="New session" onClick={newSession} />
             <ActionButton disabled={renderState.active} icon={<Layers3 className="h-3.5 w-3.5" />} label="Save now" onClick={saveProject} />
             <ActionButton disabled={renderState.active} icon={<FolderOpen className="h-3.5 w-3.5" />} label="Load JSON" onClick={() => fileInputRef.current?.click()} />
+            <ActionButton disabled={renderState.active} icon={<FolderOpen className="h-3.5 w-3.5" />} label="Import MIDI" onClick={() => midiFileInputRef.current?.click()} />
             <ActionButton
               disabled={
                 renderState.active

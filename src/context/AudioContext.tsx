@@ -55,6 +55,7 @@ import {
   convertRecordingBlobToWavWithAnalysis,
   downloadBlob,
   exportToMIDI,
+  importMidiFile,
   type AudioRenderAnalysis,
   type RenderTargetProfileId,
   sanitizeExportFileName,
@@ -115,6 +116,7 @@ interface AudioContextType {
   duplicateTrack: (trackId: string) => void;
   exportSession: () => void;
   importSession: (file: File) => Promise<boolean>;
+  importMidiSession: (file: File) => Promise<boolean>;
   initAudio: () => Promise<void>;
   isInitialized: boolean;
   isPlaying: boolean;
@@ -2824,6 +2826,20 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const importMidiSession = async (file: File) => {
+    try {
+      const session = await importMidiFile(file);
+      resetTransportState();
+      setLastSavedAt(null);
+      setSaveStatus('idle');
+      dispatch({ type: 'HYDRATE_SESSION', session });
+      return true;
+    } catch {
+      setSaveStatus('error');
+      return false;
+    }
+  };
+
   const rerunBounceHistory = async (entryId: string) => {
     const entry = project.bounceHistory.find((candidate) => candidate.id === entryId);
     if (!entry) {
@@ -2877,6 +2893,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       duplicateTrack: (trackId) => dispatch({ type: 'DUPLICATE_TRACK', trackId }),
       exportSession,
       importSession,
+      importMidiSession,
       initAudio,
       isInitialized,
       isPlaying,

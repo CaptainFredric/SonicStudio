@@ -2,7 +2,17 @@
 // JSON snapshot export is implemented today, and recorder output can now be
 // converted into WAV downloads for mix and stem export flows.
 
-import type { NoteEvent, Project, Track } from '../project/schema';
+import {
+  createArrangerClip,
+  createProjectFromTemplate,
+  createStepEvent,
+  createTrack,
+  type InstrumentType,
+  type NoteEvent,
+  type Project,
+  type StudioSession,
+  type Track,
+} from '../project/schema';
 
 export interface ExportOptions {
   format: 'midi' | 'wav' | 'mp3' | 'json' | 'flac' | 'ogg';
@@ -32,6 +42,26 @@ interface MidiTrackEvent {
   trackName: string;
   type: 'note-off' | 'note-on';
   velocity: number;
+}
+
+interface ParsedMidiNote {
+  channel: number;
+  durationTicks: number;
+  noteNumber: number;
+  startTick: number;
+  velocity: number;
+}
+
+interface ParsedMidiTrack {
+  channelUsage: Set<number>;
+  name: string;
+  notes: ParsedMidiNote[];
+}
+
+interface ParsedMidiFile {
+  bpm: number;
+  ticksPerQuarter: number;
+  tracks: ParsedMidiTrack[];
 }
 
 export interface WavConversionOptions {
@@ -193,6 +223,7 @@ export const sanitizeExportFileName = (name: string) => (
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const MIDI_PPQ = 96;
 const STEP_TICKS = MIDI_PPQ / 4;
+const MAX_IMPORT_STEPS = 512;
 
 const noteToMidi = (note: string): number | null => {
   const match = note.match(/^([A-G]#?)(-?\d+)$/);
@@ -206,6 +237,327 @@ const noteToMidi = (note: string): number | null => {
   }
 
   return (Number(match[2]) + 1) * 12 + pitchClass;
+};
+
+const midiToNote = (midi: number): string => {
+  const clamped = Math.max(24, Math.min(96, Math.round(midi)));
+  const pitchClass = NOTE_NAMES[clamped % 12];
+  const octave = Math.floor(clamped / 12) - 1;
+  return `${pitchClass}${octave}`;
+};
+
+const readUint16 = (bytes: Uint8Array, offset: number) => ((bytes[offset] << 8) | bytes[offset + 1]);
+const readUint32 = (bytes: Uint8Array, offset: number) => (
+  ((bytes[offset] << 24) >>> 0)
+  | (bytes[offset + 1] << 16)
+  | (bytes[offset + 2] << 8)
+  | bytes[offset + 3]
+);
+
+const readVariableLength = (bytes: Uint8Array, offset: number): { length: number; value: number } => {
+  let value = 0;
+  let length = 0;
+
+  while (offset + length < bytes.length) {
+    const byte = bytes[offset + length];
+    value = (value << 7) | (byte & 0x7f);
+    length += 1;
+    if ((byte & 0x80) === 0) {
+      break;
+    }
+  }
+
+  return { length, value };
+};
+
+const decodeLatinText = (bytes: Uint8Array) => String.fromCharCode(...bytes).replace(/\0/g, '').trim();
+
+const parseMidiFile = (bytes: Uint8Array): ParsedMidiFile => {
+  if (decodeLatinText(bytes.slice(0, 4)) !== 'MThd') {
+    throw new Error('Invalid MIDI header.');
+  }
+
+  const headerLength = readUint32(bytes, 4);
+  const format = readUint16(bytes, 8);
+  const trackCount = readUint16(bytes, 10);
+  const division = readUint16(bytes, 12);
+  if (division & 0x8000) {
+    throw new Error('SMPTE MIDI timing is not supported.');
+  }
+
+  let bpm = 120;
+  let cursor = 8 + headerLength;
+  const tracks: ParsedMidiTrack[] = [];
+
+  for (let trackIndex = 0; trackIndex < trackCount; trackIndex += 1) {
+    if (decodeLatinText(bytes.slice(cursor, cursor + 4)) !== 'MTrk') {
+      break;
+    }
+
+    const trackLength = readUint32(bytes, cursor + 4);
+    const trackEnd = cursor + 8 + trackLength;
+    let position = cursor + 8;
+    let absoluteTick = 0;
+    let runningStatus = 0;
+    let trackName = `Track ${trackIndex + 1}`;
+    const notes: ParsedMidiNote[] = [];
+    const openNotes = new Map<string, Array<{ startTick: number; velocity: number }>>();
+    const channelUsage = new Set<number>();
+
+    while (position < trackEnd) {
+      const delta = readVariableLength(bytes, position);
+      absoluteTick += delta.value;
+      position += delta.length;
+
+      let status = bytes[position];
+      if (status < 0x80) {
+        status = runningStatus;
+      } else {
+        position += 1;
+        runningStatus = status;
+      }
+
+      if (status === 0xff) {
+        const metaType = bytes[position];
+        position += 1;
+        const metaLength = readVariableLength(bytes, position);
+        position += metaLength.length;
+        const metaData = bytes.slice(position, position + metaLength.value);
+        position += metaLength.value;
+
+        if (metaType === 0x03 && metaData.length > 0) {
+          trackName = decodeLatinText(metaData) || trackName;
+        }
+
+        if (metaType === 0x51 && metaData.length === 3 && bpm === 120) {
+          const microsecondsPerQuarter = (metaData[0] << 16) | (metaData[1] << 8) | metaData[2];
+          bpm = Math.max(40, Math.min(240, Math.round(60_000_000 / microsecondsPerQuarter)));
+        }
+
+        continue;
+      }
+
+      if (status === 0xf0 || status === 0xf7) {
+        const sysexLength = readVariableLength(bytes, position);
+        position += sysexLength.length + sysexLength.value;
+        continue;
+      }
+
+      const command = status & 0xf0;
+      const channel = status & 0x0f;
+      const firstData = bytes[position];
+      const secondData = command === 0xc0 || command === 0xd0 ? 0 : bytes[position + 1];
+      position += command === 0xc0 || command === 0xd0 ? 1 : 2;
+
+      if (command === 0x90 || command === 0x80) {
+        channelUsage.add(channel);
+        const key = `${channel}:${firstData}`;
+        const stack = openNotes.get(key) ?? [];
+
+        if (command === 0x90 && secondData > 0) {
+          stack.push({ startTick: absoluteTick, velocity: secondData / 127 });
+          openNotes.set(key, stack);
+        } else {
+          const openNote = stack.pop();
+          if (openNote) {
+            notes.push({
+              channel,
+              durationTicks: Math.max(division / 8, absoluteTick - openNote.startTick),
+              noteNumber: firstData,
+              startTick: openNote.startTick,
+              velocity: openNote.velocity,
+            });
+          }
+          if (stack.length === 0) {
+            openNotes.delete(key);
+          } else {
+            openNotes.set(key, stack);
+          }
+        }
+      }
+    }
+
+    tracks.push({
+      channelUsage,
+      name: trackName,
+      notes,
+    });
+    cursor = trackEnd;
+  }
+
+  if (format !== 0 && format !== 1) {
+    throw new Error('Only MIDI format 0 and 1 are supported.');
+  }
+
+  return {
+    bpm,
+    ticksPerQuarter: division,
+    tracks,
+  };
+};
+
+const inferTrackType = (track: ParsedMidiTrack): InstrumentType => {
+  const notes = track.notes;
+  if (notes.length === 0) {
+    return 'lead';
+  }
+
+  const usesDrumChannel = [...track.channelUsage].includes(9);
+  if (usesDrumChannel) {
+    const averageDrum = notes.reduce((sum, note) => sum + note.noteNumber, 0) / notes.length;
+    if (averageDrum < 40) {
+      return 'kick';
+    }
+    if (averageDrum < 55) {
+      return 'snare';
+    }
+    if (averageDrum < 70) {
+      return 'hihat';
+    }
+    return 'fx';
+  }
+
+  const averageNote = notes.reduce((sum, note) => sum + note.noteNumber, 0) / notes.length;
+  const averageDuration = notes.reduce((sum, note) => sum + note.durationTicks, 0) / notes.length;
+  const uniqueStarts = new Set(notes.map((note) => note.startTick)).size;
+  const density = notes.length / Math.max(1, uniqueStarts);
+
+  if (averageNote < 50) {
+    return 'bass';
+  }
+  if (density > 1.6) {
+    return 'pad';
+  }
+  if (averageDuration < 180) {
+    return 'pluck';
+  }
+  return averageNote > 72 ? 'lead' : 'pad';
+};
+
+const buildSessionFromMidi = (
+  parsed: ParsedMidiFile,
+  fileName: string,
+): StudioSession => {
+  const baseSession = {
+    ...createProjectFromTemplate('blank-grid'),
+  };
+  const stepTicks = Math.max(1, Math.round(parsed.ticksPerQuarter / 4));
+  const allNotes = parsed.tracks.flatMap((track) => track.notes);
+  const maxEndTick = allNotes.reduce(
+    (maxTick, note) => Math.max(maxTick, note.startTick + note.durationTicks),
+    stepTicks * 16,
+  );
+  const totalSteps = Math.min(MAX_IMPORT_STEPS, Math.max(16, Math.ceil(maxEndTick / stepTicks)));
+  const stepsPerPattern = totalSteps <= 16 ? 16 : totalSteps <= 32 ? 32 : 64;
+  const patternCount = Math.max(1, Math.min(8, Math.ceil(totalSteps / stepsPerPattern)));
+  const mode = totalSteps > stepsPerPattern ? 'SONG' : 'PATTERN';
+  const trackSources = parsed.tracks
+    .filter((track) => track.notes.length > 0)
+    .slice(0, 8);
+
+  const tracks = trackSources.map((parsedTrack, index) => {
+    const type = inferTrackType(parsedTrack);
+    const track = createTrack(type, {
+      name: parsedTrack.name.slice(0, 28) || `MIDI ${index + 1}`,
+      patternCount,
+      stepsPerPattern,
+    });
+
+    for (const note of parsedTrack.notes) {
+      const absoluteStep = Math.floor(note.startTick / stepTicks);
+      if (absoluteStep >= patternCount * stepsPerPattern) {
+        continue;
+      }
+
+      const patternIndex = Math.floor(absoluteStep / stepsPerPattern);
+      const stepIndex = absoluteStep % stepsPerPattern;
+      const noteLabel = type === 'kick' || type === 'snare' || type === 'hihat' || type === 'fx'
+        ? 'C1'
+        : midiToNote(note.noteNumber);
+      const gate = Math.max(0.25, Math.min(4, Number((note.durationTicks / stepTicks).toFixed(2))));
+      const velocity = Math.max(0.1, Math.min(1, Number(note.velocity.toFixed(2))));
+
+      track.patterns[patternIndex][stepIndex].push(createStepEvent(noteLabel, { gate, velocity }));
+    }
+
+    return track;
+  });
+
+  const arrangerClips = mode === 'SONG'
+    ? tracks.flatMap((track) => (
+        Array.from({ length: patternCount }, (_, patternIndex) => {
+          const hasEvents = track.patterns[patternIndex]?.some((step) => step.length > 0);
+          return hasEvents
+            ? createArrangerClip(track.id, {
+                bpm: parsed.bpm,
+                countInBars: 0,
+                currentPattern: 0,
+                metronomeEnabled: false,
+                mode,
+                patternCount,
+                stepsPerPattern,
+              }, {
+                beatLength: stepsPerPattern,
+                patternIndex,
+                startBeat: patternIndex * stepsPerPattern,
+              })
+            : null;
+        }).filter((clip): clip is ReturnType<typeof createArrangerClip> => clip !== null)
+      ))
+    : tracks.map((track) => createArrangerClip(track.id, {
+        bpm: parsed.bpm,
+        countInBars: 0,
+        currentPattern: 0,
+        metronomeEnabled: false,
+        mode,
+        patternCount,
+        stepsPerPattern,
+      }, {
+        beatLength: stepsPerPattern,
+        patternIndex: 0,
+        startBeat: 0,
+      }));
+
+  const projectName = fileName.replace(/\.mid[i]?$/i, '').trim() || 'Imported MIDI';
+  const project: Project = {
+    ...baseSession,
+    arrangerClips,
+    bounceHistory: [],
+    markers: mode === 'SONG'
+      ? Array.from({ length: patternCount }, (_, index) => ({
+          beat: index * stepsPerPattern,
+          id: `marker_${index}_${Date.now()}`,
+          name: `Section ${index + 1}`,
+        }))
+      : [],
+    metadata: {
+      ...baseSession.metadata,
+      name: projectName,
+      updatedAt: new Date().toISOString(),
+    },
+    tracks: tracks.length > 0 ? tracks : baseSession.tracks,
+    transport: {
+      ...baseSession.transport,
+      bpm: parsed.bpm,
+      currentPattern: 0,
+      mode,
+      patternCount,
+      stepsPerPattern,
+    },
+  };
+
+  return {
+    project,
+    ui: {
+      activeView: 'SEQUENCER',
+      isSettingsOpen: false,
+      loopRangeEndBeat: null,
+      loopRangeStartBeat: null,
+      pinnedTrackIds: [],
+      selectedArrangerClipId: project.arrangerClips[0]?.id ?? null,
+      selectedTrackId: project.tracks[0]?.id ?? null,
+    },
+  };
 };
 
 const encodeVariableLength = (value: number) => {
@@ -623,6 +975,12 @@ export const convertRecordingBlobToWavWithAnalysis = async (
   }
 };
 
+export const importMidiFile = async (file: File): Promise<StudioSession> => {
+  const buffer = new Uint8Array(await file.arrayBuffer());
+  const parsed = parseMidiFile(buffer);
+  return buildSessionFromMidi(parsed, file.name);
+};
+
 export const exportToMIDI = async (project: Project, _options: Partial<ExportOptions> = {}): Promise<ExportResult> => {
   const startTime = performance.now();
   const midiData = encodeProjectToMidi(project);
@@ -701,6 +1059,7 @@ export const ExportUtils = {
   exportToJSON,
   exportToFLAC,
   exportToOGG,
+  importMidiFile,
   batchExport,
   sanitizeExportFileName,
 };
