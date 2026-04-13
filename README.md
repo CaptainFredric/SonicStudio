@@ -1,10 +1,10 @@
 # SonicStudio
 
-SonicStudio is a browser-native composition studio built with React and Tone.js. It is aimed at fast song sketching, sound design, arrangement editing, and practical workflow exits without leaving the browser.
+SonicStudio is a browser-native composition studio built with React and Tone.js. It is aimed at fast song sketching, sound design, arrangement editing, and practical workflow exits inside the browser.
 
 ## Why it matters
 
-SonicStudio is no longer just a loop toy. The current build supports an actual writing flow:
+The current build supports an actual writing flow:
 
 1. build phrases in the sequencer or piano roll
 2. arrange clips in song view

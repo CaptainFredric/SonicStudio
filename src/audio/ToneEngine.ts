@@ -39,6 +39,7 @@ interface TrackGraph {
 }
 
 class ToneEngine {
+  private activeSamplePlayers = new Set<Tone.Player>();
   private arrangerClips: ArrangementClip[] = [];
   private isInitialized = false;
   private loopRange: { endBeat: number; startBeat: number } | null = null;
@@ -335,6 +336,7 @@ class ToneEngine {
 
   public togglePlayback() {
     if (Tone.Transport.state === 'started') {
+      this.stopActiveVoices();
       Tone.Transport.pause();
       return false;
     }
@@ -351,6 +353,7 @@ class ToneEngine {
 
   public stop() {
     const loopBounds = this.getLoopBounds();
+    this.stopActiveVoices();
     Tone.Transport.stop();
     Tone.Transport.position = loopBounds.startBeat * Tone.Time('16n').toSeconds();
     this.currentStep = loopBounds.startBeat;
@@ -537,13 +540,38 @@ class ToneEngine {
       url: graph.sampleBuffer,
     });
 
+    this.activeSamplePlayers.add(player);
     player.volume.value = Tone.gainToDb(Math.max(0.0001, step.velocity * sliceWindow.gain));
     player.connect(graph.vibrato);
     player.start(time, windowStart, scheduledDuration);
     player.stop(time + scheduledDuration + 0.06);
     player.onstop = () => {
+      this.activeSamplePlayers.delete(player);
       player.dispose();
     };
+  }
+
+  private stopActiveVoices() {
+    this.activeSamplePlayers.forEach((player) => {
+      try {
+        player.stop();
+      } catch {
+        player.dispose();
+      }
+    });
+    this.activeSamplePlayers.clear();
+
+    Object.values(this.trackGraphs).forEach((graph) => {
+      const instrument = graph.instrument;
+      if (instrument instanceof Tone.PolySynth) {
+        instrument.releaseAll();
+        return;
+      }
+
+      if (instrument instanceof Tone.MonoSynth || instrument instanceof Tone.MembraneSynth) {
+        instrument.triggerRelease();
+      }
+    });
   }
 
   private createInstrument(track: Track): TrackInstrument {

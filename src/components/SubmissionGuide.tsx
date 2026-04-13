@@ -79,7 +79,7 @@ export const SubmissionGuide = ({ isOpen, onClose }: SubmissionGuideProps) => {
               <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--text-secondary)]">
                 This build is positioned as a browser-native composition studio with serious workflow exits:
                 sample slicing, MIDI import and export, print analysis, checkpoints, and a real song view.
-                The challenge risk is not capability. It is reviewer overload. This panel fixes that.
+                The main challenge risk is reviewer overload. This panel gives reviewers a fast route into the strongest parts of the product.
               </p>
             </div>
             <button

@@ -1,0 +1,25 @@
+{
+  "name": "SonicStudio",
+  "short_name": "SonicStudio",
+  "start_url": "/SonicStudio/",
+  "display": "standalone",
+  "background_color": "#030406",
+  "theme_color": "#07111A",
+  "icons": [
+    {
+      "src": "/SonicStudio/favicon-32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/SonicStudio/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/SonicStudio/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

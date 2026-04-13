@@ -6,7 +6,7 @@ SonicStudio is a browser-native composition studio that combines sequencing, arr
 
 ## What makes it strong for the challenge
 
-1. It is a real product surface, not just a static demo.
+1. It is a real product surface with working studio behavior.
 2. It has meaningful technical depth across audio, editing, project state, and export.
 3. It demonstrates iterative engineering rather than a thin wrapper around one model call.
 4. It is usable in the browser with real workflow exits like MIDI import and export, WAV bounce, checkpoints, and sound recall.
@@ -38,7 +38,7 @@ SonicStudio is strongest as:
 
 1. a browser-native music composition and arrangement tool
 2. a technically ambitious local-first studio workflow
-3. a project that shows serious product iteration, not just visual prototyping
+3. a project that shows serious product iteration beyond visual prototyping
 
 It is weaker as:
 

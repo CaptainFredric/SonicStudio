@@ -11,11 +11,11 @@ import {
   SlidersHorizontal,
   Square,
   Undo2,
-  Waves,
 } from 'lucide-react';
 
 import { useAudio } from '../context/AudioContext';
 import { MASTER_PRESET_DEFINITIONS, type MasterSettings } from '../project/schema';
+import { BrandMark } from './BrandMark';
 
 const MASTER_MATCH_EPSILON = 0.015;
 
@@ -111,7 +111,7 @@ export const TopBar = ({
         <div className="grid min-w-0 gap-3 md:grid-cols-[auto_minmax(0,1fr)]">
           <div className="flex min-w-0 items-center gap-3 xl:min-w-[220px]">
             <div className="surface-panel-strong flex h-11 w-11 items-center justify-center" style={{ borderRadius: '2px' }}>
-              <Waves className="h-5 w-5 text-[var(--accent)]" />
+              <BrandMark className="h-5 w-5 text-[var(--accent)]" />
             </div>
             <div className="min-w-0">
               <h1 className="text-[18px] font-semibold tracking-tight text-[var(--text-primary)]">SonicStudio</h1>

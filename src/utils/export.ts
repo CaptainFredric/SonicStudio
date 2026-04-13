@@ -154,7 +154,7 @@ const unsupportedExport = async (
   duration: 0,
   checksum: '',
   timestamp: new Date().toISOString(),
-  message: `${format.toUpperCase()} export is not implemented yet. Use the live bounce action in Studio Setup for audio and JSON snapshot export for session data.`,
+  message: `${format.toUpperCase()} export is unavailable in this build. Use live bounce for audio or JSON export for full session data.`,
 });
 
 export async function exportToJSON(

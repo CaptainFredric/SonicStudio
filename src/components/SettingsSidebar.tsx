@@ -228,7 +228,7 @@ export const SettingsSidebar = () => {
               ))}
             </div>
             <div className="mt-3 text-[11px] leading-5 text-[var(--text-secondary)]">
-              These scenes replace the current session immediately, so they are meant for fast starts, not as presets layered onto an existing song.
+              These scenes replace the current session immediately. Use them for fast starts, then save a checkpoint before switching to another scene.
             </div>
           </div>
           {renderState.active && (
