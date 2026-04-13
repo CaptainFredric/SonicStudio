@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   Circle,
   Compass,
+  ExternalLink,
   Layers3,
   Play,
   Radio,
@@ -28,7 +29,11 @@ const isMasterPresetMatch = (current: MasterSettings, target: MasterSettings) =>
   && Math.abs(current.limiterCeiling - target.limiterCeiling) <= 0.06
 );
 
-export const TopBar = () => {
+export const TopBar = ({
+  onOpenGuide,
+}: {
+  onOpenGuide?: () => void;
+}) => {
   const {
     activeView,
     bpm,
@@ -286,6 +291,14 @@ export const TopBar = () => {
             <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">{focusMeta}</div>
           </div>
           <div className="flex flex-wrap gap-2">
+            {onOpenGuide && (
+              <WorkflowButton
+                active={false}
+                icon={<ExternalLink className="h-3.5 w-3.5" />}
+                label="Guide"
+                onClick={onOpenGuide}
+              />
+            )}
             <WorkflowButton
               active={activeView === 'SEQUENCER'}
               icon={<Compass className="h-3.5 w-3.5" />}

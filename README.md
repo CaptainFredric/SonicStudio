@@ -1,41 +1,60 @@
 # SonicStudio
 
-SonicStudio is a browser-native groovebox and music sketchpad built with React and Tone.js. The current app focuses on fast loop creation, live sound shaping, and lightweight project workflow foundations.
+SonicStudio is a browser-native composition studio built with React and Tone.js. It is aimed at fast song sketching, sound design, arrangement editing, and practical workflow exits without leaving the browser.
 
-## Current Features
+## Why it matters
 
-- Step sequencer with per-track pattern editing
-- Piano roll editor for melodic tracks
-- Mixer with level metering, mute, solo, volume, and pan
-- Device rack with envelope, filter, drive, delay, and reverb controls
-- Dynamic track creation, duplication, and deletion
-- Local session autosave and manual save
-- Undo and redo for project edits
-- Keyboard shortcuts for play, save, undo, redo, and pattern selection
-- Audio export from the master output
+SonicStudio is no longer just a loop toy. The current build supports an actual writing flow:
 
-## Run Locally
+1. build phrases in the sequencer or piano roll
+2. arrange clips in song view
+3. shape lanes with synth and sample sources
+4. print references as WAV
+5. move work in and out through MIDI
+6. recover safely with checkpoints and snapshots
+
+## Current capabilities
+
+1. Sequencer, piano roll, mixer, arranger, and sound desk tied to one serializable project state
+2. Synth lanes and sample lanes with slice-aware triggering
+3. Song markers, loop ranges, clip editing, pattern transforms, and section duplication
+4. MIDI import and scoped MIDI export
+5. WAV bounce with scope selection, print targets, analysis, and bounce history
+6. Master presets, master snapshots, track sound recall, and recovery checkpoints
+7. Starter scenes for quick demos and fast first use
+
+## Best demo path
+
+1. Start the dev server or open the hosted build
+2. Wake audio and press Play
+3. Load `Beat Lab` for a rhythm-first demo or `Night Transit` for a fuller song sketch
+4. Open `Song` view to inspect clips and structure
+5. Open `Notes` to inspect tighter pitch and gate editing
+6. Try `Export MIDI` or a WAV bounce from the Output tab
+
+## Run locally
 
 Prerequisite: Node.js 20+
 
-1. Install dependencies with `npm install`
-2. Start the development server with `npm run dev`
-3. Open the local URL shown by Vite
+```bash
+npm install
+npm run dev
+```
 
-## Keyboard Shortcuts
+Vite serves the studio at `http://localhost:3000/SonicStudio/`.
 
-- `Space`: Play or pause
-- `Cmd/Ctrl+S`: Save session
-- `Cmd/Ctrl+Z`: Undo
-- `Shift+Cmd/Ctrl+Z` or `Cmd/Ctrl+Y`: Redo
-- `1` through `8`: Switch patterns
+## Verification
 
-## Project Direction
+```bash
+npm run lint
+npm run build
+```
 
-This repository is being evolved from a focused web groovebox into a more durable music production tool. The current foundation work prioritizes:
+## Project direction
 
-- Serializable project state
-- Local persistence
-- History-based editing
-- Dynamic track architecture
-- Cleaner product metadata and build surface
+The strongest next milestones are:
+
+1. offline rendering instead of only live bounce
+2. deeper mastering analysis and louder-target feedback
+3. stronger project-history UX around destructive edits
+4. eventual collaboration and cloud library layers after the local workflow is fully hardened

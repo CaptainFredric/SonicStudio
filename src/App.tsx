@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AudioProvider, useAudio } from './context/AudioContext';
 import { TopBar } from './components/TopBar';
 import { MainWorkspace as Sequencer } from './components/MainWorkspace';
@@ -7,7 +7,12 @@ import { Mixer } from './components/Mixer';
 import { DeviceRack } from './components/DeviceRack';
 import { SettingsSidebar } from './components/SettingsSidebar';
 import { Arranger } from './components/Arranger';
+import { SubmissionGuide } from './components/SubmissionGuide';
+import type { SessionTemplateId } from './project/schema';
 import { Music, LayoutGrid, Volume2, Settings, Layers3, ChevronDown, ChevronUp, SlidersHorizontal } from 'lucide-react';
+
+const SUBMISSION_GUIDE_STORAGE_KEY = 'sonicstudio:submission-guide-dismissed:v1';
+const DEMO_TEMPLATE_IDS: SessionTemplateId[] = ['blank-grid', 'night-transit', 'beat-lab', 'ambient-drift'];
 
 const SideNav = () => {
   const { activeView, isSettingsOpen, setActiveView, toggleSettings } = useAudio();
@@ -65,15 +70,105 @@ const ViewRouter = () => {
 };
 
 const StudioShell = () => {
-  const { isSettingsOpen, selectedTrackId, toggleSettings, tracks } = useAudio();
+  const {
+    initAudio,
+    isInitialized,
+    isSettingsOpen,
+    loadSessionTemplate,
+    selectedTrackId,
+    setActiveView,
+    toggleSettings,
+    tracks,
+  } = useAudio();
   const [isMobileRackOpen, setIsMobileRackOpen] = useState(true);
+  const [isSubmissionGuideOpen, setIsSubmissionGuideOpen] = useState(true);
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
+  const [hasAppliedDemoParams, setHasAppliedDemoParams] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const dismissed = window.localStorage.getItem(SUBMISSION_GUIDE_STORAGE_KEY) === '1';
+    setIsSubmissionGuideOpen(!dismissed);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || isInitialized) {
+      return;
+    }
+
+    const handleFirstStudioInteraction = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+
+      if (target.closest('input, select, textarea, a[href], [data-skip-audio-init="true"]')) {
+        return;
+      }
+
+      void initAudio();
+    };
+
+    window.addEventListener('pointerdown', handleFirstStudioInteraction, { capture: true, once: true });
+    return () => {
+      window.removeEventListener('pointerdown', handleFirstStudioInteraction, true);
+    };
+  }, [initAudio, isInitialized]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || hasAppliedDemoParams) {
+      return;
+    }
+
+    const params = new URLSearchParams(window.location.search);
+    const requestedTemplate = params.get('demo');
+    const requestedView = params.get('view');
+    const shouldShowGuide = params.get('guide') === '1';
+
+    if (requestedTemplate && DEMO_TEMPLATE_IDS.includes(requestedTemplate as SessionTemplateId)) {
+      loadSessionTemplate(requestedTemplate as SessionTemplateId);
+    }
+
+    if (requestedView === 'sequencer') {
+      setActiveView('SEQUENCER');
+    } else if (requestedView === 'notes') {
+      setActiveView('PIANO_ROLL');
+    } else if (requestedView === 'song') {
+      setActiveView('ARRANGER');
+    } else if (requestedView === 'mixer') {
+      setActiveView('MIXER');
+    }
+
+    if (shouldShowGuide) {
+      openSubmissionGuide();
+    }
+
+    setHasAppliedDemoParams(true);
+  }, [hasAppliedDemoParams, loadSessionTemplate, setActiveView]);
+
+  const closeSubmissionGuide = () => {
+    setIsSubmissionGuideOpen(false);
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(SUBMISSION_GUIDE_STORAGE_KEY, '1');
+    }
+  };
+
+  const openSubmissionGuide = () => {
+    setIsSubmissionGuideOpen(true);
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem(SUBMISSION_GUIDE_STORAGE_KEY);
+    }
+  };
 
   return (
     <div className="app-shell min-h-screen w-full overflow-x-hidden antialiased text-[var(--text-primary)]">
       <div className="flex min-h-screen flex-col">
         <div className="px-3 pt-3">
-          <TopBar />
+          <TopBar onOpenGuide={openSubmissionGuide} />
+          <SubmissionGuide isOpen={isSubmissionGuideOpen} onClose={closeSubmissionGuide} />
         </div>
         <div className="flex flex-1 flex-col gap-3 px-3 pb-3 sm:flex-row">
           <SideNav />
