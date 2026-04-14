@@ -72,14 +72,14 @@ export const SubmissionGuide = ({ isOpen, onClose }: SubmissionGuideProps) => {
         <div className="min-w-0">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <div className="section-label">Submission route</div>
+              <div className="section-label">Quick guide</div>
               <h2 className="mt-2 text-[28px] font-semibold leading-[1.05] tracking-[-0.03em] text-[var(--text-primary)]">
-                SonicStudio is strongest when a reviewer reaches music fast.
+                Start with a scene, hear it, then move through the studio.
               </h2>
               <p className="mt-3 max-w-3xl text-sm leading-6 text-[var(--text-secondary)]">
-                This build is positioned as a browser-native composition studio with serious workflow exits:
-                sample slicing, MIDI import and export, print analysis, checkpoints, and a real song view.
-                The main challenge risk is reviewer overload. This panel gives reviewers a fast route into the strongest parts of the product.
+                SonicStudio combines sequencing, arrangement, sample slicing, MIDI import and export,
+                print analysis, checkpoints, and a real song view in one browser-native composition studio.
+                Use this guide to hear the demos, inspect the arrangement tools, and move through the studio quickly.
               </p>
             </div>
             <button
@@ -202,7 +202,7 @@ export const SubmissionGuide = ({ isOpen, onClose }: SubmissionGuideProps) => {
             </button>
           </div>
           <div className="mt-3 text-[11px] leading-5 text-[var(--text-secondary)]">
-            These actions all touch real session state. Nothing here is presentational filler.
+            Each action updates the active session immediately.
           </div>
         </div>
       </div>

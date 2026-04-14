@@ -326,7 +326,7 @@ export const DeviceRack = () => {
             <div>
               <div className="section-label">Sound desk</div>
               <div className="mt-1 text-sm font-medium text-[var(--text-primary)]">
-                One focused control family at a time keeps the rack usable.
+                Source, shape, and space controls are grouped to keep sound design quick and readable.
               </div>
             </div>
             <div className="flex flex-wrap gap-2">

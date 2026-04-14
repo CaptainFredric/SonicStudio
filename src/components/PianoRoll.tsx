@@ -218,8 +218,8 @@ export const PianoRoll = () => {
           </div>
           <p className="mt-2 max-w-2xl text-sm text-[var(--text-secondary)]">
             {isDrum
-              ? 'Drum editing stays lane based here. Use the groove tools to nudge patterns quickly and keep the rack for shaping tone.'
-              : 'Steps can now carry note stacks, so harmonies, octave doubles, and tighter chord voicings live inside one pattern instead of faking arrangement depth.'}
+              ? 'Edit drum patterns quickly here, then use the sound desk to shape tone and space.'
+              : 'Build melodies, chords, and stacked voicings inside a single pattern with tighter note control.'}
           </p>
         </div>
 

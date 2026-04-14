@@ -10,8 +10,6 @@ import { Arranger } from './components/Arranger';
 import { SubmissionGuide } from './components/SubmissionGuide';
 import type { SessionTemplateId } from './project/schema';
 import { Music, LayoutGrid, Volume2, Settings, Layers3, ChevronDown, ChevronUp, SlidersHorizontal } from 'lucide-react';
-
-const SUBMISSION_GUIDE_STORAGE_KEY = 'sonicstudio:submission-guide-dismissed:v1';
 const DEMO_TEMPLATE_IDS: SessionTemplateId[] = ['blank-grid', 'night-transit', 'beat-lab', 'ambient-drift'];
 
 const SideNav = () => {
@@ -81,18 +79,9 @@ const StudioShell = () => {
     tracks,
   } = useAudio();
   const [isMobileRackOpen, setIsMobileRackOpen] = useState(true);
-  const [isSubmissionGuideOpen, setIsSubmissionGuideOpen] = useState(true);
+  const [isSubmissionGuideOpen, setIsSubmissionGuideOpen] = useState(false);
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
   const [hasAppliedDemoParams, setHasAppliedDemoParams] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    const dismissed = window.localStorage.getItem(SUBMISSION_GUIDE_STORAGE_KEY) === '1';
-    setIsSubmissionGuideOpen(!dismissed);
-  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined' || isInitialized) {
@@ -142,25 +131,17 @@ const StudioShell = () => {
       setActiveView('MIXER');
     }
 
-    if (shouldShowGuide) {
-      openSubmissionGuide();
-    }
+    setIsSubmissionGuideOpen(shouldShowGuide);
 
     setHasAppliedDemoParams(true);
   }, [hasAppliedDemoParams, loadSessionTemplate, setActiveView]);
 
   const closeSubmissionGuide = () => {
     setIsSubmissionGuideOpen(false);
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(SUBMISSION_GUIDE_STORAGE_KEY, '1');
-    }
   };
 
   const openSubmissionGuide = () => {
     setIsSubmissionGuideOpen(true);
-    if (typeof window !== 'undefined') {
-      window.localStorage.removeItem(SUBMISSION_GUIDE_STORAGE_KEY);
-    }
   };
 
   return (

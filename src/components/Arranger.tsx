@@ -769,7 +769,7 @@ export const Arranger = () => {
             <div className="section-label">Arranger</div>
             <h2 className="mt-2 text-lg font-semibold tracking-tight text-[var(--text-primary)]">Song composer</h2>
             <p className="mt-2 max-w-3xl text-sm text-[var(--text-secondary)]">
-              This pass keeps phrase editing, arrangement decisions, and note shaping in one place so a solo creator can stay in song view longer.
+              Shape clips, sections, and note movement in one song-first workspace.
             </p>
           </div>
           <button

@@ -93,7 +93,7 @@ export const TopBar = ({
     : 'No track selected';
   const focusMeta = selectedTrack
     ? `${selectedTrack.source.engine === 'sample' ? 'Sample lane' : 'Synth lane'} · Pattern ${String.fromCharCode(65 + currentPattern)}${selectedArrangerClipId ? ' · selected clip' : ''} · ${transportMode === 'SONG' ? 'Song transport' : 'Pattern transport'}`
-    : 'Pick a track to keep editing and sound design tied together.';
+    : 'Choose a lane to inspect its pattern, sound, and song role.';
   const loopSummary = loopRangeStartBeat !== null && loopRangeEndBeat !== null
     ? `Looping steps ${loopRangeStartBeat + 1}-${loopRangeEndBeat}`
     : transportMode === 'SONG'
