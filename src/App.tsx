@@ -78,7 +78,7 @@ const StudioShell = () => {
     toggleSettings,
     tracks,
   } = useAudio();
-  const [isMobileRackOpen, setIsMobileRackOpen] = useState(true);
+  const [isRackOpen, setIsRackOpen] = useState(true);
   const [isSubmissionGuideOpen, setIsSubmissionGuideOpen] = useState(false);
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
   const [hasAppliedDemoParams, setHasAppliedDemoParams] = useState(false);
@@ -172,27 +172,30 @@ const StudioShell = () => {
                 </>
               )}
             </div>
-            <div className="lg:hidden">
-              <button
-                className="surface-panel-muted flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
-                onClick={() => setIsMobileRackOpen((current) => !current)}
-                type="button"
-              >
-                <div className="min-w-0">
-                  <div className="section-label">Sound desk</div>
-                  <div className="mt-1 text-sm font-medium text-[var(--text-primary)]">
-                    {selectedTrack ? `${selectedTrack.name} · ${selectedTrack.type}` : 'Select a track to shape its sound'}
-                  </div>
+
+            <button
+              className="surface-panel-muted flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+              onClick={() => setIsRackOpen((current) => !current)}
+              type="button"
+            >
+              <div className="min-w-0">
+                <div className="section-label">Sound desk</div>
+                <div className="mt-1 text-sm font-medium text-[var(--text-primary)]">
+                  {selectedTrack ? `${selectedTrack.name} · ${selectedTrack.type}` : 'Select a track to shape its sound'}
                 </div>
-                <div className="flex items-center gap-3 text-[var(--text-secondary)]">
-                  <SlidersHorizontal className="h-4 w-4 text-[var(--accent)]" />
-                  {isMobileRackOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+                <div className="mt-1 text-[11px] text-[var(--text-secondary)]">
+                  {isRackOpen ? 'Rack controls are open below.' : 'Open the rack for source, shape, and output controls.'}
                 </div>
-              </button>
-            </div>
-            <div className={`${isMobileRackOpen ? 'block' : 'hidden'} lg:block`}>
+              </div>
+              <div className="flex items-center gap-3 text-[var(--text-secondary)]">
+                <SlidersHorizontal className="h-4 w-4 text-[var(--accent)]" />
+                {isRackOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+              </div>
+            </button>
+
+            {isRackOpen && (
               <DeviceRack />
-            </div>
+            )}
           </div>
         </div>
       </div>

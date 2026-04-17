@@ -199,12 +199,13 @@ export const MainWorkspace = () => {
         <div>
           <div className="section-label">Sequencer</div>
           <h2 className="mt-2 text-lg font-semibold tracking-tight text-[var(--text-primary)]">Pattern grid</h2>
-          <p className="mt-2 text-sm text-[var(--text-secondary)]">Drums, bass, leads, pads, plucks, and motion layers now share one clip skeleton, and melodic lanes can stack notes inside a single step for thicker phrases.</p>
+          <p className="mt-2 text-sm text-[var(--text-secondary)]">Build patterns lane by lane here, then move into notes or song view for deeper edits.</p>
         </div>
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
+          <span className="section-label shrink-0">Add lane</span>
           {TRACK_BUTTONS.map((button) => (
             <button
-              className="control-chip shrink-0 px-3 py-2 text-xs font-medium uppercase tracking-[0.14em] transition-colors hover:text-[var(--text-primary)]"
+              className="control-chip shrink-0 px-3 py-2 text-xs font-medium uppercase tracking-[0.14em]"
               key={button.type}
               onClick={() => createTrack(button.type)}
             >

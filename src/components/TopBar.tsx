@@ -106,21 +106,21 @@ export const TopBar = ({
       : 'Audio is idle until first interaction';
 
   return (
-    <header className="surface-panel px-3 py-3 sm:px-5 sm:py-3">
-      <div className="grid gap-3 2xl:grid-cols-[minmax(0,1.15fr)_minmax(340px,0.85fr)]">
-        <div className="grid min-w-0 gap-3 md:grid-cols-[auto_minmax(0,1fr)]">
-          <div className="flex min-w-0 items-center gap-3 xl:min-w-[220px]">
+    <header className="surface-panel px-3 py-3 sm:px-5 sm:py-4">
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(360px,420px)]">
+        <div className="grid min-w-0 gap-3">
+          <div className="flex min-w-0 items-center gap-3">
             <div className="surface-panel-strong flex h-11 w-11 items-center justify-center" style={{ borderRadius: '2px' }}>
               <BrandMark className="h-5 w-5 text-[var(--accent)]" />
             </div>
             <div className="min-w-0">
               <h1 className="text-[18px] font-semibold tracking-tight text-[var(--text-primary)]">SonicStudio</h1>
-              <p className="mt-1 hidden text-xs text-[var(--text-secondary)] xl:block">Clip arrangement, expressive sequencing, and sound design in one instrument desk</p>
+              <p className="mt-1 text-xs text-[var(--text-secondary)]">Browser-native song writing, arrangement, and sound design.</p>
             </div>
           </div>
 
-          <div className="grid min-w-0 gap-3 md:grid-cols-[minmax(0,320px)_minmax(0,1fr)]">
-            <div className="surface-panel-muted px-4 py-3">
+          <div className="grid min-w-0 gap-3 md:grid-cols-[minmax(0,1fr)_280px]">
+            <div className="surface-panel-muted px-3 py-2.5">
               <div className="section-label mb-2">Project</div>
               <input
                 aria-label="Project name"
@@ -142,7 +142,7 @@ export const TopBar = ({
               />
             </div>
 
-            <div className="surface-panel-muted px-4 py-3">
+            <div className="surface-panel-muted px-3 py-2.5">
               <div className="section-label mb-2">Pattern bank</div>
               <div className="flex items-center gap-2 overflow-x-auto pb-1">
                 {Array.from({ length: patternCount }, (_, patternIndex) => (
@@ -160,7 +160,8 @@ export const TopBar = ({
           </div>
         </div>
 
-        <div className="surface-panel-muted grid gap-3 px-4 py-3 md:grid-cols-[auto_auto_minmax(0,1fr)]">
+        <div className="surface-panel-muted px-3 py-2.5">
+          <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-1 rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-1">
               <IconBtn disabled={!canUndo} label="Undo" onClick={undo}>
                 <Undo2 className="h-4 w-4" />
@@ -185,103 +186,99 @@ export const TopBar = ({
               </TransportBtn>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-              <div>
-                <div className="section-label mb-2">Playback mode</div>
-                <div className="flex items-center gap-2">
-                  <ModeButton
-                    active={transportMode === 'PATTERN'}
-                    label="Pattern"
-                    onClick={() => setTransportMode('PATTERN')}
-                  />
-                  <ModeButton
-                    active={transportMode === 'SONG'}
-                    label="Song"
-                    onClick={() => setTransportMode('SONG')}
-                  />
-                </div>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <ModeButton
-                    active={metronomeEnabled}
-                    label={metronomeEnabled ? 'Metronome on' : 'Metronome off'}
-                    onClick={() => setMetronomeEnabled(!metronomeEnabled)}
-                  />
-                  <div className="flex items-center gap-1 rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-1">
-                    {[0, 1, 2].map((bars) => (
-                      <React.Fragment key={bars}>
-                        <PatternButton
-                          active={countInBars === bars}
-                          onClick={() => setCountInBars(bars)}
-                        >
-                          {bars === 0 ? 'No count' : `${bars} bar`}
-                        </PatternButton>
-                      </React.Fragment>
-                    ))}
-                  </div>
-                </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <ModeButton
+                active={transportMode === 'PATTERN'}
+                label="Pattern"
+                onClick={() => setTransportMode('PATTERN')}
+              />
+              <ModeButton
+                active={transportMode === 'SONG'}
+                label="Song"
+                onClick={() => setTransportMode('SONG')}
+              />
+              <ModeButton
+                active={metronomeEnabled}
+                label={metronomeEnabled ? 'Metronome on' : 'Metronome off'}
+                onClick={() => setMetronomeEnabled(!metronomeEnabled)}
+              />
+              <div className="flex items-center gap-1 rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-1">
+                {[0, 1, 2].map((bars) => (
+                  <React.Fragment key={bars}>
+                    <PatternButton
+                      active={countInBars === bars}
+                      onClick={() => setCountInBars(bars)}
+                    >
+                      {bars === 0 ? 'No count' : `${bars} bar`}
+                    </PatternButton>
+                  </React.Fragment>
+                ))}
               </div>
+              <button
+                className="control-chip flex h-10 items-center justify-center px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                data-active={isInitialized ? 'true' : 'false'}
+                onClick={() => void initAudio()}
+              >
+                {isInitialized ? 'Re arm' : 'Wake audio'}
+              </button>
+            </div>
+          </div>
 
-              <div className="min-w-0">
-                <div className="section-label mb-1">Tempo</div>
-                <div className="flex items-center gap-2">
-                  <input
-                    className="w-16 bg-transparent font-mono text-sm text-[var(--text-primary)] focus:outline-none"
-                    max="240"
-                    min="40"
-                    onChange={(event) => setBpm(Number(event.target.value))}
-                    type="number"
-                    value={bpm}
-                  />
-                  <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">BPM</span>
-                </div>
+          <div className="mt-3 grid gap-3 border-t border-[var(--border-soft)] pt-3 sm:grid-cols-2 xl:grid-cols-4">
+            <div className="min-w-0">
+              <div className="section-label mb-1">Tempo</div>
+              <div className="flex items-center gap-2">
+                <input
+                  className="w-16 bg-transparent font-mono text-sm text-[var(--text-primary)] focus:outline-none"
+                  max="240"
+                  min="40"
+                  onChange={(event) => setBpm(Number(event.target.value))}
+                  type="number"
+                  value={bpm}
+                />
+                <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">BPM</span>
               </div>
+            </div>
 
-              <div className="min-w-0">
-                <div className="section-label mb-1">Song span</div>
-                <div className="text-sm font-medium text-[var(--text-primary)]">{songLengthInBeats} steps</div>
-                <div className="mt-1 text-[11px] text-[var(--text-secondary)]">{Math.max(1, Math.ceil(songLengthInBeats / 16))} bars of arrangement runway</div>
+            <div className="min-w-0">
+              <div className="section-label mb-1">Song span</div>
+              <div className="text-sm font-medium text-[var(--text-primary)]">{songLengthInBeats} steps</div>
+              <div className="mt-1 text-[11px] text-[var(--text-secondary)]">{Math.max(1, Math.ceil(songLengthInBeats / 16))} bars ready</div>
+            </div>
+
+            <div className="min-w-0">
+              <div className="section-label mb-1">Session</div>
+              <div className={`text-sm font-medium ${saveStatus === 'error' ? 'text-[var(--danger)]' : saveStatus === 'saving' ? 'text-[var(--warning)]' : 'text-[var(--accent-strong)]'}`}>
+                {formatSaveLabel(saveStatus, lastSavedAt)}
               </div>
-
-              <div className="min-w-0">
-                <div className="section-label mb-1">Audio</div>
-                <button
-                  className="control-chip flex h-10 items-center justify-center px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                  data-active={isInitialized ? 'true' : 'false'}
-                  onClick={() => void initAudio()}
-                >
-                  {isInitialized ? 'Re arm' : 'Wake audio'}
-                </button>
-                <div className="mt-1 text-[11px] text-[var(--text-secondary)]">
-                  {metronomeEnabled
-                    ? `Metronome is armed${countInBars > 0 ? ` with ${countInBars} bar count in` : ''}.`
-                    : isInitialized
-                      ? 'Resume sound if the browser suspended audio.'
-                      : 'Play or audition can also start audio automatically.'}
-                </div>
+              <div className="mt-1 flex items-center gap-2 text-[11px] text-[var(--text-secondary)]">
+                <Radio className="h-3 w-3 text-[var(--accent)]" />
+                {transportSummary}
               </div>
+            </div>
 
-              <div className="min-w-0">
-                <div className="section-label mb-1">Session</div>
-                <div className={`text-sm font-medium ${saveStatus === 'error' ? 'text-[var(--danger)]' : saveStatus === 'saving' ? 'text-[var(--warning)]' : 'text-[var(--accent-strong)]'}`}>
-                  {formatSaveLabel(saveStatus, lastSavedAt)}
-                </div>
-                <div className="mt-1 flex items-center gap-2 text-[11px] text-[var(--text-secondary)]">
-                  <Radio className="h-3 w-3 text-[var(--accent)]" />
-                  {transportSummary}
-                </div>
+            <div className="min-w-0">
+              <div className="section-label mb-1">Audio</div>
+              <div className="text-[11px] leading-5 text-[var(--text-secondary)]">
+                {metronomeEnabled
+                  ? `Metronome armed${countInBars > 0 ? ` with ${countInBars} bar count in` : ''}.`
+                  : isInitialized
+                    ? 'Resume sound if the browser suspended audio.'
+                    : 'Play or audition can also start audio automatically.'}
               </div>
             </div>
           </div>
+        </div>
       </div>
 
-      <div className="mt-3 surface-panel-muted px-4 py-2.5">
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+      <div className="mt-3 border-t border-[var(--border-soft)] px-1 pt-3">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.16em]">
               <span className="section-label">Current focus</span>
               <span className="truncate text-[11px] font-semibold tracking-[0.08em] text-[var(--text-primary)]">{focusTitle}</span>
             </div>
-            <div className="mt-2 flex flex-wrap gap-2">
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
               <MiniStat label="Track" value={selectedTrack ? selectedTrack.name : 'None'} />
               <MiniStat label="Pattern" value={String.fromCharCode(65 + currentPattern)} />
               <MiniStat label="Clip" value={selectedArrangerClipId ? 'Selected' : 'None'} />
@@ -355,16 +352,16 @@ const PatternButton = ({
   onClick: () => void;
 }) => (
   <button
-    className="h-9 min-w-9 rounded-full border px-3 font-mono text-xs font-medium uppercase tracking-[0.16em] transition-colors"
+    className="h-9 min-w-9 rounded-[3px] border px-3 font-mono text-xs font-medium uppercase tracking-[0.16em] transition-colors"
     onClick={onClick}
     style={active
       ? {
           background: 'var(--accent-muted)',
-          border: '1px solid rgba(130, 201, 187, 0.26)',
-          color: 'var(--accent-strong)',
+          border: '1px solid rgba(130, 201, 187, 0.24)',
+          color: 'var(--text-primary)',
         }
       : {
-          background: 'rgba(255,255,255,0.02)',
+          background: 'rgba(255,255,255,0.01)',
           border: '1px solid var(--border-soft)',
           color: 'var(--text-secondary)',
         }}
@@ -383,16 +380,16 @@ const ModeButton = ({
   onClick: () => void;
 }) => (
   <button
-    className="rounded-full border px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] transition-colors"
+    className="rounded-[3px] border px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] transition-colors"
     onClick={onClick}
     style={active
       ? {
-          background: 'rgba(124, 211, 252, 0.14)',
-          borderColor: 'rgba(124, 211, 252, 0.28)',
-          color: '#d9f2ff',
+          background: 'rgba(124, 211, 252, 0.1)',
+          borderColor: 'rgba(124, 211, 252, 0.22)',
+          color: 'var(--text-primary)',
         }
       : {
-          background: 'rgba(255,255,255,0.02)',
+          background: 'rgba(255,255,255,0.01)',
           borderColor: 'var(--border-soft)',
           color: 'var(--text-secondary)',
         }}
@@ -429,11 +426,9 @@ const MiniStat = ({
   label: string;
   value: string;
 }) => (
-  <div className="rounded-[999px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-1.5">
-    <div className="flex items-center gap-2">
-      <span className="section-label">{label}</span>
-      <span className="truncate text-[11px] font-medium text-[var(--text-primary)]">{value}</span>
-    </div>
+  <div className="border-l border-[var(--border-soft)] pl-3">
+    <div className="section-label">{label}</div>
+    <div className="mt-1 truncate text-[11px] font-medium text-[var(--text-primary)]">{value}</div>
   </div>
 );
 
