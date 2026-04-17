@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { AudioProvider, useAudio } from './context/AudioContext';
 import { TopBar } from './components/TopBar';
 import { MainWorkspace as Sequencer } from './components/MainWorkspace';
@@ -8,9 +8,17 @@ import { DeviceRack } from './components/DeviceRack';
 import { SettingsSidebar } from './components/SettingsSidebar';
 import { Arranger } from './components/Arranger';
 import { SubmissionGuide } from './components/SubmissionGuide';
+import { Launchpad } from './components/Launchpad';
 import type { SessionTemplateId } from './project/schema';
+import { hasPersistedSession } from './project/storage';
 import { Music, LayoutGrid, Volume2, Settings, Layers3, ChevronDown, ChevronUp, SlidersHorizontal } from 'lucide-react';
 const DEMO_TEMPLATE_IDS: SessionTemplateId[] = ['blank-grid', 'night-transit', 'beat-lab', 'ambient-drift'];
+const TEMPLATE_VIEW_MAP: Record<SessionTemplateId, 'SEQUENCER' | 'PIANO_ROLL' | 'ARRANGER'> = {
+  'ambient-drift': 'PIANO_ROLL',
+  'beat-lab': 'SEQUENCER',
+  'blank-grid': 'ARRANGER',
+  'night-transit': 'ARRANGER',
+};
 
 const SideNav = () => {
   const { activeView, isSettingsOpen, setActiveView, toggleSettings } = useAudio();
@@ -70,6 +78,7 @@ const ViewRouter = () => {
 const StudioShell = () => {
   const {
     initAudio,
+    importMidiSession,
     isInitialized,
     isSettingsOpen,
     loadSessionTemplate,
@@ -79,9 +88,11 @@ const StudioShell = () => {
     tracks,
   } = useAudio();
   const [isRackOpen, setIsRackOpen] = useState(true);
+  const [isLaunchpadOpen, setIsLaunchpadOpen] = useState(false);
   const [isSubmissionGuideOpen, setIsSubmissionGuideOpen] = useState(false);
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
   const [hasAppliedDemoParams, setHasAppliedDemoParams] = useState(false);
+  const midiLaunchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined' || isInitialized) {
@@ -116,6 +127,8 @@ const StudioShell = () => {
     const requestedTemplate = params.get('demo');
     const requestedView = params.get('view');
     const shouldShowGuide = params.get('guide') === '1';
+    const shouldShowLaunchpad = params.get('launch') === '1'
+      || (!hasPersistedSession() && !requestedTemplate && !shouldShowGuide);
 
     if (requestedTemplate && DEMO_TEMPLATE_IDS.includes(requestedTemplate as SessionTemplateId)) {
       loadSessionTemplate(requestedTemplate as SessionTemplateId);
@@ -132,9 +145,20 @@ const StudioShell = () => {
     }
 
     setIsSubmissionGuideOpen(shouldShowGuide);
+    setIsLaunchpadOpen(shouldShowLaunchpad);
 
     setHasAppliedDemoParams(true);
   }, [hasAppliedDemoParams, loadSessionTemplate, setActiveView]);
+
+  const handleLaunchpadTemplate = (templateId: SessionTemplateId) => {
+    loadSessionTemplate(templateId);
+    setActiveView(TEMPLATE_VIEW_MAP[templateId]);
+    setIsLaunchpadOpen(false);
+  };
+
+  const handleLaunchpadImportMidi = () => {
+    midiLaunchInputRef.current?.click();
+  };
 
   const closeSubmissionGuide = () => {
     setIsSubmissionGuideOpen(false);
@@ -146,10 +170,39 @@ const StudioShell = () => {
 
   return (
     <div className="app-shell min-h-screen w-full overflow-x-hidden antialiased text-[var(--text-primary)]">
+      <input
+        ref={midiLaunchInputRef}
+        accept=".mid,.midi,audio/midi,audio/x-midi"
+        className="hidden"
+        onChange={async (event) => {
+          const file = event.target.files?.[0];
+          if (!file) {
+            return;
+          }
+
+          const imported = await importMidiSession(file);
+          if (imported) {
+            setActiveView('ARRANGER');
+            setIsLaunchpadOpen(false);
+          }
+          event.target.value = '';
+        }}
+        type="file"
+      />
       <div className="flex min-h-screen flex-col">
         <div className="px-3 pt-3">
           <TopBar onOpenGuide={openSubmissionGuide} />
           <SubmissionGuide isOpen={isSubmissionGuideOpen} onClose={closeSubmissionGuide} />
+          <div className="mt-3">
+            <Launchpad
+              isInitialized={isInitialized}
+              isOpen={isLaunchpadOpen}
+              onClose={() => setIsLaunchpadOpen(false)}
+              onImportMidi={handleLaunchpadImportMidi}
+              onSelectTemplate={handleLaunchpadTemplate}
+              onWakeAudio={() => { void initAudio(); }}
+            />
+          </div>
         </div>
         <div className="flex flex-1 flex-col gap-3 px-3 pb-3 sm:flex-row">
           <SideNav />

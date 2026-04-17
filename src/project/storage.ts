@@ -156,6 +156,8 @@ export const loadPersistedSession = (): StudioSession | null => {
   }
 };
 
+export const hasPersistedSession = (): boolean => loadPersistedSession() !== null;
+
 export const persistSession = (session: StudioSession): PersistedSessionEnvelope | null => {
   if (typeof window === 'undefined') {
     return null;

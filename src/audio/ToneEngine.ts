@@ -38,7 +38,7 @@ interface TrackGraph {
   voiceSignature: string;
 }
 
-class ToneEngine {
+export class ToneEngine {
   private activeSamplePlayers = new Set<Tone.Player>();
   private arrangerClips: ArrangementClip[] = [];
   private isInitialized = false;
@@ -62,10 +62,12 @@ class ToneEngine {
     tone: 0.55,
   };
   private masterWidener: Tone.StereoWidener | null = null;
+  private offlineMode = false;
   private stepCallbacks: ((step: number, pattern: number) => void)[] = [];
   private stepsPerPattern = 16;
   private trackGraphs: Record<string, TrackGraph> = {};
   private tracksState: Track[] = [];
+  private transportLoopEnabled = true;
   private transportMode: TransportMode = 'PATTERN';
 
   public analyzer: Tone.Analyser | null = null;
@@ -73,8 +75,12 @@ class ToneEngine {
   public currentStep = 0;
   public recorder: Tone.Recorder | null = null;
 
-  async init() {
-    await Tone.start();
+  async init(options: { offline?: boolean } = {}) {
+    this.offlineMode = Boolean(options.offline);
+
+    if (!this.offlineMode) {
+      await Tone.start();
+    }
 
     if (this.isInitialized) {
       return;
@@ -93,8 +99,8 @@ class ToneEngine {
       oscillator: { type: 'square' },
       volume: -12,
     });
-    this.analyzer = new Tone.Analyser('fft', 256);
-    this.recorder = new Tone.Recorder();
+    this.analyzer = this.offlineMode ? null : new Tone.Analyser('fft', 256);
+    this.recorder = this.offlineMode ? null : new Tone.Recorder();
     this.masterLimiter.connect(this.masterHighpass);
     this.masterHighpass.connect(this.masterLowpass);
     this.masterLowpass.connect(this.masterEq);
@@ -103,8 +109,12 @@ class ToneEngine {
     this.masterGain.connect(this.masterCompressor);
     this.masterGain.connect(this.masterMeter);
     this.metronomeSynth.connect(this.masterLimiter);
-    this.masterCompressor.connect(this.analyzer);
-    this.masterCompressor.connect(this.recorder);
+    if (this.analyzer) {
+      this.masterCompressor.connect(this.analyzer);
+    }
+    if (this.recorder) {
+      this.masterCompressor.connect(this.recorder);
+    }
 
     Tone.Transport.scheduleRepeat((time) => {
       this.playStep(time);
@@ -152,6 +162,15 @@ class ToneEngine {
     }
   }
 
+  public setTransportLoopEnabled(enabled: boolean) {
+    this.transportLoopEnabled = enabled;
+    this.updateTransportLoop();
+  }
+
+  public async awaitAssetLoad() {
+    await Tone.ToneAudioBuffer.loaded();
+  }
+
   private applyMasterSettings() {
     if (!this.masterCompressor || !this.masterLimiter || !this.masterEq || !this.masterGain || !this.masterHighpass || !this.masterLowpass || !this.masterWidener) {
       return;
@@ -197,7 +216,7 @@ class ToneEngine {
     const loopBounds = this.getLoopBounds();
     const sixteenthDuration = Tone.Time('16n').toSeconds();
 
-    Tone.Transport.loop = true;
+    Tone.Transport.loop = this.transportLoopEnabled;
     Tone.Transport.loopStart = loopBounds.startBeat * sixteenthDuration;
     Tone.Transport.loopEnd = loopBounds.endBeat * sixteenthDuration;
   }
@@ -321,16 +340,18 @@ class ToneEngine {
       });
     });
 
-    Tone.Draw.schedule(() => {
-      const visualStep = this.transportMode === 'SONG'
-        ? songStep % this.stepsPerPattern
-        : songStep;
+    if (!this.offlineMode) {
+      Tone.Draw.schedule(() => {
+        const visualStep = this.transportMode === 'SONG'
+          ? songStep % this.stepsPerPattern
+          : songStep;
 
-      this.stepCallbacks.forEach((callback) => callback(visualStep, displayedPattern));
-    }, time);
+        this.stepCallbacks.forEach((callback) => callback(visualStep, displayedPattern));
+      }, time);
+    }
 
     this.currentStep = songStep + 1 >= loopBounds.endBeat
-      ? loopBounds.startBeat
+      ? this.transportLoopEnabled ? loopBounds.startBeat : loopBounds.endBeat
       : songStep + 1;
   }
 

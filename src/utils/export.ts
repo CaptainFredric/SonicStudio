@@ -975,6 +975,18 @@ export const convertRecordingBlobToWavWithAnalysis = async (
   }
 };
 
+export const convertAudioBufferToWavWithAnalysis = (
+  audioBuffer: AudioBuffer,
+  options: WavConversionOptions = {},
+): { analysis: AudioRenderAnalysis; wavBlob: Blob } => {
+  const processed = createProcessedAudioBuffer(audioBuffer, options);
+
+  return {
+    analysis: analyzeAudioBuffer(processed, options),
+    wavBlob: encodeAudioBufferToWav(audioBuffer, options),
+  };
+};
+
 export const importMidiFile = async (file: File): Promise<StudioSession> => {
   const buffer = new Uint8Array(await file.arrayBuffer());
   const parsed = parseMidiFile(buffer);

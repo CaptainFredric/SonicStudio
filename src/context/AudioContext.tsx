@@ -9,6 +9,7 @@ import React, {
   type ReactNode,
 } from 'react';
 
+import { renderProjectOffline } from '../audio/offlineRender';
 import { engine } from '../audio/ToneEngine';
 import {
   cloneProject,
@@ -57,6 +58,7 @@ import {
   type PersistedCheckpoint,
 } from '../project/storage';
 import {
+  convertAudioBufferToWavWithAnalysis,
   convertRecordingBlobToWavWithAnalysis,
   downloadBlob,
   exportToMIDI,
@@ -384,7 +386,7 @@ const syncSongMarkers = (
 );
 
 const createInitialEditorState = (): EditorState => {
-  const session = loadPersistedSession() ?? createDefaultSession();
+  const session = loadPersistedSession() ?? createDefaultSession('blank-grid');
 
   return {
     history: {
@@ -2539,7 +2541,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
     resetTransportState();
     setLastSavedAt(null);
     setSaveStatus('idle');
-    dispatch({ type: 'HYDRATE_SESSION', session: createDefaultSession() });
+    dispatch({ type: 'HYDRATE_SESSION', session: createDefaultSession('blank-grid') });
   };
 
   const loadSessionTemplate = (templateId: SessionTemplateId) => {
@@ -2684,22 +2686,29 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       currentTrackName: null,
       etaSeconds: null,
       mode: 'mix',
-      phase: `Printing ${renderPayload.label.toLowerCase()}`,
+      phase: `Rendering ${renderPayload.label.toLowerCase()} offline`,
       progress: 0,
     });
 
-    try {
-      const recording = await bounceProjectRecording(renderPayload.project, options, (progress, etaSeconds) => {
-        setRenderState((current) => ({
-          ...current,
-          etaSeconds,
-          progress,
-        }));
-      });
+    let progressTimers: number[] = [];
 
-      if (!recording) {
-        return;
-      }
+    try {
+      const offlineRenderPromise = renderProjectOffline(renderPayload.project, {
+        tailMode: options.tailMode,
+      });
+      progressTimers = [0.18, 0.42, 0.66, 0.84].map((progress, index) => (
+        window.setTimeout(() => {
+          setRenderState((current) => current.active ? {
+            ...current,
+            progress: Math.max(current.progress, progress),
+          } : current);
+        }, 260 + index * 320)
+      ));
+      const audioBuffer = await offlineRenderPromise;
+      progressTimers.forEach((timerId) => {
+        window.clearTimeout(timerId);
+      });
+      progressTimers = [];
 
       setRenderState((current) => ({
         ...current,
@@ -2708,7 +2717,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
         progress: Math.max(current.progress, 0.98),
       }));
 
-      const { analysis, wavBlob } = await convertRecordingBlobToWavWithAnalysis(recording, {
+      const { analysis, wavBlob } = convertAudioBufferToWavWithAnalysis(audioBuffer, {
         normalization: options.normalization ?? 'none',
         targetProfileId: options.targetProfileId,
       });
@@ -2720,6 +2729,9 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
         progress: 1,
       }));
     } finally {
+      progressTimers.forEach((timerId) => {
+        window.clearTimeout(timerId);
+      });
       window.setTimeout(() => {
         setRenderState(IDLE_RENDER_STATE);
       }, 500);

@@ -395,6 +395,9 @@ export const SettingsSidebar = () => {
             />
             <ActionButton disabled={renderState.active} icon={<Layers3 className="h-3.5 w-3.5" />} label="Export JSON" onClick={exportSession} />
           </div>
+          <div className="mt-3 rounded-2xl border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3 text-[11px] leading-5 text-[var(--text-secondary)]">
+            Mix prints now render offline before encoding, so timing and analysis are based on the full mix buffer instead of a live recorder pass.
+          </div>
           <div className="mt-4">
             <div className="flex items-center justify-between gap-3">
               <span className="section-label">Recovery points</span>
