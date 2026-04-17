@@ -34,9 +34,9 @@ export const SettingsSidebar = () => {
     <aside className="surface-panel h-full w-full overflow-auto p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="section-label">Workspace</div>
-          <h2 className="mt-2 text-lg font-semibold tracking-tight text-[var(--text-primary)]">Studio Setup</h2>
-          <p className="mt-1 text-sm text-[var(--text-secondary)]">Session actions, transport, and output settings.</p>
+          <div className="section-label">Controls</div>
+          <h2 className="mt-2 text-lg font-semibold tracking-tight text-[var(--text-primary)]">Studio Controls</h2>
+          <p className="mt-1 text-sm text-[var(--text-secondary)]">Session actions, transport, track controls, and output settings.</p>
         </div>
         <button
           aria-label="Close settings"

@@ -11,7 +11,6 @@ import { Launchpad } from './components/Launchpad';
 import type { SessionTemplateId } from './project/schema';
 import { hasPersistedSession } from './project/storage';
 import { Music, LayoutGrid, Volume2, Settings, Layers3, ChevronDown, ChevronUp, SlidersHorizontal } from 'lucide-react';
-const DEMO_TEMPLATE_IDS: SessionTemplateId[] = ['blank-grid', 'night-transit', 'beat-lab', 'ambient-drift'];
 const TEMPLATE_VIEW_MAP: Record<SessionTemplateId, 'SEQUENCER' | 'PIANO_ROLL' | 'ARRANGER'> = {
   'ambient-drift': 'PIANO_ROLL',
   'beat-lab': 'SEQUENCER',
@@ -54,7 +53,7 @@ const SideNav = () => {
         >
           <div className="flex sm:flex-col flex-row items-center gap-2">
             <Settings size={20} />
-            <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Setup</span>
+            <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Ctrl</span>
           </div>
         </button>
       </div>
@@ -122,29 +121,10 @@ const StudioShell = () => {
     }
 
     const params = new URLSearchParams(window.location.search);
-    const requestedTemplate = params.get('demo');
-    const requestedView = params.get('view');
-    const shouldShowLaunchpad = params.get('launch') === '1'
-      || (!hasPersistedSession() && !requestedTemplate);
-
-    if (requestedTemplate && DEMO_TEMPLATE_IDS.includes(requestedTemplate as SessionTemplateId)) {
-      loadSessionTemplate(requestedTemplate as SessionTemplateId);
-    }
-
-    if (requestedView === 'sequencer') {
-      setActiveView('SEQUENCER');
-    } else if (requestedView === 'notes') {
-      setActiveView('PIANO_ROLL');
-    } else if (requestedView === 'song') {
-      setActiveView('ARRANGER');
-    } else if (requestedView === 'mixer') {
-      setActiveView('MIXER');
-    }
-
-    setIsLaunchpadOpen(shouldShowLaunchpad);
+    setIsLaunchpadOpen(params.get('launch') === '1' || !hasPersistedSession());
 
     setHasAppliedDemoParams(true);
-  }, [hasAppliedDemoParams, loadSessionTemplate, setActiveView]);
+  }, [hasAppliedDemoParams]);
 
   const handleLaunchpadTemplate = (templateId: SessionTemplateId) => {
     loadSessionTemplate(templateId);

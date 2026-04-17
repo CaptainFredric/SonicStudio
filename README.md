@@ -21,13 +21,13 @@ The current build supports an actual writing flow:
 4. MIDI import and scoped MIDI export
 5. WAV bounce with scope selection, print targets, analysis, and bounce history
 6. Master presets, master snapshots, track sound recall, and recovery checkpoints
-7. Starter scenes for quick demos and fast first use
+7. Starter scenes for quick starts and first use
 
-## Best demo path
+## Quick start
 
 1. Start the dev server or open the hosted build
 2. Wake audio and press Play
-3. Load `Beat Lab` for a rhythm-first demo or `Night Transit` for a fuller song sketch
+3. Load `Beat Lab` for rhythm work or `Night Transit` for a fuller song sketch
 4. Open `Song` view to inspect clips and structure
 5. Open `Notes` to inspect tighter pitch and gate editing
 6. Try `Export MIDI` or a WAV bounce from the Output tab
