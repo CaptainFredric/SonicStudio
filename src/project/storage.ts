@@ -59,7 +59,7 @@ const normalizeUiState = (value: unknown, project: Project): StudioUIState => {
 
   return {
     activeView: activeView as AppView,
-    isSettingsOpen: Boolean(candidate.isSettingsOpen),
+    isSettingsOpen: false,
     loopRangeEndBeat: loopRangeStartBeat !== null && loopRangeEndBeat !== null && loopRangeEndBeat > loopRangeStartBeat
       ? loopRangeEndBeat
       : null,

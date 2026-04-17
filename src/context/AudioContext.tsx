@@ -48,48 +48,39 @@ import {
 import {
   createSessionFromTemplate,
   createDefaultSession,
-  deleteProjectCheckpoint,
-  hydrateSessionPayload,
-  listProjectCheckpoints,
   loadPersistedSession,
-  persistSession,
-  restoreProjectCheckpoint,
-  saveProjectCheckpoint,
   type PersistedCheckpoint,
 } from '../project/storage';
 import {
-  convertAudioBufferToWavWithAnalysis,
-  downloadBlob,
   exportToMIDI,
-  importMidiFile,
-  type AudioRenderAnalysis,
   type RenderTargetProfileId,
-  sanitizeExportFileName,
 } from '../utils/export';
+import {
+  buildBounceHistoryEntry,
+  buildBounceHistoryLabel,
+  buildRenderProject,
+  exportOfflineMix,
+  exportOfflineStems,
+} from '../services/renderWorkflow';
+import {
+  deleteStudioCheckpoint,
+  importStudioMidiFile,
+  importStudioSessionFile,
+  listStudioCheckpoints,
+  persistStudioSession,
+  restoreStudioCheckpoint,
+  saveStudioCheckpoint,
+} from '../services/sessionWorkflow';
+import {
+  IDLE_RENDER_STATE,
+  type BounceNormalizationMode,
+  type BounceTailMode,
+  type ExportScope,
+  type RenderState,
+  type SaveStatus,
+} from '../services/workflowTypes';
 
-type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
-type RenderMode = 'mix' | 'stems' | null;
-export type ExportScope = 'pattern' | 'song' | 'clip-window' | 'loop-window';
-export type BounceTailMode = 'short' | 'standard' | 'long';
-export type BounceNormalizationMode = 'none' | 'peak' | 'target';
-
-interface RenderState {
-  active: boolean;
-  currentTrackName: string | null;
-  etaSeconds: number | null;
-  mode: RenderMode;
-  phase: string;
-  progress: number;
-}
-
-const IDLE_RENDER_STATE: RenderState = {
-  active: false,
-  currentTrackName: null,
-  etaSeconds: null,
-  mode: null,
-  phase: 'Idle',
-  progress: 0,
-};
+export type { BounceNormalizationMode, BounceTailMode, ExportScope } from '../services/workflowTypes';
 
 interface AudioContextType {
   activeView: AppView;
@@ -547,20 +538,6 @@ const moveItem = <T,>(items: T[], fromIndex: number, toIndex: number) => {
   nextItems.splice(toIndex, 0, movedItem);
   return nextItems;
 };
-const formatBounceScopeLabel = (scope: ExportScope) => {
-  switch (scope) {
-    case 'clip-window':
-      return 'Clip window';
-    case 'loop-window':
-      return 'Loop window';
-    case 'pattern':
-      return 'Pattern';
-    case 'song':
-    default:
-      return 'Song';
-  }
-};
-
 const getClipContext = (project: Project, clipId: string) => {
   const clip = project.arrangerClips.find((candidate) => candidate.id === clipId);
   if (!clip) {
@@ -2175,7 +2152,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
-  const [projectCheckpoints, setProjectCheckpoints] = useState<PersistedCheckpoint[]>(() => listProjectCheckpoints());
+  const [projectCheckpoints, setProjectCheckpoints] = useState<PersistedCheckpoint[]>(() => listStudioCheckpoints());
   const [renderState, setRenderState] = useState<RenderState>(IDLE_RENDER_STATE);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const countInTokenRef = useRef(0);
@@ -2214,7 +2191,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const persistCurrentSession = useEffectEvent(() => {
-    const envelope = persistSession({
+    const envelope = persistStudioSession({
       project: editorState.history.present,
       ui: editorState.ui,
     });
@@ -2405,14 +2382,10 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const saveCheckpoint = (label?: string) => {
-    const checkpoint = saveProjectCheckpoint({
+    setProjectCheckpoints(saveStudioCheckpoint({
       project: editorState.history.present,
       ui: editorState.ui,
-    }, label ?? `${project.metadata.name} checkpoint`);
-
-    if (checkpoint) {
-      setProjectCheckpoints(listProjectCheckpoints());
-    }
+    }, label));
   };
 
   const previewTrack = async (trackId: string, note?: string, sampleSliceIndex?: number) => {
@@ -2432,108 +2405,6 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
     engine.stop();
     setCurrentStep(0);
     setIsPlaying(false);
-  };
-
-  const buildWindowRenderProject = (
-    rangeStart: number,
-    rangeEnd: number,
-    label: string,
-    fileSuffix: string,
-  ): { fileSuffix: string; label: string; project: Project } | null => {
-    const normalizedStart = Math.max(0, Math.round(rangeStart));
-    const normalizedEnd = Math.max(normalizedStart + 1, Math.round(rangeEnd));
-    if (normalizedEnd <= normalizedStart) {
-      return null;
-    }
-
-    const clippedProject = cloneProject(project);
-    clippedProject.arrangerClips = clippedProject.arrangerClips
-      .filter((clip) => clip.startBeat < normalizedEnd && clip.startBeat + clip.beatLength > normalizedStart)
-      .map((clip) => ({
-        ...clip,
-        beatLength: Math.max(
-          1,
-          Math.min(clip.startBeat + clip.beatLength, normalizedEnd) - Math.max(clip.startBeat, normalizedStart),
-        ),
-        startBeat: Math.max(clip.startBeat, normalizedStart) - normalizedStart,
-      }));
-    clippedProject.markers = clippedProject.markers
-      .filter((marker) => marker.beat >= normalizedStart && marker.beat < normalizedEnd)
-      .map((marker) => ({
-        ...marker,
-        beat: marker.beat - normalizedStart,
-      }));
-    clippedProject.transport = {
-      ...clippedProject.transport,
-      countInBars: 0,
-      metronomeEnabled: false,
-      mode: 'SONG',
-    };
-
-    return {
-      fileSuffix,
-      label,
-      project: clippedProject,
-    };
-  };
-
-  const buildRenderProject = (scope: ExportScope): { fileSuffix: string; label: string; project: Project } | null => {
-    if (scope === 'pattern') {
-      return {
-        fileSuffix: 'pattern',
-        label: `Pattern ${String.fromCharCode(65 + project.transport.currentPattern)}`,
-        project: {
-          ...cloneProject(project),
-          transport: {
-            ...project.transport,
-            countInBars: 0,
-            metronomeEnabled: false,
-            mode: 'PATTERN',
-          },
-        },
-      };
-    }
-
-    if (scope === 'song') {
-      return {
-        fileSuffix: 'song',
-        label: 'Full song',
-        project: {
-          ...cloneProject(project),
-          transport: {
-            ...project.transport,
-            countInBars: 0,
-            metronomeEnabled: false,
-            mode: 'SONG',
-          },
-        },
-      };
-    }
-
-    if (scope === 'loop-window') {
-      if (loopRangeStartBeat === null || loopRangeEndBeat === null) {
-        return null;
-      }
-
-      return buildWindowRenderProject(
-        loopRangeStartBeat,
-        loopRangeEndBeat,
-        'Loop window',
-        `loop-${loopRangeStartBeat + 1}-${loopRangeEndBeat}`,
-      );
-    }
-
-    const selectedClip = project.arrangerClips.find((clip) => clip.id === selectedArrangerClipId);
-    if (!selectedClip) {
-      return null;
-    }
-
-    return buildWindowRenderProject(
-      selectedClip.startBeat,
-      selectedClip.startBeat + selectedClip.beatLength,
-      'Selected clip window',
-      `clip-${selectedClip.patternIndex + 1}`,
-    );
   };
 
   const newSession = () => {
@@ -2575,44 +2446,11 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
     scope: ExportScope,
     options: { normalization?: BounceNormalizationMode; tailMode?: BounceTailMode; targetProfileId?: RenderTargetProfileId },
     label: string,
-    analysis?: AudioRenderAnalysis,
+    analysis?: Parameters<typeof buildBounceHistoryEntry>[5],
   ) => {
-    const matchingSnapshot = project.masterSnapshots.find((snapshot) => (
-      snapshot.settings.glueCompression === project.master.glueCompression
-      && snapshot.settings.highCutHz === project.master.highCutHz
-      && snapshot.settings.limiterCeiling === project.master.limiterCeiling
-      && snapshot.settings.lowCutHz === project.master.lowCutHz
-      && snapshot.settings.outputGain === project.master.outputGain
-      && snapshot.settings.stereoWidth === project.master.stereoWidth
-      && snapshot.settings.tone === project.master.tone
-    ));
-
     dispatch({
       type: 'APPEND_BOUNCE_HISTORY',
-      entry: {
-        exportedAt: new Date().toISOString(),
-        id: `bounce-history_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-        label,
-        masterSnapshotName: matchingSnapshot?.name ?? null,
-        mode,
-        normalization: options.normalization ?? 'none',
-        crestDb: analysis?.crestDb,
-        estimatedLufs: analysis?.estimatedLufs,
-        peakDb: analysis?.peakDb,
-        quality: analysis?.quality,
-        recommendation: analysis?.recommendation,
-        rmsDb: analysis?.rmsDb,
-        sampleRate: analysis?.sampleRate,
-        scope,
-        tailMode: options.tailMode ?? 'standard',
-        durationSeconds: analysis?.durationSeconds,
-        targetDeltaDb: analysis?.targetDeltaDb,
-        targetLabel: analysis?.targetLabel,
-        targetLufs: analysis?.targetLufs,
-        targetLufsDelta: analysis?.targetLufsDelta,
-        targetProfileId: options.normalization === 'target' ? (options.targetProfileId ?? 'streaming') : undefined,
-        targetVerdict: analysis?.targetVerdict,
-      },
+      entry: buildBounceHistoryEntry(project, mode, scope, options, label, analysis),
     });
   };
 
@@ -2620,72 +2458,46 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
     scope: ExportScope = project.transport.mode === 'SONG' ? 'song' : 'pattern',
     options: { normalization?: BounceNormalizationMode; tailMode?: BounceTailMode; targetProfileId?: RenderTargetProfileId } = {},
   ) => {
-    const renderPayload = buildRenderProject(scope);
+    const renderPayload = buildRenderProject({
+      loopRangeEndBeat,
+      loopRangeStartBeat,
+      project,
+      scope,
+      selectedArrangerClipId,
+    });
     if (!renderPayload) {
       return;
     }
 
-    setRenderState({
-      active: true,
-      currentTrackName: null,
-      etaSeconds: null,
-      mode: 'mix',
-      phase: `Rendering ${renderPayload.label.toLowerCase()} offline`,
-      progress: 0,
+    await exportOfflineMix({
+      onMixRendered: (analysis) => {
+        appendBounceHistory('mix', scope, options, buildBounceHistoryLabel(scope, 'mix'), analysis);
+      },
+      options,
+      projectName: project.metadata.name,
+      renderOffline: renderProjectOffline,
+      renderPayload,
+      scheduler: {
+        clearTimeout: (timerId) => window.clearTimeout(timerId),
+        delay: (ms) => new Promise((resolve) => {
+          window.setTimeout(resolve, ms);
+        }),
+        setTimeout: (callback, ms) => window.setTimeout(callback, ms),
+      },
+      setRenderState,
     });
-
-    let progressTimers: number[] = [];
-
-    try {
-      const offlineRenderPromise = renderProjectOffline(renderPayload.project, {
-        tailMode: options.tailMode,
-      });
-      progressTimers = [0.18, 0.42, 0.66, 0.84].map((progress, index) => (
-        window.setTimeout(() => {
-          setRenderState((current) => current.active ? {
-            ...current,
-            progress: Math.max(current.progress, progress),
-          } : current);
-        }, 260 + index * 320)
-      ));
-      const audioBuffer = await offlineRenderPromise;
-      progressTimers.forEach((timerId) => {
-        window.clearTimeout(timerId);
-      });
-      progressTimers = [];
-
-      setRenderState((current) => ({
-        ...current,
-        etaSeconds: null,
-        phase: 'Encoding WAV',
-        progress: Math.max(current.progress, 0.98),
-      }));
-
-      const { analysis, wavBlob } = convertAudioBufferToWavWithAnalysis(audioBuffer, {
-        normalization: options.normalization ?? 'none',
-        targetProfileId: options.targetProfileId,
-      });
-      downloadBlob(wavBlob, `${sanitizeExportFileName(project.metadata.name)}-${renderPayload.fileSuffix}-mix.wav`);
-      appendBounceHistory('mix', scope, options, `${formatBounceScopeLabel(scope)} mix`, analysis);
-      setRenderState((current) => ({
-        ...current,
-        phase: 'Mix ready',
-        progress: 1,
-      }));
-    } finally {
-      progressTimers.forEach((timerId) => {
-        window.clearTimeout(timerId);
-      });
-      window.setTimeout(() => {
-        setRenderState(IDLE_RENDER_STATE);
-      }, 500);
-    }
   };
 
   const exportMidi = async (
     scope: ExportScope = project.transport.mode === 'SONG' ? 'song' : 'pattern',
   ) => {
-    const renderPayload = buildRenderProject(scope);
+    const renderPayload = buildRenderProject({
+      loopRangeEndBeat,
+      loopRangeStartBeat,
+      project,
+      scope,
+      selectedArrangerClipId,
+    });
     if (!renderPayload) {
       return;
     }
@@ -2697,136 +2509,64 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
     scope: ExportScope = project.transport.mode === 'SONG' ? 'song' : 'pattern',
     options: { normalization?: BounceNormalizationMode; tailMode?: BounceTailMode; targetProfileId?: RenderTargetProfileId } = {},
   ) => {
-    const renderPayload = buildRenderProject(scope);
+    const renderPayload = buildRenderProject({
+      loopRangeEndBeat,
+      loopRangeStartBeat,
+      project,
+      scope,
+      selectedArrangerClipId,
+    });
     if (!renderPayload) {
       return;
     }
 
-    const baseFileName = sanitizeExportFileName(project.metadata.name);
-    const stemTracks = renderPayload.project.tracks;
-
-    setRenderState({
-      active: true,
-      currentTrackName: stemTracks[0]?.name ?? null,
-      etaSeconds: null,
-      mode: 'stems',
-      phase: `Rendering ${renderPayload.label.toLowerCase()} stems 1/${stemTracks.length}`,
-      progress: 0,
+    await exportOfflineStems({
+      onStemBatchRendered: () => {
+        appendBounceHistory('stems', scope, options, buildBounceHistoryLabel(scope, 'stems'));
+      },
+      options,
+      projectName: project.metadata.name,
+      renderOffline: renderProjectOffline,
+      renderPayload,
+      scheduler: {
+        clearTimeout: (timerId) => window.clearTimeout(timerId),
+        delay: (ms) => new Promise((resolve) => {
+          window.setTimeout(resolve, ms);
+        }),
+        setTimeout: (callback, ms) => window.setTimeout(callback, ms),
+      },
+      setRenderState,
     });
-
-    let progressTimers: number[] = [];
-
-    try {
-      for (const [index, track] of stemTracks.entries()) {
-        const stemProject = cloneProject(renderPayload.project);
-        stemProject.tracks = stemProject.tracks.map((candidate) => (
-          candidate.id === track.id
-            ? { ...candidate, muted: false, solo: false }
-            : { ...candidate, muted: true, solo: false }
-        ));
-
-        const progressBase = index / stemTracks.length;
-        const progressWeight = 1 / stemTracks.length;
-        setRenderState((current) => ({
-          ...current,
-          currentTrackName: track.name,
-          phase: `Rendering ${renderPayload.label.toLowerCase()} stems ${index + 1}/${stemTracks.length}`,
-          progress: progressBase,
-        }));
-
-        progressTimers = [0.18, 0.42, 0.66, 0.84].map((progress, timerIndex) => (
-          window.setTimeout(() => {
-            setRenderState((current) => current.active ? {
-              ...current,
-              currentTrackName: track.name,
-              progress: Math.max(current.progress, progressBase + (progress * progressWeight)),
-            } : current);
-          }, 240 + timerIndex * 260)
-        ));
-        const audioBuffer = await renderProjectOffline(stemProject, {
-          tailMode: options.tailMode,
-        });
-        progressTimers.forEach((timerId) => {
-          window.clearTimeout(timerId);
-        });
-        progressTimers = [];
-
-        setRenderState((current) => ({
-          ...current,
-          currentTrackName: track.name,
-          etaSeconds: null,
-          phase: `Encoding ${track.name}`,
-          progress: Math.max(current.progress, progressBase + (progressWeight * 0.98)),
-        }));
-
-        const { wavBlob } = convertAudioBufferToWavWithAnalysis(audioBuffer, {
-          normalization: options.normalization ?? 'none',
-          targetProfileId: options.targetProfileId,
-        });
-        downloadBlob(
-          wavBlob,
-          `${baseFileName}-${renderPayload.fileSuffix}-${sanitizeExportFileName(track.name)}-stem.wav`,
-        );
-
-        if (typeof window !== 'undefined') {
-          await new Promise((resolve) => {
-            window.setTimeout(resolve, 160);
-          });
-        }
-      }
-
-      appendBounceHistory('stems', scope, options, `${formatBounceScopeLabel(scope)} stems`);
-      setRenderState((current) => ({
-        ...current,
-        currentTrackName: null,
-        phase: 'Stems ready',
-        progress: 1,
-      }));
-    } finally {
-      progressTimers.forEach((timerId) => {
-        window.clearTimeout(timerId);
-      });
-      window.setTimeout(() => {
-        setRenderState(IDLE_RENDER_STATE);
-      }, 500);
-    }
   };
 
   const importSession = async (file: File) => {
-    try {
-      saveCheckpoint('Before JSON import');
-      const parsed = JSON.parse(await file.text()) as unknown;
-      const session = hydrateSessionPayload(parsed);
-
-      if (!session) {
-        setSaveStatus('error');
-        return false;
-      }
-
-      resetTransportState();
-      setLastSavedAt(null);
-      setSaveStatus('idle');
-      dispatch({ type: 'HYDRATE_SESSION', session });
-      return true;
-    } catch {
+    saveCheckpoint('Before JSON import');
+    const session = await importStudioSessionFile(file);
+    if (!session) {
       setSaveStatus('error');
       return false;
     }
+
+    resetTransportState();
+    setLastSavedAt(null);
+    setSaveStatus('idle');
+    dispatch({ type: 'HYDRATE_SESSION', session });
+    return true;
   };
 
   const importMidiSession = async (file: File) => {
-    try {
-      saveCheckpoint('Before MIDI import');
-      const session = await importMidiFile(file);
-      resetTransportState();
-      setLastSavedAt(null);
-      setSaveStatus('idle');
-      dispatch({ type: 'HYDRATE_SESSION', session });
-      return true;
-    } catch {
+    saveCheckpoint('Before MIDI import');
+    const session = await importStudioMidiFile(file);
+    if (!session) {
       setSaveStatus('error');
       return false;
     }
+
+    resetTransportState();
+    setLastSavedAt(null);
+    setSaveStatus('idle');
+    dispatch({ type: 'HYDRATE_SESSION', session });
+    return true;
   };
 
   const rerunBounceHistory = async (entryId: string) => {
@@ -2850,7 +2590,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const restoreCheckpoint = (checkpointId: string) => {
-    const session = restoreProjectCheckpoint(checkpointId);
+    const session = restoreStudioCheckpoint(checkpointId);
     if (!session) {
       return false;
     }
@@ -2979,7 +2719,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       updateStepEvent: (trackId, stepIndex, noteIndex, updates) => dispatch({ type: 'UPDATE_STEP_EVENT', noteIndex, stepIndex, trackId, updates }),
       updateTrackPan: (trackId, pan) => dispatch({ type: 'TOGGLE_PAN', pan, trackId }),
       updateTrackVolume: (trackId, volume) => dispatch({ type: 'TOGGLE_VOLUME', trackId, volume }),
-      deleteCheckpoint: (checkpointId) => setProjectCheckpoints(deleteProjectCheckpoint(checkpointId)),
+      deleteCheckpoint: (checkpointId) => setProjectCheckpoints(deleteStudioCheckpoint(checkpointId)),
       deleteSampleSlice: (trackId, sliceIndex) => dispatch({ type: 'DELETE_SAMPLE_SLICE', sliceIndex, trackId }),
       deleteMasterSnapshot: (snapshotId) => dispatch({ type: 'DELETE_MASTER_SNAPSHOT', snapshotId }),
       deleteTrackSnapshot: (snapshotId) => dispatch({ type: 'DELETE_TRACK_SNAPSHOT', snapshotId }),
