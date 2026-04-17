@@ -16,7 +16,6 @@ import {
 
 import { useAudio, type BounceNormalizationMode, type BounceTailMode } from '../context/AudioContext';
 import { MASTER_PRESET_DEFINITIONS, SESSION_TEMPLATE_DEFINITIONS, type MasterSettings } from '../project/schema';
-import { getStudioReadinessAssessment } from '../utils/readiness';
 import { RENDER_TARGET_PROFILES, type RenderTargetProfileId } from '../utils/export';
 
 const PATTERN_OPTIONS = [2, 4, 6, 8];
@@ -121,7 +120,6 @@ export const SettingsSidebar = () => {
   const [targetProfileId, setTargetProfileId] = useState<RenderTargetProfileId>('streaming');
   const [settingsTab, setSettingsTab] = useState<SettingsTab>(getInitialSettingsTab);
   const [trackQuery, setTrackQuery] = useState('');
-  const readiness = getStudioReadinessAssessment();
   const activeMasterPreset = MASTER_PRESET_DEFINITIONS.find((preset) => (
     isMasterPresetMatch(master, preset.settings)
   )) ?? null;
@@ -430,7 +428,7 @@ export const SettingsSidebar = () => {
             <ActionButton disabled={renderState.active} icon={<Layers3 className="h-3.5 w-3.5" />} label="Export JSON" onClick={exportSession} />
           </div>
           <div className="mt-3 rounded-2xl border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3 text-[11px] leading-5 text-[var(--text-secondary)]">
-            Mixes and stems now render offline before encoding, so timing and analysis come from the full audio buffer instead of a live recorder pass.
+            Mixes and stems render offline before encoding, so timing and analysis come from the full audio buffer.
           </div>
           <div className="mt-4">
             <div className="flex items-center justify-between gap-3">
@@ -566,7 +564,7 @@ export const SettingsSidebar = () => {
                         {entry.recommendation
                           ? ` · ${entry.recommendation}`
                           : entry.quality === 'hot'
-                            ? ' · reduce output gain or widen headroom before trusting this print'
+                            ? ' · reduce output gain or widen headroom before reprinting'
                             : entry.quality === 'quiet'
                               ? ' · consider more output gain or stronger glue before sharing this print'
                               : ' · headroom and loudness look usable for a reference print'}
@@ -584,7 +582,7 @@ export const SettingsSidebar = () => {
                 </div>
               )) : (
                 <div className="rounded-2xl border border-dashed border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-4 py-4 text-[11px] leading-5 text-[var(--text-secondary)]">
-                  Print history will show the scope, output treatment, and mix state you trusted most recently, so repeating a known-good export becomes one action.
+                  Repeat a previous print with the same scope, treatment, and mix state in one action.
                 </div>
               )}
             </div>
@@ -699,36 +697,6 @@ export const SettingsSidebar = () => {
             <ShortcutRow command="Cmd/Ctrl+Z" description="Undo" />
             <ShortcutRow command="Shift+Cmd/Ctrl+Z" description="Redo" />
             <ShortcutRow command="1-8" description="Switch pattern bank" />
-          </div>
-        </section>
-
-
-        <section className="surface-panel-strong p-4">
-          <div className="flex items-center gap-2 text-[var(--text-primary)]">
-            <Gauge className="h-4 w-4 text-[var(--accent)]" />
-            <span className="section-label">Readiness</span>
-          </div>
-          <div className="mt-4 grid grid-cols-1 gap-3 text-sm text-[var(--text-secondary)] sm:grid-cols-3">
-            <MetricCell label="Overall" value={`${readiness.overallScore}%`} />
-            <MetricCell label="GarageBand fit" value={`${readiness.competitorScore}%`} />
-            <MetricCell label="Monetization" value={`${readiness.monetizationScore}%`} />
-          </div>
-          <div className="mt-4 space-y-3">
-            {readiness.slices.map((slice) => (
-              <div key={slice.label} className="rounded-2xl border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
-                <div className="flex items-center justify-between gap-3">
-                  <span className="section-label">{slice.label}</span>
-                  <span className="font-mono text-xs text-[var(--accent-strong)]">{slice.score}%</span>
-                </div>
-                <div className="mt-2 h-2 overflow-hidden rounded-full bg-[rgba(255,255,255,0.05)]">
-                  <div
-                    className="h-full rounded-full bg-[linear-gradient(90deg,rgba(114,217,255,0.55),rgba(223,246,255,0.92))]"
-                    style={{ width: `${slice.score}%` }}
-                  />
-                </div>
-                <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">{slice.rationale}</div>
-              </div>
-            ))}
           </div>
         </section>
           </>
@@ -891,7 +859,7 @@ export const SettingsSidebar = () => {
                   </div>
                 )) : (
                   <div className="rounded-2xl border border-dashed border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-4 py-4 text-[11px] leading-5 text-[var(--text-secondary)]">
-                    Save master states you trust, then flip between them while checking a section print. That is much safer than rebuilding a mix from memory.
+                    Save master states and recall them while checking a section print.
                   </div>
                 )}
               </div>

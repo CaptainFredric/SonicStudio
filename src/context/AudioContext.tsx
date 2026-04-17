@@ -160,7 +160,6 @@ interface AudioContextType {
   setMasterSettings: (settings: Partial<MasterSettings>) => void;
   setCurrentPattern: (pattern: number) => void;
   setPatternCount: (patternCount: number) => void;
-  setSettingsOpen: (open: boolean) => void;
   setSelectedTrackId: (id: string | null) => void;
   setStepsPerPattern: (stepsPerPattern: number) => void;
   setTrackParams: (id: string, params: Partial<SynthParams>) => void;
@@ -263,7 +262,6 @@ type EditorAction =
   | { type: 'SET_CURRENT_PATTERN'; pattern: number }
   | { type: 'SET_PATTERN_COUNT'; patternCount: number }
   | { type: 'SET_PROJECT_NAME'; name: string }
-  | { open: boolean; type: 'SET_SETTINGS_OPEN' }
   | { type: 'SET_CLIP_PATTERN_STEP_SLICE'; clipId: string; note?: string; sliceIndex: number | null; stepIndex: number }
   | { type: 'SET_SELECTED_TRACK_ID'; trackId: string | null }
   | { type: 'SELECT_SAMPLE_SLICE'; trackId: string; sliceIndex: number | null }
@@ -936,11 +934,6 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
 
     case 'TOGGLE_SETTINGS':
       return { ...state, ui: { ...state.ui, isSettingsOpen: !state.ui.isSettingsOpen } };
-
-    case 'SET_SETTINGS_OPEN':
-      return state.ui.isSettingsOpen === action.open
-        ? state
-        : { ...state, ui: { ...state.ui, isSettingsOpen: action.open } };
 
     case 'SET_SELECTED_TRACK_ID': {
       const nextSelectedTrackId = ensureSelectedTrackId(present, action.trackId);
@@ -2946,7 +2939,6 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       setMasterSettings: (settings) => dispatch({ type: 'SET_MASTER_SETTINGS', settings }),
       setCurrentPattern: (pattern) => dispatch({ type: 'SET_CURRENT_PATTERN', pattern }),
       setPatternCount: (patternCount) => dispatch({ type: 'SET_PATTERN_COUNT', patternCount }),
-      setSettingsOpen: (open) => dispatch({ type: 'SET_SETTINGS_OPEN', open }),
       setClipPatternStepSlice: (clipId, stepIndex, sliceIndex, note) => dispatch({ type: 'SET_CLIP_PATTERN_STEP_SLICE', clipId, note, sliceIndex, stepIndex }),
       setLoopRange: (startBeat, endBeat) => dispatch({ type: 'SET_LOOP_RANGE', endBeat, startBeat }),
       setSelectedTrackId: (trackId) => dispatch({ type: 'SET_SELECTED_TRACK_ID', trackId }),

@@ -7,7 +7,6 @@ import { Mixer } from './components/Mixer';
 import { DeviceRack } from './components/DeviceRack';
 import { SettingsSidebar } from './components/SettingsSidebar';
 import { Arranger } from './components/Arranger';
-import { SubmissionGuide } from './components/SubmissionGuide';
 import { Launchpad } from './components/Launchpad';
 import type { SessionTemplateId } from './project/schema';
 import { hasPersistedSession } from './project/storage';
@@ -84,13 +83,11 @@ const StudioShell = () => {
     loadSessionTemplate,
     selectedTrackId,
     setActiveView,
-    setSettingsOpen,
     toggleSettings,
     tracks,
   } = useAudio();
   const [isRackOpen, setIsRackOpen] = useState(true);
   const [isLaunchpadOpen, setIsLaunchpadOpen] = useState(false);
-  const [isSubmissionGuideOpen, setIsSubmissionGuideOpen] = useState(false);
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
   const [hasAppliedDemoParams, setHasAppliedDemoParams] = useState(false);
   const midiLaunchInputRef = useRef<HTMLInputElement>(null);
@@ -127,10 +124,8 @@ const StudioShell = () => {
     const params = new URLSearchParams(window.location.search);
     const requestedTemplate = params.get('demo');
     const requestedView = params.get('view');
-    const requestedSetup = params.get('setup');
-    const shouldShowGuide = params.get('guide') === '1';
     const shouldShowLaunchpad = params.get('launch') === '1'
-      || (!hasPersistedSession() && !requestedTemplate && !shouldShowGuide);
+      || (!hasPersistedSession() && !requestedTemplate);
 
     if (requestedTemplate && DEMO_TEMPLATE_IDS.includes(requestedTemplate as SessionTemplateId)) {
       loadSessionTemplate(requestedTemplate as SessionTemplateId);
@@ -146,20 +141,10 @@ const StudioShell = () => {
       setActiveView('MIXER');
     }
 
-    if (
-      requestedSetup === '1'
-      || requestedSetup === 'workspace'
-      || requestedSetup === 'track'
-      || requestedSetup === 'output'
-    ) {
-      setSettingsOpen(true);
-    }
-
-    setIsSubmissionGuideOpen(shouldShowGuide);
     setIsLaunchpadOpen(shouldShowLaunchpad);
 
     setHasAppliedDemoParams(true);
-  }, [hasAppliedDemoParams, isSettingsOpen, loadSessionTemplate, setActiveView, setSettingsOpen, toggleSettings]);
+  }, [hasAppliedDemoParams, loadSessionTemplate, setActiveView]);
 
   const handleLaunchpadTemplate = (templateId: SessionTemplateId) => {
     loadSessionTemplate(templateId);
@@ -169,14 +154,6 @@ const StudioShell = () => {
 
   const handleLaunchpadImportMidi = () => {
     midiLaunchInputRef.current?.click();
-  };
-
-  const closeSubmissionGuide = () => {
-    setIsSubmissionGuideOpen(false);
-  };
-
-  const openSubmissionGuide = () => {
-    setIsSubmissionGuideOpen(true);
   };
 
   return (
@@ -202,8 +179,7 @@ const StudioShell = () => {
       />
       <div className="flex min-h-screen flex-col">
         <div className="px-3 pt-3">
-          <TopBar onOpenGuide={openSubmissionGuide} />
-          <SubmissionGuide isOpen={isSubmissionGuideOpen} onClose={closeSubmissionGuide} />
+          <TopBar />
           <div className="mt-3">
             <Launchpad
               isInitialized={isInitialized}
