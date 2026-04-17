@@ -84,6 +84,7 @@ const StudioShell = () => {
     loadSessionTemplate,
     selectedTrackId,
     setActiveView,
+    setSettingsOpen,
     toggleSettings,
     tracks,
   } = useAudio();
@@ -126,6 +127,7 @@ const StudioShell = () => {
     const params = new URLSearchParams(window.location.search);
     const requestedTemplate = params.get('demo');
     const requestedView = params.get('view');
+    const requestedSetup = params.get('setup');
     const shouldShowGuide = params.get('guide') === '1';
     const shouldShowLaunchpad = params.get('launch') === '1'
       || (!hasPersistedSession() && !requestedTemplate && !shouldShowGuide);
@@ -144,11 +146,20 @@ const StudioShell = () => {
       setActiveView('MIXER');
     }
 
+    if (
+      requestedSetup === '1'
+      || requestedSetup === 'workspace'
+      || requestedSetup === 'track'
+      || requestedSetup === 'output'
+    ) {
+      setSettingsOpen(true);
+    }
+
     setIsSubmissionGuideOpen(shouldShowGuide);
     setIsLaunchpadOpen(shouldShowLaunchpad);
 
     setHasAppliedDemoParams(true);
-  }, [hasAppliedDemoParams, loadSessionTemplate, setActiveView]);
+  }, [hasAppliedDemoParams, isSettingsOpen, loadSessionTemplate, setActiveView, setSettingsOpen, toggleSettings]);
 
   const handleLaunchpadTemplate = (templateId: SessionTemplateId) => {
     loadSessionTemplate(templateId);

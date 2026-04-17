@@ -59,7 +59,6 @@ import {
 } from '../project/storage';
 import {
   convertAudioBufferToWavWithAnalysis,
-  convertRecordingBlobToWavWithAnalysis,
   downloadBlob,
   exportToMIDI,
   importMidiFile,
@@ -161,6 +160,7 @@ interface AudioContextType {
   setMasterSettings: (settings: Partial<MasterSettings>) => void;
   setCurrentPattern: (pattern: number) => void;
   setPatternCount: (patternCount: number) => void;
+  setSettingsOpen: (open: boolean) => void;
   setSelectedTrackId: (id: string | null) => void;
   setStepsPerPattern: (stepsPerPattern: number) => void;
   setTrackParams: (id: string, params: Partial<SynthParams>) => void;
@@ -263,6 +263,7 @@ type EditorAction =
   | { type: 'SET_CURRENT_PATTERN'; pattern: number }
   | { type: 'SET_PATTERN_COUNT'; patternCount: number }
   | { type: 'SET_PROJECT_NAME'; name: string }
+  | { open: boolean; type: 'SET_SETTINGS_OPEN' }
   | { type: 'SET_CLIP_PATTERN_STEP_SLICE'; clipId: string; note?: string; sliceIndex: number | null; stepIndex: number }
   | { type: 'SET_SELECTED_TRACK_ID'; trackId: string | null }
   | { type: 'SELECT_SAMPLE_SLICE'; trackId: string; sliceIndex: number | null }
@@ -935,6 +936,11 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
 
     case 'TOGGLE_SETTINGS':
       return { ...state, ui: { ...state.ui, isSettingsOpen: !state.ui.isSettingsOpen } };
+
+    case 'SET_SETTINGS_OPEN':
+      return state.ui.isSettingsOpen === action.open
+        ? state
+        : { ...state, ui: { ...state.ui, isSettingsOpen: action.open } };
 
     case 'SET_SELECTED_TRACK_ID': {
       const nextSelectedTrackId = ensureSelectedTrackId(present, action.trackId);
@@ -2598,6 +2604,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
         mode,
         normalization: options.normalization ?? 'none',
         crestDb: analysis?.crestDb,
+        estimatedLufs: analysis?.estimatedLufs,
         peakDb: analysis?.peakDb,
         quality: analysis?.quality,
         recommendation: analysis?.recommendation,
@@ -2608,68 +2615,12 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
         durationSeconds: analysis?.durationSeconds,
         targetDeltaDb: analysis?.targetDeltaDb,
         targetLabel: analysis?.targetLabel,
+        targetLufs: analysis?.targetLufs,
+        targetLufsDelta: analysis?.targetLufsDelta,
         targetProfileId: options.normalization === 'target' ? (options.targetProfileId ?? 'streaming') : undefined,
         targetVerdict: analysis?.targetVerdict,
       },
     });
-  };
-
-  const bounceProjectRecording = async (
-    renderProject: Project,
-    options: { tailMode?: BounceTailMode } = {},
-    updateProgress?: (progress: number, etaSeconds: number) => void,
-  ) => {
-    if (typeof window === 'undefined' || isRecording) {
-      return null;
-    }
-
-    if (!isInitialized) {
-      await initAudio();
-    }
-
-    const renderSteps = renderProject.transport.mode === 'SONG'
-      ? Math.max(
-          renderProject.arrangerClips.reduce(
-            (maxBeat, clip) => Math.max(maxBeat, clip.startBeat + clip.beatLength),
-            renderProject.transport.stepsPerPattern,
-          ),
-          renderProject.transport.stepsPerPattern,
-        )
-      : renderProject.transport.stepsPerPattern;
-    const renderDurationSeconds = renderSteps * (60 / renderProject.transport.bpm) * 0.25;
-    const tailSeconds = BOUNCE_TAIL_SECONDS[options.tailMode ?? 'standard'];
-    const bounceDurationMs = Math.max(1200, Math.ceil((renderDurationSeconds + tailSeconds) * 1000));
-
-    stop();
-    engine.syncProject(renderProject);
-
-    try {
-      await engine.startRecording();
-      setIsRecording(true);
-      setIsPlaying(engine.togglePlayback());
-
-      await new Promise((resolve) => {
-        const startTime = Date.now();
-        const intervalId = window.setInterval(() => {
-          const elapsed = Date.now() - startTime;
-          const progress = Math.min(0.99, elapsed / bounceDurationMs);
-          const etaSeconds = Math.max(0, Math.ceil((bounceDurationMs - elapsed) / 1000));
-          updateProgress?.(progress, etaSeconds);
-        }, 120);
-
-        window.setTimeout(() => {
-          window.clearInterval(intervalId);
-          updateProgress?.(1, 0);
-          resolve(null);
-        }, bounceDurationMs);
-      });
-
-      return await engine.stopRecording(false);
-    } finally {
-      stop();
-      setIsRecording(false);
-      engine.syncProject(project);
-    }
   };
 
   const exportAudioMix = async (
@@ -2766,9 +2717,11 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       currentTrackName: stemTracks[0]?.name ?? null,
       etaSeconds: null,
       mode: 'stems',
-      phase: `Printing ${renderPayload.label.toLowerCase()} stems 1/${stemTracks.length}`,
+      phase: `Rendering ${renderPayload.label.toLowerCase()} stems 1/${stemTracks.length}`,
       progress: 0,
     });
+
+    let progressTimers: number[] = [];
 
     try {
       for (const [index, track] of stemTracks.entries()) {
@@ -2784,21 +2737,26 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
         setRenderState((current) => ({
           ...current,
           currentTrackName: track.name,
-          phase: `Printing ${renderPayload.label.toLowerCase()} stems ${index + 1}/${stemTracks.length}`,
+          phase: `Rendering ${renderPayload.label.toLowerCase()} stems ${index + 1}/${stemTracks.length}`,
           progress: progressBase,
         }));
 
-        const recording = await bounceProjectRecording(stemProject, options, (progress, etaSeconds) => {
-          setRenderState((current) => ({
-            ...current,
-            currentTrackName: track.name,
-            etaSeconds,
-            progress: progressBase + (progress * progressWeight),
-          }));
+        progressTimers = [0.18, 0.42, 0.66, 0.84].map((progress, timerIndex) => (
+          window.setTimeout(() => {
+            setRenderState((current) => current.active ? {
+              ...current,
+              currentTrackName: track.name,
+              progress: Math.max(current.progress, progressBase + (progress * progressWeight)),
+            } : current);
+          }, 240 + timerIndex * 260)
+        ));
+        const audioBuffer = await renderProjectOffline(stemProject, {
+          tailMode: options.tailMode,
         });
-        if (!recording) {
-          return;
-        }
+        progressTimers.forEach((timerId) => {
+          window.clearTimeout(timerId);
+        });
+        progressTimers = [];
 
         setRenderState((current) => ({
           ...current,
@@ -2808,7 +2766,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
           progress: Math.max(current.progress, progressBase + (progressWeight * 0.98)),
         }));
 
-        const { wavBlob } = await convertRecordingBlobToWavWithAnalysis(recording, {
+        const { wavBlob } = convertAudioBufferToWavWithAnalysis(audioBuffer, {
           normalization: options.normalization ?? 'none',
           targetProfileId: options.targetProfileId,
         });
@@ -2832,6 +2790,9 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
         progress: 1,
       }));
     } finally {
+      progressTimers.forEach((timerId) => {
+        window.clearTimeout(timerId);
+      });
       window.setTimeout(() => {
         setRenderState(IDLE_RENDER_STATE);
       }, 500);
@@ -2985,6 +2946,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       setMasterSettings: (settings) => dispatch({ type: 'SET_MASTER_SETTINGS', settings }),
       setCurrentPattern: (pattern) => dispatch({ type: 'SET_CURRENT_PATTERN', pattern }),
       setPatternCount: (patternCount) => dispatch({ type: 'SET_PATTERN_COUNT', patternCount }),
+      setSettingsOpen: (open) => dispatch({ type: 'SET_SETTINGS_OPEN', open }),
       setClipPatternStepSlice: (clipId, stepIndex, sliceIndex, note) => dispatch({ type: 'SET_CLIP_PATTERN_STEP_SLICE', clipId, note, sliceIndex, stepIndex }),
       setLoopRange: (startBeat, endBeat) => dispatch({ type: 'SET_LOOP_RANGE', endBeat, startBeat }),
       setSelectedTrackId: (trackId) => dispatch({ type: 'SET_SELECTED_TRACK_ID', trackId }),

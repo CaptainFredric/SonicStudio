@@ -46,6 +46,19 @@ const isMasterPresetMatch = (current: MasterSettings, target: MasterSettings) =>
   && Math.abs(current.limiterCeiling - target.limiterCeiling) <= 0.06
 );
 
+const getInitialSettingsTab = (): SettingsTab => {
+  if (typeof window === 'undefined') {
+    return 'WORKSPACE';
+  }
+
+  const requestedTab = new URLSearchParams(window.location.search).get('setup')?.toUpperCase();
+  if (requestedTab === 'TRACK' || requestedTab === 'OUTPUT' || requestedTab === 'WORKSPACE') {
+    return requestedTab;
+  }
+
+  return 'WORKSPACE';
+};
+
 export const SettingsSidebar = () => {
   const {
     arrangerClips,
@@ -106,7 +119,7 @@ export const SettingsSidebar = () => {
   const [bounceNormalization, setBounceNormalization] = useState<BounceNormalizationMode>('peak');
   const [bounceTailMode, setBounceTailMode] = useState<BounceTailMode>('standard');
   const [targetProfileId, setTargetProfileId] = useState<RenderTargetProfileId>('streaming');
-  const [settingsTab, setSettingsTab] = useState<SettingsTab>('WORKSPACE');
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>(getInitialSettingsTab);
   const [trackQuery, setTrackQuery] = useState('');
   const readiness = getStudioReadinessAssessment();
   const activeMasterPreset = MASTER_PRESET_DEFINITIONS.find((preset) => (
@@ -344,8 +357,29 @@ export const SettingsSidebar = () => {
                   ))}
                 </div>
                 <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
-                  {RENDER_TARGET_PROFILES.find((profile) => profile.id === targetProfileId)?.description}
+                  {(() => {
+                    const profile = RENDER_TARGET_PROFILES.find((candidate) => candidate.id === targetProfileId);
+                    if (!profile) {
+                      return '';
+                    }
+
+                    return `${profile.description} Aim for about ${profile.targetLufs.toFixed(1)} LUFS and ${profile.peakTargetDb.toFixed(1)} dBFS peak.`;
+                  })()}
                 </div>
+                {(() => {
+                  const profile = RENDER_TARGET_PROFILES.find((candidate) => candidate.id === targetProfileId);
+                  if (!profile) {
+                    return null;
+                  }
+
+                  return (
+                    <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                      <MetricCell label="Loudness" value={`${profile.targetLufs.toFixed(1)} LUFS`} />
+                      <MetricCell label="Peak ceiling" value={`${profile.peakTargetDb.toFixed(1)} dBFS`} />
+                      <MetricCell label="Crest window" value={`${profile.crestRangeDb[0].toFixed(0)} to ${profile.crestRangeDb[1].toFixed(0)} dB`} />
+                    </div>
+                  );
+                })()}
               </div>
             ) : null}
           </div>
@@ -396,7 +430,7 @@ export const SettingsSidebar = () => {
             <ActionButton disabled={renderState.active} icon={<Layers3 className="h-3.5 w-3.5" />} label="Export JSON" onClick={exportSession} />
           </div>
           <div className="mt-3 rounded-2xl border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3 text-[11px] leading-5 text-[var(--text-secondary)]">
-            Mix prints now render offline before encoding, so timing and analysis are based on the full mix buffer instead of a live recorder pass.
+            Mixes and stems now render offline before encoding, so timing and analysis come from the full audio buffer instead of a live recorder pass.
           </div>
           <div className="mt-4">
             <div className="flex items-center justify-between gap-3">
@@ -476,6 +510,11 @@ export const SettingsSidebar = () => {
                         <span className="text-[11px] text-[var(--text-secondary)]">
                           Peak {entry.peakDb.toFixed(1)} dBFS · RMS {entry.rmsDb.toFixed(1)} dBFS
                         </span>
+                        {entry.estimatedLufs !== undefined ? (
+                          <span className="text-[11px] text-[var(--text-secondary)]">
+                            Loudness {entry.estimatedLufs.toFixed(1)} LUFS
+                          </span>
+                        ) : null}
                         {entry.crestDb !== undefined ? (
                           <span className="text-[11px] text-[var(--text-secondary)]">
                             Crest {entry.crestDb.toFixed(1)} dB
@@ -515,7 +554,9 @@ export const SettingsSidebar = () => {
                           </span>
                           {entry.targetDeltaDb !== undefined ? (
                             <span className="text-[11px] text-[var(--text-secondary)]">
-                              {entry.targetDeltaDb > 0 ? '+' : ''}{entry.targetDeltaDb.toFixed(1)} dB vs target
+                              {entry.targetLufsDelta !== undefined
+                                ? `${entry.targetLufsDelta > 0 ? '+' : ''}${entry.targetLufsDelta.toFixed(1)} LUFS vs target`
+                                : `${entry.targetDeltaDb > 0 ? '+' : ''}${entry.targetDeltaDb.toFixed(1)} dB vs target`}
                             </span>
                           ) : null}
                         </div>

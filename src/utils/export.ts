@@ -76,11 +76,14 @@ export type TargetVerdict = 'aligned' | 'loud' | 'soft' | 'flat' | 'spiky';
 export interface AudioRenderAnalysis {
   crestDb: number;
   durationSeconds: number;
+  estimatedLufs: number;
   peakDb: number;
   quality: 'clean' | 'hot' | 'quiet';
   recommendation?: string;
   rmsDb: number;
   sampleRate: number;
+  targetLufs?: number;
+  targetLufsDelta?: number;
   targetDeltaDb?: number;
   targetLabel?: string;
   targetProfileId?: RenderTargetProfileId;
@@ -88,46 +91,56 @@ export interface AudioRenderAnalysis {
 }
 
 interface RenderTargetProfile {
+  crestRangeDb: [number, number];
   description: string;
   id: RenderTargetProfileId;
   label: string;
+  targetLufs: number;
   peakTargetDb: number;
   rmsToleranceDb: number;
-  targetRmsDb: number;
+  lufsTolerance: number;
 }
 
 export const RENDER_TARGET_PROFILES: RenderTargetProfile[] = [
   {
+    crestRangeDb: [8, 16],
     description: 'Quick reference prints with a bit more headroom while the arrangement is still moving.',
     id: 'draft',
     label: 'Draft',
     peakTargetDb: -1.5,
+    lufsTolerance: 1.6,
     rmsToleranceDb: 1.8,
-    targetRmsDb: -18,
+    targetLufs: -18,
   },
   {
+    crestRangeDb: [7, 14],
     description: 'Balanced print target for general streaming references and portfolio exports.',
     id: 'streaming',
     label: 'Streaming',
     peakTargetDb: -1,
+    lufsTolerance: 1.3,
     rmsToleranceDb: 1.5,
-    targetRmsDb: -14,
+    targetLufs: -14,
   },
   {
+    crestRangeDb: [5, 11],
     description: 'Hotter reference target for denser electronic mixes and club leaning drafts.',
     id: 'club',
     label: 'Club',
     peakTargetDb: -0.8,
+    lufsTolerance: 1.2,
     rmsToleranceDb: 1.5,
-    targetRmsDb: -10.5,
+    targetLufs: -10.5,
   },
   {
+    crestRangeDb: [10, 18],
     description: 'More dynamic reference target with cleaner crest for spacious or cinematic work.',
     id: 'open',
     label: 'Open Air',
     peakTargetDb: -1.2,
+    lufsTolerance: 1.5,
     rmsToleranceDb: 1.8,
-    targetRmsDb: -16,
+    targetLufs: -16,
   },
 ];
 
@@ -774,7 +787,7 @@ const createProcessedAudioBuffer = (
   const peakTargetDb = options.peakTargetDb ?? -1;
   const peakTargetLinear = Math.pow(10, peakTargetDb / 20);
   const targetProfile = normalization === 'target' ? getRenderTargetProfile(options.targetProfileId) : null;
-  const targetLinear = targetProfile ? Math.pow(10, targetProfile.targetRmsDb / 20) : null;
+  const targetLinear = targetProfile ? Math.pow(10, targetProfile.targetLufs / 20) : null;
 
   let peak = 0;
   let squareSum = 0;
@@ -846,6 +859,7 @@ const analyzeAudioBuffer = (
   const peakDb = peak > 0 ? 20 * Math.log10(peak) : -96;
   const rmsDb = rms > 0 ? 20 * Math.log10(rms) : -96;
   const crestDb = peakDb - rmsDb;
+  const estimatedLufs = estimateIntegratedLufs(audioBuffer);
   const quality = peakDb > -0.3
     ? 'hot'
     : rmsDb < -28
@@ -855,44 +869,97 @@ const analyzeAudioBuffer = (
   const targetProfile = options.normalization === 'target' ? getRenderTargetProfile(options.targetProfileId) : null;
   let targetVerdict: TargetVerdict | undefined;
   let targetDeltaDb: number | undefined;
+  let targetLufsDelta: number | undefined;
   let recommendation: string | undefined;
 
   if (targetProfile) {
-    const rmsDelta = rmsDb - targetProfile.targetRmsDb;
+    const rmsDelta = rmsDb - targetProfile.targetLufs;
+    const lufsDelta = estimatedLufs - targetProfile.targetLufs;
+    const [crestFloor, crestCeiling] = targetProfile.crestRangeDb;
     targetDeltaDb = Number(rmsDelta.toFixed(1));
+    targetLufsDelta = Number(lufsDelta.toFixed(1));
 
-    if (Math.abs(rmsDelta) <= targetProfile.rmsToleranceDb) {
-      targetVerdict = crestDb < 6 ? 'flat' : crestDb > 18 ? 'spiky' : 'aligned';
-    } else if (rmsDelta > 0) {
+    if (Math.abs(lufsDelta) <= targetProfile.lufsTolerance) {
+      targetVerdict = crestDb < crestFloor ? 'flat' : crestDb > crestCeiling ? 'spiky' : 'aligned';
+    } else if (lufsDelta > 0) {
       targetVerdict = 'loud';
     } else {
       targetVerdict = 'soft';
     }
 
     recommendation = targetVerdict === 'aligned'
-      ? 'Energy sits close to the selected print target.'
+      ? 'Estimated loudness sits close to the selected print target.'
       : targetVerdict === 'loud'
-        ? 'Back off master gain or glue if this print feels too pushed for its target.'
+        ? 'Estimated loudness is running hot. Back off output gain, glue, or limiter pressure.'
         : targetVerdict === 'soft'
-          ? 'Push gain or density a bit harder if you want this print to land closer to its target.'
+          ? 'Estimated loudness is light for this target. Push gain or density harder if you want a stronger reference print.'
           : targetVerdict === 'flat'
-            ? 'Energy is on target, but crest is low. Ease the compressor or transient handling if it feels smeared.'
-            : 'Energy is on target, but crest is high. Tighten peaks if you want a more settled reference print.';
+            ? `Loudness is on target, but crest is below the ${targetProfile.label.toLowerCase()} window. Ease compression or transient shaving if the print feels smeared.`
+            : `Loudness is on target, but crest is above the ${targetProfile.label.toLowerCase()} window. Tighten peaks if you want a more settled reference print.`;
   }
 
   return {
     crestDb: Number(crestDb.toFixed(1)),
     durationSeconds: audioBuffer.duration,
+    estimatedLufs: Number(estimatedLufs.toFixed(1)),
     peakDb: Number(peakDb.toFixed(1)),
     quality,
     recommendation,
     rmsDb: Number(rmsDb.toFixed(1)),
     sampleRate: audioBuffer.sampleRate,
+    targetLufs: targetProfile?.targetLufs,
+    targetLufsDelta,
     targetDeltaDb,
     targetLabel: targetProfile?.label,
     targetProfileId: targetProfile?.id,
     targetVerdict,
   };
+};
+
+const estimateIntegratedLufs = (audioBuffer: AudioBuffer): number => {
+  const sampleRate = audioBuffer.sampleRate;
+  const blockSize = Math.max(1, Math.round(sampleRate * 0.4));
+  const hopSize = Math.max(1, Math.round(sampleRate * 0.1));
+  const blockEnergies: number[] = [];
+
+  for (let blockStart = 0; blockStart < audioBuffer.length; blockStart += hopSize) {
+    const blockEnd = Math.min(audioBuffer.length, blockStart + blockSize);
+    if (blockEnd <= blockStart) {
+      continue;
+    }
+
+    let squareSum = 0;
+    for (let channelIndex = 0; channelIndex < audioBuffer.numberOfChannels; channelIndex += 1) {
+      const channel = audioBuffer.getChannelData(channelIndex);
+      for (let sampleIndex = blockStart; sampleIndex < blockEnd; sampleIndex += 1) {
+        const sample = channel[sampleIndex] ?? 0;
+        squareSum += sample * sample;
+      }
+    }
+
+    const meanSquare = squareSum / (Math.max(1, blockEnd - blockStart) * Math.max(1, audioBuffer.numberOfChannels));
+    if (meanSquare > 0) {
+      blockEnergies.push(meanSquare);
+    }
+  }
+
+  if (blockEnergies.length === 0) {
+    return -96;
+  }
+
+  const toLufs = (meanSquare: number) => -0.691 + 10 * Math.log10(Math.max(meanSquare, 1e-12));
+  const absoluteGated = blockEnergies.filter((energy) => toLufs(energy) > -70);
+  if (absoluteGated.length === 0) {
+    return -96;
+  }
+
+  const ungatedMean = absoluteGated.reduce((sum, energy) => sum + energy, 0) / absoluteGated.length;
+  const relativeGate = toLufs(ungatedMean) - 10;
+  const relativeGated = absoluteGated.filter((energy) => toLufs(energy) > relativeGate);
+  const integratedMean = (relativeGated.length > 0 ? relativeGated : absoluteGated)
+    .reduce((sum, energy) => sum + energy, 0) / Math.max(1, (relativeGated.length > 0 ? relativeGated : absoluteGated).length);
+
+  return toLufs(integratedMean);
 };
 
 export const encodeAudioBufferToWav = (

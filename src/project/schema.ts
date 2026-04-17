@@ -177,6 +177,7 @@ export interface MasterPresetDefinition {
 export interface BounceHistoryEntry {
   crestDb?: number;
   durationSeconds?: number;
+  estimatedLufs?: number;
   exportedAt: string;
   id: string;
   label: string;
@@ -192,6 +193,8 @@ export interface BounceHistoryEntry {
   tailMode: 'short' | 'standard' | 'long';
   targetDeltaDb?: number;
   targetLabel?: string;
+  targetLufs?: number;
+  targetLufsDelta?: number;
   targetProfileId?: 'draft' | 'streaming' | 'club' | 'open';
   targetVerdict?: 'aligned' | 'loud' | 'soft' | 'flat' | 'spiky';
 }
@@ -1094,6 +1097,7 @@ const normalizeBounceHistory = (input: unknown): BounceHistoryEntry[] => {
       return {
         crestDb: typeof entry.crestDb === 'number' ? clamp(entry.crestDb, 0, 48) : undefined,
         durationSeconds: typeof entry.durationSeconds === 'number' ? clamp(entry.durationSeconds, 0, 7200) : undefined,
+        estimatedLufs: typeof entry.estimatedLufs === 'number' ? clamp(entry.estimatedLufs, -96, 3) : undefined,
         exportedAt: typeof entry.exportedAt === 'string' ? entry.exportedAt : new Date().toISOString(),
         id: typeof entry.id === 'string' && entry.id ? entry.id : createId('bounce-history'),
         label: typeof entry.label === 'string' && entry.label.trim() ? entry.label.trim().slice(0, 40) : 'Reference print',
@@ -1115,6 +1119,8 @@ const normalizeBounceHistory = (input: unknown): BounceHistoryEntry[] => {
         targetLabel: typeof entry.targetLabel === 'string' && entry.targetLabel.trim()
           ? entry.targetLabel.trim().slice(0, 20)
           : undefined,
+        targetLufs: typeof entry.targetLufs === 'number' ? clamp(entry.targetLufs, -96, 0) : undefined,
+        targetLufsDelta: typeof entry.targetLufsDelta === 'number' ? clamp(entry.targetLufsDelta, -24, 24) : undefined,
         targetProfileId: entry.targetProfileId === 'draft'
           || entry.targetProfileId === 'streaming'
           || entry.targetProfileId === 'club'
