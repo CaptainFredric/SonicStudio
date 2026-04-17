@@ -107,8 +107,8 @@ export const TopBar = ({
 
   return (
     <header className="surface-panel px-3 py-3 sm:px-5 sm:py-4">
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(360px,420px)]">
-        <div className="grid min-w-0 gap-3">
+      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(360px,420px)] lg:items-start">
+        <div className="grid min-w-0 content-start gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <div className="surface-panel-strong flex h-11 w-11 items-center justify-center" style={{ borderRadius: '2px' }}>
               <BrandMark className="h-5 w-5 text-[var(--accent)]" />
@@ -119,9 +119,9 @@ export const TopBar = ({
             </div>
           </div>
 
-          <div className="grid min-w-0 gap-3 md:grid-cols-[minmax(0,1fr)_280px]">
-            <div className="surface-panel-muted px-3 py-2.5">
-              <div className="section-label mb-2">Project</div>
+          <div className="grid min-w-0 gap-3 md:grid-cols-[minmax(0,1fr)_280px] md:items-start">
+            <label className="grid gap-2 self-start">
+              <span className="section-label">Project</span>
               <input
                 aria-label="Project name"
                 className="control-field h-11 w-full px-4 text-sm font-medium tracking-tight"
@@ -140,10 +140,10 @@ export const TopBar = ({
                 }}
                 value={draftProjectName}
               />
-            </div>
+            </label>
 
-            <div className="surface-panel-muted px-3 py-2.5">
-              <div className="section-label mb-2">Pattern bank</div>
+            <div className="grid gap-2 self-start">
+              <div className="section-label">Pattern bank</div>
               <div className="flex items-center gap-2 overflow-x-auto pb-1">
                 {Array.from({ length: patternCount }, (_, patternIndex) => (
                   <React.Fragment key={patternIndex}>
@@ -158,9 +158,55 @@ export const TopBar = ({
               </div>
             </div>
           </div>
+
+          <div className="grid gap-3 border-t border-[var(--border-soft)] pt-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.16em]">
+                <span className="section-label">Current focus</span>
+                <span className="truncate text-[11px] font-semibold tracking-[0.08em] text-[var(--text-primary)]">{focusTitle}</span>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+                <MiniStat label="Track" value={selectedTrack ? selectedTrack.name : 'None'} />
+                <MiniStat label="Pattern" value={String.fromCharCode(65 + currentPattern)} />
+                <MiniStat label="Clip" value={selectedArrangerClipId ? 'Selected' : 'None'} />
+                <MiniStat label="Profile" value={activeMasterPreset ? activeMasterPreset.label : 'Custom'} />
+                <MiniStat label="Master" value={`${master.outputGain.toFixed(1)} dB`} />
+              </div>
+              <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">{focusMeta}</div>
+            </div>
+
+            <div className="flex flex-wrap gap-2 xl:justify-end">
+              {onOpenGuide && (
+                <WorkflowButton
+                  active={false}
+                  icon={<ExternalLink className="h-3.5 w-3.5" />}
+                  label="Guide"
+                  onClick={onOpenGuide}
+                />
+              )}
+              <WorkflowButton
+                active={activeView === 'SEQUENCER'}
+                icon={<Compass className="h-3.5 w-3.5" />}
+                label="Grid"
+                onClick={() => setActiveView('SEQUENCER')}
+              />
+              <WorkflowButton
+                active={activeView === 'PIANO_ROLL'}
+                icon={<SlidersHorizontal className="h-3.5 w-3.5" />}
+                label="Notes"
+                onClick={() => setActiveView('PIANO_ROLL')}
+              />
+              <WorkflowButton
+                active={activeView === 'ARRANGER'}
+                icon={<Layers3 className="h-3.5 w-3.5" />}
+                label="Song"
+                onClick={() => setActiveView('ARRANGER')}
+              />
+            </div>
+          </div>
         </div>
 
-        <div className="surface-panel-muted px-3 py-2.5">
+        <div className="surface-panel-muted self-start px-3 py-2.5">
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-1 rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-1">
               <IconBtn disabled={!canUndo} label="Undo" onClick={undo}>
@@ -202,18 +248,18 @@ export const TopBar = ({
                 label={metronomeEnabled ? 'Metronome on' : 'Metronome off'}
                 onClick={() => setMetronomeEnabled(!metronomeEnabled)}
               />
-              <div className="flex items-center gap-1 rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-1">
-                {[0, 1, 2].map((bars) => (
-                  <React.Fragment key={bars}>
-                    <PatternButton
-                      active={countInBars === bars}
-                      onClick={() => setCountInBars(bars)}
-                    >
-                      {bars === 0 ? 'No count' : `${bars} bar`}
-                    </PatternButton>
-                  </React.Fragment>
-                ))}
-              </div>
+              <label className="grid min-w-[120px] gap-1 text-xs text-[var(--text-secondary)]">
+                <span className="section-label">Count in</span>
+                <select
+                  className="control-field h-10 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                  onChange={(event) => setCountInBars(Number(event.target.value))}
+                  value={countInBars}
+                >
+                  <option value={0}>No count</option>
+                  <option value={1}>1 bar</option>
+                  <option value={2}>2 bars</option>
+                </select>
+              </label>
               <button
                 className="control-chip flex h-10 items-center justify-center px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
                 data-active={isInitialized ? 'true' : 'false'}
@@ -267,53 +313,6 @@ export const TopBar = ({
                     : 'Play or audition can also start audio automatically.'}
               </div>
             </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-3 border-t border-[var(--border-soft)] px-1 pt-3">
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.16em]">
-              <span className="section-label">Current focus</span>
-              <span className="truncate text-[11px] font-semibold tracking-[0.08em] text-[var(--text-primary)]">{focusTitle}</span>
-            </div>
-            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
-              <MiniStat label="Track" value={selectedTrack ? selectedTrack.name : 'None'} />
-              <MiniStat label="Pattern" value={String.fromCharCode(65 + currentPattern)} />
-              <MiniStat label="Clip" value={selectedArrangerClipId ? 'Selected' : 'None'} />
-              <MiniStat label="Profile" value={activeMasterPreset ? activeMasterPreset.label : 'Custom'} />
-              <MiniStat label="Master" value={`${master.outputGain.toFixed(1)} dB`} />
-            </div>
-            <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">{focusMeta}</div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {onOpenGuide && (
-              <WorkflowButton
-                active={false}
-                icon={<ExternalLink className="h-3.5 w-3.5" />}
-                label="Guide"
-                onClick={onOpenGuide}
-              />
-            )}
-            <WorkflowButton
-              active={activeView === 'SEQUENCER'}
-              icon={<Compass className="h-3.5 w-3.5" />}
-              label="Grid"
-              onClick={() => setActiveView('SEQUENCER')}
-            />
-            <WorkflowButton
-              active={activeView === 'PIANO_ROLL'}
-              icon={<SlidersHorizontal className="h-3.5 w-3.5" />}
-              label="Notes"
-              onClick={() => setActiveView('PIANO_ROLL')}
-            />
-            <WorkflowButton
-              active={activeView === 'ARRANGER'}
-              icon={<Layers3 className="h-3.5 w-3.5" />}
-              label="Song"
-              onClick={() => setActiveView('ARRANGER')}
-            />
           </div>
         </div>
       </div>
