@@ -107,9 +107,9 @@ export const TopBar = ({
 
   return (
     <header className="surface-panel px-3 py-3 sm:px-5 sm:py-4">
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(360px,420px)] lg:items-start">
-        <div className="grid min-w-0 content-start gap-3">
-          <div className="flex min-w-0 items-center gap-3">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_400px] xl:items-start">
+        <div className="grid min-w-0 content-start gap-4">
+          <div className="flex min-w-0 items-center gap-3 border-b border-[var(--border-soft)] pb-3">
             <div className="surface-panel-strong flex h-11 w-11 items-center justify-center" style={{ borderRadius: '2px' }}>
               <BrandMark className="h-5 w-5 text-[var(--accent)]" />
             </div>
@@ -119,7 +119,7 @@ export const TopBar = ({
             </div>
           </div>
 
-          <div className="grid min-w-0 gap-3 md:grid-cols-[minmax(0,1fr)_280px] md:items-start">
+          <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_260px] lg:items-start">
             <label className="grid gap-2 self-start">
               <span className="section-label">Project</span>
               <input
@@ -159,13 +159,13 @@ export const TopBar = ({
             </div>
           </div>
 
-          <div className="grid gap-3 border-t border-[var(--border-soft)] pt-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
+          <div className="grid gap-3 border-t border-[var(--border-soft)] pt-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
             <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.16em]">
+              <div className="flex flex-wrap items-center gap-3">
                 <span className="section-label">Current focus</span>
-                <span className="truncate text-[11px] font-semibold tracking-[0.08em] text-[var(--text-primary)]">{focusTitle}</span>
+                <span className="truncate text-sm font-semibold text-[var(--text-primary)]">{focusTitle}</span>
               </div>
-              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+              <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2">
                 <MiniStat label="Track" value={selectedTrack ? selectedTrack.name : 'None'} />
                 <MiniStat label="Pattern" value={String.fromCharCode(65 + currentPattern)} />
                 <MiniStat label="Clip" value={selectedArrangerClipId ? 'Selected' : 'None'} />
@@ -175,11 +175,11 @@ export const TopBar = ({
               <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">{focusMeta}</div>
             </div>
 
-            <div className="flex flex-wrap gap-2 xl:justify-end">
+            <div className="flex flex-wrap gap-4 border-t border-[var(--border-soft)] pt-3 xl:border-t-0 xl:pt-0 xl:justify-end">
               {onOpenGuide && (
                 <WorkflowButton
                   active={false}
-                  icon={<ExternalLink className="h-3.5 w-3.5" />}
+                    icon={<ExternalLink className="h-3.5 w-3.5" />}
                   label="Guide"
                   onClick={onOpenGuide}
                 />
@@ -206,9 +206,9 @@ export const TopBar = ({
           </div>
         </div>
 
-        <div className="surface-panel-muted self-start px-3 py-2.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1 rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-1">
+        <div className="grid gap-3 border-t border-[var(--border-soft)] pt-3 xl:self-stretch xl:border-l xl:border-t-0 xl:pl-4 xl:pt-0">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-1">
               <IconBtn disabled={!canUndo} label="Undo" onClick={undo}>
                 <Undo2 className="h-4 w-4" />
               </IconBtn>
@@ -220,7 +220,7 @@ export const TopBar = ({
               </IconBtn>
             </div>
 
-            <div className="flex items-center gap-1 rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-1">
+            <div className="flex items-center gap-1">
               <TransportBtn active={isRecording} label="Record" onClick={toggleRecording} tone="record">
                 <Circle className="h-4 w-4 fill-current" />
               </TransportBtn>
@@ -231,7 +231,9 @@ export const TopBar = ({
                 <Square className="h-4 w-4 fill-current" />
               </TransportBtn>
             </div>
+          </div>
 
+          <div className="grid gap-3 border-t border-[var(--border-soft)] pt-3 sm:grid-cols-[minmax(0,1fr)_120px] sm:items-end">
             <div className="flex flex-wrap items-center gap-2">
               <ModeButton
                 active={transportMode === 'PATTERN'}
@@ -248,29 +250,22 @@ export const TopBar = ({
                 label={metronomeEnabled ? 'Metronome on' : 'Metronome off'}
                 onClick={() => setMetronomeEnabled(!metronomeEnabled)}
               />
-              <label className="grid min-w-[120px] gap-1 text-xs text-[var(--text-secondary)]">
-                <span className="section-label">Count in</span>
-                <select
-                  className="control-field h-10 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                  onChange={(event) => setCountInBars(Number(event.target.value))}
-                  value={countInBars}
-                >
-                  <option value={0}>No count</option>
-                  <option value={1}>1 bar</option>
-                  <option value={2}>2 bars</option>
-                </select>
-              </label>
-              <button
-                className="control-chip flex h-10 items-center justify-center px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                data-active={isInitialized ? 'true' : 'false'}
-                onClick={() => void initAudio()}
-              >
-                {isInitialized ? 'Re arm' : 'Wake audio'}
-              </button>
             </div>
+            <label className="grid gap-2 text-xs text-[var(--text-secondary)]">
+              <span className="section-label">Count in</span>
+              <select
+                className="control-field h-10 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                onChange={(event) => setCountInBars(Number(event.target.value))}
+                value={countInBars}
+              >
+                <option value={0}>No count</option>
+                <option value={1}>1 bar</option>
+                <option value={2}>2 bars</option>
+              </select>
+            </label>
           </div>
 
-          <div className="mt-3 grid gap-3 border-t border-[var(--border-soft)] pt-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 border-t border-[var(--border-soft)] pt-3 sm:grid-cols-2 xl:grid-cols-4">
             <div className="min-w-0">
               <div className="section-label mb-1">Tempo</div>
               <div className="flex items-center gap-2">
@@ -305,12 +300,19 @@ export const TopBar = ({
 
             <div className="min-w-0">
               <div className="section-label mb-1">Audio</div>
-              <div className="text-[11px] leading-5 text-[var(--text-secondary)]">
+              <div className="flex flex-col gap-2 text-[11px] leading-5 text-[var(--text-secondary)]">
                 {metronomeEnabled
                   ? `Metronome armed${countInBars > 0 ? ` with ${countInBars} bar count in` : ''}.`
                   : isInitialized
                     ? 'Resume sound if the browser suspended audio.'
                     : 'Play or audition can also start audio automatically.'}
+                <button
+                  className="control-chip mt-1 inline-flex h-9 items-center justify-center px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                  data-active={isInitialized ? 'true' : 'false'}
+                  onClick={() => void initAudio()}
+                >
+                  {isInitialized ? 'Re arm' : 'Wake audio'}
+                </button>
               </div>
             </div>
           </div>
@@ -333,7 +335,7 @@ const IconBtn = ({
 }) => (
   <button
     aria-label={label}
-    className="ghost-icon-button flex h-10 w-10 items-center justify-center"
+    className="ghost-icon-button flex h-9 w-9 items-center justify-center"
     disabled={disabled}
     onClick={onClick}
   >
@@ -351,16 +353,16 @@ const PatternButton = ({
   onClick: () => void;
 }) => (
   <button
-    className="h-9 min-w-9 rounded-[3px] border px-3 font-mono text-xs font-medium uppercase tracking-[0.16em] transition-colors"
+    className="h-9 min-w-9 border px-3 font-mono text-xs font-medium uppercase tracking-[0.16em] transition-colors"
     onClick={onClick}
     style={active
       ? {
-          background: 'var(--accent-muted)',
-          border: '1px solid rgba(130, 201, 187, 0.24)',
+          background: 'rgba(255,255,255,0.04)',
+          border: '1px solid rgba(130, 201, 187, 0.18)',
           color: 'var(--text-primary)',
         }
       : {
-          background: 'rgba(255,255,255,0.01)',
+          background: 'transparent',
           border: '1px solid var(--border-soft)',
           color: 'var(--text-secondary)',
         }}
@@ -379,16 +381,16 @@ const ModeButton = ({
   onClick: () => void;
 }) => (
   <button
-    className="rounded-[3px] border px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] transition-colors"
+    className="border px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] transition-colors"
     onClick={onClick}
     style={active
       ? {
-          background: 'rgba(124, 211, 252, 0.1)',
-          borderColor: 'rgba(124, 211, 252, 0.22)',
+          background: 'rgba(255,255,255,0.04)',
+          borderColor: 'rgba(124, 211, 252, 0.18)',
           color: 'var(--text-primary)',
         }
       : {
-          background: 'rgba(255,255,255,0.01)',
+          background: 'transparent',
           borderColor: 'var(--border-soft)',
           color: 'var(--text-secondary)',
         }}
@@ -409,9 +411,15 @@ const WorkflowButton = ({
   onClick: () => void;
 }) => (
   <button
-    className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+    className="flex items-center gap-2 border-b border-transparent px-1 pb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
     data-active={active}
     onClick={onClick}
+    style={active
+      ? {
+          borderBottomColor: 'rgba(124, 211, 252, 0.4)',
+          color: 'var(--text-primary)',
+        }
+      : undefined}
   >
     {icon}
     {label}
@@ -425,9 +433,9 @@ const MiniStat = ({
   label: string;
   value: string;
 }) => (
-  <div className="border-l border-[var(--border-soft)] pl-3">
-    <div className="section-label">{label}</div>
-    <div className="mt-1 truncate text-[11px] font-medium text-[var(--text-primary)]">{value}</div>
+  <div className="flex items-center gap-2 text-[11px] text-[var(--text-secondary)]">
+    <span className="section-label">{label}</span>
+    <span className="truncate font-medium text-[var(--text-primary)]">{value}</span>
   </div>
 );
 
@@ -453,7 +461,7 @@ const TransportBtn = ({
   return (
     <button
       aria-label={label}
-      className={`flex h-10 w-10 items-center justify-center border transition-colors ${active ? activeStyles : 'border-transparent text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.03)] hover:border-[var(--border-soft)] hover:text-[var(--text-primary)]'}`}
+      className={`flex h-9 w-9 items-center justify-center border transition-colors ${active ? activeStyles : 'border-transparent text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.03)] hover:border-[var(--border-soft)] hover:text-[var(--text-primary)]'}`}
       onClick={onClick}
     >
       {children}

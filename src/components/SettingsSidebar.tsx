@@ -178,7 +178,7 @@ export const SettingsSidebar = () => {
         <div>
           <div className="section-label">Workspace</div>
           <h2 className="mt-2 text-lg font-semibold tracking-tight text-[var(--text-primary)]">Studio Setup</h2>
-          <p className="mt-1 text-sm text-[var(--text-secondary)]">Session actions, transport shape, and selected track settings live here.</p>
+          <p className="mt-1 text-sm text-[var(--text-secondary)]">Session actions, transport, and track settings.</p>
         </div>
         <button
           aria-label="Close settings"
@@ -289,7 +289,7 @@ export const SettingsSidebar = () => {
             {bounceScope === 'loop-window' && (
               <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
                 {songMarkers.length > 0
-                  ? 'Markers and loop buttons in song view work together here, so you can audition and print the same section without rebuilding a clip window.'
+                  ? 'Song markers and loop ranges stay available here for section audition and export.'
                   : 'Add a few markers in song view if you want section work to stay easier to navigate as the arrangement grows.'}
               </div>
             )}

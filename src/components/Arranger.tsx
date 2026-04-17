@@ -8,6 +8,7 @@ import {
   Focus,
   Layers3,
   Minus,
+  MoreHorizontal,
   MoveHorizontal,
   PencilLine,
   Pin,
@@ -242,6 +243,8 @@ export const Arranger = () => {
   const [compactLaneView, setCompactLaneView] = useState(false);
   const [zoomPreset, setZoomPreset] = useState<ZoomPreset>('SECTION');
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('COMPOSE');
+  const [isInspectorOpen, setIsInspectorOpen] = useState(true);
+  const [openLaneMenuTrackId, setOpenLaneMenuTrackId] = useState<string | null>(null);
   const [viewportWidth, setViewportWidth] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
   const timelineRef = useRef<HTMLDivElement | null>(null);
@@ -397,6 +400,24 @@ export const Arranger = () => {
       setInspectorTab('COMPOSE');
     }
   }, [selectedClip?.id]);
+
+  useEffect(() => {
+    if (!openLaneMenuTrackId) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof HTMLElement && target.closest('[data-lane-menu-root="true"]')) {
+        return;
+      }
+
+      setOpenLaneMenuTrackId(null);
+    };
+
+    window.addEventListener('pointerdown', handlePointerDown, true);
+    return () => window.removeEventListener('pointerdown', handlePointerDown, true);
+  }, [openLaneMenuTrackId]);
 
   useEffect(() => {
     if (!dragState) {
@@ -769,7 +790,7 @@ export const Arranger = () => {
             <div className="section-label">Arranger</div>
             <h2 className="mt-2 text-lg font-semibold tracking-tight text-[var(--text-primary)]">Song composer</h2>
             <p className="mt-2 max-w-3xl text-sm text-[var(--text-secondary)]">
-              Shape clips, sections, and note movement in one song-first workspace.
+              Build the song directly on the timeline.
             </p>
           </div>
           <button
@@ -781,8 +802,8 @@ export const Arranger = () => {
           </button>
         </div>
 
-        <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,0.95fr)]">
-          <div className="surface-panel-strong arranger-summary-panel px-4 py-4">
+        <div className="mt-4 grid gap-4 border-t border-[var(--border-soft)] pt-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,0.95fr)]">
+          <div className="min-w-0 xl:border-r xl:border-[var(--border-soft)] xl:pr-5">
             <div className="section-label">Song overview</div>
             <div className="mt-2 flex flex-wrap items-center gap-4 text-sm text-[var(--text-primary)]">
               <span>{timelineSteps} steps</span>
@@ -799,7 +820,7 @@ export const Arranger = () => {
                 }}
               />
             </div>
-            <div className="relative mt-3 h-10 overflow-hidden rounded-[12px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]">
+            <div className="relative mt-3 h-10 overflow-hidden border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]">
               <button
                 className="absolute inset-0"
                 onClick={(event) => {
@@ -876,7 +897,7 @@ export const Arranger = () => {
             </div>
           </div>
 
-          <div className="surface-panel-muted px-4 py-4">
+          <div className="min-w-0 xl:pl-5">
             <div className="section-label">View controls</div>
             <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               <label className="grid gap-2 text-xs text-[var(--text-secondary)]">
@@ -946,10 +967,17 @@ export const Arranger = () => {
               <ZoomButton active={false} label="Start" onClick={() => jumpToBoundary(0)} />
               <ZoomButton active={false} label="End" onClick={() => jumpToBoundary(timelineSteps)} />
               <button
-                className="control-chip ml-auto px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
                 onClick={() => setInspectorTab('SECTIONS')}
               >
                 Song tools
+              </button>
+              <button
+                className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                data-active={isInspectorOpen ? 'true' : 'false'}
+                onClick={() => setIsInspectorOpen((current) => !current)}
+              >
+                {isInspectorOpen ? 'Hide desk' : 'Show desk'}
               </button>
               <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
                 {laneData.length} visible lanes
@@ -959,8 +987,9 @@ export const Arranger = () => {
         </div>
       </div>
 
-      <div className="grid min-h-0 flex-1 gap-4 p-5 xl:grid-cols-[320px_minmax(0,1fr)]">
-        <div className="surface-panel-strong sonic-sidebar min-h-0 overflow-y-auto p-4">
+      <div className={`grid min-h-0 flex-1 gap-4 p-5 ${isInspectorOpen ? 'xl:grid-cols-[320px_minmax(0,1fr)]' : 'grid-cols-1'}`}>
+        {isInspectorOpen && (
+        <div className="sonic-sidebar min-h-0 overflow-y-auto border-b border-[var(--border-soft)] p-4 xl:border-b-0 xl:border-r xl:pr-4">
           <div className="sticky top-0 z-10 -mx-4 -mt-4 border-b border-[var(--border-soft)] bg-[rgba(8,12,17,0.96)] px-4 py-4 backdrop-blur">
             <div className="flex items-center gap-2">
               <Layers3 className="h-4 w-4 text-[var(--accent)]" />
@@ -968,10 +997,10 @@ export const Arranger = () => {
             </div>
             <div className="mt-2 text-sm text-[var(--text-secondary)]">
               {inspectorTab === 'COMPOSE'
-                ? selectedClip && selectedClipTrack ? phraseSummary : 'Select a clip to compose directly in song view.'
+                ? selectedClip && selectedClipTrack ? phraseSummary : 'Select a clip to edit notes and steps here.'
                 : inspectorTab === 'SHAPE'
-                  ? 'Transform, automation, and phrase cleanup live here instead of crowding the main composer.'
-                  : 'Markers, lane groups, and section duplication live here so they stay out of the writing path.'}
+                  ? 'Transforms, automation, and clip cleanup.'
+                  : 'Markers, lane groups, and section actions.'}
             </div>
             <div className="mt-4 grid grid-cols-3 gap-2">
               <button
@@ -1005,7 +1034,7 @@ export const Arranger = () => {
                   <div>
                     <div className="section-label">Lane groups</div>
                     <div className="mt-2 text-xs text-[var(--text-secondary)]">
-                      Collapse or reopen lane families here when the timeline gets crowded.
+                      Collapse or reopen lane families.
                     </div>
                   </div>
                   <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
@@ -1030,7 +1059,7 @@ export const Arranger = () => {
                   <div>
                     <div className="section-label">Marker actions</div>
                     <div className="mt-2 text-xs text-[var(--text-secondary)]">
-                      Keep song structure legible without keeping marker editors on screen all the time.
+                      Edit marker names and jump points.
                     </div>
                   </div>
                   <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
@@ -1056,7 +1085,7 @@ export const Arranger = () => {
                 <div className="mt-4 space-y-2">
                   {songMarkers.length === 0 ? (
                     <div className="text-[11px] leading-5 text-[var(--text-secondary)]">
-                      Add section markers from the playhead or selected clip to keep longer arrangements legible.
+                      Add markers from the playhead or selected clip.
                     </div>
                   ) : songMarkers.map((marker) => (
                     <div key={marker.id} className="rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
@@ -1099,7 +1128,7 @@ export const Arranger = () => {
                   <div>
                     <div className="section-label">Sections</div>
                     <div className="mt-2 text-xs text-[var(--text-secondary)]">
-                      Work at section scale once the song stops fitting in your head as one phrase.
+                      Jump, loop, and duplicate song sections.
                     </div>
                   </div>
                   <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
@@ -1734,15 +1763,29 @@ export const Arranger = () => {
             </div>
           ) : (
             <div className="pt-4 text-sm text-[var(--text-secondary)]">
-              Select a clip to open the song-first composer.
+              Select a clip to edit it here.
             </div>
           )}
         </div>
+        )}
 
         <div className="flex min-w-0 flex-1 flex-col">
           <div className="mb-3 flex items-center justify-between gap-4">
-            <div className="section-label">Timeline</div>
+            <div className="flex min-w-0 items-center gap-3">
+              <div className="section-label">Timeline</div>
+              {!isInspectorOpen && selectedClip && (
+                <div className="truncate text-[11px] text-[var(--text-secondary)]">{phraseSummary}</div>
+              )}
+            </div>
             <div className="flex flex-wrap items-center gap-2">
+              {!isInspectorOpen && (
+                <button
+                  className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                  onClick={() => setIsInspectorOpen(true)}
+                >
+                  Show desk
+                </button>
+              )}
               <button
                 className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
                 onClick={() => scrollTimelineByViewport(-1)}
@@ -1762,7 +1805,7 @@ export const Arranger = () => {
           </div>
 
           <div
-            className="timeline-shell min-h-0 flex-1 overflow-auto rounded-[18px] border border-[var(--border-soft)] bg-[rgba(0,0,0,0.24)]"
+            className="timeline-shell min-h-0 flex-1 overflow-auto border border-[var(--border-soft)] bg-[rgba(0,0,0,0.24)]"
             onWheel={handleTimelineWheel}
             ref={timelineRef}
           >
@@ -1839,57 +1882,65 @@ export const Arranger = () => {
                                 {track.type} · {clips.length} clip{clips.length === 1 ? '' : 's'}{pinned ? ' · pinned' : ''}
                               </div>
                             </div>
-                            <div className="ml-auto flex items-center gap-1 opacity-0 transition-opacity group-hover/lane:opacity-100 group-focus-within/lane:opacity-100">
+                            <div
+                              className="relative ml-auto opacity-0 transition-opacity group-hover/lane:opacity-100 group-focus-within/lane:opacity-100"
+                              data-lane-menu-root="true"
+                            >
                               <LaneStateButton
-                                active={track.muted}
-                                label={track.muted ? 'Unmute track lane' : 'Mute track lane'}
+                                active={openLaneMenuTrackId === track.id}
+                                label="Lane actions"
                                 onClick={(event) => {
                                   event.stopPropagation();
-                                  toggleMute(track.id);
+                                  setOpenLaneMenuTrackId((current) => current === track.id ? null : track.id);
                                 }}
                               >
-                                <VolumeX className="h-3.5 w-3.5" />
+                                <MoreHorizontal className="h-3.5 w-3.5" />
                               </LaneStateButton>
-                              <LaneStateButton
-                                active={track.solo}
-                                label={track.solo ? 'Release solo track lane' : 'Solo track lane'}
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  toggleSolo(track.id);
-                                }}
-                              >
-                                <Focus className="h-3.5 w-3.5" />
-                              </LaneStateButton>
-                              <LaneStateButton
-                                active={pinned}
-                                label={pinned ? 'Unpin track lane' : 'Pin track lane'}
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  togglePinnedTrack(track.id);
-                                }}
-                              >
-                                <Pin className="h-3.5 w-3.5" />
-                              </LaneStateButton>
-                              <LaneStateButton
-                                active={false}
-                                label="Move track lane up"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  moveTrack(track.id, 'up');
-                                }}
-                              >
-                                <ArrowUp className="h-3.5 w-3.5" />
-                              </LaneStateButton>
-                              <LaneStateButton
-                                active={false}
-                                label="Move track lane down"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  moveTrack(track.id, 'down');
-                                }}
-                              >
-                                <ArrowDown className="h-3.5 w-3.5" />
-                              </LaneStateButton>
+                              {openLaneMenuTrackId === track.id && (
+                                <div className="absolute right-0 top-[calc(100%+0.4rem)] z-30 min-w-[176px] rounded-[10px] border border-[var(--border-soft)] bg-[rgba(9,12,17,0.98)] p-2 shadow-[0_18px_40px_rgba(0,0,0,0.45)]">
+                                  <LaneMenuAction
+                                    icon={<VolumeX className="h-3.5 w-3.5" />}
+                                    label={track.muted ? 'Unmute lane' : 'Mute lane'}
+                                    onClick={() => {
+                                      toggleMute(track.id);
+                                      setOpenLaneMenuTrackId(null);
+                                    }}
+                                  />
+                                  <LaneMenuAction
+                                    icon={<Focus className="h-3.5 w-3.5" />}
+                                    label={track.solo ? 'Release solo' : 'Solo lane'}
+                                    onClick={() => {
+                                      toggleSolo(track.id);
+                                      setOpenLaneMenuTrackId(null);
+                                    }}
+                                  />
+                                  <LaneMenuAction
+                                    icon={<Pin className="h-3.5 w-3.5" />}
+                                    label={pinned ? 'Unpin lane' : 'Pin lane'}
+                                    onClick={() => {
+                                      togglePinnedTrack(track.id);
+                                      setOpenLaneMenuTrackId(null);
+                                    }}
+                                  />
+                                  <div className="my-2 h-px bg-[var(--border-soft)]" />
+                                  <LaneMenuAction
+                                    icon={<ArrowUp className="h-3.5 w-3.5" />}
+                                    label="Move up"
+                                    onClick={() => {
+                                      moveTrack(track.id, 'up');
+                                      setOpenLaneMenuTrackId(null);
+                                    }}
+                                  />
+                                  <LaneMenuAction
+                                    icon={<ArrowDown className="h-3.5 w-3.5" />}
+                                    label="Move down"
+                                    onClick={() => {
+                                      moveTrack(track.id, 'down');
+                                      setOpenLaneMenuTrackId(null);
+                                    }}
+                                  />
+                                </div>
+                              )}
                             </div>
                           </div>
                           <div className="relative border-b border-[var(--border-soft)] py-3">
@@ -1949,38 +2000,6 @@ export const Arranger = () => {
                                         <span>Pattern {String.fromCharCode(65 + clip.patternIndex)}</span>
                                         <span>{frame.beatLength} steps</span>
                                       </div>
-                                    </div>
-                                    <div className="ml-3 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                                      <button
-                                        className="ghost-icon-button flex h-8 w-8 items-center justify-center"
-                                        onPointerDown={(event) => event.stopPropagation()}
-                                        onClick={(event) => {
-                                          event.stopPropagation();
-                                          updateArrangerClip(clip.id, { startBeat: Math.max(0, clip.startBeat - snapSize) });
-                                        }}
-                                      >
-                                        <span className="font-mono text-xs">{'<'}</span>
-                                      </button>
-                                      <button
-                                        className="ghost-icon-button flex h-8 w-8 items-center justify-center"
-                                        onPointerDown={(event) => event.stopPropagation()}
-                                        onClick={(event) => {
-                                          event.stopPropagation();
-                                          updateArrangerClip(clip.id, { startBeat: clip.startBeat + snapSize });
-                                        }}
-                                      >
-                                        <span className="font-mono text-xs">{'>'}</span>
-                                      </button>
-                                      <button
-                                        className="ghost-icon-button flex h-8 w-8 items-center justify-center"
-                                        onPointerDown={(event) => event.stopPropagation()}
-                                        onClick={(event) => {
-                                          event.stopPropagation();
-                                          duplicateArrangerClip(clip.id);
-                                        }}
-                                      >
-                                        <Copy className="h-3.5 w-3.5" />
-                                      </button>
                                     </div>
                                     <div
                                       className="absolute inset-y-0 right-0 z-[3] cursor-ew-resize bg-[rgba(255,255,255,0.08)] opacity-0 transition-opacity group-hover:opacity-100"
@@ -2089,6 +2108,25 @@ const LaneStateButton = ({
     onClick={onClick}
   >
     {children}
+  </button>
+);
+
+const LaneMenuAction = ({
+  icon,
+  label,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+}) => (
+  <button
+    className="flex w-full items-center gap-2 rounded-[8px] px-2.5 py-2 text-left text-[11px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[rgba(255,255,255,0.04)] hover:text-[var(--text-primary)]"
+    onClick={onClick}
+    type="button"
+  >
+    <span className="text-[var(--text-tertiary)]">{icon}</span>
+    <span>{label}</span>
   </button>
 );
 

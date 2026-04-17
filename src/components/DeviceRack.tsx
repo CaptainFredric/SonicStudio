@@ -167,14 +167,14 @@ export const DeviceRack = () => {
   };
 
   return (
-    <section className="surface-panel min-h-[320px] max-h-[46vh] overflow-auto p-3">
-      <div className="grid gap-3 2xl:grid-cols-[300px_minmax(0,1fr)]">
-        <div className="surface-panel-strong flex min-h-[280px] flex-col justify-between p-4">
+    <section className="min-h-[320px] max-h-[46vh] overflow-auto border-t border-[var(--border-soft)] pt-3">
+      <div className="grid gap-4 2xl:grid-cols-[280px_minmax(0,1fr)]">
+        <div className="flex min-h-[280px] flex-col justify-between border-b border-[var(--border-soft)] p-4 2xl:border-b-0 2xl:border-r 2xl:pr-4">
           <div>
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="section-label">Selected track</div>
-                <div className="mt-1 text-sm text-[var(--text-secondary)]">Keep one lane in focus while you write and shape it.</div>
+                <div className="mt-1 text-sm text-[var(--text-secondary)]">Focus one lane and shape it here.</div>
               </div>
               <span className="rounded-sm border border-[var(--border-soft)] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--text-secondary)]">
                 {track.type}
@@ -201,11 +201,11 @@ export const DeviceRack = () => {
             </div>
           </div>
 
-          <div className="mt-4 overflow-hidden rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
+          <div className="mt-4 border-t border-[var(--border-soft)] pt-4">
             <Visualizer />
           </div>
 
-          <div className="mt-4 rounded-[12px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
+          <div className="mt-4 border-t border-[var(--border-soft)] pt-4">
             <button
               className="flex w-full items-center justify-between gap-3 text-left"
               onClick={() => setIsSoundRecallOpen((current) => !current)}
@@ -214,7 +214,7 @@ export const DeviceRack = () => {
               <div>
                 <div className="section-label">Sound recall</div>
                 <div className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
-                  Save and reapply sounds without rebuilding a lane from scratch.
+                  Store and reuse lane sounds.
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -236,7 +236,7 @@ export const DeviceRack = () => {
                     {activeTrackSnapshot ? 'Update current sound' : 'Store current sound'}
                   </button>
                   {activeTrackSnapshot && (
-                    <div className="rounded-[10px] border border-[var(--border-soft)] bg-[rgba(114,217,255,0.08)] px-3 py-2 text-[11px] text-[var(--accent-strong)]">
+                    <div className="rounded-[8px] bg-[rgba(114,217,255,0.08)] px-3 py-2 text-[11px] text-[var(--accent-strong)]">
                       Active recall: {activeTrackSnapshot.name}
                     </div>
                   )}
@@ -244,7 +244,7 @@ export const DeviceRack = () => {
 
                 <div className="grid gap-2">
                   {matchingTrackSnapshots.length > 0 ? matchingTrackSnapshots.slice(-4).reverse().map((snapshot) => (
-                    <div key={snapshot.id} className="rounded-[10px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+                    <div key={snapshot.id} className="rounded-[8px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.015)] px-3 py-3">
                       <div className="flex items-center justify-between gap-3">
                         <div className="min-w-0">
                           <div className="truncate text-sm font-medium text-[var(--text-primary)]">{snapshot.name}</div>
@@ -336,12 +336,12 @@ export const DeviceRack = () => {
           </div>
         </div>
 
-        <div className="surface-panel-strong min-h-[280px] min-w-0 p-4">
+        <div className="min-h-[280px] min-w-0 p-1">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-soft)] pb-4">
             <div>
               <div className="section-label">Sound desk</div>
               <div className="mt-1 text-sm font-medium text-[var(--text-primary)]">
-                Source, shape, and space controls are grouped to keep sound design quick and readable.
+                Source, shape, and space in one dock.
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -919,7 +919,7 @@ const RackSection = ({
   icon: React.ReactNode;
   title: string;
 }) => (
-  <div className="surface-panel-strong flex flex-col p-4">
+  <div className="flex flex-col border border-[rgba(149,169,189,0.1)] bg-[rgba(255,255,255,0.015)] p-4">
     <div className="flex items-center gap-2">
       {icon}
       <span className="section-label">{title}</span>
@@ -951,7 +951,7 @@ const filterLabel = (mode: typeof FILTER_OPTIONS[number]) => {
 };
 
 const StatusCell = ({ label, value }: { label: string; value: string }) => (
-  <div className="rounded-[10px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-2">
+  <div className="border border-[rgba(149,169,189,0.1)] bg-[rgba(255,255,255,0.015)] px-3 py-2">
     <div className="section-label">{label}</div>
     <div className="mt-1 text-xs font-medium text-[var(--text-primary)]">{value}</div>
   </div>
@@ -969,9 +969,15 @@ const RackTab = ({
   onClick: () => void;
 }) => (
   <button
-    className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+    className="flex items-center gap-2 border-b border-transparent px-1 pb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
     data-active={active}
     onClick={onClick}
+    style={active
+      ? {
+          borderBottomColor: 'rgba(124, 211, 252, 0.4)',
+          color: 'var(--text-primary)',
+        }
+      : undefined}
   >
     {icon}
     {label}

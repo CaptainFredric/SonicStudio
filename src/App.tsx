@@ -23,7 +23,7 @@ const SideNav = () => {
   ];
 
   return (
-    <aside className="studio-nav sm:w-[104px] w-full shrink-0 shrink px-2 py-3 sm:py-4 flex sm:flex-col flex-row items-center justify-start sm:justify-start gap-2 sm:gap-4 overflow-x-auto sm:overflow-x-visible [-webkit-overflow-scrolling:touch]">
+    <aside className="studio-nav sm:w-[88px] w-full shrink-0 shrink px-2 py-3 sm:py-4 flex sm:flex-col flex-row items-center justify-start sm:justify-start gap-2 sm:gap-4 overflow-x-auto sm:overflow-x-visible [-webkit-overflow-scrolling:touch]">
       <div className="section-label hidden sm:block">Deck</div>
       <div className="flex sm:flex-col flex-row gap-2 w-full sm:w-auto">
         {navItems.map(item => (
@@ -35,7 +35,7 @@ const SideNav = () => {
           >
             <div className="flex flex-col items-center gap-2">
               {item.icon}
-            <span className="font-mono text-[9px] uppercase tracking-[0.18em]">{item.label === 'Piano Roll' ? 'Roll' : item.label === 'Sequencer' ? 'Seq' : item.label === 'Mixer' ? 'Mix' : 'Arrange'}</span>
+            <span className="font-mono text-[8px] uppercase tracking-[0.18em]">{item.label === 'Piano Roll' ? 'Roll' : item.label === 'Sequencer' ? 'Seq' : item.label === 'Mixer' ? 'Mix' : 'Arrange'}</span>
             </div>
           </button>
         ))}
@@ -174,7 +174,7 @@ const StudioShell = () => {
             </div>
 
             <button
-              className="surface-panel-muted flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+              className="flex w-full items-center justify-between gap-3 border-t border-[var(--border-soft)] px-1 py-3 text-left"
               onClick={() => setIsRackOpen((current) => !current)}
               type="button"
             >
@@ -184,7 +184,7 @@ const StudioShell = () => {
                   {selectedTrack ? `${selectedTrack.name} · ${selectedTrack.type}` : 'Select a track to shape its sound'}
                 </div>
                 <div className="mt-1 text-[11px] text-[var(--text-secondary)]">
-                  {isRackOpen ? 'Rack controls are open below.' : 'Open the rack for source, shape, and output controls.'}
+                  {isRackOpen ? 'Dock open' : 'Open source, shape, and output'}
                 </div>
               </div>
               <div className="flex items-center gap-3 text-[var(--text-secondary)]">
