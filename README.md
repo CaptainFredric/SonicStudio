@@ -23,6 +23,27 @@ The current build supports an actual writing flow:
 6. Master presets, master snapshots, track sound recall, and recovery checkpoints
 7. Starter scenes for quick starts and first use
 
+## Current architecture
+
+The codebase is now split around a few real boundaries:
+
+1. `src/context/AudioContext.tsx`
+   Main session controller and reducer integration layer. Still too large, but smaller than before.
+2. `src/services/renderWorkflow.ts`
+   Render and bounce orchestration.
+3. `src/services/sessionWorkflow.ts`
+   Persistence, checkpoint, and import orchestration.
+4. `src/components/settings/*`
+   Workspace, track, and output controls broken into smaller panels.
+5. `src/components/arranger/*`
+   Arranger selector logic and hero-surface view modules.
+
+The main remaining refactor targets are still:
+
+1. `src/context/AudioContext.tsx`
+2. `src/components/DeviceRack.tsx`
+3. reducer and integration correctness coverage
+
 ## Quick start
 
 1. Start the dev server or open the hosted build
@@ -47,6 +68,7 @@ Vite serves the studio at `http://localhost:3000/SonicStudio/`.
 
 ```bash
 npm run lint
+npm test
 npm run build
 ```
 
@@ -54,7 +76,7 @@ npm run build
 
 The strongest next milestones are:
 
-1. offline rendering instead of only live bounce
-2. deeper mastering analysis and louder-target feedback
-3. stronger project-history UX around destructive edits
-4. eventual collaboration and cloud library layers after the local workflow is fully hardened
+1. split `AudioContext.tsx` into transport, arranger mutation, track mutation, and reducer-map boundaries
+2. split `DeviceRack.tsx` into source, shape, space, slicing, and recall surfaces
+3. expand correctness coverage around clip operations, checkpoint restore, and import-export round trips
+4. keep the arranger unquestionably first-class while reducing interaction density further

@@ -2,15 +2,15 @@
 
 ## Purpose
 
-This is the current technical and product reevaluation of SonicStudio after the second critique-following cleanup pass.
+This is the current technical and product reevaluation of SonicStudio after the arranger decomposition pass that followed the second critique cleanup.
 
 The first critique pass removed reviewer-facing studio chrome and created the first real service boundaries.
 
-This second pass followed through on the next layer of the critique:
+This pass followed through on the clearest next layer of the critique:
 
-1. split the next settings monolith
-2. reduce demo and submission framing
-3. tighten product language so the app reads more like a music tool
+1. break down the arranger hero surface
+2. add correctness coverage around extracted arranger selectors
+3. update the docs so the codebase description matches the actual structure
 
 The goal of this document is to give another AI or engineer a clean, current, technically grounded picture of what SonicStudio is now.
 
@@ -31,71 +31,56 @@ The product is trying to be a credible lightweight browser studio for a solo cre
 
 ## What improved in this pass
 
-### 1. Workspace settings were split again into clearer responsibilities
+### 1. The arranger is no longer one giant render tree
 
-The earlier settings split was real, but `WorkspaceSettingsPanel.tsx` had simply become the next oversized file.
+The biggest structural change in this pass is the arranger split.
 
-That is now reduced through these new components:
+New files:
 
-1. `src/components/settings/WorkspaceSessionPanel.tsx`
-2. `src/components/settings/WorkspaceBouncePanel.tsx`
-3. `src/components/settings/WorkspaceRecoveryPanel.tsx`
-4. `src/components/settings/WorkspaceTransportPanel.tsx`
-5. `src/components/settings/WorkspaceUtilityPanel.tsx`
+1. `src/components/arranger/ArrangerHeader.tsx`
+2. `src/components/arranger/ArrangerInspector.tsx`
+3. `src/components/arranger/ArrangerTimeline.tsx`
+4. `src/components/arranger/arrangerSelectors.ts`
+5. `src/components/arranger/types.ts`
 
-`src/components/settings/WorkspaceSettingsPanel.tsx` now acts as a coordinator for shared local state and file inputs instead of rendering every concern inline.
+`src/components/Arranger.tsx` still owns coordination, local state, drag state, and keyboard wiring, but it no longer directly renders the entire hero surface inline.
 
-This matters because the workspace tab is now organized around distinct jobs:
+The split is now shaped around actual product responsibilities:
 
-1. session start and save
-2. bounce and export
-3. recovery
-4. transport
-5. utility
+1. header and song overview
+2. phrase desk and song tools
+3. timeline and lane rendering
+4. pure selectors for lane and section derivation
 
-That is much closer to how the product is actually used.
+This matters because the arranger is the hero surface. Complexity there hurts both the product and the codebase more than a comparable issue in a secondary panel.
 
-### 2. The control surface is named more honestly
+### 2. Arranger derivation now has its own correctness layer
 
-The side-nav label and panel heading no longer present this area as `Setup`.
+The critique was correct that a state-heavy music tool needs more correctness coverage around pure state shaping.
 
-Current wording:
+That is now improved through:
 
-1. side nav uses `Ctrl`
-2. panel heading uses `Studio Controls`
+1. `src/components/arranger/arrangerSelectors.test.ts`
 
-This is a better fit because the panel is not onboarding or setup in the traditional sense. It is contextual control for the current studio session.
+Current coverage added:
 
-### 3. Demo-style route boot behavior was reduced
+1. section-range derivation from markers and clip overlap
+2. pinned and grouped lane-section derivation
+3. pinned-scope behavior without duplicate pinned sections
 
-`src/App.tsx` no longer parses:
+This is still only a start, but it moves arranger refactoring away from pure faith.
 
-1. `?demo=...`
-2. `?view=...`
+### 3. Docs now match the current structure better
 
-Normal app boot now only uses `launch=1` to force the launchpad open, or opens the launchpad when no persisted session exists.
+`README.md` was updated so the repo no longer describes SonicStudio like an older submission build.
 
-This matters because the normal product route is no longer shaped around guided demo assumptions.
+It now calls out:
 
-### 4. Submission framing was removed from the main repo surface
+1. current architecture boundaries
+2. current verification path
+3. the actual next refactor targets
 
-These files were deleted:
-
-1. `SUBMISSION_BRIEF.md`
-2. `SUBMISSION_CHART.md`
-
-That reduces repo-level showcase framing and keeps the main project narrative closer to the actual product.
-
-### 5. README language is cleaner
-
-`README.md` was adjusted to reduce demo-oriented wording and keep the framing closer to product use.
-
-Examples:
-
-1. `Best demo path` became `Quick start`
-2. `Starter scenes for quick demos and fast first use` became `Starter scenes for quick starts and first use`
-
-These are small copy changes, but they support the larger identity cleanup.
+This reduces stale truth around the repo and makes the project easier to hand off.
 
 ## What remains genuinely improved from the earlier pass
 
@@ -108,7 +93,8 @@ These improvements are still in place and still matter:
 5. service boundaries now exist for render and session workflows
 6. `SettingsSidebar.tsx` is a shallow shell
 7. setup open state is no longer restored on boot
-8. the repo now has a minimal test harness
+8. the repo now has a growing test harness
+9. workspace settings are split into clearer panels
 
 ## Current file-boundary state
 
@@ -118,6 +104,8 @@ These improvements are still in place and still matter:
 2. `src/components/settings/WorkspaceSettingsPanel.tsx` is smaller and delegates further
 3. render behavior is separated in `src/services/renderWorkflow.ts`
 4. session and checkpoint behavior is separated in `src/services/sessionWorkflow.ts`
+5. arranger rendering is separated into header, inspector, and timeline modules
+6. arranger selector logic is separated into pure functions with tests
 
 ### Still too large
 
@@ -125,7 +113,7 @@ These improvements are still in place and still matter:
 2. `src/components/Arranger.tsx`
 3. `src/components/DeviceRack.tsx`
 
-Those are still the main structural risks.
+`Arranger.tsx` is smaller and much healthier now, but it still owns too much coordination and local state to be considered finished.
 
 ## Current product assessment
 
@@ -137,13 +125,14 @@ The product shell is cleaner and more disciplined than it was before:
 2. less repo-level showcase framing
 3. more honest product terminology
 4. better separation inside the control surface
+5. a much cleaner hero-surface file boundary story
 
 ### Still weak
 
 The architectural center of gravity is still too concentrated:
 
 1. `AudioContext.tsx` still does too much
-2. `Arranger.tsx` is still oversized relative to its importance
+2. `Arranger.tsx` still centralizes too much coordination and event handling
 3. `DeviceRack.tsx` still holds too many concerns in one file
 4. correctness coverage is still modest relative to product complexity
 
@@ -151,10 +140,10 @@ The architectural center of gravity is still too concentrated:
 
 These numbers are intentionally blunt:
 
-1. as a browser-native music product: `8/10`
-2. as a serious lightweight DAW today: `6.5/10`
-3. as a GarageBand replacement today: `4.5/10`
-4. as a codebase moving in the right direction: `8.5/10`
+1. as a browser-native music product: `8.2/10`
+2. as a serious lightweight DAW today: `6.7/10`
+3. as a GarageBand replacement today: `4.7/10`
+4. as a codebase moving in the right direction: `8.8/10`
 
 The increase is real, but still bounded by the same core issues:
 
@@ -177,6 +166,8 @@ Keep:
 9. extracted render and session workflow boundaries
 10. finer-grained workspace control sections
 11. the test harness
+12. the arranger header, inspector, and timeline split
+13. pure arranger selector functions with tests
 
 ## What another AI should cut or demote further
 
@@ -188,20 +179,7 @@ Cut or demote:
 
 ## What another AI should refactor next
 
-### 1. Break down `Arranger.tsx`
-
-This is now the clearest next target.
-
-Best next decomposition:
-
-1. overview strip
-2. marker and section UI
-3. lane rendering
-4. clip rendering and drag logic
-5. phrase desk
-6. song tools
-
-### 2. Split `AudioContext.tsx` further
+### 1. Split `AudioContext.tsx` further
 
 Best next boundaries:
 
@@ -211,7 +189,7 @@ Best next boundaries:
 4. bounce history helpers
 5. reducer action maps
 
-### 3. Attack `DeviceRack.tsx`
+### 2. Attack `DeviceRack.tsx`
 
 Best next split:
 
@@ -220,6 +198,17 @@ Best next split:
 3. space surface
 4. sample slicing surface
 5. recall and preset surface
+
+### 3. Finish the arranger split
+
+The current arranger split is useful, but not complete.
+
+Best next decomposition:
+
+1. extract drag and trim helpers out of `Arranger.tsx`
+2. extract keyboard shortcut handling out of `Arranger.tsx`
+3. move phrase-composer editing logic into a focused arranger editor module
+4. isolate lane-menu action wiring from lane rendering
 
 ## What another AI should test next
 
@@ -231,10 +220,12 @@ Best next split:
 6. MIDI import into session shape
 7. checkpoint restore into live editor state
 8. render scope handling at integration level
+9. arranger keyboard shortcut behavior
+10. clip drag and trim invariant behavior
 
 ## Bottom line
 
-SonicStudio is cleaner, more credible, and more internally disciplined than it was two passes ago.
+SonicStudio is cleaner, more credible, and more internally disciplined than it was before this arranger pass.
 
 The product-smell problem is now substantially improved.
 The architecture problem is still only partially improved.
@@ -244,5 +235,6 @@ The next phase should stay focused on:
 1. deeper decomposition
 2. correctness coverage
 3. reducing oversized central files
+4. keeping the arranger first-class without hiding logic in a new monolith
 
 That is where the real leverage is now.
