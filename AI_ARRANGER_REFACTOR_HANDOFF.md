@@ -2,11 +2,16 @@
 
 ## Scope of the current arranger state
 
-The arranger is now in its second refactor phase.
+The arranger is now past the second refactor phase and into the first controller-cleanup pass that followed it.
 
 Phase one split the hero surface into header, inspector, timeline, selectors, and shared types.
 
 Phase two followed through on the critique that said the first split was real progress but not finished.
+
+The next pass after that did two more important things:
+
+1. moved clip duplicate, split, and make-unique mutations into a pure editor helper module
+2. added deeper correctness coverage for clip mutation and session-hydration behavior
 
 The phase two goals were:
 
@@ -16,6 +21,27 @@ The phase two goals were:
 4. update the docs so another AI sees the actual current boundary state
 
 ## Implemented changes
+
+### 0. Clip mutation logic is no longer trapped inside `AudioContext.tsx`
+
+New file:
+
+1. `src/context/editor/projectMutations.ts`
+
+Moved logic:
+
+1. arranger clip sync
+2. track update helper
+3. unique clip pattern retargeting
+4. duplicate clip mutation
+5. split clip mutation
+6. make-unique clip mutation
+
+Why this matters:
+
+1. the main controller lost more reducer weight
+2. clip mutation logic now has a pure test seam
+3. future arranger and reducer refactors no longer have to peel these rules out of a 2700-line controller first
 
 ### 1. The arranger is split into real view modules
 
@@ -103,6 +129,19 @@ Covered now:
 
 This is still not full arranger safety. Duplicate, make-unique, and clip split still need reducer-level or integration-level tests.
 
+That gap is now partially closed by:
+
+1. `src/context/editor/projectMutations.test.ts`
+2. `src/project/storage.test.ts`
+
+Covered now:
+
+1. duplicate clip selection and placement invariants
+2. split clip length and snap invariants
+3. make-unique pattern retargeting and no-op cases
+4. session JSON-style hydration round trip
+5. invalid UI selection normalization during hydration
+
 ### 5. The inspector is no longer one big dumping ground
 
 New files:
@@ -153,7 +192,8 @@ Browser verification:
 3. drag and trim math no longer live inline in the coordinator
 4. keyboard resolution is now a pure function with tests
 5. the inspector is split by job instead of growing as one file
-6. the current docs no longer describe an older repo shape
+6. clip mutation rules are no longer trapped in the application controller
+7. the current docs no longer describe an older repo shape
 
 ## What is still unresolved
 
@@ -187,13 +227,10 @@ It still reads like a broad control surface that should be broken into:
 
 Good next tests:
 
-1. clip duplicate
-2. clip split
-3. clip make-unique
-4. checkpoint restore into live editor state
-5. JSON import-export round trip
-6. render-scope integration behavior
-7. clip selection and song-tool action invariants
+1. checkpoint restore into live editor state
+2. render-scope integration behavior
+3. clip selection and song-tool action invariants
+4. reducer action-map behavior without importing the full audio runtime
 
 ## Recommended next sequence
 
@@ -201,20 +238,20 @@ Good next tests:
 
 Best next extractions:
 
-1. lane-menu action wiring out of `ArrangerTimeline.tsx`
-2. paint controller out of `Arranger.tsx`
-3. scroll-follow controller out of `Arranger.tsx`
-4. keyboard event bridge out of `Arranger.tsx`
+1. reduce prop volume between `Arranger.tsx`, `ArrangerInspector.tsx`, and `ArrangerTimeline.tsx`
+2. split `ComposePanel.tsx` further if it starts growing again
+3. keep lane-menu rendering and lane actions from recombining
+4. add interaction-level tests around selection plus song-tool workflows
 
 ### 2. Split `AudioContext.tsx`
 
 Best boundaries:
 
 1. transport controller
-2. arranger mutation helpers
+2. reducer action maps
 3. track and pattern mutation helpers
-4. reducer action maps
-5. bounce-history helpers
+4. bounce-history helpers
+5. persistence-facing editor helpers
 
 ### 3. Split `DeviceRack.tsx`
 

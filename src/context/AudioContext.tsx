@@ -79,6 +79,14 @@ import {
   type RenderState,
   type SaveStatus,
 } from '../services/workflowTypes';
+import {
+  duplicateArrangerClipProject,
+  getUniqueClipPatternProject,
+  makeClipPatternUniqueProject,
+  splitArrangerClipProject,
+  syncArrangerClips,
+  updateTrack,
+} from './editor/projectMutations';
 
 export type { BounceNormalizationMode, BounceTailMode, ExportScope } from '../services/workflowTypes';
 
@@ -204,18 +212,18 @@ interface AudioContextType {
   trackSnapshots: TrackSnapshot[];
 }
 
-interface HistoryState {
+export interface HistoryState {
   future: Project[];
   past: Project[];
   present: Project;
 }
 
-interface EditorState {
+export interface EditorState {
   history: HistoryState;
   ui: StudioUIState;
 }
 
-type EditorAction =
+export type EditorAction =
   | { type: 'ADD_ARRANGER_CLIP'; trackId?: string }
   | { type: 'APPLY_TRACK_VOICE_PRESET'; presetId: string; trackId: string }
   | { type: 'APPLY_TRACK_SNAPSHOT'; snapshotId: string; trackId: string }
@@ -329,37 +337,6 @@ const transposeNote = (note: string, semitones: number): string => {
   }
 
   return midiToNote(midi + semitones);
-};
-
-const syncArrangerClips = (
-  arrangerClips: ArrangementClip[],
-  tracks: Track[],
-  patternCount: number,
-): ArrangementClip[] => {
-  if (arrangerClips.length === 0 || tracks.length === 0) {
-    return [];
-  }
-
-  const trackOrder = new Map(tracks.map((track, index) => [track.id, index]));
-
-  return arrangerClips
-    .filter((clip) => trackOrder.has(clip.trackId))
-    .map((clip) => ({
-      ...clip,
-      beatLength: clamp(Math.round(clip.beatLength || 16), 4, 128),
-      patternIndex: clamp(Math.round(clip.patternIndex || 0), 0, Math.max(patternCount - 1, 0)),
-      startBeat: clamp(Math.round(clip.startBeat || 0), 0, 4096),
-    }))
-    .sort((left, right) => {
-      const leftTrackIndex = trackOrder.get(left.trackId) ?? 0;
-      const rightTrackIndex = trackOrder.get(right.trackId) ?? 0;
-
-      if (leftTrackIndex !== rightTrackIndex) {
-        return leftTrackIndex - rightTrackIndex;
-      }
-
-      return left.startBeat - right.startBeat;
-    });
 };
 
 const syncSongMarkers = (
@@ -538,113 +515,6 @@ const moveItem = <T,>(items: T[], fromIndex: number, toIndex: number) => {
   nextItems.splice(toIndex, 0, movedItem);
   return nextItems;
 };
-const getClipContext = (project: Project, clipId: string) => {
-  const clip = project.arrangerClips.find((candidate) => candidate.id === clipId);
-  if (!clip) {
-    return null;
-  }
-
-  const track = project.tracks.find((candidate) => candidate.id === clip.trackId);
-  if (!track) {
-    return null;
-  }
-
-  return { clip, track };
-};
-
-const getUniqueClipPatternProject = (
-  project: Project,
-  clipId: string,
-): { clip: ArrangementClip; project: Project; track: Track } | null => {
-  const context = getClipContext(project, clipId);
-  if (!context) {
-    return null;
-  }
-
-  const { clip, track } = context;
-  const linkedClips = project.arrangerClips.filter((candidate) => (
-    candidate.trackId === clip.trackId
-    && candidate.patternIndex === clip.patternIndex
-  ));
-
-  if (linkedClips.length <= 1) {
-    return { clip, project, track };
-  }
-
-  const occupiedPatternIndices = new Set(
-    project.arrangerClips
-      .filter((candidate) => candidate.trackId === track.id && candidate.id !== clip.id)
-      .map((candidate) => candidate.patternIndex),
-  );
-  const nextPatternIndex = Array.from(
-    { length: project.transport.patternCount },
-    (_, patternIndex) => patternIndex,
-  ).find((patternIndex) => !occupiedPatternIndices.has(patternIndex) && patternIndex !== clip.patternIndex);
-
-  if (nextPatternIndex === undefined) {
-    return { clip, project, track };
-  }
-
-  const nextProject = updateTrack(project, track.id, (candidate) => {
-    const sourcePattern = candidate.patterns[clip.patternIndex] ?? createEmptyPattern(project.transport.stepsPerPattern);
-    const sourceAutomation = candidate.automation?.[clip.patternIndex] ?? {
-      level: Array.from({ length: project.transport.stepsPerPattern }, () => 0.5),
-      tone: Array.from({ length: project.transport.stepsPerPattern }, () => 0.5),
-    };
-
-    return {
-      ...candidate,
-      automation: {
-        ...candidate.automation,
-        [nextPatternIndex]: {
-          level: [...sourceAutomation.level],
-          tone: [...sourceAutomation.tone],
-        },
-      },
-      patterns: {
-        ...candidate.patterns,
-        [nextPatternIndex]: sourcePattern.map(cloneStepEvents),
-      },
-    };
-  });
-
-  const retargetedProject = {
-    ...nextProject,
-    arrangerClips: syncArrangerClips(
-      nextProject.arrangerClips.map((candidate) => (
-        candidate.id === clip.id ? { ...candidate, patternIndex: nextPatternIndex } : candidate
-      )),
-      nextProject.tracks,
-      nextProject.transport.patternCount,
-    ),
-  };
-
-  const nextContext = getClipContext(retargetedProject, clipId);
-  return nextContext ? { ...nextContext, project: retargetedProject } : null;
-};
-
-const updateTrack = (
-  project: Project,
-  trackId: string,
-  updater: (track: Track) => Track,
-): Project => {
-  let didChange = false;
-  const tracks = project.tracks.map((track) => {
-    if (track.id !== trackId) {
-      return track;
-    }
-
-    const nextTrack = updater(track);
-    if (nextTrack !== track) {
-      didChange = true;
-    }
-
-    return nextTrack;
-  });
-
-  return didChange ? { ...project, tracks } : project;
-};
-
 const clampSliceValue = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 const normalizeSliceMemory = (
@@ -829,7 +699,7 @@ const updateTrackAutomationPattern = (
   };
 };
 
-const editorReducer = (state: EditorState, action: EditorAction): EditorState => {
+export const editorReducer = (state: EditorState, action: EditorAction): EditorState => {
   const { present } = state.history;
 
   switch (action.type) {
@@ -1819,28 +1689,17 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
     }
 
     case 'DUPLICATE_ARRANGER_CLIP': {
-      const sourceClip = present.arrangerClips.find((clip) => clip.id === action.clipId);
-      if (!sourceClip) {
+      const mutation = duplicateArrangerClipProject(present, action.clipId);
+      if (!mutation) {
         return state;
       }
 
-      const duplicatedClip = buildArrangerClip(sourceClip.trackId, present.transport, {
-        beatLength: sourceClip.beatLength,
-        patternIndex: sourceClip.patternIndex,
-        startBeat: sourceClip.startBeat + sourceClip.beatLength,
-      });
-
-      return commitProject(state, {
-        ...present,
-        arrangerClips: syncArrangerClips(
-          [
-            ...present.arrangerClips,
-            duplicatedClip,
-          ],
-          present.tracks,
-          present.transport.patternCount,
-        ),
-      }, sourceClip.trackId, duplicatedClip.id);
+      return commitProject(
+        state,
+        mutation.project,
+        mutation.selectedTrackId,
+        mutation.selectedArrangerClipId,
+      );
     }
 
     case 'LOOP_ARRANGER_CLIP': {
@@ -1869,94 +1728,31 @@ const editorReducer = (state: EditorState, action: EditorAction): EditorState =>
     }
 
     case 'MAKE_CLIP_PATTERN_UNIQUE': {
-      const sourceClip = present.arrangerClips.find((clip) => clip.id === action.clipId);
-      if (!sourceClip) {
+      const mutation = makeClipPatternUniqueProject(present, action.clipId);
+      if (!mutation) {
         return state;
       }
 
-      const sourceTrack = present.tracks.find((track) => track.id === sourceClip.trackId);
-      if (!sourceTrack) {
-        return state;
-      }
-
-      const occupiedPatternIndices = new Set(
-        present.arrangerClips
-          .filter((clip) => clip.trackId === sourceTrack.id && clip.id !== sourceClip.id)
-          .map((clip) => clip.patternIndex),
+      return commitProject(
+        state,
+        mutation.project,
+        mutation.selectedTrackId,
+        mutation.selectedArrangerClipId,
       );
-      const nextPatternIndex = Array.from(
-        { length: present.transport.patternCount },
-        (_, patternIndex) => patternIndex,
-      ).find((patternIndex) => !occupiedPatternIndices.has(patternIndex) && patternIndex !== sourceClip.patternIndex);
-
-      if (nextPatternIndex === undefined) {
-        return state;
-      }
-
-      const nextProject = updateTrack(present, sourceTrack.id, (track) => {
-        const sourcePattern = track.patterns[sourceClip.patternIndex] ?? createEmptyPattern(present.transport.stepsPerPattern);
-
-        return {
-          ...track,
-          patterns: {
-            ...track.patterns,
-            [nextPatternIndex]: sourcePattern.map(cloneStepEvents),
-          },
-        };
-      });
-
-      return commitProject(state, {
-        ...nextProject,
-        arrangerClips: syncArrangerClips(
-          nextProject.arrangerClips.map((clip) => (
-            clip.id === sourceClip.id ? { ...clip, patternIndex: nextPatternIndex } : clip
-          )),
-          nextProject.tracks,
-          nextProject.transport.patternCount,
-        ),
-      }, sourceTrack.id, sourceClip.id);
     }
 
     case 'SPLIT_ARRANGER_CLIP': {
-      const sourceClip = present.arrangerClips.find((clip) => clip.id === action.clipId);
-      if (!sourceClip || sourceClip.beatLength < 8) {
+      const mutation = splitArrangerClipProject(present, action.clipId, action.splitAtBeat, ARRANGER_SNAP);
+      if (!mutation) {
         return state;
       }
 
-      const requestedSplitBeat = typeof action.splitAtBeat === 'number'
-        ? clamp(
-            Math.round(action.splitAtBeat / ARRANGER_SNAP) * ARRANGER_SNAP,
-            sourceClip.startBeat + 4,
-            sourceClip.startBeat + sourceClip.beatLength - 4,
-          )
-        : sourceClip.startBeat + clamp(
-            Math.floor(sourceClip.beatLength / 8) * 4,
-            4,
-            sourceClip.beatLength - 4,
-          );
-      const firstLength = requestedSplitBeat - sourceClip.startBeat;
-      const secondLength = sourceClip.beatLength - firstLength;
-      const splitClip = buildArrangerClip(sourceClip.trackId, present.transport, {
-        beatLength: secondLength,
-        patternIndex: sourceClip.patternIndex,
-        startBeat: sourceClip.startBeat + firstLength,
-      });
-
-      return commitProject(state, {
-        ...present,
-        arrangerClips: syncArrangerClips(
-          [
-            ...present.arrangerClips.map((clip) => (
-              clip.id === sourceClip.id
-                ? { ...clip, beatLength: firstLength }
-                : clip
-            )),
-            splitClip,
-          ],
-          present.tracks,
-          present.transport.patternCount,
-        ),
-      }, sourceClip.trackId, splitClip.id);
+      return commitProject(
+        state,
+        mutation.project,
+        mutation.selectedTrackId,
+        mutation.selectedArrangerClipId,
+      );
     }
 
     case 'DUPLICATE_TRACK': {

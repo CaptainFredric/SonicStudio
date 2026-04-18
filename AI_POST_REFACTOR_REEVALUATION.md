@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This is the current technical and product reevaluation of SonicStudio after the arranger second-phase decomposition pass.
+This is the current technical and product reevaluation of SonicStudio after the arranger second-phase decomposition pass and the first controller-cleanup pass that followed it.
 
 The first critique pass removed reviewer-facing studio chrome and created the first real service boundaries.
 
@@ -13,6 +13,8 @@ This pass followed through on the clearest next layer of the critique:
 3. split the inspector by job before it hardened into a new monolith
 4. add interaction-oriented correctness coverage
 5. update the docs so the codebase description matches the actual structure
+6. move clip mutation rules into a pure editor helper module
+7. add deeper clip-mutation and session-hydration coverage
 
 The goal of this document is to give another AI or engineer a clean, current, technically grounded picture of what SonicStudio is now.
 
@@ -50,8 +52,10 @@ New files:
 9. `src/components/arranger/inspector/ShapePanel.tsx`
 10. `src/components/arranger/inspector/AutomationPanel.tsx`
 11. `src/components/arranger/inspector/ComposePanel.tsx`
+12. `src/context/editor/projectMutations.ts`
 
 `src/components/Arranger.tsx` still owns coordination, local state, drag state, and selection wiring, but it no longer directly owns the full hero render tree or the volatile drag and keyboard math.
+`src/context/AudioContext.tsx` also no longer owns the concrete clip duplicate, split, and make-unique implementations.
 
 The current arranger structure is now shaped around actual product responsibilities:
 
@@ -86,6 +90,19 @@ Current coverage added:
 9. wheel handling gating
 
 This is still only a start, but it moves arranger refactoring away from pure faith and into testable interaction rules.
+
+That coverage is now complemented by:
+
+1. `src/context/editor/projectMutations.test.ts`
+2. `src/project/storage.test.ts`
+
+Current extra coverage:
+
+1. duplicate clip selection and placement invariants
+2. split clip snap and minimum-length invariants
+3. make-unique success and no-op behavior
+4. serialized session hydration round trip
+5. invalid UI-selection normalization during hydration
 
 ### 3. The inspector is structurally healthier
 
@@ -126,6 +143,7 @@ These improvements are still in place and still matter:
 7. setup open state is no longer restored on boot
 8. the repo now has a growing test harness
 9. workspace settings are split into clearer panels
+10. clip mutation rules now live behind a pure editor helper seam
 
 ## Current file-boundary state
 
@@ -139,6 +157,7 @@ These improvements are still in place and still matter:
 6. arranger selector logic is separated into pure functions with tests
 7. arranger interaction rules are separated into pure functions with tests
 8. arranger inspector panels are separated by job
+9. clip mutation rules are separated into `src/context/editor/projectMutations.ts`
 
 ### Still too large
 
@@ -168,6 +187,7 @@ The architectural center of gravity is still too concentrated:
 2. `Arranger.tsx` still centralizes too much coordination and event orchestration
 3. `DeviceRack.tsx` still holds too many concerns in one file
 4. correctness coverage is still modest relative to product complexity
+5. reducer behavior is still exercised indirectly instead of through a standalone reducer module
 
 ## Current verdict
 
@@ -201,6 +221,7 @@ Keep:
 11. the test harness
 12. the arranger header, inspector, and timeline split
 13. pure arranger selector functions with tests
+14. pure clip mutation helpers with tests
 
 ## What another AI should cut or demote further
 
@@ -217,10 +238,10 @@ Cut or demote:
 Best next boundaries:
 
 1. transport controller
-2. arranger mutation helpers
+2. reducer action maps
 3. track and pattern mutation helpers
 4. bounce history helpers
-5. reducer action maps
+5. persistence-facing editor helpers
 
 ### 2. Attack `DeviceRack.tsx`
 
@@ -238,25 +259,19 @@ The current arranger split is useful, but not complete.
 
 Best next decomposition:
 
-1. isolate lane-menu action wiring from `ArrangerTimeline.tsx`
-2. extract paint-state orchestration from `Arranger.tsx`
-3. extract scroll-follow behavior from `Arranger.tsx`
-4. extract keyboard event bridging from `Arranger.tsx`
+1. reduce prop-volume between the coordinator and the submodules
+2. keep `ComposePanel.tsx` from growing back into a local monolith
+3. extract any remaining selection-coupling helpers that still belong in a pure seam
+4. add interaction-level tests around selection plus song-tool behavior
 
 ## What another AI should test next
 
-1. reducer tests
-2. clip duplication tests
-3. make unique tests
-4. split clip tests
-5. JSON import-export round trip
-6. MIDI import into session shape
-7. checkpoint restore into live editor state
-8. render scope handling at integration level
-9. clip duplicate behavior
-10. clip split behavior
-11. clip make-unique behavior
-12. clip drag and trim invariant behavior
+1. reducer action-map tests
+2. MIDI import into session shape
+3. checkpoint restore into live editor state
+4. render scope handling at integration level
+5. selection and song-tool invariants
+6. clip drag and trim invariant behavior
 
 ## Bottom line
 

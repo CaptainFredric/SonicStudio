@@ -29,21 +29,22 @@ The codebase is now split around a few real boundaries:
 
 1. `src/context/AudioContext.tsx`
    Main session controller and reducer integration layer. Still too large, but smaller than before.
-2. `src/services/renderWorkflow.ts`
+2. `src/context/editor/projectMutations.ts`
+   Pure arranger clip and track mutation helpers used by the reducer.
+3. `src/services/renderWorkflow.ts`
    Render and bounce orchestration.
-3. `src/services/sessionWorkflow.ts`
+4. `src/services/sessionWorkflow.ts`
    Persistence, checkpoint, and import orchestration.
-4. `src/components/settings/*`
+5. `src/components/settings/*`
    Workspace, track, and output controls broken into smaller panels.
-5. `src/components/arranger/*`
-   Arranger selector logic, interaction utilities, inspector panels, and hero-surface view modules.
+6. `src/components/arranger/*`
+   Arranger selector logic, interaction utilities, clip drag and paint hooks, viewport and shortcut hooks, inspector panels, and hero-surface view modules.
 
 The main remaining refactor targets are still:
 
 1. `src/context/AudioContext.tsx`
-2. `src/components/Arranger.tsx`
-3. `src/components/DeviceRack.tsx`
-4. reducer and integration correctness coverage
+2. `src/components/DeviceRack.tsx`
+3. reducer and integration correctness coverage
 
 ## Quick start
 
@@ -77,7 +78,7 @@ npm run build
 
 The strongest next milestones are:
 
-1. split `AudioContext.tsx` into transport, arranger mutation, track mutation, and reducer-map boundaries
-2. finish arranger orchestration cleanup by extracting paint, lane-menu, keyboard-bridge, and scroll-follow logic
-3. split `DeviceRack.tsx` into source, shape, space, slicing, and recall surfaces
-4. expand correctness coverage around clip operations, checkpoint restore, and import-export round trips
+1. split `AudioContext.tsx` into transport, arranger action-map, track mutation, and history-helper boundaries
+2. split `DeviceRack.tsx` into source, shape, space, slicing, and recall surfaces
+3. expand correctness coverage around clip operations, checkpoint restore, and import-export round trips
+4. keep the arranger focused on composition fluency instead of growing every side feature equally

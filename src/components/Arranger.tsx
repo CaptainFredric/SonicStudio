@@ -6,15 +6,14 @@ import { ArrangerHeader } from './arranger/ArrangerHeader';
 import { ArrangerInspector } from './arranger/ArrangerInspector';
 import { buildLaneData, buildLaneSections, buildSectionRanges, isDrumTrack } from './arranger/arrangerSelectors';
 import { ArrangerTimeline } from './arranger/ArrangerTimeline';
-import type { DragMode, DragState, InspectorTab, LaneScope, LaneSectionKey, PaintMode, PaintState, SnapSize, ZoomPreset } from './arranger/types';
+import { useArrangerClipDrag } from './arranger/useArrangerClipDrag';
+import { useArrangerPaint } from './arranger/useArrangerPaint';
+import { useArrangerShortcuts } from './arranger/useArrangerShortcuts';
+import { useArrangerViewport } from './arranger/useArrangerViewport';
+import type { InspectorTab, LaneScope, LaneSectionKey, SnapSize, ZoomPreset } from './arranger/types';
 import {
-  getClipUpdatesFromDragState,
-  getDragPreview,
   getRenderedClipFrame,
   getSplitBeat,
-  getViewportScrollLeft,
-  resolveArrangerShortcut,
-  shouldHandleTimelineWheel,
 } from './arranger/interactionUtils';
 import { buildComposerRows, getComposerStepCount } from './arranger/noteUtils';
 
@@ -39,30 +38,6 @@ const formatBars = (steps: number) => Math.max(1, Math.ceil(steps / 16));
 const getVisibleRangeLabel = (startStep: number, endStep: number) => (
   `${startStep + 1} to ${Math.max(startStep + 1, endStep)}`
 );
-
-const scrollTimelineToStep = (
-  node: HTMLDivElement,
-  step: number,
-  pixelsPerStep: number,
-  align: 'center' | 'nearest' = 'center',
-) => {
-  const targetLeft = step * pixelsPerStep;
-  const viewportStart = node.scrollLeft;
-  const viewportEnd = viewportStart + node.clientWidth;
-
-  if (align === 'nearest' && targetLeft >= viewportStart && targetLeft <= viewportEnd) {
-    return;
-  }
-
-  const nextLeft = align === 'center'
-    ? Math.max(0, targetLeft - node.clientWidth * 0.5)
-    : Math.max(0, targetLeft - node.clientWidth * 0.2);
-
-  node.scrollTo({
-    behavior: 'smooth',
-    left: nextLeft,
-  });
-};
 
 export const Arranger = () => {
   const {
@@ -107,8 +82,6 @@ export const Arranger = () => {
     updateSongMarker,
     removeSongMarker,
   } = useAudio();
-  const [dragState, setDragState] = useState<DragState | null>(null);
-  const [paintState, setPaintState] = useState<PaintState | null>(null);
   const [selectedPhraseStepIndex, setSelectedPhraseStepIndex] = useState(0);
   const [selectedPhraseNoteIndex, setSelectedPhraseNoteIndex] = useState<number | null>(null);
   const [snapSize, setSnapSize] = useState<SnapSize>(DEFAULT_SNAP);
@@ -125,8 +98,6 @@ export const Arranger = () => {
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('COMPOSE');
   const [isInspectorOpen, setIsInspectorOpen] = useState(true);
   const [openLaneMenuTrackId, setOpenLaneMenuTrackId] = useState<string | null>(null);
-  const [viewportWidth, setViewportWidth] = useState(0);
-  const [scrollLeft, setScrollLeft] = useState(0);
   const timelineRef = useRef<HTMLDivElement | null>(null);
   const pixelsPerStep = ZOOM_PIXELS_PER_STEP[zoomPreset];
 
@@ -171,6 +142,50 @@ export const Arranger = () => {
   );
   const timelineSteps = Math.max(songLengthInBeats, 32);
   const timelineWidth = timelineSteps * pixelsPerStep;
+  const { beginClipDrag, dragState } = useArrangerClipDrag({
+    arrangerClips,
+    minClipLength: MIN_CLIP_LENGTH,
+    onSelectClip: (clipId) => {
+      const clip = arrangerClips.find((candidate) => candidate.id === clipId);
+      if (!clip) {
+        return;
+      }
+
+      setSelectedArrangerClipId(clip.id);
+      setSelectedTrackId(clip.trackId);
+      setCurrentPattern(clip.patternIndex);
+    },
+    pixelsPerStep,
+    snapSize,
+    updateArrangerClip,
+  });
+  const {
+    beginPaint,
+    beginSlicePaint,
+    continuePaint,
+    continueSlicePaint,
+  } = useArrangerPaint({
+    selectedClipId: selectedClip?.id ?? null,
+    setClipPatternStepSlice,
+    setSelectedPhraseNoteIndex,
+    setSelectedPhraseStepIndex,
+    toggleClipPatternStep,
+  });
+  const {
+    handleTimelineWheel,
+    jumpToStep,
+    scrollLeft,
+    scrollTimelineByViewport,
+    setScrollStripPosition,
+    viewportWidth,
+  } = useArrangerViewport({
+    currentStep,
+    followPlayhead,
+    pixelsPerStep,
+    selectedClip,
+    timelineRef,
+    timelineWidth,
+  });
   const totalBars = formatBars(timelineSteps);
   const totalDurationSeconds = songLengthInBeats * (60 / bpm) * 0.25;
   const visibleStartStep = Math.floor(scrollLeft / pixelsPerStep);
@@ -238,163 +253,16 @@ export const Arranger = () => {
     window.addEventListener('pointerdown', handlePointerDown, true);
     return () => window.removeEventListener('pointerdown', handlePointerDown, true);
   }, [openLaneMenuTrackId]);
-
-  useEffect(() => {
-    if (!dragState) {
-      return undefined;
-    }
-
-    const handlePointerMove = (event: PointerEvent) => {
-      const preview = getDragPreview(
-        dragState,
-        event.clientX,
-        pixelsPerStep,
-        snapSize,
-        MIN_CLIP_LENGTH,
-      );
-
-      setDragState((current) => current ? {
-        ...current,
-        previewBeatLength: preview.beatLength,
-        previewStartBeat: preview.startBeat,
-      } : current);
-    };
-
-    const handlePointerUp = () => {
-      const clip = arrangerClips.find((candidate) => candidate.id === dragState.clipId);
-      if (clip) {
-        const updates = getClipUpdatesFromDragState(dragState);
-
-        if (Object.keys(updates).length > 0) {
-          updateArrangerClip(clip.id, updates);
-        }
-      }
-
-      setDragState(null);
-    };
-
-    window.addEventListener('pointermove', handlePointerMove);
-    window.addEventListener('pointerup', handlePointerUp, { once: true });
-
-    return () => {
-      window.removeEventListener('pointermove', handlePointerMove);
-      window.removeEventListener('pointerup', handlePointerUp);
-    };
-  }, [arrangerClips, dragState, pixelsPerStep, snapSize, updateArrangerClip]);
-
-  useEffect(() => {
-    if (!paintState) {
-      return undefined;
-    }
-
-    const clearPaint = () => setPaintState(null);
-    window.addEventListener('pointerup', clearPaint, { once: true });
-
-    return () => {
-      window.removeEventListener('pointerup', clearPaint);
-    };
-  }, [paintState]);
-
-  useEffect(() => {
-    const node = timelineRef.current;
-    if (!node) {
-      return undefined;
-    }
-
-    const updateViewport = () => {
-      setViewportWidth(node.clientWidth);
-      setScrollLeft(node.scrollLeft);
-    };
-
-    updateViewport();
-    node.addEventListener('scroll', updateViewport, { passive: true });
-    window.addEventListener('resize', updateViewport);
-
-    return () => {
-      node.removeEventListener('scroll', updateViewport);
-      window.removeEventListener('resize', updateViewport);
-    };
-  }, [zoomPreset]);
-
-  useEffect(() => {
-    if (!followPlayhead) {
-      return;
-    }
-
-    const node = timelineRef.current;
-    if (!node) {
-      return;
-    }
-
-    scrollTimelineToStep(node, currentStep, pixelsPerStep, 'nearest');
-  }, [currentStep, followPlayhead, pixelsPerStep]);
-
-  useEffect(() => {
-    if (!selectedClip) {
-      return;
-    }
-
-    const node = timelineRef.current;
-    if (!node) {
-      return;
-    }
-
-    const clipMidpoint = selectedClip.startBeat + selectedClip.beatLength / 2;
-    scrollTimelineToStep(node, clipMidpoint, pixelsPerStep, 'nearest');
-  }, [pixelsPerStep, selectedClip?.id]);
-
-  useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (target && (
-        target.tagName === 'INPUT'
-        || target.tagName === 'TEXTAREA'
-        || target.tagName === 'SELECT'
-        || target.isContentEditable
-      )) {
-        return;
-      }
-
-      if (!selectedClip) {
-        return;
-      }
-
-      const shortcutAction = resolveArrangerShortcut(event, selectedClip, snapSize);
-      if (!shortcutAction) {
-        return;
-      }
-
-      event.preventDefault();
-
-      switch (shortcutAction.type) {
-        case 'duplicate':
-          duplicateArrangerClip(selectedClip.id);
-          return;
-        case 'make-unique':
-          makeClipPatternUnique(selectedClip.id);
-          return;
-        case 'remove':
-          removeArrangerClip(selectedClip.id);
-          return;
-        case 'move':
-          updateArrangerClip(selectedClip.id, { startBeat: Math.max(0, selectedClip.startBeat + shortcutAction.amount) });
-          return;
-        case 'transpose':
-          transformClipPattern(selectedClip.id, 'transpose', shortcutAction.amount);
-          return;
-        case 'toggle-follow':
-          setFollowPlayhead((current) => !current);
-          return;
-        default:
-          return;
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [duplicateArrangerClip, makeClipPatternUnique, removeArrangerClip, selectedClip, snapSize, transformClipPattern, updateArrangerClip]);
+  useArrangerShortcuts({
+    duplicateArrangerClip,
+    makeClipPatternUnique,
+    removeArrangerClip,
+    selectedClip,
+    setFollowPlayhead,
+    snapSize,
+    transformClipPattern,
+    updateArrangerClip,
+  });
 
   const selectClip = (clipId: string) => {
     const clip = arrangerClips.find((candidate) => candidate.id === clipId);
@@ -408,93 +276,19 @@ export const Arranger = () => {
   };
 
   const revealSelectedClip = () => {
-    if (!selectedClip || !timelineRef.current) {
-      return;
-    }
-
-    scrollTimelineToStep(
-      timelineRef.current,
-      selectedClip.startBeat + selectedClip.beatLength / 2,
-      pixelsPerStep,
-      'center',
-    );
-  };
-
-  const jumpToPlayhead = () => {
-    if (!timelineRef.current) {
-      return;
-    }
-
-    scrollTimelineToStep(timelineRef.current, currentStep, pixelsPerStep, 'center');
-  };
-
-  const jumpToBoundary = (step: number) => {
-    if (!timelineRef.current) {
-      return;
-    }
-
-    scrollTimelineToStep(timelineRef.current, step, pixelsPerStep, 'center');
-  };
-
-  const beginClipDrag = (clip: ArrangementClip, event: React.PointerEvent<HTMLDivElement>, mode: DragMode) => {
-    event.preventDefault();
-    event.stopPropagation();
-    selectClip(clip.id);
-    setDragState({
-      clipId: clip.id,
-      mode,
-      originX: event.clientX,
-      previewBeatLength: clip.beatLength,
-      previewStartBeat: clip.startBeat,
-      sourceBeatLength: clip.beatLength,
-      sourceStartBeat: clip.startBeat,
-    });
-  };
-
-  const beginPaint = (note: string, stepIndex: number, isActive: boolean) => {
     if (!selectedClip) {
       return;
     }
 
-    const mode: PaintMode = isActive ? 'remove' : 'add';
-    setSelectedPhraseStepIndex(stepIndex);
-    setSelectedPhraseNoteIndex(0);
-    setPaintState({ mode, note });
-    toggleClipPatternStep(selectedClip.id, stepIndex, note, mode);
+    jumpToStep(selectedClip.startBeat + selectedClip.beatLength / 2, 'center');
   };
 
-  const continuePaint = (note: string, stepIndex: number) => {
-    if (!paintState || !selectedClip || paintState.note !== note) {
-      return;
-    }
-
-    setSelectedPhraseStepIndex(stepIndex);
-    toggleClipPatternStep(selectedClip.id, stepIndex, note, paintState.mode);
+  const jumpToPlayhead = () => {
+    jumpToStep(currentStep, 'center');
   };
 
-  const beginSlicePaint = (stepIndex: number, sliceIndex: number | null, isActive: boolean) => {
-    if (!selectedClip || sliceIndex === null) {
-      return;
-    }
-
-    const mode: PaintMode = isActive ? 'remove' : 'add';
-    setSelectedPhraseStepIndex(stepIndex);
-    setSelectedPhraseNoteIndex(0);
-    setPaintState({ mode, sliceIndex });
-    setClipPatternStepSlice(selectedClip.id, stepIndex, mode === 'remove' ? null : sliceIndex);
-  };
-
-  const continueSlicePaint = (stepIndex: number) => {
-    if (!paintState || !selectedClip || typeof paintState.sliceIndex !== 'number') {
-      return;
-    }
-
-    setSelectedPhraseStepIndex(stepIndex);
-    setClipPatternStepSlice(
-      selectedClip.id,
-      stepIndex,
-      paintState.mode === 'remove' ? null : paintState.sliceIndex,
-    );
+  const jumpToBoundary = (step: number) => {
+    jumpToStep(step, 'center');
   };
 
   const phraseSummary = selectedClip && selectedClipTrack
@@ -504,32 +298,6 @@ export const Arranger = () => {
   const splitBeat = selectedClip
     ? getSplitBeat(selectedClip, currentStep, snapSize, transportMode, MIN_CLIP_LENGTH)
     : null;
-
-  const scrollTimelineByViewport = (direction: -1 | 1) => {
-    if (!timelineRef.current) {
-      return;
-    }
-
-    timelineRef.current.scrollTo({
-      behavior: 'smooth',
-      left: getViewportScrollLeft(
-        timelineRef.current.scrollLeft,
-        maxTimelineScrollLeft,
-        viewportWidth,
-        direction,
-      ),
-    });
-  };
-
-  const handleTimelineWheel = (event: React.WheelEvent<HTMLDivElement>) => {
-    const node = timelineRef.current;
-    if (!node || !shouldHandleTimelineWheel(event.deltaX, event.deltaY, node.scrollWidth, node.clientWidth)) {
-      return;
-    }
-
-    event.preventDefault();
-    node.scrollLeft += event.deltaY;
-  };
 
   return (
     <section className="surface-panel flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -661,13 +429,7 @@ export const Arranger = () => {
           selectedArrangerClipId={selectedArrangerClipId}
           selectedClip={selectedClip}
           selectedTrackId={selectedTrackId}
-          setScrollStripPosition={(value) => {
-            if (!timelineRef.current) {
-              return;
-            }
-
-            timelineRef.current.scrollLeft = value;
-          }}
+          setScrollStripPosition={setScrollStripPosition}
           snapSize={snapSize}
           timelineRef={timelineRef}
           timelineSteps={timelineSteps}
