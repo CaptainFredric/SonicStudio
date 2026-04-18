@@ -2,15 +2,17 @@
 
 ## Purpose
 
-This is the current technical and product reevaluation of SonicStudio after the arranger decomposition pass that followed the second critique cleanup.
+This is the current technical and product reevaluation of SonicStudio after the arranger second-phase decomposition pass.
 
 The first critique pass removed reviewer-facing studio chrome and created the first real service boundaries.
 
 This pass followed through on the clearest next layer of the critique:
 
 1. break down the arranger hero surface
-2. add correctness coverage around extracted arranger selectors
-3. update the docs so the codebase description matches the actual structure
+2. move volatile interaction math out of the arranger coordinator
+3. split the inspector by job before it hardened into a new monolith
+4. add interaction-oriented correctness coverage
+5. update the docs so the codebase description matches the actual structure
 
 The goal of this document is to give another AI or engineer a clean, current, technically grounded picture of what SonicStudio is now.
 
@@ -31,7 +33,7 @@ The product is trying to be a credible lightweight browser studio for a solo cre
 
 ## What improved in this pass
 
-### 1. The arranger is no longer one giant render tree
+### 1. The arranger is no longer one giant render tree or one giant interaction blob
 
 The biggest structural change in this pass is the arranger split.
 
@@ -42,35 +44,64 @@ New files:
 3. `src/components/arranger/ArrangerTimeline.tsx`
 4. `src/components/arranger/arrangerSelectors.ts`
 5. `src/components/arranger/types.ts`
+6. `src/components/arranger/interactionUtils.ts`
+7. `src/components/arranger/noteUtils.ts`
+8. `src/components/arranger/inspector/SongToolsPanel.tsx`
+9. `src/components/arranger/inspector/ShapePanel.tsx`
+10. `src/components/arranger/inspector/AutomationPanel.tsx`
+11. `src/components/arranger/inspector/ComposePanel.tsx`
 
-`src/components/Arranger.tsx` still owns coordination, local state, drag state, and keyboard wiring, but it no longer directly renders the entire hero surface inline.
+`src/components/Arranger.tsx` still owns coordination, local state, drag state, and selection wiring, but it no longer directly owns the full hero render tree or the volatile drag and keyboard math.
 
-The split is now shaped around actual product responsibilities:
+The current arranger structure is now shaped around actual product responsibilities:
 
 1. header and song overview
 2. phrase desk and song tools
 3. timeline and lane rendering
 4. pure selectors for lane and section derivation
+5. pure utilities for drag, trim, split, scroll, and shortcut resolution
+6. dedicated inspector panels for compose, shape, automation, and sections
 
 This matters because the arranger is the hero surface. Complexity there hurts both the product and the codebase more than a comparable issue in a secondary panel.
 
-### 2. Arranger derivation now has its own correctness layer
+### 2. Arranger derivation and interaction logic now have a correctness layer
 
 The critique was correct that a state-heavy music tool needs more correctness coverage around pure state shaping.
 
 That is now improved through:
 
 1. `src/components/arranger/arrangerSelectors.test.ts`
+2. `src/components/arranger/interactionUtils.test.ts`
 
 Current coverage added:
 
 1. section-range derivation from markers and clip overlap
 2. pinned and grouped lane-section derivation
 3. pinned-scope behavior without duplicate pinned sections
+4. drag snapping behavior
+5. trim minimum-length invariants
+6. split fallback behavior
+7. shortcut resolution
+8. viewport-scroll clamping
+9. wheel handling gating
 
-This is still only a start, but it moves arranger refactoring away from pure faith.
+This is still only a start, but it moves arranger refactoring away from pure faith and into testable interaction rules.
 
-### 3. Docs now match the current structure better
+### 3. The inspector is structurally healthier
+
+The critique that warned against `ArrangerInspector.tsx` becoming the next dumping ground was correct.
+
+That risk is now reduced because:
+
+1. compose and step editing moved into `ComposePanel.tsx`
+2. automation moved into `AutomationPanel.tsx`
+3. shape controls moved into `ShapePanel.tsx`
+4. section and marker tooling moved into `SongToolsPanel.tsx`
+5. `ArrangerInspector.tsx` is now mostly tab selection and shared prop routing
+
+It still has high prop volume, so this is healthier, not finished.
+
+### 4. Docs now match the current structure better
 
 `README.md` was updated so the repo no longer describes SonicStudio like an older submission build.
 
@@ -106,6 +137,8 @@ These improvements are still in place and still matter:
 4. session and checkpoint behavior is separated in `src/services/sessionWorkflow.ts`
 5. arranger rendering is separated into header, inspector, and timeline modules
 6. arranger selector logic is separated into pure functions with tests
+7. arranger interaction rules are separated into pure functions with tests
+8. arranger inspector panels are separated by job
 
 ### Still too large
 
@@ -132,7 +165,7 @@ The product shell is cleaner and more disciplined than it was before:
 The architectural center of gravity is still too concentrated:
 
 1. `AudioContext.tsx` still does too much
-2. `Arranger.tsx` still centralizes too much coordination and event handling
+2. `Arranger.tsx` still centralizes too much coordination and event orchestration
 3. `DeviceRack.tsx` still holds too many concerns in one file
 4. correctness coverage is still modest relative to product complexity
 
@@ -205,10 +238,10 @@ The current arranger split is useful, but not complete.
 
 Best next decomposition:
 
-1. extract drag and trim helpers out of `Arranger.tsx`
-2. extract keyboard shortcut handling out of `Arranger.tsx`
-3. move phrase-composer editing logic into a focused arranger editor module
-4. isolate lane-menu action wiring from lane rendering
+1. isolate lane-menu action wiring from `ArrangerTimeline.tsx`
+2. extract paint-state orchestration from `Arranger.tsx`
+3. extract scroll-follow behavior from `Arranger.tsx`
+4. extract keyboard event bridging from `Arranger.tsx`
 
 ## What another AI should test next
 
@@ -220,8 +253,10 @@ Best next decomposition:
 6. MIDI import into session shape
 7. checkpoint restore into live editor state
 8. render scope handling at integration level
-9. arranger keyboard shortcut behavior
-10. clip drag and trim invariant behavior
+9. clip duplicate behavior
+10. clip split behavior
+11. clip make-unique behavior
+12. clip drag and trim invariant behavior
 
 ## Bottom line
 

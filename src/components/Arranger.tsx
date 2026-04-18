@@ -1,18 +1,26 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useAudio } from '../context/AudioContext';
-import { defaultNoteForTrack, type ArrangementClip, type Track } from '../project/schema';
+import { type ArrangementClip } from '../project/schema';
 import { ArrangerHeader } from './arranger/ArrangerHeader';
 import { ArrangerInspector } from './arranger/ArrangerInspector';
 import { buildLaneData, buildLaneSections, buildSectionRanges, isDrumTrack } from './arranger/arrangerSelectors';
 import { ArrangerTimeline } from './arranger/ArrangerTimeline';
 import type { DragMode, DragState, InspectorTab, LaneScope, LaneSectionKey, PaintMode, PaintState, SnapSize, ZoomPreset } from './arranger/types';
+import {
+  getClipUpdatesFromDragState,
+  getDragPreview,
+  getRenderedClipFrame,
+  getSplitBeat,
+  getViewportScrollLeft,
+  resolveArrangerShortcut,
+  shouldHandleTimelineWheel,
+} from './arranger/interactionUtils';
+import { buildComposerRows, getComposerStepCount } from './arranger/noteUtils';
 
 const DEFAULT_SNAP = 4;
 const MIN_CLIP_LENGTH = 4;
-const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-
-const ZOOM_PIXELS_PER_STEP: Record<ZoomPreset, number> = {
+export const ZOOM_PIXELS_PER_STEP: Record<ZoomPreset, number> = {
   PHRASE: 30,
   SECTION: 18,
   SONG: 10,
@@ -25,61 +33,6 @@ const SNAP_OPTIONS: Array<{ label: string; value: SnapSize }> = [
   { label: '8', value: 8 },
   { label: '16', value: 16 },
 ];
-
-const snapStepDelta = (offsetPx: number, pixelsPerStep: number, snapSize: SnapSize) => (
-  Math.round(offsetPx / pixelsPerStep / snapSize) * snapSize
-);
-
-const snapStepValue = (value: number, snapSize: SnapSize) => (
-  Math.round(value / snapSize) * snapSize
-);
-
-const noteToMidi = (note: string): number | null => {
-  const match = note.match(/^([A-G]#?)(-?\d+)$/);
-  if (!match) {
-    return null;
-  }
-
-  const pitchClass = NOTE_NAMES.indexOf(match[1]);
-  if (pitchClass === -1) {
-    return null;
-  }
-
-  return (Number(match[2]) + 1) * 12 + pitchClass;
-};
-
-const midiToNote = (midi: number): string => {
-  const clampedMidi = Math.max(24, Math.min(96, Math.round(midi)));
-  const pitchClass = NOTE_NAMES[clampedMidi % 12];
-  const octave = Math.floor(clampedMidi / 12) - 1;
-  return `${pitchClass}${octave}`;
-};
-
-const shiftNote = (note: string, semitones: number) => {
-  const midi = noteToMidi(note);
-  if (midi === null) {
-    return note;
-  }
-
-  return midiToNote(midi + semitones);
-};
-
-const buildComposerRows = (track: Track, focusNote: string | null) => {
-  const rootMidi = noteToMidi(focusNote ?? defaultNoteForTrack(track)) ?? noteToMidi(defaultNoteForTrack(track)) ?? 60;
-  return Array.from({ length: 12 }, (_, index) => midiToNote(rootMidi + 7 - index));
-};
-
-const getComposerStepCount = (clip: ArrangementClip | null, stepsPerPattern: number) => {
-  if (!clip) {
-    return Math.min(stepsPerPattern, 16);
-  }
-
-  if (clip.beatLength > 16 || stepsPerPattern > 16) {
-    return Math.min(stepsPerPattern, 32);
-  }
-
-  return Math.min(stepsPerPattern, 16);
-};
 
 const formatBars = (steps: number) => Math.max(1, Math.ceil(steps / 16));
 
@@ -292,47 +245,25 @@ export const Arranger = () => {
     }
 
     const handlePointerMove = (event: PointerEvent) => {
-      const stepDelta = snapStepDelta(event.clientX - dragState.originX, pixelsPerStep, snapSize);
-
-      if (dragState.mode === 'move') {
-        setDragState((current) => current ? {
-          ...current,
-          previewStartBeat: Math.max(0, dragState.sourceStartBeat + stepDelta),
-        } : current);
-        return;
-      }
-
-      if (dragState.mode === 'trim-end') {
-        setDragState((current) => current ? {
-          ...current,
-          previewBeatLength: Math.max(MIN_CLIP_LENGTH, dragState.sourceBeatLength + stepDelta),
-        } : current);
-        return;
-      }
-
-      const requestedStart = Math.max(0, dragState.sourceStartBeat + stepDelta);
-      const maxStartBeat = dragState.sourceStartBeat + dragState.sourceBeatLength - MIN_CLIP_LENGTH;
-      const nextStartBeat = Math.min(requestedStart, maxStartBeat);
+      const preview = getDragPreview(
+        dragState,
+        event.clientX,
+        pixelsPerStep,
+        snapSize,
+        MIN_CLIP_LENGTH,
+      );
 
       setDragState((current) => current ? {
         ...current,
-        previewBeatLength: dragState.sourceBeatLength - (nextStartBeat - dragState.sourceStartBeat),
-        previewStartBeat: nextStartBeat,
+        previewBeatLength: preview.beatLength,
+        previewStartBeat: preview.startBeat,
       } : current);
     };
 
     const handlePointerUp = () => {
       const clip = arrangerClips.find((candidate) => candidate.id === dragState.clipId);
       if (clip) {
-        const updates: Partial<ArrangementClip> = {};
-
-        if (dragState.previewStartBeat !== dragState.sourceStartBeat) {
-          updates.startBeat = dragState.previewStartBeat;
-        }
-
-        if (dragState.previewBeatLength !== dragState.sourceBeatLength) {
-          updates.beatLength = dragState.previewBeatLength;
-        }
+        const updates = getClipUpdatesFromDragState(dragState);
 
         if (Object.keys(updates).length > 0) {
           updateArrangerClip(clip.id, updates);
@@ -428,53 +359,34 @@ export const Arranger = () => {
         return;
       }
 
-      const key = event.key.toLowerCase();
-
-      if (key === 'd' && !event.metaKey && !event.ctrlKey) {
-        event.preventDefault();
-        duplicateArrangerClip(selectedClip.id);
+      const shortcutAction = resolveArrangerShortcut(event, selectedClip, snapSize);
+      if (!shortcutAction) {
         return;
       }
 
-      if (key === 'u' && !event.metaKey && !event.ctrlKey) {
-        event.preventDefault();
-        makeClipPatternUnique(selectedClip.id);
-        return;
-      }
+      event.preventDefault();
 
-      if (key === 'backspace' && !event.metaKey && !event.ctrlKey) {
-        event.preventDefault();
-        removeArrangerClip(selectedClip.id);
-        return;
-      }
-
-      if (event.key === 'ArrowLeft') {
-        event.preventDefault();
-        updateArrangerClip(selectedClip.id, { startBeat: Math.max(0, selectedClip.startBeat - snapSize) });
-        return;
-      }
-
-      if (event.key === 'ArrowRight') {
-        event.preventDefault();
-        updateArrangerClip(selectedClip.id, { startBeat: selectedClip.startBeat + snapSize });
-        return;
-      }
-
-      if (event.key === '[') {
-        event.preventDefault();
-        transformClipPattern(selectedClip.id, 'transpose', -1);
-        return;
-      }
-
-      if (event.key === ']') {
-        event.preventDefault();
-        transformClipPattern(selectedClip.id, 'transpose', 1);
-        return;
-      }
-
-      if (key === 'f' && !event.metaKey && !event.ctrlKey) {
-        event.preventDefault();
-        setFollowPlayhead((current) => !current);
+      switch (shortcutAction.type) {
+        case 'duplicate':
+          duplicateArrangerClip(selectedClip.id);
+          return;
+        case 'make-unique':
+          makeClipPatternUnique(selectedClip.id);
+          return;
+        case 'remove':
+          removeArrangerClip(selectedClip.id);
+          return;
+        case 'move':
+          updateArrangerClip(selectedClip.id, { startBeat: Math.max(0, selectedClip.startBeat + shortcutAction.amount) });
+          return;
+        case 'transpose':
+          transformClipPattern(selectedClip.id, 'transpose', shortcutAction.amount);
+          return;
+        case 'toggle-follow':
+          setFollowPlayhead((current) => !current);
+          return;
+        default:
+          return;
       }
     };
 
@@ -539,37 +451,6 @@ export const Arranger = () => {
     });
   };
 
-  const getRenderedClipFrame = (clip: ArrangementClip) => {
-    if (!dragState || dragState.clipId !== clip.id) {
-      return {
-        beatLength: clip.beatLength,
-        startBeat: clip.startBeat,
-      };
-    }
-
-    return {
-      beatLength: dragState.previewBeatLength,
-      startBeat: dragState.previewStartBeat,
-    };
-  };
-
-  const getSplitBeat = (clip: ArrangementClip) => {
-    const clipCenter = clip.startBeat + Math.floor(clip.beatLength / 2 / snapSize) * snapSize;
-    if (transportMode !== 'SONG') {
-      return clipCenter;
-    }
-
-    const snappedPlayhead = snapStepValue(currentStep, snapSize);
-    const minSplit = clip.startBeat + MIN_CLIP_LENGTH;
-    const maxSplit = clip.startBeat + clip.beatLength - MIN_CLIP_LENGTH;
-
-    if (snappedPlayhead < minSplit || snappedPlayhead > maxSplit) {
-      return clipCenter;
-    }
-
-    return snappedPlayhead;
-  };
-
   const beginPaint = (note: string, stepIndex: number, isActive: boolean) => {
     if (!selectedClip) {
       return;
@@ -620,7 +501,9 @@ export const Arranger = () => {
     ? `${selectedClipTrack.name} · Pattern ${String.fromCharCode(65 + selectedClip.patternIndex)} · ${selectedClip.beatLength} steps · ${selectedPhraseActiveSteps} active`
     : 'Select a clip to compose directly in song view';
   const visibleRangeLabel = getVisibleRangeLabel(visibleStartStep, visibleEndStep);
-  const splitBeat = selectedClip ? getSplitBeat(selectedClip) : null;
+  const splitBeat = selectedClip
+    ? getSplitBeat(selectedClip, currentStep, snapSize, transportMode, MIN_CLIP_LENGTH)
+    : null;
 
   const scrollTimelineByViewport = (direction: -1 | 1) => {
     if (!timelineRef.current) {
@@ -629,21 +512,18 @@ export const Arranger = () => {
 
     timelineRef.current.scrollTo({
       behavior: 'smooth',
-      left: Math.max(0, Math.min(maxTimelineScrollLeft, timelineRef.current.scrollLeft + direction * Math.max(160, viewportWidth * 0.72))),
+      left: getViewportScrollLeft(
+        timelineRef.current.scrollLeft,
+        maxTimelineScrollLeft,
+        viewportWidth,
+        direction,
+      ),
     });
   };
 
   const handleTimelineWheel = (event: React.WheelEvent<HTMLDivElement>) => {
     const node = timelineRef.current;
-    if (!node || node.scrollWidth <= node.clientWidth) {
-      return;
-    }
-
-    if (event.deltaX !== 0) {
-      return;
-    }
-
-    if (Math.abs(event.deltaY) < Math.abs(event.deltaX)) {
+    if (!node || !shouldHandleTimelineWheel(event.deltaX, event.deltaY, node.scrollWidth, node.clientWidth)) {
       return;
     }
 
@@ -736,7 +616,6 @@ export const Arranger = () => {
           selectedAutomationTone={selectedAutomationTone}
           selectedClip={selectedClip}
           selectedClipAutomation={selectedClipAutomation}
-          selectedClipPattern={selectedClipPattern}
           selectedClipTrack={selectedClipTrack}
           selectedPhraseNote={selectedPhraseNote}
           selectedPhraseNoteIndex={normalizedSelectedPhraseNoteIndex}
@@ -755,7 +634,7 @@ export const Arranger = () => {
           clipHeightClass={clipHeightClass}
           collapsedGroups={collapsedGroups}
           currentStep={currentStep}
-          getRenderedClipFrame={getRenderedClipFrame}
+          getRenderedClipFrame={(clip) => getRenderedClipFrame(clip, dragState)}
           handleTimelineWheel={handleTimelineWheel}
           inspectorOpen={isInspectorOpen}
           laneDataCount={laneData.length}
