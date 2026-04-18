@@ -12,6 +12,18 @@ import {
 
 import { useAudio } from '../context/AudioContext';
 import { type NoteEvent } from '../project/schema';
+import {
+  NOTE_GATE_COARSE_STEP,
+  NOTE_GATE_FINE_STEP,
+  NOTE_GATE_GRID_STEP,
+  NOTE_GATE_JUMP_STEP,
+  NOTE_GATE_MAX,
+  NOTE_GATE_MEDIUM_STEP,
+  NOTE_GATE_MIN,
+  NOTE_GATE_PRESETS,
+  clampNoteGate,
+  snapNoteGate,
+} from '../utils/noteEditing';
 
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const NOTE_WINDOWS = {
@@ -35,6 +47,13 @@ type NoteWindowKey = keyof typeof NOTE_WINDOWS;
 type StepZoomKey = keyof typeof STEP_ZOOM_PRESETS;
 type RowZoomKey = keyof typeof ROW_ZOOM_PRESETS;
 
+interface NoteResizeState {
+  initialGate: number;
+  noteIndex: number;
+  startClientX: number;
+  stepIndex: number;
+}
+
 export const PianoRoll = () => {
   const {
     clearTrack,
@@ -55,6 +74,7 @@ export const PianoRoll = () => {
   const [stepZoom, setStepZoom] = useState<StepZoomKey>('DETAIL');
   const [rowZoom, setRowZoom] = useState<RowZoomKey>('DETAIL');
   const [focusSelectedNote, setFocusSelectedNote] = useState(false);
+  const [noteResizeState, setNoteResizeState] = useState<NoteResizeState | null>(null);
   const gridViewportRef = useRef<HTMLDivElement | null>(null);
   const [gridScrollLeft, setGridScrollLeft] = useState(0);
   const [gridViewportWidth, setGridViewportWidth] = useState(0);
@@ -204,6 +224,83 @@ export const PianoRoll = () => {
 
     updateStepEvent(track.id, selectedStepIndex, normalizedSelectedNoteIndex, updates);
   };
+
+  const updateSelectedGate = (nextGate: number) => {
+    if (!selectedNote || normalizedSelectedNoteIndex === null || selectedStepIndex === null) {
+      return;
+    }
+
+    updateStepEvent(track.id, selectedStepIndex, normalizedSelectedNoteIndex, {
+      gate: clampNoteGate(nextGate),
+    });
+  };
+
+  useEffect(() => {
+    if (!noteResizeState) {
+      return undefined;
+    }
+
+    const handlePointerMove = (event: MouseEvent) => {
+      const deltaSteps = (event.clientX - noteResizeState.startClientX) / stepCellWidth;
+      const snappedStep = event.shiftKey ? NOTE_GATE_FINE_STEP : NOTE_GATE_GRID_STEP;
+      const nextGate = snapNoteGate(noteResizeState.initialGate + deltaSteps, snappedStep);
+      updateStepEvent(track.id, noteResizeState.stepIndex, noteResizeState.noteIndex, {
+        gate: nextGate,
+      });
+    };
+
+    const stopResizing = () => {
+      setNoteResizeState(null);
+    };
+
+    window.addEventListener('mousemove', handlePointerMove);
+    window.addEventListener('mouseup', stopResizing);
+
+    return () => {
+      window.removeEventListener('mousemove', handlePointerMove);
+      window.removeEventListener('mouseup', stopResizing);
+    };
+  }, [noteResizeState, stepCellWidth, track.id, updateStepEvent]);
+
+  useEffect(() => {
+    if (!selectedNote || normalizedSelectedNoteIndex === null || selectedStepIndex === null) {
+      return undefined;
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (
+        target
+        && (
+          target.tagName === 'INPUT'
+          || target.tagName === 'SELECT'
+          || target.tagName === 'TEXTAREA'
+          || target.tagName === 'BUTTON'
+          || target.isContentEditable
+        )
+      ) {
+        return;
+      }
+
+      if (event.key !== '[' && event.key !== ']') {
+        return;
+      }
+
+      event.preventDefault();
+      const direction = event.key === ']' ? 1 : -1;
+      const amount = event.altKey
+        ? NOTE_GATE_JUMP_STEP
+        : event.shiftKey
+          ? NOTE_GATE_COARSE_STEP
+          : NOTE_GATE_MEDIUM_STEP;
+      updateSelectedGate(selectedNote.gate + (direction * amount));
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [normalizedSelectedNoteIndex, selectedNote, selectedStepIndex, updateSelectedGate]);
 
   return (
     <section className="surface-panel flex flex-1 min-h-0 flex-col overflow-hidden">
@@ -382,8 +479,28 @@ export const PianoRoll = () => {
                                 background: track.color,
                                 boxShadow: 'inset 0 0 0 1px rgba(15, 23, 42, 0.16)',
                                 opacity: isCurrent ? 1 : 0.9,
-                                width: `${Math.max(10, Math.min(52, activeEvent.gate * 14))}px`,
+                                width: `${Math.max(10, Math.min((stepCellWidth * NOTE_GATE_MAX) - 6, (activeEvent.gate * stepCellWidth) - 6))}px`,
                               }}
+                            />
+                            <span
+                              className="absolute inset-y-[3px] z-[2] cursor-ew-resize rounded-r-md border-l border-white/20 bg-[rgba(10,15,21,0.38)] transition-colors hover:bg-[rgba(10,15,21,0.58)]"
+                              onMouseDown={(event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                setSelectedStepIndex(stepIndex);
+                                setSelectedNoteIndex(noteIndex);
+                                setNoteResizeState({
+                                  initialGate: activeEvent.gate,
+                                  noteIndex,
+                                  startClientX: event.clientX,
+                                  stepIndex,
+                                });
+                              }}
+                              style={{
+                                left: `${Math.max(10, Math.min((stepCellWidth * NOTE_GATE_MAX) - 14, (activeEvent.gate * stepCellWidth) - 14))}px`,
+                                width: '10px',
+                              }}
+                              title="Resize note length"
                             />
                             <span
                               className="absolute bottom-1 right-1 rounded-full bg-black/25"
@@ -392,6 +509,11 @@ export const PianoRoll = () => {
                                 width: '4px',
                               }}
                             />
+                            {(isSelected || noteResizeState?.stepIndex === stepIndex && noteResizeState?.noteIndex === noteIndex) && (
+                              <span className="absolute bottom-1 left-1 rounded-sm bg-[rgba(10,15,21,0.76)] px-1 font-mono text-[8px] text-[var(--accent-strong)]">
+                                {activeEvent.gate.toFixed(2)}x
+                              </span>
+                            )}
                           </>
                         )}
                         {step.length > 1 && (
@@ -653,10 +775,25 @@ export const PianoRoll = () => {
                         <span className="font-mono text-[10px] text-[var(--text-secondary)]">{selectedNote.gate.toFixed(2)}</span>
                       </div>
                       <div className="mt-3 flex flex-wrap gap-2">
-                        <WindowButton label="-0.05" active={false} onClick={() => bumpSelectedNote({ gate: clampNumber(selectedNote.gate - 0.05, 0.25, 4) })} />
-                        <WindowButton label="-0.25" active={false} onClick={() => bumpSelectedNote({ gate: clampNumber(selectedNote.gate - 0.25, 0.25, 4) })} />
-                        <WindowButton label="+0.05" active={false} onClick={() => bumpSelectedNote({ gate: clampNumber(selectedNote.gate + 0.05, 0.25, 4) })} />
-                        <WindowButton label="+0.25" active={false} onClick={() => bumpSelectedNote({ gate: clampNumber(selectedNote.gate + 0.25, 0.25, 4) })} />
+                        <WindowButton label="-0.01" active={false} onClick={() => updateSelectedGate(selectedNote.gate - NOTE_GATE_FINE_STEP)} />
+                        <WindowButton label="-0.05" active={false} onClick={() => updateSelectedGate(selectedNote.gate - NOTE_GATE_MEDIUM_STEP)} />
+                        <WindowButton label="-0.25" active={false} onClick={() => updateSelectedGate(selectedNote.gate - NOTE_GATE_COARSE_STEP)} />
+                        <WindowButton label="-1" active={false} onClick={() => updateSelectedGate(selectedNote.gate - NOTE_GATE_JUMP_STEP)} />
+                        <WindowButton label="+0.01" active={false} onClick={() => updateSelectedGate(selectedNote.gate + NOTE_GATE_FINE_STEP)} />
+                        <WindowButton label="+0.05" active={false} onClick={() => updateSelectedGate(selectedNote.gate + NOTE_GATE_MEDIUM_STEP)} />
+                        <WindowButton label="+0.25" active={false} onClick={() => updateSelectedGate(selectedNote.gate + NOTE_GATE_COARSE_STEP)} />
+                        <WindowButton label="+1" active={false} onClick={() => updateSelectedGate(selectedNote.gate + NOTE_GATE_JUMP_STEP)} />
+                      </div>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {NOTE_GATE_PRESETS.map((preset) => (
+                          <React.Fragment key={preset}>
+                            <WindowButton
+                              active={Math.abs(selectedNote.gate - preset) < NOTE_GATE_FINE_STEP}
+                              label={`${preset}x`}
+                              onClick={() => updateSelectedGate(preset)}
+                            />
+                          </React.Fragment>
+                        ))}
                       </div>
                     </div>
                   </div>
@@ -692,13 +829,16 @@ export const PianoRoll = () => {
                 <input
                   className="mt-3"
                   disabled={!selectedNote || normalizedSelectedNoteIndex === null}
-                  max="4"
-                  min="0.25"
-                  onChange={(event) => normalizedSelectedNoteIndex !== null && updateStepEvent(track.id, selectedStepIndex, normalizedSelectedNoteIndex, { gate: Number(event.target.value) })}
-                  step="0.25"
+                  max={NOTE_GATE_MAX}
+                  min={NOTE_GATE_MIN}
+                  onChange={(event) => normalizedSelectedNoteIndex !== null && updateStepEvent(track.id, selectedStepIndex, normalizedSelectedNoteIndex, { gate: clampNoteGate(Number(event.target.value)) })}
+                  step={NOTE_GATE_FINE_STEP}
                   type="range"
                   value={selectedNote?.gate ?? 1}
                 />
+                <div className="mt-2 text-[11px] text-[var(--text-secondary)]">
+                  Drag the right edge of any note block to resize it directly. Hold Shift while dragging for finer steps. Use [ and ] for quick gate nudges.
+                </div>
               </div>
 
               {!selectedNote && (

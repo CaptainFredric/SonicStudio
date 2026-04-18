@@ -2,6 +2,12 @@ import React from 'react';
 import { Trash2 } from 'lucide-react';
 
 import { defaultNoteForTrack, type ArrangementClip, type NoteEvent, type SampleSliceMemory, type Track } from '../../../../project/schema';
+import {
+  NOTE_GATE_FINE_STEP,
+  NOTE_GATE_MAX,
+  NOTE_GATE_MIN,
+  clampNoteGate,
+} from '../../../../utils/noteEditing';
 import { shiftNote } from '../../noteUtils';
 import { NoteDetailEditor } from './NoteDetailEditor';
 
@@ -111,15 +117,15 @@ const SampleSliceEditor = ({
         <input
           className="w-full"
           disabled={selectedPhraseStep.length === 0}
-          max="4"
-          min="0.25"
+          max={NOTE_GATE_MAX}
+          min={NOTE_GATE_MIN}
           onChange={(event) => updateClipPatternStepEvent(
             selectedClip.id,
             selectedPhraseStepIndex,
             0,
-            { gate: Number(event.target.value) },
+            { gate: clampNoteGate(Number(event.target.value)) },
           )}
-          step="0.05"
+          step={NOTE_GATE_FINE_STEP}
           type="range"
           value={selectedPhraseStep[0]?.gate ?? 1}
         />

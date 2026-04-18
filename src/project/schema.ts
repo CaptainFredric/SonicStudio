@@ -1,3 +1,5 @@
+import { NOTE_GATE_MAX, NOTE_GATE_MIN, clampNoteGate } from '../utils/noteEditing';
+
 export type AppView = 'SEQUENCER' | 'PIANO_ROLL' | 'MIXER' | 'ARRANGER';
 export type InstrumentType = 'kick' | 'snare' | 'hihat' | 'bass' | 'lead' | 'pad' | 'pluck' | 'fx';
 export type TransportMode = 'PATTERN' | 'SONG';
@@ -493,7 +495,7 @@ const createId = (prefix: string) => {
 };
 
 const clampStepVelocity = (velocity: number) => clamp(velocity, 0.1, 1);
-const clampStepGate = (gate: number) => clamp(gate, 0.25, 4);
+const clampStepGate = (gate: number) => clampNoteGate(clamp(gate, NOTE_GATE_MIN, NOTE_GATE_MAX));
 const clampAutomationValue = (value: number) => clamp(value, 0, 1);
 const cloneStep = (step: StepValue): StepValue => step.map((event) => ({ ...event }));
 const buildProjectMetadata = (projectName: string): ProjectMetadata => {

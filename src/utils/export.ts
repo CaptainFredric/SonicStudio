@@ -13,6 +13,7 @@ import {
   type StudioSession,
   type Track,
 } from '../project/schema';
+import { clampNoteGate } from './noteEditing';
 
 export interface ExportOptions {
   format: 'midi' | 'wav' | 'mp3' | 'json' | 'flac' | 'ogg';
@@ -487,7 +488,7 @@ const buildSessionFromMidi = (
       const noteLabel = type === 'kick' || type === 'snare' || type === 'hihat' || type === 'fx'
         ? 'C1'
         : midiToNote(note.noteNumber);
-      const gate = Math.max(0.25, Math.min(4, Number((note.durationTicks / stepTicks).toFixed(2))));
+      const gate = clampNoteGate(Number((note.durationTicks / stepTicks).toFixed(2)));
       const velocity = Math.max(0.1, Math.min(1, Number(note.velocity.toFixed(2))));
 
       track.patterns[patternIndex][stepIndex].push(createStepEvent(noteLabel, { gate, velocity }));

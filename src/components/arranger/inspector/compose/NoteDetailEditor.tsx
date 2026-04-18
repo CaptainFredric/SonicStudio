@@ -2,6 +2,16 @@ import React from 'react';
 import { Minus, Plus, Trash2 } from 'lucide-react';
 
 import type { ArrangementClip, NoteEvent } from '../../../../project/schema';
+import {
+  NOTE_GATE_COARSE_STEP,
+  NOTE_GATE_FINE_STEP,
+  NOTE_GATE_JUMP_STEP,
+  NOTE_GATE_MAX,
+  NOTE_GATE_MEDIUM_STEP,
+  NOTE_GATE_MIN,
+  NOTE_GATE_PRESETS,
+  clampNoteGate,
+} from '../../../../utils/noteEditing';
 import { phraseRowsForNote, shiftNote } from '../../noteUtils';
 
 interface NoteDetailEditorProps {
@@ -29,7 +39,15 @@ export const NoteDetailEditor = ({
   selectedPhraseStep,
   selectedPhraseStepIndex,
   updateClipPatternStepEvent,
-}: NoteDetailEditorProps) => (
+}: NoteDetailEditorProps) => {
+  const updateGate = (gate: number) => updateClipPatternStepEvent(
+    selectedClip.id,
+    selectedPhraseStepIndex,
+    selectedPhraseNoteIndex,
+    { gate: clampNoteGate(gate) },
+  );
+
+  return (
   <div className="mt-4 grid gap-3">
     <div className="grid grid-cols-[40px_minmax(0,1fr)_40px] gap-2">
       <button
@@ -100,19 +118,43 @@ export const NoteDetailEditor = ({
       </div>
       <input
         className="w-full"
-        max="4"
-        min="0.25"
-        onChange={(event) => updateClipPatternStepEvent(
-          selectedClip.id,
-          selectedPhraseStepIndex,
-          selectedPhraseNoteIndex,
-          { gate: Number(event.target.value) },
-        )}
-        step="0.25"
+        max={NOTE_GATE_MAX}
+        min={NOTE_GATE_MIN}
+        onChange={(event) => updateGate(Number(event.target.value))}
+        step={NOTE_GATE_FINE_STEP}
         type="range"
         value={selectedPhraseNote.gate}
       />
     </label>
+
+    <div className="rounded-[12px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+      <div className="flex items-center justify-between">
+        <span className="section-label">Resize note</span>
+        <span className="font-mono text-[10px] text-[var(--text-tertiary)]">{selectedPhraseNote.gate.toFixed(2)}x</span>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => updateGate(selectedPhraseNote.gate - NOTE_GATE_FINE_STEP)} type="button">-0.01</button>
+        <button className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => updateGate(selectedPhraseNote.gate - NOTE_GATE_MEDIUM_STEP)} type="button">-0.05</button>
+        <button className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => updateGate(selectedPhraseNote.gate - NOTE_GATE_COARSE_STEP)} type="button">-0.25</button>
+        <button className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => updateGate(selectedPhraseNote.gate - NOTE_GATE_JUMP_STEP)} type="button">-1</button>
+        <button className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => updateGate(selectedPhraseNote.gate + NOTE_GATE_FINE_STEP)} type="button">+0.01</button>
+        <button className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => updateGate(selectedPhraseNote.gate + NOTE_GATE_MEDIUM_STEP)} type="button">+0.05</button>
+        <button className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => updateGate(selectedPhraseNote.gate + NOTE_GATE_COARSE_STEP)} type="button">+0.25</button>
+        <button className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => updateGate(selectedPhraseNote.gate + NOTE_GATE_JUMP_STEP)} type="button">+1</button>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-2">
+        {NOTE_GATE_PRESETS.map((preset) => (
+          <button
+            className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+            key={preset}
+            onClick={() => updateGate(preset)}
+            type="button"
+          >
+            {preset}x
+          </button>
+        ))}
+      </div>
+    </div>
 
     <div className="flex gap-2">
       <button
@@ -121,6 +163,7 @@ export const NoteDetailEditor = ({
           onToggleClipPatternStep(selectedClip.id, selectedPhraseStepIndex, shiftNote(selectedPhraseNote.note, 7), 'add');
           onSetSelectedPhraseNoteIndex(selectedPhraseStep.length);
         }}
+        type="button"
       >
         Add fifth
       </button>
@@ -130,10 +173,12 @@ export const NoteDetailEditor = ({
           onToggleClipPatternStep(selectedClip.id, selectedPhraseStepIndex, selectedPhraseNote.note, 'remove');
           onSetSelectedPhraseNoteIndex(selectedPhraseStep.length > 1 ? Math.max(0, selectedPhraseNoteIndex - 1) : null);
         }}
+        type="button"
       >
         <Trash2 className="h-3.5 w-3.5" />
         Remove
       </button>
     </div>
   </div>
-);
+  );
+};

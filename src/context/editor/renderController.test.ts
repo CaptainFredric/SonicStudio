@@ -84,6 +84,7 @@ describe('renderController', () => {
       exportedAt: '2026-04-18T12:00:00.000Z',
       id: 'entry-a',
       label: 'Selected clip stems',
+      masterSnapshotName: null,
       mode: 'stems',
       normalization: 'none',
       scope: 'clip-window',

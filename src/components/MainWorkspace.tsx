@@ -16,6 +16,12 @@ import {
 
 import { getSamplePresetMeta } from '../audio/sampleLibrary';
 import { useAudio } from '../context/AudioContext';
+import {
+  NOTE_GATE_FINE_STEP,
+  NOTE_GATE_MAX,
+  NOTE_GATE_MIN,
+  clampNoteGate,
+} from '../utils/noteEditing';
 
 const TRACK_BUTTONS = [
   { label: 'Kick', type: 'kick' as const },
@@ -472,7 +478,7 @@ export const MainWorkspace = () => {
                                 {isActive && (
                                   <span
                                     className="absolute bottom-1 left-1 rounded-full bg-black/20"
-                                    style={{ height: '3px', width: `${Math.max(6, Math.min(20, maxGate * 6))}px` }}
+                                    style={{ height: '3px', width: `${Math.max(8, Math.min(34, maxGate * 4.5))}px` }}
                                   />
                                 )}
                                 {extraNotes > 0 && (
@@ -654,10 +660,10 @@ export const MainWorkspace = () => {
                       </div>
                       <input
                         className="mt-3"
-                        max="4"
-                        min="0.25"
-                        onChange={(event) => updateStepEvent(selectedTrack.id, selectedStepIndex, 0, { gate: Number(event.target.value) })}
-                        step="0.25"
+                        max={NOTE_GATE_MAX}
+                        min={NOTE_GATE_MIN}
+                        onChange={(event) => updateStepEvent(selectedTrack.id, selectedStepIndex, 0, { gate: clampNoteGate(Number(event.target.value)) })}
+                        step={NOTE_GATE_FINE_STEP}
                         type="range"
                         value={selectedLeadEvent.gate}
                       />
