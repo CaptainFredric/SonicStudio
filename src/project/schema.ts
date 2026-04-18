@@ -1396,7 +1396,7 @@ export const resizeTrackPatterns = (
   };
 };
 
-export const createDemoProject = (projectName: string = 'Night Transit'): Project => {
+export const createNightTransitProject = (projectName: string = 'Night Transit'): Project => {
   const { buildProject, tracks, transport } = createProjectFrame(projectName, {
     bpm: 124,
     mode: 'SONG',
@@ -1658,7 +1658,7 @@ export const createProjectFromTemplate = (
       return createAmbientProject();
     case 'night-transit':
     default:
-      return createDemoProject();
+      return createNightTransitProject();
   }
 };
 

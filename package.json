@@ -2,7 +2,7 @@
   "name": "sonicstudio-web-daw",
   "private": true,
   "version": "0.1.0",
-  "description": "Browser-native groovebox and sketchpad built with React and Tone.js.",
+  "description": "Browser-native composition studio built with React and Tone.js.",
   "type": "module",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",

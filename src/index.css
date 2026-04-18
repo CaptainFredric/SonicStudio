@@ -91,7 +91,7 @@
     var(--bg-panel-strong);
 }
 
-.showcase-gradient-panel {
+.launchpad-panel {
   background:
     radial-gradient(circle at 82% 18%, rgba(114, 217, 255, 0.11), transparent 18%),
     radial-gradient(circle at 8% 100%, rgba(255, 156, 138, 0.06), transparent 20%),

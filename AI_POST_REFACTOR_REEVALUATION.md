@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This is the current technical and product reevaluation of SonicStudio after the arranger second-phase decomposition pass and the first controller-cleanup pass that followed it.
+This is the current technical and product reevaluation of SonicStudio after the arranger second-phase decomposition pass, the first controller-cleanup pass that followed it, and the provider-controller split after that.
 
 The first critique pass removed reviewer-facing studio chrome and created the first real service boundaries.
 
@@ -15,6 +15,8 @@ This pass followed through on the clearest next layer of the critique:
 5. update the docs so the codebase description matches the actual structure
 6. move clip mutation rules into a pure editor helper module
 7. add deeper clip-mutation and session-hydration coverage
+8. move provider-level transport, render, and session orchestration into editor controller modules
+9. remove stale demo identity residue and make the launch surface the real first-view route
 
 The goal of this document is to give another AI or engineer a clean, current, technically grounded picture of what SonicStudio is now.
 
@@ -53,9 +55,13 @@ New files:
 10. `src/components/arranger/inspector/AutomationPanel.tsx`
 11. `src/components/arranger/inspector/ComposePanel.tsx`
 12. `src/context/editor/projectMutations.ts`
+13. `src/context/editor/transportController.ts`
+14. `src/context/editor/renderController.ts`
+15. `src/context/editor/sessionController.ts`
 
 `src/components/Arranger.tsx` still owns coordination, local state, drag state, and selection wiring, but it no longer directly owns the full hero render tree or the volatile drag and keyboard math.
 `src/context/AudioContext.tsx` also no longer owns the concrete clip duplicate, split, and make-unique implementations.
+It also no longer owns the provider-level export, import, checkpoint, preview, and playback orchestration that used to sit inline near the bottom of the file.
 
 The current arranger structure is now shaped around actual product responsibilities:
 
@@ -104,7 +110,26 @@ Current extra coverage:
 4. serialized session hydration round trip
 5. invalid UI-selection normalization during hydration
 
-### 3. The inspector is structurally healthier
+### 3. Provider-level orchestration is split into controller seams
+
+New files:
+
+1. `src/context/editor/transportController.ts`
+2. `src/context/editor/renderController.ts`
+3. `src/context/editor/sessionController.ts`
+
+Current responsibilities moved out of `AudioContext.tsx`:
+
+1. playback and recording control
+2. track preview control
+3. transport reset behavior used by session hydration
+4. mix, stem, and MIDI export orchestration
+5. bounce-history rerun orchestration
+6. session export, import, restore, checkpoint, and template-load orchestration
+
+This is a real architecture win because the provider now describes dependencies more clearly instead of carrying every operational routine inline.
+
+### 4. The inspector is structurally healthier
 
 The critique that warned against `ArrangerInspector.tsx` becoming the next dumping ground was correct.
 
@@ -118,7 +143,26 @@ That risk is now reduced because:
 
 It still has high prop volume, so this is healthier, not finished.
 
-### 4. Docs now match the current structure better
+### 5. Identity residue and first-view behavior are cleaner
+
+Updated:
+
+1. `package.json`
+2. `metadata.json`
+3. `src/App.tsx`
+4. `src/project/schema.ts`
+5. `src/index.css`
+6. `src/components/Launchpad.tsx`
+
+Concrete cleanup:
+
+1. `createDemoProject` was renamed to `createNightTransitProject`
+2. `hasAppliedDemoParams` was removed
+3. `.showcase-gradient-panel` was renamed to `.launchpad-panel`
+4. product descriptions no longer describe SonicStudio as a groovebox or sketchpad
+5. the launch surface now replaces the studio on first load instead of stacking over it
+
+### 6. Docs now match the current structure better
 
 `README.md` was updated so the repo no longer describes SonicStudio like an older submission build.
 
@@ -144,6 +188,7 @@ These improvements are still in place and still matter:
 8. the repo now has a growing test harness
 9. workspace settings are split into clearer panels
 10. clip mutation rules now live behind a pure editor helper seam
+11. provider-level transport, render, and session logic now live behind editor controller modules
 
 ## Current file-boundary state
 
@@ -158,6 +203,7 @@ These improvements are still in place and still matter:
 7. arranger interaction rules are separated into pure functions with tests
 8. arranger inspector panels are separated by job
 9. clip mutation rules are separated into `src/context/editor/projectMutations.ts`
+10. provider-level orchestration is separated into transport, render, and session controller modules
 
 ### Still too large
 
@@ -188,6 +234,7 @@ The architectural center of gravity is still too concentrated:
 3. `DeviceRack.tsx` still holds too many concerns in one file
 4. correctness coverage is still modest relative to product complexity
 5. reducer behavior is still exercised indirectly instead of through a standalone reducer module
+6. reducer action maps still live in one large switch
 
 ## Current verdict
 
@@ -222,6 +269,7 @@ Keep:
 12. the arranger header, inspector, and timeline split
 13. pure arranger selector functions with tests
 14. pure clip mutation helpers with tests
+15. the launch surface as a clean first-view route instead of a stacked showcase layer
 
 ## What another AI should cut or demote further
 
@@ -263,6 +311,12 @@ Best next decomposition:
 2. keep `ComposePanel.tsx` from growing back into a local monolith
 3. extract any remaining selection-coupling helpers that still belong in a pure seam
 4. add interaction-level tests around selection plus song-tool behavior
+
+### 4. Keep the product identity honest
+
+1. keep the launch surface as a real entry route
+2. keep naming aligned with a browser-native composition studio
+3. keep removing any residue that describes an older showcase-era product
 
 ## What another AI should test next
 

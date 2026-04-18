@@ -1,5 +1,5 @@
 {
   "name": "SonicStudio Web DAW",
-  "description": "A browser-native groovebox for sketching loops, shaping sounds, and saving sessions locally.",
+  "description": "A browser-native composition studio for arranging songs, shaping sound, and keeping sessions local.",
   "requestFramePermissions": []
 }

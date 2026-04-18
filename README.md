@@ -31,13 +31,19 @@ The codebase is now split around a few real boundaries:
    Main session controller and reducer integration layer. Still too large, but smaller than before.
 2. `src/context/editor/projectMutations.ts`
    Pure arranger clip and track mutation helpers used by the reducer.
-3. `src/services/renderWorkflow.ts`
+3. `src/context/editor/transportController.ts`
+   Playback, recording, preview, and transport reset orchestration for the provider layer.
+4. `src/context/editor/renderController.ts`
+   Provider-facing mix, stem, MIDI, and bounce-history orchestration.
+5. `src/context/editor/sessionController.ts`
+   Provider-facing session import, export, restore, checkpoint, and template-load orchestration.
+6. `src/services/renderWorkflow.ts`
    Render and bounce orchestration.
-4. `src/services/sessionWorkflow.ts`
+7. `src/services/sessionWorkflow.ts`
    Persistence, checkpoint, and import orchestration.
-5. `src/components/settings/*`
+8. `src/components/settings/*`
    Workspace, track, and output controls broken into smaller panels.
-6. `src/components/arranger/*`
+9. `src/components/arranger/*`
    Arranger selector logic, interaction utilities, clip drag and paint hooks, viewport and shortcut hooks, inspector panels, and hero-surface view modules.
 
 The main remaining refactor targets are still:
@@ -49,7 +55,7 @@ The main remaining refactor targets are still:
 ## Quick start
 
 1. Start the dev server or open the hosted build
-2. Wake audio and press Play
+2. Use the launch surface to open a real scene, start blank, or import MIDI
 3. Load `Beat Lab` for rhythm work or `Night Transit` for a fuller song sketch
 4. Open `Song` view to inspect clips and structure
 5. Open `Notes` to inspect tighter pitch and gate editing
@@ -82,3 +88,4 @@ The strongest next milestones are:
 2. split `DeviceRack.tsx` into source, shape, space, slicing, and recall surfaces
 3. expand correctness coverage around clip operations, checkpoint restore, and import-export round trips
 4. keep the arranger focused on composition fluency instead of growing every side feature equally
+5. keep the launch surface as a real first-view route instead of drifting back into layered shell clutter

@@ -9,7 +9,6 @@ import React, {
   type ReactNode,
 } from 'react';
 
-import { renderProjectOffline } from '../audio/offlineRender';
 import { engine } from '../audio/ToneEngine';
 import {
   cloneProject,
@@ -46,31 +45,12 @@ import {
   type TransportMode,
 } from '../project/schema';
 import {
-  createSessionFromTemplate,
   createDefaultSession,
   loadPersistedSession,
   type PersistedCheckpoint,
 } from '../project/storage';
-import {
-  exportToMIDI,
-  type RenderTargetProfileId,
-} from '../utils/export';
-import {
-  buildBounceHistoryEntry,
-  buildBounceHistoryLabel,
-  buildRenderProject,
-  exportOfflineMix,
-  exportOfflineStems,
-} from '../services/renderWorkflow';
-import {
-  deleteStudioCheckpoint,
-  importStudioMidiFile,
-  importStudioSessionFile,
-  listStudioCheckpoints,
-  persistStudioSession,
-  restoreStudioCheckpoint,
-  saveStudioCheckpoint,
-} from '../services/sessionWorkflow';
+import { type RenderTargetProfileId } from '../utils/export';
+import { listStudioCheckpoints, persistStudioSession } from '../services/sessionWorkflow';
 import {
   IDLE_RENDER_STATE,
   type BounceNormalizationMode,
@@ -87,6 +67,9 @@ import {
   syncArrangerClips,
   updateTrack,
 } from './editor/projectMutations';
+import { createRenderController } from './editor/renderController';
+import { createSessionController } from './editor/sessionController';
+import { createTransportController } from './editor/transportController';
 
 export type { BounceNormalizationMode, BounceTailMode, ExportScope } from '../services/workflowTypes';
 
@@ -2018,90 +2001,28 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
     setIsInitialized(true);
   };
 
-  const cancelCountIn = () => {
-    countInTokenRef.current += 1;
-    setCountInActive(false);
-    setCountInBeatsRemaining(0);
-  };
-
-  const startPlaybackWithCountIn = async () => {
-    const bars = project.transport.countInBars;
-    if (bars <= 0) {
-      setIsPlaying(engine.togglePlayback());
-      return;
-    }
-
-    const beatDurationMs = (60 / project.transport.bpm) * 1000;
-    const totalBeats = bars * 4;
-    const token = countInTokenRef.current + 1;
-    countInTokenRef.current = token;
-    setCountInActive(true);
-    setCountInBeatsRemaining(totalBeats);
-
-    for (let beatIndex = 0; beatIndex < totalBeats; beatIndex += 1) {
-      if (countInTokenRef.current !== token) {
-        return;
-      }
-
-      engine.previewMetronomeTick(beatIndex % 4 === 0);
-      setCountInBeatsRemaining(totalBeats - beatIndex);
-
-      await new Promise((resolve) => {
-        window.setTimeout(resolve, beatDurationMs);
-      });
-    }
-
-    if (countInTokenRef.current !== token) {
-      return;
-    }
-
-    setCountInActive(false);
-    setCountInBeatsRemaining(0);
-    setIsPlaying(engine.togglePlayback());
-  };
-
-  const togglePlay = async () => {
-    await initAudio();
-
-    if (countInActive) {
-      cancelCountIn();
-      return;
-    }
-
-    if (isPlaying) {
-      cancelCountIn();
-      setIsPlaying(engine.togglePlayback());
-      return;
-    }
-
-    await startPlaybackWithCountIn();
-  };
-
-  const stop = () => {
-    cancelCountIn();
-    engine.stop();
-    setCurrentStep(0);
-    setIsPlaying(false);
-  };
-
-  const toggleRecording = async () => {
-    if (!isInitialized) {
-      await initAudio();
-    }
-
-    if (isRecording) {
-      await engine.stopRecording();
-      setIsRecording(false);
-      return;
-    }
-
-    await engine.startRecording();
-    setIsRecording(true);
-
-    if (!isPlaying) {
-      await togglePlay();
-    }
-  };
+  const {
+    previewTrack,
+    resetTransportState,
+    stop,
+    togglePlay,
+    toggleRecording,
+  } = createTransportController({
+    countInActive,
+    countInTokenRef,
+    currentProject: project,
+    engine,
+    initAudio,
+    isInitialized,
+    isPlaying,
+    isRecording,
+    setCountInActive,
+    setCountInBeatsRemaining,
+    setCurrentStep,
+    setIsPlaying,
+    setIsRecording,
+    tracks: project.tracks,
+  });
 
   const handleKeyboardShortcuts = useEffectEvent((event: KeyboardEvent) => {
     const target = event.target as HTMLElement | null;
@@ -2172,231 +2093,40 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
-  const saveProject = () => {
-    setSaveStatus('saving');
-    persistCurrentSession();
-  };
+  const {
+    deleteCheckpoint,
+    exportSession,
+    importMidiSession,
+    importSession,
+    loadSessionTemplate,
+    newSession,
+    restoreCheckpoint,
+    saveCheckpoint,
+    saveProject,
+  } = createSessionController({
+    currentProject: editorState.history.present,
+    currentUi: editorState.ui,
+    dispatchHydrateSession: (session) => dispatch({ type: 'HYDRATE_SESSION', session }),
+    persistCurrentSession,
+    resetTransportState,
+    setLastSavedAt,
+    setProjectCheckpoints,
+    setSaveStatus,
+  });
 
-  const saveCheckpoint = (label?: string) => {
-    setProjectCheckpoints(saveStudioCheckpoint({
-      project: editorState.history.present,
-      ui: editorState.ui,
-    }, label));
-  };
-
-  const previewTrack = async (trackId: string, note?: string, sampleSliceIndex?: number) => {
-    const track = project.tracks.find((candidate) => candidate.id === trackId);
-    if (!track) {
-      return;
-    }
-
-    if (!isInitialized) {
-      await initAudio();
-    }
-
-    engine.previewTrack(track, note ?? defaultNoteForTrack(track), sampleSliceIndex);
-  };
-
-  const resetTransportState = () => {
-    engine.stop();
-    setCurrentStep(0);
-    setIsPlaying(false);
-  };
-
-  const newSession = () => {
-    resetTransportState();
-    setLastSavedAt(null);
-    setSaveStatus('idle');
-    dispatch({ type: 'HYDRATE_SESSION', session: createDefaultSession('blank-grid') });
-  };
-
-  const loadSessionTemplate = (templateId: SessionTemplateId) => {
-    resetTransportState();
-    setLastSavedAt(null);
-    setSaveStatus('idle');
-    dispatch({ type: 'HYDRATE_SESSION', session: createSessionFromTemplate(templateId) });
-  };
-
-  const exportSession = () => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    const payload = JSON.stringify({
-      project: editorState.history.present,
-      ui: editorState.ui,
-    }, null, 2);
-    const blob = new Blob([payload], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    const fileName = project.metadata.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'sonicstudio-session';
-
-    anchor.href = url;
-    anchor.download = `${fileName}.sonicstudio.json`;
-    anchor.click();
-    URL.revokeObjectURL(url);
-  };
-
-  const appendBounceHistory = (
-    mode: 'mix' | 'stems',
-    scope: ExportScope,
-    options: { normalization?: BounceNormalizationMode; tailMode?: BounceTailMode; targetProfileId?: RenderTargetProfileId },
-    label: string,
-    analysis?: Parameters<typeof buildBounceHistoryEntry>[5],
-  ) => {
-    dispatch({
-      type: 'APPEND_BOUNCE_HISTORY',
-      entry: buildBounceHistoryEntry(project, mode, scope, options, label, analysis),
-    });
-  };
-
-  const exportAudioMix = async (
-    scope: ExportScope = project.transport.mode === 'SONG' ? 'song' : 'pattern',
-    options: { normalization?: BounceNormalizationMode; tailMode?: BounceTailMode; targetProfileId?: RenderTargetProfileId } = {},
-  ) => {
-    const renderPayload = buildRenderProject({
-      loopRangeEndBeat,
-      loopRangeStartBeat,
-      project,
-      scope,
-      selectedArrangerClipId,
-    });
-    if (!renderPayload) {
-      return;
-    }
-
-    await exportOfflineMix({
-      onMixRendered: (analysis) => {
-        appendBounceHistory('mix', scope, options, buildBounceHistoryLabel(scope, 'mix'), analysis);
-      },
-      options,
-      projectName: project.metadata.name,
-      renderOffline: renderProjectOffline,
-      renderPayload,
-      scheduler: {
-        clearTimeout: (timerId) => window.clearTimeout(timerId),
-        delay: (ms) => new Promise((resolve) => {
-          window.setTimeout(resolve, ms);
-        }),
-        setTimeout: (callback, ms) => window.setTimeout(callback, ms),
-      },
-      setRenderState,
-    });
-  };
-
-  const exportMidi = async (
-    scope: ExportScope = project.transport.mode === 'SONG' ? 'song' : 'pattern',
-  ) => {
-    const renderPayload = buildRenderProject({
-      loopRangeEndBeat,
-      loopRangeStartBeat,
-      project,
-      scope,
-      selectedArrangerClipId,
-    });
-    if (!renderPayload) {
-      return;
-    }
-
-    await exportToMIDI(renderPayload.project, { format: 'midi' });
-  };
-
-  const exportTrackStems = async (
-    scope: ExportScope = project.transport.mode === 'SONG' ? 'song' : 'pattern',
-    options: { normalization?: BounceNormalizationMode; tailMode?: BounceTailMode; targetProfileId?: RenderTargetProfileId } = {},
-  ) => {
-    const renderPayload = buildRenderProject({
-      loopRangeEndBeat,
-      loopRangeStartBeat,
-      project,
-      scope,
-      selectedArrangerClipId,
-    });
-    if (!renderPayload) {
-      return;
-    }
-
-    await exportOfflineStems({
-      onStemBatchRendered: () => {
-        appendBounceHistory('stems', scope, options, buildBounceHistoryLabel(scope, 'stems'));
-      },
-      options,
-      projectName: project.metadata.name,
-      renderOffline: renderProjectOffline,
-      renderPayload,
-      scheduler: {
-        clearTimeout: (timerId) => window.clearTimeout(timerId),
-        delay: (ms) => new Promise((resolve) => {
-          window.setTimeout(resolve, ms);
-        }),
-        setTimeout: (callback, ms) => window.setTimeout(callback, ms),
-      },
-      setRenderState,
-    });
-  };
-
-  const importSession = async (file: File) => {
-    saveCheckpoint('Before JSON import');
-    const session = await importStudioSessionFile(file);
-    if (!session) {
-      setSaveStatus('error');
-      return false;
-    }
-
-    resetTransportState();
-    setLastSavedAt(null);
-    setSaveStatus('idle');
-    dispatch({ type: 'HYDRATE_SESSION', session });
-    return true;
-  };
-
-  const importMidiSession = async (file: File) => {
-    saveCheckpoint('Before MIDI import');
-    const session = await importStudioMidiFile(file);
-    if (!session) {
-      setSaveStatus('error');
-      return false;
-    }
-
-    resetTransportState();
-    setLastSavedAt(null);
-    setSaveStatus('idle');
-    dispatch({ type: 'HYDRATE_SESSION', session });
-    return true;
-  };
-
-  const rerunBounceHistory = async (entryId: string) => {
-    const entry = project.bounceHistory.find((candidate) => candidate.id === entryId);
-    if (!entry) {
-      return;
-    }
-
-    const options = {
-      normalization: entry.normalization,
-      tailMode: entry.tailMode,
-      targetProfileId: entry.targetProfileId,
-    } satisfies { normalization: BounceNormalizationMode; tailMode: BounceTailMode; targetProfileId?: RenderTargetProfileId };
-
-    if (entry.mode === 'stems') {
-      await exportTrackStems(entry.scope, options);
-      return;
-    }
-
-    await exportAudioMix(entry.scope, options);
-  };
-
-  const restoreCheckpoint = (checkpointId: string) => {
-    const session = restoreStudioCheckpoint(checkpointId);
-    if (!session) {
-      return false;
-    }
-
-    resetTransportState();
-    setLastSavedAt(null);
-    setSaveStatus('idle');
-    dispatch({ type: 'HYDRATE_SESSION', session });
-    return true;
-  };
+  const {
+    exportAudioMix,
+    exportMidi,
+    exportTrackStems,
+    rerunBounceHistory,
+  } = createRenderController({
+    currentProject: project,
+    dispatchAppendBounceHistory: (entry) => dispatch({ type: 'APPEND_BOUNCE_HISTORY', entry }),
+    loopRangeEndBeat,
+    loopRangeStartBeat,
+    selectedArrangerClipId,
+    setRenderState,
+  });
 
   return (
     <AudioContext.Provider value={{
@@ -2515,7 +2245,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       updateStepEvent: (trackId, stepIndex, noteIndex, updates) => dispatch({ type: 'UPDATE_STEP_EVENT', noteIndex, stepIndex, trackId, updates }),
       updateTrackPan: (trackId, pan) => dispatch({ type: 'TOGGLE_PAN', pan, trackId }),
       updateTrackVolume: (trackId, volume) => dispatch({ type: 'TOGGLE_VOLUME', trackId, volume }),
-      deleteCheckpoint: (checkpointId) => setProjectCheckpoints(deleteStudioCheckpoint(checkpointId)),
+      deleteCheckpoint,
       deleteSampleSlice: (trackId, sliceIndex) => dispatch({ type: 'DELETE_SAMPLE_SLICE', sliceIndex, trackId }),
       deleteMasterSnapshot: (snapshotId) => dispatch({ type: 'DELETE_MASTER_SNAPSHOT', snapshotId }),
       deleteTrackSnapshot: (snapshotId) => dispatch({ type: 'DELETE_TRACK_SNAPSHOT', snapshotId }),

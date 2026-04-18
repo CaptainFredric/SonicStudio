@@ -70,7 +70,7 @@ export const Launchpad = ({
   }
 
   return (
-    <section className="showcase-gradient-panel grid gap-6 border border-[var(--border-strong)] px-5 py-5 md:grid-cols-[1.2fr_0.8fr] md:px-6">
+    <section className="launchpad-panel mx-auto grid max-w-[1240px] gap-6 border border-[var(--border-strong)] px-5 py-5 md:min-h-[calc(100vh-1.5rem)] md:grid-cols-[1.2fr_0.8fr] md:px-6">
       <div className="min-w-0">
         <div className="flex items-center gap-2 text-[var(--accent-strong)]">
           <Disc3 className="h-4 w-4" />

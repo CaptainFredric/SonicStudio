@@ -12,6 +12,8 @@ The next pass after that did two more important things:
 
 1. moved clip duplicate, split, and make-unique mutations into a pure editor helper module
 2. added deeper correctness coverage for clip mutation and session-hydration behavior
+3. moved provider-level transport, render, and session orchestration into editor controller modules
+4. removed the stale demo naming and made the launch surface a true first-view route
 
 The phase two goals were:
 
@@ -27,6 +29,9 @@ The phase two goals were:
 New file:
 
 1. `src/context/editor/projectMutations.ts`
+2. `src/context/editor/transportController.ts`
+3. `src/context/editor/renderController.ts`
+4. `src/context/editor/sessionController.ts`
 
 Moved logic:
 
@@ -41,7 +46,8 @@ Why this matters:
 
 1. the main controller lost more reducer weight
 2. clip mutation logic now has a pure test seam
-3. future arranger and reducer refactors no longer have to peel these rules out of a 2700-line controller first
+3. provider-level transport, render, and session behavior are no longer all trapped in one file
+4. future arranger and reducer refactors no longer have to peel these rules out of a 2700-line controller first
 
 ### 1. The arranger is split into real view modules
 
@@ -166,6 +172,25 @@ Updated:
 2. `AI_POST_REFACTOR_REEVALUATION.md`
 3. `AI_ARRANGER_REFACTOR_HANDOFF.md`
 
+### 7. Identity residue and first-view behavior were normalized
+
+Updated:
+
+1. `package.json`
+2. `metadata.json`
+3. `src/App.tsx`
+4. `src/project/schema.ts`
+5. `src/index.css`
+6. `src/components/Launchpad.tsx`
+
+Concrete cleanup:
+
+1. `createDemoProject` was renamed to `createNightTransitProject`
+2. `hasAppliedDemoParams` was removed
+3. `.showcase-gradient-panel` was renamed to `.launchpad-panel`
+4. product descriptions no longer call SonicStudio a groovebox or sketchpad
+5. the launch surface now replaces the studio on first load instead of stacking over it
+
 ## Verification completed
 
 Code verification:
@@ -193,7 +218,8 @@ Browser verification:
 4. keyboard resolution is now a pure function with tests
 5. the inspector is split by job instead of growing as one file
 6. clip mutation rules are no longer trapped in the application controller
-7. the current docs no longer describe an older repo shape
+7. provider-level transport, render, and session logic now have dedicated controller seams
+8. the current docs no longer describe an older repo shape
 
 ## What is still unresolved
 
@@ -247,11 +273,11 @@ Best next extractions:
 
 Best boundaries:
 
-1. transport controller
-2. reducer action maps
-3. track and pattern mutation helpers
-4. bounce-history helpers
-5. persistence-facing editor helpers
+1. reducer action maps
+2. track and pattern mutation helpers
+3. bounce-history helpers
+4. persistence-facing editor helpers
+5. runtime transport state helpers
 
 ### 3. Split `DeviceRack.tsx`
 

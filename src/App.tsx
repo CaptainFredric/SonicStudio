@@ -88,7 +88,6 @@ const StudioShell = () => {
   const [isRackOpen, setIsRackOpen] = useState(true);
   const [isLaunchpadOpen, setIsLaunchpadOpen] = useState(false);
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
-  const [hasAppliedDemoParams, setHasAppliedDemoParams] = useState(false);
   const midiLaunchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -116,15 +115,13 @@ const StudioShell = () => {
   }, [initAudio, isInitialized]);
 
   useEffect(() => {
-    if (typeof window === 'undefined' || hasAppliedDemoParams) {
+    if (typeof window === 'undefined') {
       return;
     }
 
     const params = new URLSearchParams(window.location.search);
     setIsLaunchpadOpen(params.get('launch') === '1' || !hasPersistedSession());
-
-    setHasAppliedDemoParams(true);
-  }, [hasAppliedDemoParams]);
+  }, []);
 
   const handleLaunchpadTemplate = (templateId: SessionTemplateId) => {
     loadSessionTemplate(templateId);
@@ -135,6 +132,42 @@ const StudioShell = () => {
   const handleLaunchpadImportMidi = () => {
     midiLaunchInputRef.current?.click();
   };
+
+  if (isLaunchpadOpen) {
+    return (
+      <div className="app-shell min-h-screen w-full overflow-x-hidden antialiased text-[var(--text-primary)]">
+        <input
+          ref={midiLaunchInputRef}
+          accept=".mid,.midi,audio/midi,audio/x-midi"
+          className="hidden"
+          onChange={async (event) => {
+            const file = event.target.files?.[0];
+            if (!file) {
+              return;
+            }
+
+            const imported = await importMidiSession(file);
+            if (imported) {
+              setActiveView('ARRANGER');
+              setIsLaunchpadOpen(false);
+            }
+            event.target.value = '';
+          }}
+          type="file"
+        />
+        <div className="min-h-screen px-3 py-3">
+          <Launchpad
+            isInitialized={isInitialized}
+            isOpen
+            onClose={() => setIsLaunchpadOpen(false)}
+            onImportMidi={handleLaunchpadImportMidi}
+            onSelectTemplate={handleLaunchpadTemplate}
+            onWakeAudio={() => { void initAudio(); }}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app-shell min-h-screen w-full overflow-x-hidden antialiased text-[var(--text-primary)]">
@@ -160,16 +193,6 @@ const StudioShell = () => {
       <div className="flex min-h-screen flex-col">
         <div className="px-3 pt-3">
           <TopBar />
-          <div className="mt-3">
-            <Launchpad
-              isInitialized={isInitialized}
-              isOpen={isLaunchpadOpen}
-              onClose={() => setIsLaunchpadOpen(false)}
-              onImportMidi={handleLaunchpadImportMidi}
-              onSelectTemplate={handleLaunchpadTemplate}
-              onWakeAudio={() => { void initAudio(); }}
-            />
-          </div>
         </div>
         <div className="flex flex-1 flex-col gap-3 px-3 pb-3 sm:flex-row">
           <SideNav />
