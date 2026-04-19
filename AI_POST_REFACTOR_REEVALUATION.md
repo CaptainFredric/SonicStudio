@@ -189,6 +189,8 @@ These improvements are still in place and still matter:
 9. workspace settings are split into clearer panels
 10. clip mutation rules now live behind a pure editor helper seam
 11. provider-level transport, render, and session logic now live behind editor controller modules
+12. track reducer ownership is now split into source, pattern, and structure modules
+13. note-editing persistence and MIDI round trips now have direct test coverage
 
 ## Current file-boundary state
 
@@ -233,8 +235,8 @@ The architectural center of gravity is still too concentrated:
 2. `Arranger.tsx` still centralizes too much coordination and event orchestration
 3. `DeviceRack.tsx` still holds too many concerns in one file
 4. correctness coverage is still modest relative to product complexity
-5. reducer behavior is still exercised indirectly instead of through a standalone reducer module
-6. reducer action maps still live in one large switch
+5. reducer behavior is still partially concentrated in `src/context/editor/reducer/trackPatternActions.ts`
+6. route and first-run entry control can still become scattered if not kept explicit
 
 ## Current verdict
 

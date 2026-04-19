@@ -41,10 +41,12 @@ New files:
 Current ownership model:
 1. `uiActions.ts` handles view selection, settings visibility, pinned tracks, selected track, selected clip, and loop-range UI state
 2. `projectActions.ts` handles project name, markers, transport settings, snapshots, master state, bounce history, and transport resizing
-3. `trackActions.ts` handles track params, source changes, slices, pattern and note editing, automation, transforms, and track create or move or delete behavior
-4. `arrangerActions.ts` handles clip add, remove, update, duplicate, split, loop, make-unique, and song-range duplication
-5. `historyActions.ts` handles undo and redo
-6. `editorReducer.ts` now composes those handlers instead of holding one giant switch
+3. `trackSourceActions.ts` handles track params, source changes, slices, and mix state
+4. `trackPatternActions.ts` handles note editing, pattern transforms, clip pattern edits, and automation edits
+5. `trackStructureActions.ts` handles track create, duplicate, move, and remove behavior
+6. `arrangerActions.ts` handles clip add, remove, update, duplicate, split, loop, make-unique, and song-range duplication
+7. `historyActions.ts` handles undo and redo
+8. `editorReducer.ts` now composes those handlers instead of holding one giant switch
 
 This is a real seam, not just a file shuffle, because those action domains can now be tested without importing the provider or the audio runtime.
 
@@ -83,14 +85,16 @@ These cover:
 2. selected-track and pinned-track invariants after track removal
 3. selected-clip fallback after clip removal
 4. marker ordering after song-tool updates
-5. checkpoint restore into live editor state through the session controller seam
-6. JSON import failure behavior through the session controller seam
-7. render-scope behavior through the render controller seam
-8. bounce-history stem replay through the render controller seam
+5. edited note gate and velocity surviving session hydration
+6. checkpoint restore into live editor state through the session controller seam
+7. JSON import failure behavior through the session controller seam
+8. render-scope behavior through the render controller seam
+9. bounce-history stem replay through the render controller seam
+10. MIDI byte round trips preserving note gate and velocity
 
 Current total:
-1. `9` test files
-2. `37` passing tests
+1. `12` test files
+2. `45` passing tests
 
 ## Verification completed
 
@@ -107,9 +111,9 @@ Artifacts:
 
 ## Current file sizes that matter
 
-1. `/Users/erendiracisneros/Documents/New project/repos/SonicStudio/src/context/AudioContext.tsx`: `396`
-2. `/Users/erendiracisneros/Documents/New project/repos/SonicStudio/src/context/editor/reducer/trackActions.ts`: `663`
-3. `/Users/erendiracisneros/Documents/New project/repos/SonicStudio/src/components/DeviceRack.tsx`: `1027`
+1. `/Users/erendiracisneros/Documents/New project/repos/SonicStudio/src/context/AudioContext.tsx`: thin integration shell
+2. `/Users/erendiracisneros/Documents/New project/repos/SonicStudio/src/context/editor/reducer/trackPatternActions.ts`: current reducer gravity well
+3. `/Users/erendiracisneros/Documents/New project/repos/SonicStudio/src/components/device-rack/source/DeviceRackSampleCorePanel.tsx`: current rack-source gravity well
 
 This makes the next priority clearer than before.
 
@@ -123,32 +127,30 @@ This makes the next priority clearer than before.
 
 ## What is still the main problem
 
-### 1. `trackActions.ts` is the new reducer gravity well
+### 1. `trackPatternActions.ts` is the new reducer gravity well
 
-The reducer is no longer concentrated in one file, but `trackActions.ts` is now the biggest remaining state-ownership slab.
+The reducer is no longer concentrated in one file, but `trackPatternActions.ts` is now the biggest remaining note-editing slab.
 
 That is acceptable for this pass, but it is the next reducer target.
 
 Likely next split:
-1. source and slicing mutations
-2. pattern note editing
-3. clip-pattern editing
-4. automation editing
-5. track lifecycle actions
+1. note toggle and note-event editing
+2. clip-pattern editing
+3. automation editing
+4. transform helpers that are still mixed into the same switch
 
-### 2. `DeviceRack.tsx` still belongs to the older generation of the repo
+### 2. Rack source editing still belongs to the older generation of the repo
 
-`/Users/erendiracisneros/Documents/New project/repos/SonicStudio/src/components/DeviceRack.tsx`
+`/Users/erendiracisneros/Documents/New project/repos/SonicStudio/src/components/device-rack/source/DeviceRackSampleCorePanel.tsx`
 
-This is now the clearest large mixed-responsibility surface.
+The outer rack shell is healthier now, but sample-core editing is still a dense mixed-responsibility surface.
 
 It still wants a split into:
 1. selected-track summary
-2. sound recall
-3. source
-4. shape
-5. space
-6. slicing
+2. sample import and source-window control
+3. slice authoring
+4. pitched response and voice-start control
+5. recall and shared primitives
 
 ### 3. Controller seams still need deeper integration coverage
 
@@ -160,11 +162,11 @@ The new controller tests are useful, but the next layer should cover:
 
 ## Recommended next work
 
-### 1. Split `trackActions.ts`
+### 1. Split `trackPatternActions.ts`
 
 This is the sharpest next reducer move.
 
-### 2. Split `DeviceRack.tsx`
+### 2. Split the remaining rack source gravity well
 
 Treat it the way the arranger was treated:
 1. extract panels by job

@@ -40,6 +40,37 @@ export const NoteDetailEditor = ({
   selectedPhraseStepIndex,
   updateClipPatternStepEvent,
 }: NoteDetailEditorProps) => {
+  const gateAdjustmentGroups = [
+    {
+      label: 'Fine',
+      steps: [
+        { label: '-0.01', value: -NOTE_GATE_FINE_STEP },
+        { label: '+0.01', value: NOTE_GATE_FINE_STEP },
+      ],
+    },
+    {
+      label: 'Medium',
+      steps: [
+        { label: '-0.05', value: -NOTE_GATE_MEDIUM_STEP },
+        { label: '+0.05', value: NOTE_GATE_MEDIUM_STEP },
+      ],
+    },
+    {
+      label: 'Coarse',
+      steps: [
+        { label: '-0.25', value: -NOTE_GATE_COARSE_STEP },
+        { label: '+0.25', value: NOTE_GATE_COARSE_STEP },
+      ],
+    },
+    {
+      label: 'Jump',
+      steps: [
+        { label: '-1', value: -NOTE_GATE_JUMP_STEP },
+        { label: '+1', value: NOTE_GATE_JUMP_STEP },
+      ],
+    },
+  ] as const;
+
   const updateGate = (gate: number) => updateClipPatternStepEvent(
     selectedClip.id,
     selectedPhraseStepIndex,
@@ -132,15 +163,24 @@ export const NoteDetailEditor = ({
         <span className="section-label">Resize note</span>
         <span className="font-mono text-[10px] text-[var(--text-tertiary)]">{selectedPhraseNote.gate.toFixed(2)}x</span>
       </div>
-      <div className="mt-3 flex flex-wrap gap-2">
-        <button className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => updateGate(selectedPhraseNote.gate - NOTE_GATE_FINE_STEP)} type="button">-0.01</button>
-        <button className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => updateGate(selectedPhraseNote.gate - NOTE_GATE_MEDIUM_STEP)} type="button">-0.05</button>
-        <button className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => updateGate(selectedPhraseNote.gate - NOTE_GATE_COARSE_STEP)} type="button">-0.25</button>
-        <button className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => updateGate(selectedPhraseNote.gate - NOTE_GATE_JUMP_STEP)} type="button">-1</button>
-        <button className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => updateGate(selectedPhraseNote.gate + NOTE_GATE_FINE_STEP)} type="button">+0.01</button>
-        <button className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => updateGate(selectedPhraseNote.gate + NOTE_GATE_MEDIUM_STEP)} type="button">+0.05</button>
-        <button className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => updateGate(selectedPhraseNote.gate + NOTE_GATE_COARSE_STEP)} type="button">+0.25</button>
-        <button className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => updateGate(selectedPhraseNote.gate + NOTE_GATE_JUMP_STEP)} type="button">+1</button>
+      <div className="mt-3 grid gap-2">
+        {gateAdjustmentGroups.map((group) => (
+          <div className="flex items-center justify-between gap-3" key={group.label}>
+            <span className="section-label text-[10px] text-[var(--text-tertiary)]">{group.label}</span>
+            <div className="flex flex-wrap justify-end gap-2">
+              {group.steps.map((step) => (
+                <button
+                  className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                  key={step.label}
+                  onClick={() => updateGate(selectedPhraseNote.gate + step.value)}
+                  type="button"
+                >
+                  {step.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
         {NOTE_GATE_PRESETS.map((preset) => (

@@ -36,7 +36,7 @@ The codebase is now split around a few real boundaries:
 4. `src/context/editor/keyboardShortcuts.ts`
    Runtime keyboard shortcut bridge for undo, redo, save, transport, metronome, and pattern focus.
 5. `src/context/editor/reducer/*`
-   Domain reducer ownership split across UI, project, track, arranger, and history action maps, plus reducer utilities and editor state types.
+   Domain reducer ownership split across UI, project, track source, track pattern, track structure, arranger, and history action maps, plus reducer utilities and editor state types.
 6. `src/context/editor/transportController.ts`
    Playback, recording, preview, and transport reset orchestration for the provider layer.
 7. `src/context/editor/renderController.ts`
@@ -52,11 +52,11 @@ The codebase is now split around a few real boundaries:
 12. `src/components/arranger/*`
    Arranger selector logic, interaction utilities, clip drag and paint hooks, viewport and shortcut hooks, inspector panels, and hero-surface view modules.
 
-The main remaining refactor targets are still:
+The main remaining refactor targets are now:
 
-1. reducer ownership still concentrated in `src/context/editor/reducer/trackActions.ts`
-2. `src/components/DeviceRack.tsx`
-3. higher-level controller and reducer integration correctness coverage
+1. reducer ownership still concentrated in `src/context/editor/reducer/trackPatternActions.ts`
+2. deeper controller and reducer integration correctness coverage around note editing, restore, and export scope behavior
+3. route and launch-state control so first-run and deep-link behavior stay predictable
 
 ## Quick start
 
@@ -86,14 +86,14 @@ npm test
 npm run build
 ```
 
-Current test coverage includes reducer invariants, arranger selector and interaction logic, clip mutation helpers, render workflow behavior, session workflow behavior, and controller-level render and restore seams.
+Current test coverage includes reducer invariants, arranger selector and interaction logic, clip mutation helpers, note edit hydration, MIDI round trips, render workflow behavior, session workflow behavior, and controller-level render and restore seams.
 
 ## Project direction
 
 The strongest next milestones are:
 
 1. split `DeviceRack.tsx` into source, shape, space, slicing, and recall surfaces
-2. reduce `src/context/editor/reducer/trackActions.ts` into narrower mutation ownership zones
-3. expand correctness coverage around render-scope replay, checkpoint restore into live editor state, and reducer action-map behavior
+2. reduce `src/context/editor/reducer/trackPatternActions.ts` into narrower note-editing and automation ownership zones
+3. expand correctness coverage around render-scope replay, checkpoint restore into live editor state, reducer action-map behavior, and note edit round trips
 4. keep the arranger focused on composition fluency instead of growing every side feature equally
-5. keep the launch surface as a real first-view route instead of drifting back into layered shell clutter
+5. keep the launch surface and route entry logic explicit instead of drifting back into layered shell clutter

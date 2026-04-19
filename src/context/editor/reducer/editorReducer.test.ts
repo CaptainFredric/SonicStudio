@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { createSessionFromTemplate } from '../../../project/storage';
+import { createSessionFromTemplate, hydrateSessionPayload } from '../../../project/storage';
 import type { EditorState } from '../editorTypes';
 import { editorReducer } from './editorReducer';
 
-const createEditorState = (): EditorState => {
-  const session = createSessionFromTemplate('night-transit');
+const createEditorState = (templateId: 'night-transit' | 'blank-grid' = 'night-transit'): EditorState => {
+  const session = createSessionFromTemplate(templateId);
 
   return {
     history: {
@@ -133,5 +133,43 @@ describe('editorReducer', () => {
 
     expect(opened.ui.isSettingsOpen).toBe(true);
     expect(closed.ui.isSettingsOpen).toBe(false);
+  });
+
+  it('preserves edited note gate and velocity through session hydration', () => {
+    const state = createEditorState('blank-grid');
+    const leadTrackId = state.history.present.tracks.find((track) => track.type === 'lead')?.id;
+    if (!leadTrackId) {
+      throw new Error('Expected lead track');
+    }
+
+    const seededState = editorReducer(state, {
+      type: 'TOGGLE_STEP',
+      note: 'C4',
+      stepIndex: 3,
+      trackId: leadTrackId,
+    });
+    const editedState = editorReducer(seededState, {
+      type: 'UPDATE_STEP_EVENT',
+      noteIndex: 0,
+      stepIndex: 3,
+      trackId: leadTrackId,
+      updates: {
+        gate: 2.75,
+        velocity: 0.63,
+      },
+    });
+
+    const hydrated = hydrateSessionPayload(JSON.parse(JSON.stringify({
+      project: editedState.history.present,
+      ui: editedState.ui,
+    })));
+    const hydratedTrack = hydrated?.project.tracks.find((track) => track.id === leadTrackId);
+    const hydratedEvent = hydratedTrack?.patterns[0]?.[3]?.[0];
+
+    expect(hydratedEvent).toMatchObject({
+      gate: 2.75,
+      note: 'C4',
+      velocity: 0.63,
+    });
   });
 });

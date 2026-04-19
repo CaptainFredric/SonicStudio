@@ -42,6 +42,36 @@ const ROW_ZOOM_PRESETS = {
   DETAIL: 38,
   WIDE: 32,
 } as const;
+const GATE_ADJUSTMENT_GROUPS = [
+  {
+    label: 'Fine',
+    steps: [
+      { label: '-0.01', value: -NOTE_GATE_FINE_STEP },
+      { label: '+0.01', value: NOTE_GATE_FINE_STEP },
+    ],
+  },
+  {
+    label: 'Medium',
+    steps: [
+      { label: '-0.05', value: -NOTE_GATE_MEDIUM_STEP },
+      { label: '+0.05', value: NOTE_GATE_MEDIUM_STEP },
+    ],
+  },
+  {
+    label: 'Coarse',
+    steps: [
+      { label: '-0.25', value: -NOTE_GATE_COARSE_STEP },
+      { label: '+0.25', value: NOTE_GATE_COARSE_STEP },
+    ],
+  },
+  {
+    label: 'Jump',
+    steps: [
+      { label: '-1', value: -NOTE_GATE_JUMP_STEP },
+      { label: '+1', value: NOTE_GATE_JUMP_STEP },
+    ],
+  },
+] as const;
 
 type NoteWindowKey = keyof typeof NOTE_WINDOWS;
 type StepZoomKey = keyof typeof STEP_ZOOM_PRESETS;
@@ -774,15 +804,23 @@ export const PianoRoll = () => {
                         <span className="section-label">Gate nudges</span>
                         <span className="font-mono text-[10px] text-[var(--text-secondary)]">{selectedNote.gate.toFixed(2)}</span>
                       </div>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <WindowButton label="-0.01" active={false} onClick={() => updateSelectedGate(selectedNote.gate - NOTE_GATE_FINE_STEP)} />
-                        <WindowButton label="-0.05" active={false} onClick={() => updateSelectedGate(selectedNote.gate - NOTE_GATE_MEDIUM_STEP)} />
-                        <WindowButton label="-0.25" active={false} onClick={() => updateSelectedGate(selectedNote.gate - NOTE_GATE_COARSE_STEP)} />
-                        <WindowButton label="-1" active={false} onClick={() => updateSelectedGate(selectedNote.gate - NOTE_GATE_JUMP_STEP)} />
-                        <WindowButton label="+0.01" active={false} onClick={() => updateSelectedGate(selectedNote.gate + NOTE_GATE_FINE_STEP)} />
-                        <WindowButton label="+0.05" active={false} onClick={() => updateSelectedGate(selectedNote.gate + NOTE_GATE_MEDIUM_STEP)} />
-                        <WindowButton label="+0.25" active={false} onClick={() => updateSelectedGate(selectedNote.gate + NOTE_GATE_COARSE_STEP)} />
-                        <WindowButton label="+1" active={false} onClick={() => updateSelectedGate(selectedNote.gate + NOTE_GATE_JUMP_STEP)} />
+                      <div className="mt-3 grid gap-2">
+                        {GATE_ADJUSTMENT_GROUPS.map((group) => (
+                          <div className="flex items-center justify-between gap-3" key={group.label}>
+                            <span className="section-label text-[10px] text-[var(--text-tertiary)]">{group.label}</span>
+                            <div className="flex flex-wrap justify-end gap-2">
+                              {group.steps.map((step) => (
+                                <React.Fragment key={step.label}>
+                                  <WindowButton
+                                    active={false}
+                                    label={step.label}
+                                    onClick={() => updateSelectedGate(selectedNote.gate + step.value)}
+                                  />
+                                </React.Fragment>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
                       </div>
                       <div className="mt-3 flex flex-wrap gap-2">
                         {NOTE_GATE_PRESETS.map((preset) => (

@@ -726,7 +726,7 @@ const encodeMidiTrack = (
   ];
 };
 
-const encodeProjectToMidi = (project: Project) => {
+export const encodeProjectToMidiBytes = (project: Project) => {
   const microsecondsPerQuarter = Math.round(60_000_000 / Math.max(40, Math.min(240, project.transport.bpm)));
   const midiTracks = buildProjectMidiTracks(project);
   const headerTrack = [
@@ -1057,13 +1057,20 @@ export const convertAudioBufferToWavWithAnalysis = (
 
 export const importMidiFile = async (file: File): Promise<StudioSession> => {
   const buffer = new Uint8Array(await file.arrayBuffer());
+  return importMidiBytes(buffer, file.name);
+};
+
+export const importMidiBytes = (
+  buffer: Uint8Array,
+  fileName = 'Imported MIDI.mid',
+): StudioSession => {
   const parsed = parseMidiFile(buffer);
-  return buildSessionFromMidi(parsed, file.name);
+  return buildSessionFromMidi(parsed, fileName);
 };
 
 export const exportToMIDI = async (project: Project, _options: Partial<ExportOptions> = {}): Promise<ExportResult> => {
   const startTime = performance.now();
-  const midiData = encodeProjectToMidi(project);
+  const midiData = encodeProjectToMidiBytes(project);
   const blob = new Blob([midiData], { type: 'audio/midi' });
   const fileName = `${sanitizeExportFileName(project.metadata.name)}-${project.transport.mode === 'SONG' ? 'song' : 'pattern'}.mid`;
   downloadBlob(blob, fileName);
@@ -1133,6 +1140,7 @@ export const ExportUtils = {
   convertRecordingBlobToWavWithAnalysis,
   downloadBlob,
   encodeAudioBufferToWav,
+  encodeProjectToMidiBytes,
   exportToMIDI,
   exportToWAV,
   exportToMP3,
@@ -1140,6 +1148,7 @@ export const ExportUtils = {
   exportToFLAC,
   exportToOGG,
   importMidiFile,
+  importMidiBytes,
   batchExport,
   sanitizeExportFileName,
 };
