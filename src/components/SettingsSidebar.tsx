@@ -23,7 +23,7 @@ const getInitialSettingsTab = (): SettingsTab => {
 };
 
 export const SettingsSidebar = () => {
-  const { isSettingsOpen, toggleSettings } = useAudio();
+  const { isSettingsOpen, setSettingsOpen } = useAudio();
   const [settingsTab, setSettingsTab] = useState<SettingsTab>(getInitialSettingsTab);
 
   if (!isSettingsOpen) {
@@ -31,7 +31,7 @@ export const SettingsSidebar = () => {
   }
 
   return (
-    <aside className="surface-panel h-full w-full overflow-auto p-4">
+    <aside className="surface-panel settings-sheet h-full w-full overflow-auto p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="section-label">Controls</div>
@@ -41,7 +41,8 @@ export const SettingsSidebar = () => {
         <button
           aria-label="Close settings"
           className="ghost-icon-button flex h-10 w-10 items-center justify-center"
-          onClick={toggleSettings}
+          data-ui-sound="settings"
+          onClick={() => setSettingsOpen(false)}
           type="button"
         >
           <X className="h-4 w-4" />

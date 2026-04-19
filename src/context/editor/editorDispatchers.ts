@@ -51,6 +51,7 @@ export const createEditorDispatchers = (dispatch: Dispatch<EditorAction>) => ({
   setMetronomeEnabled: (enabled: boolean) => dispatch({ type: 'SET_METRONOME_ENABLED', enabled }),
   setPatternCount: (patternCount: number) => dispatch({ type: 'SET_PATTERN_COUNT', patternCount }),
   setSelectedArrangerClipId: (clipId: string | null) => dispatch({ type: 'SET_SELECTED_ARRANGER_CLIP', clipId }),
+  setSettingsOpen: (open: boolean) => dispatch({ type: 'SET_SETTINGS_OPEN', open }),
   setSelectedTrackId: (trackId: string | null) => dispatch({ type: 'SET_SELECTED_TRACK_ID', trackId }),
   setStepsPerPattern: (stepsPerPattern: number) => dispatch({ type: 'SET_STEPS_PER_PATTERN', stepsPerPattern }),
   setTrackParams: (trackId: string, params: Partial<SynthParams>) => dispatch({ type: 'SET_TRACK_PARAMS', params, trackId }),

@@ -32,6 +32,11 @@ export const handleUiAction = (state: EditorState, action: EditorAction): Editor
     case 'TOGGLE_SETTINGS':
       return { ...state, ui: { ...state.ui, isSettingsOpen: !state.ui.isSettingsOpen } };
 
+    case 'SET_SETTINGS_OPEN':
+      return state.ui.isSettingsOpen === action.open
+        ? state
+        : { ...state, ui: { ...state.ui, isSettingsOpen: action.open } };
+
     case 'SET_SELECTED_TRACK_ID': {
       const nextSelectedTrackId = ensureSelectedTrackId(present, action.trackId);
       return nextSelectedTrackId === state.ui.selectedTrackId

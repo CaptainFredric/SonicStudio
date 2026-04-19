@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { playUiSound, type UiSoundVariant } from './audio/uiSounds';
 import { AudioProvider, useAudio } from './context/AudioContext';
 import { TopBar } from './components/TopBar';
 import { MainWorkspace as Sequencer } from './components/MainWorkspace';
@@ -18,8 +19,17 @@ const TEMPLATE_VIEW_MAP: Record<SessionTemplateId, 'SEQUENCER' | 'PIANO_ROLL' | 
   'night-transit': 'ARRANGER',
 };
 
+const shouldOpenLaunchpad = () => {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  return params.get('launch') === '1' || !hasPersistedSession();
+};
+
 const SideNav = () => {
-  const { activeView, isSettingsOpen, setActiveView, toggleSettings } = useAudio();
+  const { activeView, isSettingsOpen, setActiveView, setSettingsOpen } = useAudio();
 
   const navItems = [
     { id: 'SEQUENCER', icon: <Music size={20} />, label: 'Sequencer' },
@@ -37,6 +47,7 @@ const SideNav = () => {
             key={item.id}
             onClick={() => setActiveView(item.id as any)}
             className={`nav-button px-2 py-3 transition-colors ${activeView === item.id ? 'is-active' : ''}`}
+            data-ui-sound="nav"
             title={item.label}
           >
             <div className="flex flex-col items-center gap-2">
@@ -49,11 +60,12 @@ const SideNav = () => {
       <div className="ml-auto sm:mt-auto sm:w-full pt-3 sm:border-t border-[var(--border-soft)]">
         <button
           className={`nav-button px-2 py-3 transition-colors shrink-0 sm:w-full ${isSettingsOpen ? 'is-active' : ''}`}
-          onClick={toggleSettings}
+          data-ui-sound="settings"
+          onClick={() => setSettingsOpen(!isSettingsOpen)}
         >
           <div className="flex sm:flex-col flex-row items-center gap-2">
             <Settings size={20} />
-            <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Ctrl</span>
+            <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Opts</span>
           </div>
         </button>
       </div>
@@ -80,13 +92,14 @@ const StudioShell = () => {
     isInitialized,
     isSettingsOpen,
     loadSessionTemplate,
+    setSettingsOpen,
     selectedTrackId,
     setActiveView,
-    toggleSettings,
     tracks,
+    uiSoundsEnabled,
   } = useAudio();
   const [isRackOpen, setIsRackOpen] = useState(true);
-  const [isLaunchpadOpen, setIsLaunchpadOpen] = useState(false);
+  const [isLaunchpadOpen, setIsLaunchpadOpen] = useState(() => shouldOpenLaunchpad());
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
   const midiLaunchInputRef = useRef<HTMLInputElement>(null);
 
@@ -119,9 +132,63 @@ const StudioShell = () => {
       return;
     }
 
-    const params = new URLSearchParams(window.location.search);
-    setIsLaunchpadOpen(params.get('launch') === '1' || !hasPersistedSession());
+    const syncLaunchpadState = () => {
+      setIsLaunchpadOpen(shouldOpenLaunchpad());
+    };
+
+    syncLaunchpadState();
+    window.addEventListener('popstate', syncLaunchpadState);
+
+    return () => {
+      window.removeEventListener('popstate', syncLaunchpadState);
+    };
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !uiSoundsEnabled) {
+      return undefined;
+    }
+
+    const resolveSoundVariant = (element: HTMLElement): UiSoundVariant => {
+      const explicitVariant = element.dataset.uiSound as UiSoundVariant | 'off' | undefined;
+      if (explicitVariant && explicitVariant !== 'off') {
+        return explicitVariant;
+      }
+
+      if (explicitVariant === 'off') {
+        return 'action';
+      }
+
+      if (element.classList.contains('nav-button')) {
+        return 'nav';
+      }
+
+      return 'action';
+    };
+
+    const handleUiClick = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) {
+        return;
+      }
+
+      const button = target.closest('button');
+      if (!(button instanceof HTMLButtonElement) || button.disabled) {
+        return;
+      }
+
+      if (button.dataset.uiSound === 'off') {
+        return;
+      }
+
+      playUiSound(resolveSoundVariant(button));
+    };
+
+    window.addEventListener('click', handleUiClick, true);
+    return () => {
+      window.removeEventListener('click', handleUiClick, true);
+    };
+  }, [uiSoundsEnabled]);
 
   const handleLaunchpadTemplate = (templateId: SessionTemplateId) => {
     loadSessionTemplate(templateId);
@@ -204,7 +271,8 @@ const StudioShell = () => {
                   <button
                     aria-label="Close studio setup"
                     className="absolute inset-0 z-20 bg-[rgba(1,3,6,0.58)] xl:hidden"
-                    onClick={toggleSettings}
+                    data-ui-sound="off"
+                    onClick={() => setSettingsOpen(false)}
                   />
                   <div
                     className="absolute inset-y-0 right-0 z-30"
@@ -218,6 +286,7 @@ const StudioShell = () => {
 
             <button
               className="flex w-full items-center justify-between gap-3 border-t border-[var(--border-soft)] px-1 py-3 text-left"
+              data-ui-sound="settings"
               onClick={() => setIsRackOpen((current) => !current)}
               type="button"
             >
@@ -237,7 +306,9 @@ const StudioShell = () => {
             </button>
 
             {isRackOpen && (
-              <DeviceRack />
+              <div className="rack-sheet">
+                <DeviceRack />
+              </div>
             )}
           </div>
         </div>

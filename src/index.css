@@ -24,6 +24,28 @@
   --warning: #e4bf6a;
   --chrome-line: rgba(114, 217, 255, 0.05);
   --shadow-panel: 0 16px 30px rgba(0, 0, 0, 0.2);
+  --motion-fast: 150ms;
+  --motion-base: 230ms;
+  --motion-slow: 360ms;
+  --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-lift-distance: -2px;
+  --motion-panel-blur: 18px;
+}
+
+html[data-motion-mode="focus"] {
+  --motion-fast: 110ms;
+  --motion-base: 170ms;
+  --motion-slow: 240ms;
+  --motion-lift-distance: -1px;
+  --motion-panel-blur: 12px;
+}
+
+html[data-motion-mode="still"] {
+  --motion-fast: 0ms;
+  --motion-base: 0ms;
+  --motion-slow: 0ms;
+  --motion-lift-distance: 0px;
+  --motion-panel-blur: 0px;
 }
 
 @layer base {
@@ -75,6 +97,11 @@
   border: 1px solid var(--border-soft);
   border-radius: 2px;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+  transition:
+    background-color var(--motion-base) var(--motion-ease),
+    border-color var(--motion-base) var(--motion-ease),
+    box-shadow var(--motion-slow) var(--motion-ease),
+    transform var(--motion-base) var(--motion-ease);
 }
 
 .surface-panel-strong {
@@ -82,6 +109,11 @@
   border: 1px solid var(--border-soft);
   border-radius: 2px;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+  transition:
+    background-color var(--motion-base) var(--motion-ease),
+    border-color var(--motion-base) var(--motion-ease),
+    box-shadow var(--motion-slow) var(--motion-ease),
+    transform var(--motion-base) var(--motion-ease);
 }
 
 .arranger-summary-panel {
@@ -98,12 +130,17 @@
     linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0) 22%),
     var(--bg-panel-strong);
   box-shadow: var(--shadow-panel), inset 0 1px 0 rgba(255,255,255,0.05);
+  animation: launchpad-enter var(--motion-slow) var(--motion-ease);
 }
 
 .surface-panel-muted {
   background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0) 12%), var(--bg-panel-muted);
   border: 1px solid var(--border-soft);
   border-radius: 2px;
+  transition:
+    background-color var(--motion-base) var(--motion-ease),
+    border-color var(--motion-base) var(--motion-ease),
+    transform var(--motion-base) var(--motion-ease);
 }
 
 .section-label {
@@ -139,6 +176,10 @@ h3 {
   border-radius: 2px;
   color: var(--text-primary);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+  transition:
+    border-color var(--motion-base) var(--motion-ease),
+    box-shadow var(--motion-base) var(--motion-ease),
+    background-color var(--motion-base) var(--motion-ease);
 }
 
 .control-field:focus {
@@ -152,13 +193,21 @@ h3 {
   border: 1px solid var(--border-soft);
   border-radius: 2px;
   color: var(--text-secondary);
-  transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease;
+  transform: translateY(0);
+  transition:
+    border-color var(--motion-fast) var(--motion-ease),
+    background-color var(--motion-fast) var(--motion-ease),
+    color var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease);
 }
 
 .control-chip:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.03);
   border-color: rgba(190, 208, 228, 0.18);
   color: var(--text-primary);
+  transform: translateY(var(--motion-lift-distance));
+  box-shadow: 0 10px 16px rgba(0, 0, 0, 0.12);
 }
 
 .control-chip[data-active="true"] {
@@ -172,12 +221,21 @@ h3 {
   border: 1px solid transparent;
   border-radius: 4px;
   color: var(--text-secondary);
+  transform: translateY(0);
+  transition:
+    border-color var(--motion-fast) var(--motion-ease),
+    background-color var(--motion-fast) var(--motion-ease),
+    color var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease);
 }
 
 .ghost-icon-button:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.04);
   border-color: var(--border-soft);
   color: var(--text-primary);
+  transform: translateY(var(--motion-lift-distance));
+  box-shadow: 0 8px 14px rgba(0, 0, 0, 0.1);
 }
 
 .ghost-icon-button:disabled {
@@ -251,6 +309,10 @@ input[type=range]:focus {
   border: 1px solid rgba(190, 208, 228, 0.06);
   border-radius: 2px;
   background: linear-gradient(180deg, rgba(255,255,255,0.008), rgba(255,255,255,0) 10%), var(--bg-panel-muted);
+  transition:
+    border-color var(--motion-base) var(--motion-ease),
+    box-shadow var(--motion-slow) var(--motion-ease),
+    transform var(--motion-base) var(--motion-ease);
 }
 
 .chrome-frame::before {
@@ -262,6 +324,10 @@ input[type=range]:focus {
   border: 1px solid rgba(190, 208, 228, 0.06);
   border-radius: 2px;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+  transition:
+    border-color var(--motion-base) var(--motion-ease),
+    background-color var(--motion-base) var(--motion-ease),
+    transform var(--motion-base) var(--motion-ease);
 }
 
 .timeline-shell {
@@ -308,12 +374,21 @@ input[type=range]:focus {
   border: 1px solid transparent;
   border-radius: 2px;
   color: var(--text-secondary);
+  transform: translateY(0);
+  transition:
+    border-color var(--motion-fast) var(--motion-ease),
+    background-color var(--motion-fast) var(--motion-ease),
+    color var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease);
 }
 
 .nav-button:hover {
   border-color: var(--border-soft);
   background: rgba(255,255,255,0.02);
   color: var(--text-primary);
+  transform: translateY(var(--motion-lift-distance));
+  box-shadow: 0 10px 18px rgba(0, 0, 0, 0.12);
 }
 
 .nav-button.is-active {
@@ -335,6 +410,52 @@ input[type=range]:focus {
     linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0) 18%),
     linear-gradient(135deg, rgba(114,217,255,0.04), transparent 24%),
     rgba(7, 10, 15, 0.56);
+}
+
+.settings-sheet {
+  animation: settings-sheet-in var(--motion-slow) var(--motion-ease);
+  backdrop-filter: blur(var(--motion-panel-blur));
+}
+
+.rack-sheet {
+  animation: rack-sheet-in var(--motion-slow) var(--motion-ease);
+  transform-origin: top center;
+}
+
+@keyframes settings-sheet-in {
+  from {
+    opacity: 0;
+    transform: translate3d(18px, 0, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes rack-sheet-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 10px, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes launchpad-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 18px, 0) scale(0.985);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1);
+  }
 }
 
 /* Scroll Snap Utilities */

@@ -13,6 +13,7 @@ export const ActionButton = ({
 }) => (
   <button
     className="control-field flex min-w-0 items-center gap-2 px-3 py-2 text-left text-sm font-medium text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)] disabled:cursor-not-allowed disabled:opacity-50"
+    data-ui-sound="action"
     disabled={disabled}
     onClick={onClick}
     type="button"
@@ -41,6 +42,7 @@ export const SegmentButton = ({
   <button
     className="control-chip px-3 py-2 text-xs font-medium uppercase tracking-[0.14em] transition-colors"
     data-active={active}
+    data-ui-sound="tab"
     onClick={onClick}
     type="button"
   >
@@ -60,6 +62,7 @@ export const StateButton = ({
   <button
     className="control-chip px-3 py-2 text-xs font-medium uppercase tracking-[0.14em] transition-colors"
     data-active={active}
+    data-ui-sound="action"
     onClick={onClick}
     type="button"
   >

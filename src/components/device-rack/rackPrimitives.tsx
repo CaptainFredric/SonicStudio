@@ -60,6 +60,7 @@ export const RackTab = ({
   <button
     className="flex items-center gap-2 border-b border-transparent px-1 pb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
     data-active={active}
+    data-ui-sound="tab"
     onClick={onClick}
     style={active
       ? {

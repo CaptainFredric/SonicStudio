@@ -66,6 +66,7 @@ export type EditorAction =
   | { type: 'SET_PROJECT_NAME'; name: string }
   | { type: 'SET_CLIP_PATTERN_STEP_SLICE'; clipId: string; note?: string; sliceIndex: number | null; stepIndex: number }
   | { type: 'SET_SELECTED_TRACK_ID'; trackId: string | null }
+  | { type: 'SET_SETTINGS_OPEN'; open: boolean }
   | { type: 'SELECT_SAMPLE_SLICE'; trackId: string; sliceIndex: number | null }
   | { type: 'SET_STEPS_PER_PATTERN'; stepsPerPattern: number }
   | { type: 'SET_TRACK_NAME'; name: string; trackId: string }

@@ -7,6 +7,7 @@ import {
   Radio,
   Redo2,
   Save,
+  Settings2,
   SlidersHorizontal,
   Square,
   Undo2,
@@ -42,6 +43,7 @@ export const TopBar = () => {
     isInitialized,
     isPlaying,
     isRecording,
+    isSettingsOpen,
     lastSavedAt,
     loopRangeEndBeat,
     loopRangeStartBeat,
@@ -59,6 +61,7 @@ export const TopBar = () => {
     setBpm,
     setCountInBars,
     setCurrentPattern,
+    setSettingsOpen,
     setMetronomeEnabled,
     setTransportMode,
     songLengthInBeats,
@@ -207,7 +210,17 @@ export const TopBar = () => {
               </IconBtn>
             </div>
 
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
+              <button
+                className={`control-chip flex h-9 items-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] ${isSettingsOpen ? 'text-[var(--text-primary)]' : ''}`}
+                data-active={isSettingsOpen}
+                data-ui-sound="settings"
+                onClick={() => setSettingsOpen(!isSettingsOpen)}
+                type="button"
+              >
+                <Settings2 className="h-3.5 w-3.5" />
+                Options
+              </button>
               <TransportBtn active={isRecording} label="Record" onClick={toggleRecording} tone="record">
                 <Circle className="h-4 w-4 fill-current" />
               </TransportBtn>
@@ -296,6 +309,7 @@ export const TopBar = () => {
                 <button
                   className="control-chip mt-1 inline-flex h-9 items-center justify-center px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
                   data-active={isInitialized ? 'true' : 'false'}
+                  data-ui-sound="settings"
                   onClick={() => void initAudio()}
                 >
                   {isInitialized ? 'Re arm' : 'Wake audio'}
@@ -323,6 +337,7 @@ const IconBtn = ({
   <button
     aria-label={label}
     className="ghost-icon-button flex h-9 w-9 items-center justify-center"
+    data-ui-sound="action"
     disabled={disabled}
     onClick={onClick}
   >
@@ -341,6 +356,7 @@ const PatternButton = ({
 }) => (
   <button
     className="h-9 min-w-9 border px-3 font-mono text-xs font-medium uppercase tracking-[0.16em] transition-colors"
+    data-ui-sound="tab"
     onClick={onClick}
     style={active
       ? {
@@ -369,6 +385,7 @@ const ModeButton = ({
 }) => (
   <button
     className="border px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] transition-colors"
+    data-ui-sound="tab"
     onClick={onClick}
     style={active
       ? {
@@ -400,6 +417,7 @@ const WorkflowButton = ({
   <button
     className="flex items-center gap-2 border-b border-transparent px-1 pb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
     data-active={active}
+    data-ui-sound="nav"
     onClick={onClick}
     style={active
       ? {
@@ -449,6 +467,7 @@ const TransportBtn = ({
     <button
       aria-label={label}
       className={`flex h-9 w-9 items-center justify-center border transition-colors ${active ? activeStyles : 'border-transparent text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.03)] hover:border-[var(--border-soft)] hover:text-[var(--text-primary)]'}`}
+      data-ui-sound={tone === 'record' ? 'record' : 'transport'}
       onClick={onClick}
     >
       {children}

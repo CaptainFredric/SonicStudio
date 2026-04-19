@@ -28,6 +28,11 @@ import {
   type TrackSource,
   type TransportMode,
 } from '../project/schema';
+import {
+  type MotionMode,
+  loadStudioPreferences,
+  persistStudioPreferences,
+} from '../project/preferences';
 import { type PersistedCheckpoint } from '../project/storage';
 import { listStudioCheckpoints, persistStudioSession } from '../services/sessionWorkflow';
 import {
@@ -77,6 +82,7 @@ interface AudioContextType {
   loopArrangerClip: (clipId: string, copies: number) => void;
   makeClipPatternUnique: (clipId: string) => void;
   moveTrack: (trackId: string, direction: 'up' | 'down') => void;
+  motionMode: MotionMode;
   duplicateTrack: (trackId: string) => void;
   exportSession: () => void;
   importSession: (file: File) => Promise<boolean>;
@@ -118,10 +124,13 @@ interface AudioContextType {
   setMasterSettings: (settings: Partial<MasterSettings>) => void;
   setCurrentPattern: (pattern: number) => void;
   setPatternCount: (patternCount: number) => void;
+  setSettingsOpen: (open: boolean) => void;
   setSelectedTrackId: (id: string | null) => void;
   setStepsPerPattern: (stepsPerPattern: number) => void;
   setTrackParams: (id: string, params: Partial<SynthParams>) => void;
   setTrackSource: (id: string, source: Partial<TrackSource>) => void;
+  setMotionMode: (mode: MotionMode) => void;
+  setUiSoundsEnabled: (enabled: boolean) => void;
   setMetronomeEnabled: (enabled: boolean) => void;
   songMarkers: SongMarker[];
   setClipPatternStepSlice: (clipId: string, stepIndex: number, sliceIndex: number | null, note?: string) => void;
@@ -169,6 +178,7 @@ interface AudioContextType {
   saveMasterSnapshot: (snapshotId?: string | null) => void;
   saveTrackSnapshot: (trackId: string, snapshotId?: string | null) => void;
   trackSnapshots: TrackSnapshot[];
+  uiSoundsEnabled: boolean;
 }
 
 const AudioContext = createContext<AudioContextType | null>(null);
@@ -184,6 +194,7 @@ export const useAudio = () => {
 
 export const AudioProvider = ({ children }: { children: ReactNode }) => {
   const [editorState, dispatch] = useReducer(editorReducer, undefined, createInitialEditorState);
+  const [preferences, setPreferences] = useState(() => loadStudioPreferences());
   const [currentStep, setCurrentStep] = useState(0);
   const [countInActive, setCountInActive] = useState(false);
   const [countInBeatsRemaining, setCountInBeatsRemaining] = useState(0);
@@ -209,6 +220,18 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
   const songMarkers = project.markers ?? [];
   const songLengthInBeats = songLengthFromProject(project);
   const dispatchers = useMemo(() => createEditorDispatchers(dispatch), [dispatch]);
+
+  useEffect(() => {
+    persistStudioPreferences(preferences);
+  }, [preferences]);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') {
+      return;
+    }
+
+    document.documentElement.dataset.motionMode = preferences.motionMode;
+  }, [preferences.motionMode]);
 
   useEffect(() => {
     engine.syncProject(project);
@@ -364,6 +387,7 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       master: project.master,
       masterSnapshots: project.masterSnapshots,
       metronomeEnabled: project.transport.metronomeEnabled,
+      motionMode: preferences.motionMode,
       newSession,
       patternCount: project.transport.patternCount,
       pinnedTrackIds,
@@ -387,8 +411,12 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
       tracks: project.tracks,
       trackSnapshots: project.trackSnapshots,
       transportMode: project.transport.mode,
+      uiSoundsEnabled: preferences.uiSoundsEnabled,
       deleteCheckpoint,
       ...dispatchers,
+      setMotionMode: (motionMode) => setPreferences((current) => ({ ...current, motionMode })),
+      setSettingsOpen: (open) => dispatch({ type: 'SET_SETTINGS_OPEN', open }),
+      setUiSoundsEnabled: (uiSoundsEnabled) => setPreferences((current) => ({ ...current, uiSoundsEnabled })),
     }}>
       {children}
     </AudioContext.Provider>

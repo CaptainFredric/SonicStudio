@@ -4,6 +4,7 @@ import { useAudio, type BounceNormalizationMode, type BounceTailMode } from '../
 import { type ExportScope } from '../../services/workflowTypes';
 import { type RenderTargetProfileId } from '../../utils/export';
 import { WorkspaceBouncePanel } from './WorkspaceBouncePanel';
+import { WorkspaceOptionsPanel } from './WorkspaceOptionsPanel';
 import { WorkspaceRecoveryPanel } from './WorkspaceRecoveryPanel';
 import { WorkspaceSessionPanel } from './WorkspaceSessionPanel';
 import { WorkspaceTransportPanel } from './WorkspaceTransportPanel';
@@ -54,13 +55,17 @@ export const WorkspaceSettingsPanel = () => {
     setSelectedTrackId,
     setBpm,
     setPatternCount,
+    setMotionMode,
     setStepsPerPattern,
     setTransportMode,
+    setUiSoundsEnabled,
     songLengthInBeats,
     songMarkers,
     stepsPerPattern,
     tracks,
     transportMode,
+    motionMode,
+    uiSoundsEnabled,
     deleteCheckpoint,
   } = useAudio();
 
@@ -180,6 +185,13 @@ export const WorkspaceSettingsPanel = () => {
         query={trackQuery}
         selectedTrackId={selectedTrackId}
         tracks={filteredTracks.map((track) => ({ color: track.color, id: track.id, name: track.name }))}
+      />
+
+      <WorkspaceOptionsPanel
+        motionMode={motionMode}
+        onMotionModeChange={setMotionMode}
+        onUiSoundsEnabledChange={setUiSoundsEnabled}
+        uiSoundsEnabled={uiSoundsEnabled}
       />
 
       <WorkspaceTransportPanel

@@ -118,4 +118,20 @@ describe('editorReducer', () => {
     expect(nextState.history.present.markers.map((marker) => marker.id)).toEqual([markerId, 'marker-a']);
     expect(nextState.history.present.markers[0]?.beat).toBe(2);
   });
+
+  it('sets settings state deterministically', () => {
+    const state = createEditorState();
+
+    const opened = editorReducer(state, {
+      type: 'SET_SETTINGS_OPEN',
+      open: true,
+    });
+    const closed = editorReducer(opened, {
+      type: 'SET_SETTINGS_OPEN',
+      open: false,
+    });
+
+    expect(opened.ui.isSettingsOpen).toBe(true);
+    expect(closed.ui.isSettingsOpen).toBe(false);
+  });
 });

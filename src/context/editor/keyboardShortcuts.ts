@@ -71,7 +71,7 @@ export const createKeyboardShortcutHandler = ({
   }
 
   if (!isModifierPressed && normalizedKey === 'escape' && isSettingsOpen) {
-    dispatch({ type: 'TOGGLE_SETTINGS' });
+    dispatch({ type: 'SET_SETTINGS_OPEN', open: false });
     return;
   }
 
