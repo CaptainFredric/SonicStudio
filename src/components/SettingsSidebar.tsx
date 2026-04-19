@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 
 import { useAudio } from '../context/AudioContext';
@@ -6,25 +6,19 @@ import { OutputSettingsPanel } from './settings/OutputSettingsPanel';
 import { SegmentButton } from './settings/SettingsPrimitives';
 import { TrackSettingsPanel } from './settings/TrackSettingsPanel';
 import { WorkspaceSettingsPanel } from './settings/WorkspaceSettingsPanel';
+import type { SettingsTab } from '../app/routeController';
 
-type SettingsTab = 'WORKSPACE' | 'TRACK' | 'OUTPUT';
-
-const getInitialSettingsTab = (): SettingsTab => {
-  if (typeof window === 'undefined') {
-    return 'WORKSPACE';
-  }
-
-  const requestedTab = new URLSearchParams(window.location.search).get('setup')?.toUpperCase();
-  if (requestedTab === 'TRACK' || requestedTab === 'OUTPUT' || requestedTab === 'WORKSPACE') {
-    return requestedTab;
-  }
-
-  return 'WORKSPACE';
-};
-
-export const SettingsSidebar = () => {
+export const SettingsSidebar = ({
+  requestedTab = 'WORKSPACE',
+}: {
+  requestedTab?: SettingsTab;
+}) => {
   const { isSettingsOpen, setSettingsOpen } = useAudio();
-  const [settingsTab, setSettingsTab] = useState<SettingsTab>(getInitialSettingsTab);
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>(requestedTab);
+
+  useEffect(() => {
+    setSettingsTab(requestedTab);
+  }, [requestedTab]);
 
   if (!isSettingsOpen) {
     return null;

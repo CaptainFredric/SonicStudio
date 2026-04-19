@@ -1,6 +1,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 import { createSessionFromTemplate } from '../../project/storage';
+import { editorReducer } from './reducer/editorReducer';
 import { createSessionController } from './sessionController';
 
 const sessionWorkflowMocks = vi.hoisted(() => ({
@@ -50,6 +51,52 @@ describe('sessionController', () => {
     expect(setLastSavedAt).toHaveBeenCalledWith(null);
     expect(setSaveStatus).toHaveBeenCalledWith('idle');
     expect(dispatchHydrateSession).toHaveBeenCalledWith(restoredSession);
+  });
+
+  it('restores a checkpoint cleanly even when live and checkpoint selection are stale', () => {
+    const baseSession = createSessionFromTemplate('blank-grid');
+    const restoredSession = createSessionFromTemplate('night-transit');
+    let state = {
+      history: {
+        future: [],
+        past: [],
+        present: baseSession.project,
+      },
+      ui: {
+        ...baseSession.ui,
+        pinnedTrackIds: ['missing-track'],
+        selectedArrangerClipId: 'missing-clip',
+        selectedTrackId: 'missing-track',
+      },
+    };
+
+    sessionWorkflowMocks.restoreStudioCheckpoint.mockReturnValue({
+      ...restoredSession,
+      ui: {
+        ...restoredSession.ui,
+        pinnedTrackIds: ['missing-track'],
+        selectedArrangerClipId: 'missing-clip',
+        selectedTrackId: 'missing-track',
+      },
+    });
+
+    const controller = createSessionController({
+      currentProject: state.history.present,
+      currentUi: state.ui,
+      dispatchHydrateSession: (session) => {
+        state = editorReducer(state, { type: 'HYDRATE_SESSION', session });
+      },
+      persistCurrentSession: vi.fn(),
+      resetTransportState: vi.fn(),
+      setLastSavedAt: vi.fn(),
+      setProjectCheckpoints: vi.fn(),
+      setSaveStatus: vi.fn(),
+    });
+
+    expect(controller.restoreCheckpoint('checkpoint-stale')).toBe(true);
+    expect(state.ui.selectedTrackId).toBe(restoredSession.project.tracks[0]?.id ?? null);
+    expect(state.ui.selectedArrangerClipId).toBe(restoredSession.project.arrangerClips[0]?.id ?? null);
+    expect(state.ui.pinnedTrackIds).toEqual([]);
   });
 
   it('marks save status as error when imported JSON is invalid', async () => {

@@ -189,8 +189,9 @@ These improvements are still in place and still matter:
 9. workspace settings are split into clearer panels
 10. clip mutation rules now live behind a pure editor helper seam
 11. provider-level transport, render, and session logic now live behind editor controller modules
-12. track reducer ownership is now split into source, pattern, and structure modules
+12. track reducer ownership is now split into source, note, clip-pattern, automation, transform, and structure modules
 13. note-editing persistence and MIDI round trips now have direct test coverage
+14. launch and deep-link behavior now goes through an explicit route controller
 
 ## Current file-boundary state
 
@@ -206,6 +207,7 @@ These improvements are still in place and still matter:
 8. arranger inspector panels are separated by job
 9. clip mutation rules are separated into `src/context/editor/projectMutations.ts`
 10. provider-level orchestration is separated into transport, render, and session controller modules
+11. route entry is separated into `src/app/routeController.ts`
 
 ### Still too large
 
@@ -235,8 +237,58 @@ The architectural center of gravity is still too concentrated:
 2. `Arranger.tsx` still centralizes too much coordination and event orchestration
 3. `DeviceRack.tsx` still holds too many concerns in one file
 4. correctness coverage is still modest relative to product complexity
-5. reducer behavior is still partially concentrated in `src/context/editor/reducer/trackPatternActions.ts`
-6. route and first-run entry control can still become scattered if not kept explicit
+5. reducer behavior is still concentrated in `src/context/editor/reducer/trackNoteActions.ts` and `src/context/editor/reducer/trackClipPatternActions.ts`
+6. route and first-run entry control are now explicit, but still need coverage against more persisted-session combinations
+
+## What improved after the route-controller and pattern-ownership pass
+
+### 1. Route entry is now explicit instead of scattered
+
+New file:
+
+1. `src/app/routeController.ts`
+
+This now owns:
+
+1. first-run launch behavior
+2. deep-link view aliases
+3. settings-tab route targeting
+4. precedence between persisted sessions and explicit query routes
+
+The important behavioral improvement is that query-driven entry now follows one path:
+
+1. `?launch=1` forces the launch surface
+2. `?view=notes` or `?view=song` deep-links into the requested studio view
+3. `?setup=output` opens Studio Controls on Output
+4. explicit deep links bypass the default first-run launchpad
+
+That fixes a real boot inconsistency instead of just moving code.
+
+### 2. Pattern reducer ownership is now split by job
+
+New files:
+
+1. `src/context/editor/reducer/trackNoteActions.ts`
+2. `src/context/editor/reducer/trackClipPatternActions.ts`
+3. `src/context/editor/reducer/trackAutomationActions.ts`
+4. `src/context/editor/reducer/trackTransformActions.ts`
+
+`src/context/editor/reducer/trackPatternActions.ts` is now only a thin coordinator.
+
+This matters because note editing, phrase identity, automation, and transforms are now testable and discussable as separate ownership zones. The reducer is still concentrated, but it is more honest now.
+
+### 3. Controller-level integration coverage is more real
+
+Additional test coverage now includes:
+
+1. render-scope replay using stored loop-window history
+2. checkpoint restore with stale live selection and stale checkpoint selection
+3. explicit route resolution for launch, settings, and view deep links
+
+Current total:
+
+1. `13` test files
+2. `52` passing tests
 
 ## Current verdict
 

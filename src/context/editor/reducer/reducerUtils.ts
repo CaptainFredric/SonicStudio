@@ -17,6 +17,7 @@ import {
   type TrackSource,
   type TrackVoicePresetDefinition,
 } from '../../../project/schema';
+import { applyStudioRouteToSession, type StudioRouteState } from '../../../app/routeController';
 import { createDefaultSession, loadPersistedSession } from '../../../project/storage';
 import {
   syncArrangerClips,
@@ -77,8 +78,11 @@ export const syncSongMarkers = (markers: SongMarker[], maxBeat: number): SongMar
     .sort((left, right) => left.beat - right.beat)
 );
 
-export const createInitialEditorState = (): EditorState => {
-  const session = loadPersistedSession() ?? createDefaultSession('blank-grid');
+export const createInitialEditorState = (routeState?: StudioRouteState): EditorState => {
+  const session = applyStudioRouteToSession(
+    loadPersistedSession() ?? createDefaultSession('blank-grid'),
+    routeState,
+  );
 
   return {
     history: {

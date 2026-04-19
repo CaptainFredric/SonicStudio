@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { resolveStudioRoute, type StudioRouteState } from './app/routeController';
 import { playUiSound, type UiSoundVariant } from './audio/uiSounds';
 import { AudioProvider, useAudio } from './context/AudioContext';
 import { TopBar } from './components/TopBar';
@@ -19,13 +20,12 @@ const TEMPLATE_VIEW_MAP: Record<SessionTemplateId, 'SEQUENCER' | 'PIANO_ROLL' | 
   'night-transit': 'ARRANGER',
 };
 
-const shouldOpenLaunchpad = () => {
+const resolveCurrentRoute = (): StudioRouteState => {
   if (typeof window === 'undefined') {
-    return false;
+    return resolveStudioRoute('', true);
   }
 
-  const params = new URLSearchParams(window.location.search);
-  return params.get('launch') === '1' || !hasPersistedSession();
+  return resolveStudioRoute(window.location.search, hasPersistedSession());
 };
 
 const SideNav = () => {
@@ -85,7 +85,11 @@ const ViewRouter = () => {
   );
 };
 
-const StudioShell = () => {
+const StudioShell = ({
+  routeState,
+}: {
+  routeState: StudioRouteState;
+}) => {
   const {
     initAudio,
     importMidiSession,
@@ -99,7 +103,7 @@ const StudioShell = () => {
     uiSoundsEnabled,
   } = useAudio();
   const [isRackOpen, setIsRackOpen] = useState(true);
-  const [isLaunchpadOpen, setIsLaunchpadOpen] = useState(() => shouldOpenLaunchpad());
+  const [isLaunchpadOpen, setIsLaunchpadOpen] = useState(routeState.showLaunchpad);
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
   const midiLaunchInputRef = useRef<HTMLInputElement>(null);
 
@@ -128,21 +132,8 @@ const StudioShell = () => {
   }, [initAudio, isInitialized]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    const syncLaunchpadState = () => {
-      setIsLaunchpadOpen(shouldOpenLaunchpad());
-    };
-
-    syncLaunchpadState();
-    window.addEventListener('popstate', syncLaunchpadState);
-
-    return () => {
-      window.removeEventListener('popstate', syncLaunchpadState);
-    };
-  }, []);
+    setIsLaunchpadOpen(routeState.showLaunchpad);
+  }, [routeState.showLaunchpad]);
 
   useEffect(() => {
     if (typeof window === 'undefined' || !uiSoundsEnabled) {
@@ -278,7 +269,7 @@ const StudioShell = () => {
                     className="absolute inset-y-0 right-0 z-30"
                     style={{ width: 'min(360px, calc(100% - 1rem))' }}
                   >
-                    <SettingsSidebar />
+                    <SettingsSidebar requestedTab={routeState.requestedSettingsTab} />
                   </div>
                 </>
               )}
@@ -318,9 +309,26 @@ const StudioShell = () => {
 };
 
 export default function App() {
+  const [routeState, setRouteState] = useState<StudioRouteState>(() => resolveCurrentRoute());
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const syncRouteState = () => {
+      setRouteState(resolveCurrentRoute());
+    };
+
+    window.addEventListener('popstate', syncRouteState);
+    return () => {
+      window.removeEventListener('popstate', syncRouteState);
+    };
+  }, []);
+
   return (
-    <AudioProvider>
-      <StudioShell />
+    <AudioProvider routeState={routeState}>
+      <StudioShell routeState={routeState} />
     </AudioProvider>
   );
 }

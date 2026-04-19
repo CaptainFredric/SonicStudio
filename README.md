@@ -36,27 +36,29 @@ The codebase is now split around a few real boundaries:
 4. `src/context/editor/keyboardShortcuts.ts`
    Runtime keyboard shortcut bridge for undo, redo, save, transport, metronome, and pattern focus.
 5. `src/context/editor/reducer/*`
-   Domain reducer ownership split across UI, project, track source, track pattern, track structure, arranger, and history action maps, plus reducer utilities and editor state types.
+   Domain reducer ownership split across UI, project, track source, track note editing, clip-pattern editing, automation, transforms, track structure, arranger, and history action maps, plus reducer utilities and editor state types.
 6. `src/context/editor/transportController.ts`
    Playback, recording, preview, and transport reset orchestration for the provider layer.
 7. `src/context/editor/renderController.ts`
    Provider-facing mix, stem, MIDI, and bounce-history orchestration.
 8. `src/context/editor/sessionController.ts`
    Provider-facing session import, export, restore, checkpoint, and template-load orchestration.
-9. `src/services/renderWorkflow.ts`
+9. `src/app/routeController.ts`
+   Explicit launch and deep-link state resolution so first run, persisted sessions, and query-driven entry all follow one path.
+10. `src/services/renderWorkflow.ts`
    Render and bounce orchestration.
-10. `src/services/sessionWorkflow.ts`
+11. `src/services/sessionWorkflow.ts`
    Persistence, checkpoint, and import orchestration.
-11. `src/components/settings/*`
+12. `src/components/settings/*`
    Workspace, track, and output controls broken into smaller panels.
-12. `src/components/arranger/*`
+13. `src/components/arranger/*`
    Arranger selector logic, interaction utilities, clip drag and paint hooks, viewport and shortcut hooks, inspector panels, and hero-surface view modules.
 
 The main remaining refactor targets are now:
 
-1. reducer ownership still concentrated in `src/context/editor/reducer/trackPatternActions.ts`
-2. deeper controller and reducer integration correctness coverage around note editing, restore, and export scope behavior
-3. route and launch-state control so first-run and deep-link behavior stay predictable
+1. reducer ownership still concentrated in `src/context/editor/reducer/trackNoteActions.ts` and `src/context/editor/reducer/trackClipPatternActions.ts`
+2. deeper controller and reducer integration correctness coverage around note editing, restore, export scope replay, and route-driven session entry
+3. device-rack source ownership still concentrated in the sample editing path
 
 ## Quick start
 
@@ -86,14 +88,14 @@ npm test
 npm run build
 ```
 
-Current test coverage includes reducer invariants, arranger selector and interaction logic, clip mutation helpers, note edit hydration, MIDI round trips, render workflow behavior, session workflow behavior, and controller-level render and restore seams.
+Current test coverage includes reducer invariants, arranger selector and interaction logic, clip mutation helpers, note edit hydration, MIDI round trips, render workflow behavior, session workflow behavior, explicit route resolution, and controller-level render and restore seams.
 
 ## Project direction
 
 The strongest next milestones are:
 
-1. split `DeviceRack.tsx` into source, shape, space, slicing, and recall surfaces
-2. reduce `src/context/editor/reducer/trackPatternActions.ts` into narrower note-editing and automation ownership zones
-3. expand correctness coverage around render-scope replay, checkpoint restore into live editor state, reducer action-map behavior, and note edit round trips
+1. keep shrinking reducer concentration in note editing and clip-pattern ownership
+2. expand correctness coverage around reducer action-map behavior, checkpoint restore, render-scope replay, and route-driven entry
+3. keep the device rack moving toward true source, shape, space, slicing, and recall ownership boundaries
 4. keep the arranger focused on composition fluency instead of growing every side feature equally
 5. keep the launch surface and route entry logic explicit instead of drifting back into layered shell clutter

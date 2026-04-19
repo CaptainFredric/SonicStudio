@@ -107,4 +107,38 @@ describe('renderController', () => {
     expect(call.renderPayload.label).toBe('Selected clip window');
     expect(call.options.tailMode).toBe('short');
   });
+
+  it('replays a loop-window mix export with the stored scope and target options', async () => {
+    const project = createProjectFromTemplate('night-transit');
+    project.bounceHistory = [{
+      exportedAt: '2026-04-18T12:00:00.000Z',
+      id: 'entry-loop',
+      label: 'Loop window mix',
+      masterSnapshotName: null,
+      mode: 'mix',
+      normalization: 'target',
+      scope: 'loop-window',
+      tailMode: 'long',
+      targetProfileId: 'club',
+    }];
+
+    const controller = createRenderController({
+      currentProject: project,
+      dispatchAppendBounceHistory: vi.fn(),
+      loopRangeEndBeat: 20,
+      loopRangeStartBeat: 8,
+      selectedArrangerClipId: project.arrangerClips[0]?.id ?? null,
+      setRenderState: vi.fn(),
+    });
+
+    await controller.rerunBounceHistory('entry-loop');
+
+    expect(renderControllerMocks.exportOfflineMix).toHaveBeenCalledTimes(1);
+    const call = renderControllerMocks.exportOfflineMix.mock.calls[0]?.[0];
+    expect(call.renderPayload.label).toBe('Loop window');
+    expect(call.renderPayload.fileSuffix).toBe('loop-9-20');
+    expect(call.options.normalization).toBe('target');
+    expect(call.options.targetProfileId).toBe('club');
+    expect(call.options.tailMode).toBe('long');
+  });
 });

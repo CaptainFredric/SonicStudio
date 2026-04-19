@@ -9,6 +9,7 @@ import React, {
   useState,
   type ReactNode,
 } from 'react';
+import { type StudioRouteState } from '../app/routeController';
 
 import { engine } from '../audio/ToneEngine';
 import {
@@ -192,8 +193,14 @@ export const useAudio = () => {
   return context;
 };
 
-export const AudioProvider = ({ children }: { children: ReactNode }) => {
-  const [editorState, dispatch] = useReducer(editorReducer, undefined, createInitialEditorState);
+export const AudioProvider = ({
+  children,
+  routeState,
+}: {
+  children: ReactNode;
+  routeState?: StudioRouteState;
+}) => {
+  const [editorState, dispatch] = useReducer(editorReducer, routeState, createInitialEditorState);
   const [preferences, setPreferences] = useState(() => loadStudioPreferences());
   const [currentStep, setCurrentStep] = useState(0);
   const [countInActive, setCountInActive] = useState(false);
@@ -248,6 +255,14 @@ export const AudioProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => engine.onStep((step) => {
     setCurrentStep(step);
   }), []);
+
+  useEffect(() => {
+    if (routeState?.requestedView) {
+      dispatch({ type: 'SET_ACTIVE_VIEW', view: routeState.requestedView });
+    }
+
+    dispatch({ type: 'SET_SETTINGS_OPEN', open: routeState?.shouldOpenSettings ?? false });
+  }, [routeState?.requestedView, routeState?.shouldOpenSettings]);
 
   const persistCurrentSession = useEffectEvent(() => {
     const envelope = persistStudioSession({
