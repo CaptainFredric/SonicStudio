@@ -192,6 +192,8 @@ These improvements are still in place and still matter:
 12. track reducer ownership is now split into source, note, clip-pattern, automation, transform, and structure modules
 13. note-editing persistence and MIDI round trips now have direct test coverage
 14. launch and deep-link behavior now goes through an explicit route controller
+15. transport-controller runtime behavior now has direct tests
+16. sample-core rack ownership is split into engine, sample mode, custom import, and synth-source panels
 
 ## Current file-boundary state
 
@@ -208,6 +210,7 @@ These improvements are still in place and still matter:
 9. clip mutation rules are separated into `src/context/editor/projectMutations.ts`
 10. provider-level orchestration is separated into transport, render, and session controller modules
 11. route entry is separated into `src/app/routeController.ts`
+12. sample-core rack rendering is separated into focused source panels
 
 ### Still too large
 
@@ -237,8 +240,8 @@ The architectural center of gravity is still too concentrated:
 2. `Arranger.tsx` still centralizes too much coordination and event orchestration
 3. `DeviceRack.tsx` still holds too many concerns in one file
 4. correctness coverage is still modest relative to product complexity
-5. reducer behavior is still concentrated in `src/context/editor/reducer/trackNoteActions.ts` and `src/context/editor/reducer/trackClipPatternActions.ts`
-6. route and first-run entry control are now explicit, but still need coverage against more persisted-session combinations
+5. reducer behavior is still concentrated in `src/context/editor/reducer/trackNotePatternActions.ts` and `src/context/editor/reducer/trackClipPatternStepActions.ts`
+6. route and first-run entry control are explicit, but still need coverage against more persisted-session combinations
 
 ## What improved after the route-controller and pattern-ownership pass
 
@@ -272,8 +275,12 @@ New files:
 2. `src/context/editor/reducer/trackClipPatternActions.ts`
 3. `src/context/editor/reducer/trackAutomationActions.ts`
 4. `src/context/editor/reducer/trackTransformActions.ts`
+5. `src/context/editor/reducer/trackNoteEventActions.ts`
+6. `src/context/editor/reducer/trackNotePatternActions.ts`
+7. `src/context/editor/reducer/trackClipPatternStepActions.ts`
+8. `src/context/editor/reducer/trackClipPatternEventActions.ts`
 
-`src/context/editor/reducer/trackPatternActions.ts` is now only a thin coordinator.
+`src/context/editor/reducer/trackPatternActions.ts` is now only a thin coordinator, and the note and clip-pattern coordinators are thin too.
 
 This matters because note editing, phrase identity, automation, and transforms are now testable and discussable as separate ownership zones. The reducer is still concentrated, but it is more honest now.
 
@@ -284,11 +291,26 @@ Additional test coverage now includes:
 1. render-scope replay using stored loop-window history
 2. checkpoint restore with stale live selection and stale checkpoint selection
 3. explicit route resolution for launch, settings, and view deep links
+4. transport-controller count-in, record-start, and preview behavior
+5. persisted-session route entry through `createInitialEditorState`
 
 Current total:
 
-1. `13` test files
-2. `52` passing tests
+1. `15` test files
+2. `57` passing tests
+
+### 4. Rack-source ownership is more honest
+
+`src/components/device-rack/source/DeviceRackSampleCorePanel.tsx` is now a coordinator instead of a mixed engine, preset, import, and waveform slab.
+
+New source panels:
+
+1. `src/components/device-rack/source/DeviceRackEnginePanel.tsx`
+2. `src/components/device-rack/source/DeviceRackSampleModePanel.tsx`
+3. `src/components/device-rack/source/DeviceRackCustomSamplePanel.tsx`
+4. `src/components/device-rack/source/DeviceRackSynthCorePanel.tsx`
+
+That lowers local complexity and makes the rack easier to read in the live UI. The remaining dense source surfaces are now slice authoring and source-window editing.
 
 ## Current verdict
 
