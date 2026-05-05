@@ -224,7 +224,13 @@ export const TopBar = () => {
               <TransportBtn active={isRecording} label="Record" onClick={toggleRecording} tone="record">
                 <Circle className="h-4 w-4 fill-current" />
               </TransportBtn>
-              <TransportBtn active={isPlaying} label="Play" onClick={togglePlay} tone="play">
+              <TransportBtn
+                active={isPlaying}
+                emphasize={!isInitialized && !isPlaying}
+                label="Play"
+                onClick={togglePlay}
+                tone="play"
+              >
                 <Play className="h-4 w-4 fill-current" />
               </TransportBtn>
               <TransportBtn label="Stop" onClick={stop} tone="neutral">
@@ -459,12 +465,14 @@ const MiniStat = ({
 const TransportBtn = ({
   active = false,
   children,
+  emphasize = false,
   label,
   onClick,
   tone,
 }: {
   active?: boolean;
   children: React.ReactNode;
+  emphasize?: boolean;
   label: string;
   onClick: () => void;
   tone: 'neutral' | 'play' | 'record';
@@ -474,11 +482,14 @@ const TransportBtn = ({
     : tone === 'play'
       ? 'bg-[var(--accent-muted)] border-[rgba(130,201,187,0.26)] text-[var(--accent-strong)]'
       : 'bg-[rgba(255,255,255,0.04)] border-[var(--border-soft)] text-[var(--text-primary)]';
+  const restingStyles = emphasize && tone === 'play'
+    ? 'border-[rgba(114,217,255,0.32)] text-[var(--accent-strong)] bg-[rgba(114,217,255,0.06)] hover:bg-[rgba(114,217,255,0.12)]'
+    : 'border-transparent text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.03)] hover:border-[var(--border-soft)] hover:text-[var(--text-primary)]';
 
   return (
     <button
       aria-label={label}
-      className={`flex h-9 w-9 items-center justify-center border transition-colors ${active ? activeStyles : 'border-transparent text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.03)] hover:border-[var(--border-soft)] hover:text-[var(--text-primary)]'}`}
+      className={`flex h-9 w-9 items-center justify-center border transition-colors ${active ? activeStyles : restingStyles}`}
       data-ui-sound={tone === 'record' ? 'record' : 'transport'}
       onClick={onClick}
     >

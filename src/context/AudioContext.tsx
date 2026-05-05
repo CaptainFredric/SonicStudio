@@ -264,6 +264,7 @@ export const AudioProvider = ({
     dispatch({ type: 'SET_SETTINGS_OPEN', open: routeState?.shouldOpenSettings ?? false });
   }, [routeState?.requestedView, routeState?.shouldOpenSettings]);
 
+  const hasPersistedOnceRef = useRef(false);
   const persistCurrentSession = useEffectEvent(() => {
     const envelope = persistStudioSession({
       project: editorState.history.present,
@@ -273,6 +274,7 @@ export const AudioProvider = ({
     if (envelope) {
       setLastSavedAt(envelope.savedAt);
       setSaveStatus('saved');
+      hasPersistedOnceRef.current = true;
       return;
     }
 
@@ -280,7 +282,10 @@ export const AudioProvider = ({
   });
 
   useEffect(() => {
-    setSaveStatus('saving');
+    if (hasPersistedOnceRef.current) {
+      setSaveStatus('saving');
+    }
+
     const timeoutId = window.setTimeout(() => {
       persistCurrentSession();
     }, 250);
@@ -288,7 +293,11 @@ export const AudioProvider = ({
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [editorState.history.present, editorState.ui, persistCurrentSession]);
+    // persistCurrentSession is a useEffectEvent and is intentionally omitted —
+    // including it caused the effect to re-fire after each save, leaving the
+    // status indicator stuck in 'saving'.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editorState.history.present, editorState.ui]);
 
   const initAudio = async () => {
     await engine.init();
