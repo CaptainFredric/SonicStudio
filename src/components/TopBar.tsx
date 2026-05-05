@@ -289,8 +289,13 @@ export const TopBar = () => {
 
             <div className="min-w-0">
               <div className="section-label mb-1">Session</div>
-              <div className={`text-sm font-medium ${saveStatus === 'error' ? 'text-[var(--danger)]' : saveStatus === 'saving' ? 'text-[var(--warning)]' : 'text-[var(--accent-strong)]'}`}>
-                {formatSaveLabel(saveStatus, lastSavedAt)}
+              <div className={`flex items-center gap-2 text-sm font-medium ${saveStatus === 'error' ? 'text-[var(--danger)]' : saveStatus === 'saving' ? 'text-[var(--warning)]' : 'text-[var(--accent-strong)]'}`}>
+                <span
+                  aria-hidden="true"
+                  className="status-dot"
+                  data-tone={saveStatusTone(saveStatus, lastSavedAt)}
+                />
+                <span className="truncate">{formatSaveLabel(saveStatus, lastSavedAt)}</span>
               </div>
               <div className="mt-1 flex items-center gap-2 text-[11px] text-[var(--text-secondary)]">
                 <Radio className="h-3 w-3 text-[var(--accent)]" />
@@ -304,15 +309,22 @@ export const TopBar = () => {
                 {metronomeEnabled
                   ? `Metronome armed${countInBars > 0 ? ` with ${countInBars} bar count in` : ''}.`
                   : isInitialized
-                    ? 'Resume sound if the browser suspended audio.'
-                    : 'Play or audition can also start audio automatically.'}
+                    ? 'Audio armed. Re-arm if the browser suspended sound.'
+                    : 'Sound is asleep. Wake audio or hit play to start.'}
                 <button
-                  className="control-chip mt-1 inline-flex h-9 items-center justify-center px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                  aria-label={isInitialized ? 'Re-arm audio engine' : 'Wake audio engine'}
+                  className="control-chip mt-1 inline-flex h-9 items-center justify-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
                   data-active={isInitialized ? 'true' : 'false'}
+                  data-needs-attention={!isInitialized}
                   data-ui-sound="settings"
                   onClick={() => void initAudio()}
                 >
-                  {isInitialized ? 'Re arm' : 'Wake audio'}
+                  <span
+                    aria-hidden="true"
+                    className="status-dot"
+                    data-tone={isInitialized ? 'ready' : 'attention'}
+                  />
+                  {isInitialized ? 'Audio armed' : 'Wake audio'}
                 </button>
               </div>
             </div>
@@ -489,4 +501,14 @@ const formatSaveLabel = (saveStatus: 'idle' | 'saving' | 'saved' | 'error', last
   }
 
   return `Saved ${new Date(lastSavedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+};
+
+const saveStatusTone = (
+  saveStatus: 'idle' | 'saving' | 'saved' | 'error',
+  lastSavedAt: string | null,
+): 'ready' | 'saving' | 'saved' | 'error' => {
+  if (saveStatus === 'error') return 'error';
+  if (saveStatus === 'saving') return 'saving';
+  if (lastSavedAt) return 'saved';
+  return 'ready';
 };
