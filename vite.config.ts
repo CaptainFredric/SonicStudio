@@ -3,8 +3,8 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import {defineConfig} from 'vite';
 
-export default defineConfig({
-  base: '/SonicStudio/',
+export default defineConfig(({command}) => ({
+  base: command === 'build' ? '/SonicStudio/' : '/',
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
