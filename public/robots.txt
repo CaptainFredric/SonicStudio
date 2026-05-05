@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://captainfredric.github.io/SonicStudio/sitemap.xml
