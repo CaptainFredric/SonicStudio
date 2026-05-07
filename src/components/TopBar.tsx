@@ -489,7 +489,9 @@ const TransportBtn = ({
       : 'bg-[rgba(255,255,255,0.04)] border-[var(--border-soft)] text-[var(--text-primary)]';
   const restingStyles = emphasize && tone === 'play'
     ? 'border-[rgba(114,217,255,0.32)] text-[var(--accent-strong)] bg-[rgba(114,217,255,0.06)] hover:bg-[rgba(114,217,255,0.12)]'
-    : 'border-transparent text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.03)] hover:border-[var(--border-soft)] hover:text-[var(--text-primary)]';
+    : tone === 'play'
+      ? 'border-[rgba(114,217,255,0.18)] text-[var(--accent-strong)] hover:bg-[rgba(114,217,255,0.08)] hover:border-[rgba(114,217,255,0.32)]'
+      : 'border-transparent text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.03)] hover:border-[var(--border-soft)] hover:text-[var(--text-primary)]';
 
   return (
     <button

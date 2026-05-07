@@ -64,6 +64,9 @@ html[data-motion-mode="still"] {
       radial-gradient(circle at 0% 100%, rgba(114, 217, 255, 0.035), transparent 20%),
       linear-gradient(180deg, #04070a 0%, #05090d 52%, #04070b 100%);
     color: var(--text-primary);
+    /* iOS Safari momentum scrolling + prevent rubber-banding fighting interior scrollers */
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
   }
 
   body::before {

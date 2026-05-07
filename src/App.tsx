@@ -55,7 +55,7 @@ const SideNav = () => {
 const ViewRouter = () => {
   const { activeView } = useAudio();
   return (
-    <main className="relative min-h-[60vh] sm:min-h-0 sm:flex-1 sm:overflow-hidden">
+    <main className="relative flex flex-col min-h-[60vh] sm:min-h-0 sm:flex-1 sm:overflow-hidden">
       {activeView === 'SEQUENCER' && <Sequencer />}
       {activeView === 'PIANO_ROLL' && <PianoRoll />}
       {activeView === 'MIXER' && <Mixer />}
