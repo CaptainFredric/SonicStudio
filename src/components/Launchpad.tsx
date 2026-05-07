@@ -80,8 +80,9 @@ export const Launchpad = ({
           Start by hearing something real.
         </h1>
         <p className="mt-4 max-w-[58ch] text-sm leading-6 text-[var(--text-secondary)] md:text-[15px]">
-          First time users should see one clear choice surface. Hear a finished sketch, build a beat,
-          start from a stripped desk, or bring in MIDI from somewhere else.
+          Pick a sketch and you're writing in seconds — patterns, arrangement,
+          and sound are already in place. Bring in your own MIDI or start blank
+          if you'd rather.
         </p>
         <div className="mt-5 flex flex-wrap gap-3">
           <button

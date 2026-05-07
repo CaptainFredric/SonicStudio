@@ -86,12 +86,17 @@ export const TopBar = () => {
     renameProject(draftProjectName);
   };
 
-  const focusTitle = selectedTrack
-    ? `${selectedTrack.name} · ${selectedTrack.type}${selectedArrangerClipId ? ' · clip focused' : ''}`
-    : 'No track selected';
-  const focusMeta = selectedTrack
-    ? `${selectedTrack.source.engine === 'sample' ? 'Sample lane' : 'Synth lane'} · Pattern ${String.fromCharCode(65 + currentPattern)}${selectedArrangerClipId ? ' · selected clip' : ''} · ${transportMode === 'SONG' ? 'Song transport' : 'Pattern transport'}`
-    : 'Choose a lane to inspect its pattern, sound, and song role.';
+  const isFirstImpression = !isInitialized && !isPlaying;
+  const focusTitle = isFirstImpression
+    ? `Press play to hear ${projectName}`
+    : selectedTrack
+      ? `${selectedTrack.name} · ${selectedTrack.type}${selectedArrangerClipId ? ' · clip focused' : ''}`
+      : 'No track selected';
+  const focusMeta = isFirstImpression
+    ? 'Wake audio first if your browser muted it, then ▶ to hear the song.'
+    : selectedTrack
+      ? `${selectedTrack.source.engine === 'sample' ? 'Sample lane' : 'Synth lane'} · Pattern ${String.fromCharCode(65 + currentPattern)}${selectedArrangerClipId ? ' · selected clip' : ''} · ${transportMode === 'SONG' ? 'Song transport' : 'Pattern transport'}`
+      : 'Choose a lane to inspect its pattern, sound, and song role.';
   const loopSummary = loopRangeStartBeat !== null && loopRangeEndBeat !== null
     ? `Looping steps ${loopRangeStartBeat + 1}-${loopRangeEndBeat}`
     : transportMode === 'SONG'
