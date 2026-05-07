@@ -93,7 +93,7 @@ export const TopBar = () => {
       ? `${selectedTrack.name} · ${selectedTrack.type}${selectedArrangerClipId ? ' · clip focused' : ''}`
       : 'No track selected';
   const focusMeta = isFirstImpression
-    ? 'Wake audio first if your browser muted it, then ▶ to hear the song.'
+    ? 'Wake audio first if your browser muted it, then ▶ or hit space.'
     : selectedTrack
       ? `${selectedTrack.source.engine === 'sample' ? 'Sample lane' : 'Synth lane'} · Pattern ${String.fromCharCode(65 + currentPattern)}${selectedArrangerClipId ? ' · selected clip' : ''} · ${transportMode === 'SONG' ? 'Song transport' : 'Pattern transport'}`
       : 'Choose a lane to inspect its pattern, sound, and song role.';
@@ -204,13 +204,13 @@ export const TopBar = () => {
         <div className="grid gap-3 border-t border-[var(--border-soft)] pt-3 xl:self-stretch xl:border-l xl:border-t-0 xl:pl-4 xl:pt-0">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-1">
-              <IconBtn disabled={!canUndo} label="Undo" onClick={undo}>
+              <IconBtn disabled={!canUndo} label="Undo" onClick={undo} shortcut="⌘Z">
                 <Undo2 className="h-4 w-4" />
               </IconBtn>
-              <IconBtn disabled={!canRedo} label="Redo" onClick={redo}>
+              <IconBtn disabled={!canRedo} label="Redo" onClick={redo} shortcut="⇧⌘Z">
                 <Redo2 className="h-4 w-4" />
               </IconBtn>
-              <IconBtn label="Save" onClick={saveProject}>
+              <IconBtn label="Save" onClick={saveProject} shortcut="⌘S">
                 <Save className="h-4 w-4" />
               </IconBtn>
             </div>
@@ -232,8 +232,9 @@ export const TopBar = () => {
               <TransportBtn
                 active={isPlaying}
                 emphasize={!isInitialized && !isPlaying}
-                label="Play"
+                label={isPlaying ? 'Pause' : 'Play'}
                 onClick={togglePlay}
+                shortcut="Space"
                 tone="play"
               >
                 <Play className="h-4 w-4 fill-current" />
@@ -351,11 +352,13 @@ const IconBtn = ({
   disabled = false,
   label,
   onClick,
+  shortcut,
 }: {
   children: React.ReactNode;
   disabled?: boolean;
   label: string;
   onClick: () => void;
+  shortcut?: string;
 }) => (
   <button
     aria-label={label}
@@ -363,6 +366,7 @@ const IconBtn = ({
     data-ui-sound="action"
     disabled={disabled}
     onClick={onClick}
+    title={shortcut ? `${label} (${shortcut})` : label}
   >
     {children}
   </button>
@@ -473,6 +477,7 @@ const TransportBtn = ({
   emphasize = false,
   label,
   onClick,
+  shortcut,
   tone,
 }: {
   active?: boolean;
@@ -480,6 +485,7 @@ const TransportBtn = ({
   emphasize?: boolean;
   label: string;
   onClick: () => void;
+  shortcut?: string;
   tone: 'neutral' | 'play' | 'record';
 }) => {
   const activeStyles = tone === 'record'
@@ -499,6 +505,7 @@ const TransportBtn = ({
       className={`flex h-11 w-11 sm:h-9 sm:w-9 items-center justify-center border transition-colors ${active ? activeStyles : restingStyles}`}
       data-ui-sound={tone === 'record' ? 'record' : 'transport'}
       onClick={onClick}
+      title={shortcut ? `${label} (${shortcut})` : label}
     >
       {children}
     </button>
