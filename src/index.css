@@ -261,7 +261,10 @@ h3 {
   background: var(--warning);
   animation: status-pulse 1.2s ease-in-out infinite;
 }
-.status-dot[data-tone="saved"] { background: #7adfb0; }
+.status-dot[data-tone="saved"] {
+  background: #7adfb0;
+  animation: status-saved-flourish 0.6s ease-out;
+}
 .status-dot[data-tone="error"] {
   background: var(--danger);
   animation: status-pulse 0.9s ease-in-out infinite;
@@ -286,6 +289,21 @@ h3 {
 @keyframes status-pulse {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.45; }
+}
+
+@keyframes status-saved-flourish {
+  0% {
+    transform: scale(0.7);
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35), 0 0 0 0 rgba(122, 223, 176, 0.6);
+  }
+  60% {
+    transform: scale(1.25);
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35), 0 0 14px 2px rgba(122, 223, 176, 0.45);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35), 0 0 0 0 rgba(122, 223, 176, 0);
+  }
 }
 
 html[data-motion-mode="still"] .status-dot {

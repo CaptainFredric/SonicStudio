@@ -359,7 +359,7 @@ const IconBtn = ({
 }) => (
   <button
     aria-label={label}
-    className="ghost-icon-button flex h-9 w-9 items-center justify-center"
+    className="ghost-icon-button flex h-11 w-11 sm:h-9 sm:w-9 items-center justify-center"
     data-ui-sound="action"
     disabled={disabled}
     onClick={onClick}
@@ -378,7 +378,7 @@ const PatternButton = ({
   onClick: () => void;
 }) => (
   <button
-    className="h-9 min-w-9 border px-3 font-mono text-xs font-medium uppercase tracking-[0.16em] transition-colors"
+    className="h-11 min-w-11 sm:h-9 sm:min-w-9 border px-3 font-mono text-xs font-medium uppercase tracking-[0.16em] transition-colors"
     data-ui-sound="tab"
     onClick={onClick}
     style={active
@@ -496,7 +496,7 @@ const TransportBtn = ({
   return (
     <button
       aria-label={label}
-      className={`flex h-9 w-9 items-center justify-center border transition-colors ${active ? activeStyles : restingStyles}`}
+      className={`flex h-11 w-11 sm:h-9 sm:w-9 items-center justify-center border transition-colors ${active ? activeStyles : restingStyles}`}
       data-ui-sound={tone === 'record' ? 'record' : 'transport'}
       onClick={onClick}
     >
