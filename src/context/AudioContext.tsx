@@ -305,6 +305,24 @@ export const AudioProvider = ({
     setIsInitialized(true);
   };
 
+  // First-pointer audio unlock. Browser audio policy requires a user gesture
+  // to start AudioContext. Rather than waiting for the user to find the Wake
+  // audio button or press play, we silently arm the engine on the first
+  // pointer/touch/keydown anywhere on the page. The handler is one-shot.
+  const initAudioRef = useRef(initAudio);
+  initAudioRef.current = initAudio;
+  useEffect(() => {
+    if (isInitialized) return;
+    const wake = () => { void initAudioRef.current(); };
+    const opts: AddEventListenerOptions = { once: true, passive: true };
+    document.addEventListener('pointerdown', wake, opts);
+    document.addEventListener('keydown', wake, opts);
+    return () => {
+      document.removeEventListener('pointerdown', wake);
+      document.removeEventListener('keydown', wake);
+    };
+  }, [isInitialized]);
+
   const {
     previewTrack,
     resetTransportState,

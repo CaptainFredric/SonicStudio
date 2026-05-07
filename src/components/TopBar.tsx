@@ -93,7 +93,7 @@ export const TopBar = () => {
       ? `${selectedTrack.name} · ${selectedTrack.type}${selectedArrangerClipId ? ' · clip focused' : ''}`
       : 'No track selected';
   const focusMeta = isFirstImpression
-    ? 'Wake audio first if your browser muted it, then ▶ or hit space.'
+    ? 'Press ▶ or hit space to start playback.'
     : selectedTrack
       ? `${selectedTrack.source.engine === 'sample' ? 'Sample lane' : 'Synth lane'} · Pattern ${String.fromCharCode(65 + currentPattern)}${selectedArrangerClipId ? ' · selected clip' : ''} · ${transportMode === 'SONG' ? 'Song transport' : 'Pattern transport'}`
       : 'Choose a lane to inspect its pattern, sound, and song role.';
