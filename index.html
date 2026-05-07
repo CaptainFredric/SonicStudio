@@ -20,7 +20,17 @@
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
   </head>
-  <body>
+  <body style="margin:0;background:#04070b;color:#f3f8fb;font-family:'IBM Plex Sans',system-ui,sans-serif;">
+    <div id="boot-splash" aria-hidden="true" style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:#04070b;color:#72d9ff;z-index:9999;transition:opacity 200ms ease-out;">
+      <svg width="56" height="56" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" style="animation:ss-boot-pulse 1.6s ease-in-out infinite;">
+        <rect fill="currentColor" fill-opacity="0.08" height="52" rx="10" width="52" x="6" y="6" />
+        <path d="M16 22C20 24.6 24 24.6 28 22C32 19.4 36 19.4 40 22C44 24.6 48 24.6 48 24.6" stroke="currentColor" stroke-linecap="round" stroke-width="4.5" />
+        <path d="M16 32C20 34.6 24 34.6 28 32C32 29.4 36 29.4 40 32C44 34.6 48 34.6 48 34.6" stroke="currentColor" stroke-linecap="round" stroke-width="4.5" />
+        <path d="M16 42C20 44.6 24 44.6 28 42C32 39.4 36 39.4 40 42C44 44.6 48 44.6 48 44.6" stroke="currentColor" stroke-linecap="round" stroke-width="4.5" />
+      </svg>
+      <div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#74899e;">Loading SonicStudio</div>
+    </div>
+    <style>@keyframes ss-boot-pulse{0%,100%{opacity:.55;transform:scale(1)}50%{opacity:1;transform:scale(1.05)}}</style>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
