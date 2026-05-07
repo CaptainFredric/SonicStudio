@@ -317,6 +317,13 @@ html[data-motion-mode="still"] .status-dot {
   animation: none !important;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .status-dot,
+  #boot-splash svg {
+    animation: none !important;
+  }
+}
+
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
