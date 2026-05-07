@@ -19,7 +19,7 @@ export const DeviceRack = () => {
 
   if (!track) {
     return (
-      <section className="surface-panel h-[286px] flex items-center justify-center">
+      <section className="surface-panel py-10 sm:h-[286px] sm:py-0 flex items-center justify-center">
         <div className="text-center">
           <div className="section-label">Device rack</div>
           <p className="mt-3 text-sm text-[var(--text-secondary)]">Select a track to load its instrument and effect controls.</p>
@@ -29,8 +29,8 @@ export const DeviceRack = () => {
   }
 
   return (
-    <section className="surface-panel h-[286px] overflow-auto p-3">
-      <div className="grid h-full min-w-[1260px] grid-cols-[220px_1.1fr_0.95fr_0.8fr_0.95fr_1.45fr] gap-3">
+    <section className="surface-panel sm:h-[286px] sm:overflow-auto p-3">
+      <div className="grid grid-cols-1 sm:h-full sm:min-w-[1260px] sm:grid-cols-[220px_1.1fr_0.95fr_0.8fr_0.95fr_1.45fr] gap-3">
         <div className="surface-panel-strong flex flex-col justify-between p-4">
           <div>
             <div className="section-label">Selected track</div>
@@ -109,7 +109,7 @@ export const DeviceRack = () => {
           </div>
         </RackSection>
 
-        <div className="surface-panel-strong flex flex-col p-4">
+        <div className="surface-panel-strong flex flex-col p-4 min-h-[180px]">
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="section-label">Master output</div>
@@ -121,11 +121,12 @@ export const DeviceRack = () => {
             <button
               className={`border px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] transition-colors ${isRecording ? 'border-[rgba(240,143,134,0.28)] bg-[rgba(240,143,134,0.16)] text-[var(--danger)]' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
               onClick={toggleRecording}
+              title="Render the current scope to WAV"
             >
               {isRecording ? 'Stop export' : 'Export audio'}
             </button>
           </div>
-          <div className="mt-4 min-h-0 flex-1">
+          <div className="mt-4 min-h-[80px] flex-1">
             <Visualizer />
           </div>
         </div>
