@@ -86,7 +86,7 @@ const VUChannel: React.FC<{ selected: boolean; track: Track }> = ({ selected, tr
       </div>
 
       <div className="mt-6 flex-1 flex items-center justify-center gap-5">
-        <div className="relative h-[220px] w-3 rounded-full border border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)] overflow-hidden">
+        <div className="relative h-[160px] sm:h-[220px] w-3 rounded-full border border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)] overflow-hidden">
           <div
             className="absolute bottom-0 left-0 right-0 rounded-full transition-all duration-75"
             style={{
@@ -272,9 +272,9 @@ export const Mixer = () => {
         }}
         ref={mixerViewportRef}
       >
-        <div className="flex h-full min-h-[560px] gap-6 scroll-snap-x-mandatory">
+        <div className="flex h-full min-h-[440px] sm:min-h-[560px] gap-6 scroll-snap-x-mandatory">
           <div className="scroll-snap-align-start">
-            <div className="surface-panel-strong flex h-full min-h-[560px] w-[184px] shrink-0 flex-col p-4">
+            <div className="surface-panel-strong flex h-full min-h-[440px] sm:min-h-[560px] w-[184px] shrink-0 flex-col p-4">
               <div className="flex items-center gap-3">
                 <div className="h-2.5 w-2.5 rounded-full bg-[var(--accent)]" />
                 <div className="min-w-0">
@@ -334,7 +334,7 @@ export const Mixer = () => {
               </div>
 
               <div className="mt-6 flex flex-1 items-center justify-center gap-5">
-                <div className="relative h-[220px] w-3 overflow-hidden rounded-full border border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)]">
+                <div className="relative h-[160px] sm:h-[220px] w-3 overflow-hidden rounded-full border border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)]">
                   <div
                     className="absolute bottom-0 left-0 right-0 rounded-full transition-all duration-75"
                     style={{
@@ -417,12 +417,12 @@ export const Mixer = () => {
             </div>
           </div>
           {mixerSections.length === 0 ? (
-            <div className="flex min-h-[560px] min-w-[240px] items-center justify-center rounded-[24px] border border-dashed border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-6 py-8 text-center text-sm text-[var(--text-secondary)]">
+            <div className="flex min-h-[440px] sm:min-h-[560px] min-w-[240px] items-center justify-center rounded-[24px] border border-dashed border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-6 py-8 text-center text-sm text-[var(--text-secondary)]">
               No mixer strips match the current scope.
             </div>
           ) : mixerSections.map(({ key, label, tracks: sectionTracks }) => (
             <div key={key} className="scroll-snap-align-start">
-              <div className="flex h-full min-h-[560px] flex-col rounded-[24px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.015)] p-3">
+              <div className="flex h-full min-h-[440px] sm:min-h-[560px] flex-col rounded-[24px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.015)] p-3">
                 <button
                   className="flex items-center justify-between gap-3 rounded-[18px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-4 py-3 text-left"
                   onClick={() => setCollapsedGroups((current) => ({ ...current, [key]: !current[key] }))}
@@ -535,7 +535,7 @@ const VerticalFader = ({
   };
 
   return (
-    <div className="flex h-[220px] w-9 items-center justify-center">
+    <div className="flex h-[160px] sm:h-[220px] w-9 items-center justify-center">
       <div
         className="group relative flex h-full w-6 cursor-ns-resize items-center justify-center rounded-full border border-[var(--border-soft)] bg-[rgba(255,255,255,0.025)]"
         onPointerDown={(event) => {
