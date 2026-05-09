@@ -110,11 +110,11 @@ export const TopBar = () => {
 
   return (
     <header className="surface-panel px-3 py-3 sm:px-5 sm:py-4">
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_400px] xl:items-start">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_400px] xl:items-start" data-first-impression={isFirstImpression}>
         <div className="grid min-w-0 content-start gap-4">
           <div className="flex min-w-0 items-center gap-3 border-b border-[var(--border-soft)] pb-3">
             <div className="surface-panel-strong flex h-11 w-11 items-center justify-center" style={{ borderRadius: '2px' }}>
-              <BrandMark className="h-5 w-5 text-[var(--accent)]" />
+              <BrandMark className="h-5 w-5 text-[var(--accent)]" speed={isPlaying ? 1.4 : 1} />
             </div>
             <div className="min-w-0">
               <h1 className="text-[18px] font-semibold tracking-tight text-[var(--text-primary)]">SonicStudio</h1>
@@ -145,21 +145,23 @@ export const TopBar = () => {
               />
             </label>
 
-            <div className="grid gap-2 self-start">
-              <div className="section-label">Pattern bank</div>
-              <div className="flex items-center gap-2 overflow-x-auto pb-1">
-                {Array.from({ length: patternCount }, (_, patternIndex) => (
-                  <React.Fragment key={patternIndex}>
-                    <PatternButton
-                      active={currentPattern === patternIndex}
-                      onClick={() => setCurrentPattern(patternIndex)}
-                    >
-                      {String.fromCharCode(65 + patternIndex)}
-                    </PatternButton>
-                  </React.Fragment>
-                ))}
+            {!isFirstImpression && (
+              <div className="grid gap-2 self-start">
+                <div className="section-label">Pattern bank</div>
+                <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                  {Array.from({ length: patternCount }, (_, patternIndex) => (
+                    <React.Fragment key={patternIndex}>
+                      <PatternButton
+                        active={currentPattern === patternIndex}
+                        onClick={() => setCurrentPattern(patternIndex)}
+                      >
+                        {String.fromCharCode(65 + patternIndex)}
+                      </PatternButton>
+                    </React.Fragment>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           <div className="grid gap-3 border-t border-[var(--border-soft)] pt-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
@@ -168,13 +170,15 @@ export const TopBar = () => {
                 <span className="section-label">Current focus</span>
                 <span className="truncate text-sm font-semibold text-[var(--text-primary)]">{focusTitle}</span>
               </div>
-              <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2">
-                <MiniStat label="Track" value={selectedTrack ? selectedTrack.name : 'None'} />
-                <MiniStat label="Pattern" value={String.fromCharCode(65 + currentPattern)} />
-                <MiniStat label="Clip" value={selectedArrangerClipId ? 'Selected' : 'None'} />
-                <MiniStat label="Profile" value={activeMasterPreset ? activeMasterPreset.label : 'Custom'} />
-                <MiniStat label="Master" value={`${master.outputGain.toFixed(1)} dB`} />
-              </div>
+              {!isFirstImpression && (
+                <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2">
+                  <MiniStat label="Track" value={selectedTrack ? selectedTrack.name : 'None'} />
+                  <MiniStat label="Pattern" value={String.fromCharCode(65 + currentPattern)} />
+                  <MiniStat label="Clip" value={selectedArrangerClipId ? 'Selected' : 'None'} />
+                  <MiniStat label="Profile" value={activeMasterPreset ? activeMasterPreset.label : 'Custom'} />
+                  <MiniStat label="Master" value={`${master.outputGain.toFixed(1)} dB`} />
+                </div>
+              )}
               <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">{focusMeta}</div>
             </div>
 
@@ -203,7 +207,10 @@ export const TopBar = () => {
 
         <div className="grid gap-3 border-t border-[var(--border-soft)] pt-3 xl:self-stretch xl:border-l xl:border-t-0 xl:pl-4 xl:pt-0">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-1">
+            <div
+              className="flex items-center gap-1 transition-opacity"
+              style={{ opacity: isFirstImpression ? 0.42 : 1 }}
+            >
               <IconBtn disabled={!canUndo} label="Undo" onClick={undo} shortcut="⌘Z">
                 <Undo2 className="h-4 w-4" />
               </IconBtn>
@@ -322,22 +329,19 @@ export const TopBar = () => {
                   ? `Metronome armed${countInBars > 0 ? ` with ${countInBars} bar count in` : ''}.`
                   : isInitialized
                     ? 'Audio armed. Re-arm if the browser suspended sound.'
-                    : 'Sound is asleep. Wake audio or hit play to start.'}
-                <button
-                  aria-label={isInitialized ? 'Re-arm audio engine' : 'Wake audio engine'}
-                  className="control-chip mt-1 inline-flex h-9 items-center justify-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                  data-active={isInitialized ? 'true' : 'false'}
-                  data-needs-attention={!isInitialized}
-                  data-ui-sound="settings"
-                  onClick={() => void initAudio()}
-                >
-                  <span
-                    aria-hidden="true"
-                    className="status-dot"
-                    data-tone={isInitialized ? 'ready' : 'attention'}
-                  />
-                  {isInitialized ? 'Audio armed' : 'Wake audio'}
-                </button>
+                    : 'Press play above to wake audio.'}
+                {isInitialized && (
+                  <button
+                    aria-label="Re-arm audio engine"
+                    className="control-chip mt-1 inline-flex h-9 items-center justify-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                    data-active="true"
+                    data-ui-sound="settings"
+                    onClick={() => void initAudio()}
+                  >
+                    <span aria-hidden="true" className="status-dot" data-tone="ready" />
+                    Audio armed
+                  </button>
+                )}
               </div>
             </div>
           </div>
