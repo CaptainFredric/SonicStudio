@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SonicStudio</title>
-    <meta name="theme-color" content="#07111A" />
+    <meta name="theme-color" content="#04070b" />
     <meta name="description" content="Browser-native composition studio with sequencing, song arrangement, MIDI import and export, print analysis, and project recovery." />
     <meta property="og:title" content="SonicStudio" />
     <meta property="og:description" content="Browser-native composition studio with sequencing, arrangement, MIDI import and export, print analysis, and recovery checkpoints." />
@@ -19,7 +19,78 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/SonicStudio/favicon-32.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/SonicStudio/apple-touch-icon.png" />
     <link rel="manifest" href="/SonicStudio/site.webmanifest" />
-    <script type="module" crossorigin src="/SonicStudio/assets/index-DKYduN9L.js"></script>
+    <style>
+      @keyframes ss-boot-wave {
+        0% { d: path("M16 32 C20 28 24 28 28 32 C32 36 36 36 40 32 C44 28 48 28 48 32"); }
+        50% { d: path("M16 32 C20 36 24 36 28 32 C32 28 36 28 40 32 C44 36 48 36 48 32"); }
+        100% { d: path("M16 32 C20 28 24 28 28 32 C32 36 36 36 40 32 C44 28 48 28 48 32"); }
+      }
+
+      @keyframes ss-boot-wave-2 {
+        0% { d: path("M16 22 C20 18 24 18 28 22 C32 26 36 26 40 22 C44 18 48 18 48 22"); }
+        50% { d: path("M16 22 C20 26 24 26 28 22 C32 18 36 18 40 22 C44 26 48 26 48 22"); }
+        100% { d: path("M16 22 C20 18 24 18 28 22 C32 26 36 26 40 22 C44 18 48 18 48 22"); }
+      }
+
+      @keyframes ss-boot-wave-3 {
+        0% { d: path("M16 42 C20 38 24 38 28 42 C32 46 36 46 40 42 C44 38 48 38 48 42"); }
+        50% { d: path("M16 42 C20 46 24 46 28 42 C32 38 36 38 40 42 C44 46 48 46 48 42"); }
+        100% { d: path("M16 42 C20 38 24 38 28 42 C32 46 36 46 40 42 C44 38 48 38 48 42"); }
+      }
+
+      @keyframes ss-boot-glow {
+        0%, 100% { opacity: 0.55; transform: scale(1); }
+        50% { opacity: 1; transform: scale(1.04); }
+      }
+
+      @keyframes ss-boot-scan {
+        0% { transform: translateX(-30%); }
+        100% { transform: translateX(130%); }
+      }
+
+      #boot-splash .ss-wave-glow {
+        position: absolute;
+        inset: -34px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(114, 217, 255, 0.22), rgba(114, 217, 255, 0) 70%);
+        filter: blur(8px);
+        animation: ss-boot-glow 2s ease-in-out infinite;
+        pointer-events: none;
+      }
+
+      #boot-splash .ss-progress-track {
+        width: 240px;
+        height: 2px;
+        border-radius: 2px;
+        background: rgba(149, 169, 189, 0.10);
+        overflow: hidden;
+        position: relative;
+      }
+
+      #boot-splash .ss-progress-fill {
+        position: absolute;
+        inset: 0;
+        width: 62%;
+        background: rgba(114, 217, 255, 0.45);
+        border-radius: 2px;
+      }
+
+      #boot-splash .ss-progress-shimmer {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        width: 40%;
+        background: linear-gradient(90deg, transparent, #72d9ff, transparent);
+        animation: ss-boot-scan 1.4s linear infinite;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        #boot-splash svg path { animation: none !important; }
+        #boot-splash .ss-wave-glow { animation: none !important; opacity: 0.6; }
+        #boot-splash .ss-progress-shimmer { animation: none !important; }
+      }
+    </style>
+    <script type="module" crossorigin src="/SonicStudio/assets/index-IKv0AkUk.js"></script>
     <link rel="modulepreload" crossorigin href="/SonicStudio/assets/vendor-CSWu6Zy2.js">
     <link rel="modulepreload" crossorigin href="/SonicStudio/assets/tone-engine-s2MncbWM.js">
     <link rel="modulepreload" crossorigin href="/SonicStudio/assets/project-core-DRBopDR3.js">
@@ -28,16 +99,59 @@
     <link rel="stylesheet" crossorigin href="/SonicStudio/assets/index-BvvItLLZ.css">
   </head>
   <body style="margin:0;background:#04070b;color:#f3f8fb;font-family:'IBM Plex Sans',system-ui,sans-serif;">
-    <div id="boot-splash" aria-hidden="true" style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:#04070b;color:#72d9ff;z-index:9999;transition:opacity 200ms ease-out;">
-      <svg width="56" height="56" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" style="animation:ss-boot-pulse 1.6s ease-in-out infinite;">
-        <rect fill="currentColor" fill-opacity="0.08" height="52" rx="10" width="52" x="6" y="6" />
-        <path d="M16 22C20 24.6 24 24.6 28 22C32 19.4 36 19.4 40 22C44 24.6 48 24.6 48 24.6" stroke="currentColor" stroke-linecap="round" stroke-width="4.5" />
-        <path d="M16 32C20 34.6 24 34.6 28 32C32 29.4 36 29.4 40 32C44 34.6 48 34.6 48 34.6" stroke="currentColor" stroke-linecap="round" stroke-width="4.5" />
-        <path d="M16 42C20 44.6 24 44.6 28 42C32 39.4 36 39.4 40 42C44 44.6 48 44.6 48 44.6" stroke="currentColor" stroke-linecap="round" stroke-width="4.5" />
-      </svg>
-      <div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:#74899e;">Loading SonicStudio</div>
+    <div
+      id="boot-splash"
+      aria-hidden="true"
+      style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;background:#04070b;color:#72d9ff;z-index:9999;transition:opacity 220ms ease-out;"
+    >
+      <div style="position:relative;display:flex;align-items:center;justify-content:center;">
+        <div class="ss-wave-glow"></div>
+        <svg width="84" height="84" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" style="position:relative;">
+          <rect fill="currentColor" fill-opacity="0.08" height="52" rx="10" width="52" x="6" y="6" />
+          <path
+            d="M16 22 C20 18 24 18 28 22 C32 26 36 26 40 22 C44 18 48 18 48 22"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-opacity="0.45"
+            stroke-width="4.5"
+            style="animation:ss-boot-wave-2 1.8s ease-in-out infinite;"
+          />
+          <path
+            d="M16 32 C20 28 24 28 28 32 C32 36 36 36 40 32 C44 28 48 28 48 32"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-opacity="0.75"
+            stroke-width="4.5"
+            style="animation:ss-boot-wave 1.8s ease-in-out infinite 0.15s;"
+          />
+          <path
+            d="M16 42 C20 38 24 38 28 42 C32 46 36 46 40 42 C44 38 48 38 48 42"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-width="4.5"
+            style="animation:ss-boot-wave-3 1.8s ease-in-out infinite 0.30s;"
+          />
+        </svg>
+      </div>
+
+      <div style="display:flex;align-items:baseline;gap:10px;">
+        <span style="font-size:24px;font-weight:700;letter-spacing:-0.01em;color:#e7eef6;">SonicStudio</span>
+      </div>
+
+      <div style="display:flex;flex-direction:column;align-items:center;gap:10px;">
+        <div class="ss-progress-track">
+          <div class="ss-progress-fill"></div>
+          <div class="ss-progress-shimmer"></div>
+        </div>
+        <div style="font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:#74899e;font-family:'IBM Plex Mono', ui-monospace, monospace;">
+          Loading audio worklet
+        </div>
+      </div>
+
+      <div style="position:absolute;bottom:24px;left:0;right:0;text-align:center;font-size:9px;letter-spacing:0.18em;text-transform:uppercase;color:rgba(231,238,246,0.18);font-family:'IBM Plex Mono', ui-monospace, monospace;">
+        Browser-native composition
+      </div>
     </div>
-    <style>@keyframes ss-boot-pulse{0%,100%{opacity:.55;transform:scale(1)}50%{opacity:1;transform:scale(1.05)}}@media (prefers-reduced-motion:reduce){#boot-splash svg{animation:none!important;opacity:.85}}</style>
     <div id="root"></div>
   </body>
 </html>
