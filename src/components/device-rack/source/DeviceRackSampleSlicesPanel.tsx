@@ -33,7 +33,7 @@ export const DeviceRackSampleSlicesPanel = ({
       <div>
         <div className="section-label">Slices</div>
         <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
-          Author real slice regions here, then use step mapping in the arranger for beat work.
+          Source regions for sample phrases.
         </div>
       </div>
       <button
@@ -108,7 +108,7 @@ export const DeviceRackSampleSlicesPanel = ({
         </div>
       )) : (
         <div className="text-[11px] leading-5 text-[var(--text-secondary)]">
-          No slices yet. Save the current window or use one of the split actions above.
+          No slices saved.
         </div>
       )}
     </div>

@@ -15,7 +15,7 @@ export const DeviceRackSampleWindowPanel = ({
   <div className="rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
     <div className="section-label">Source window</div>
     <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
-      Full-source playback uses this window. Slices can override gain and reverse when selected.
+      Playback region, gain, and reverse state.
     </div>
     <div className="mt-4 rounded-[12px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
       <div className="flex items-center justify-between">

@@ -91,7 +91,7 @@ export const Launchpad = ({
             onClick={onWakeAudio}
             type="button"
           >
-            {isInitialized ? 'Audio awake' : 'Wake audio'}
+            {isInitialized ? 'Audio armed' : 'Arm audio'}
           </button>
           <button
             className="control-chip px-4 py-2 text-sm font-medium text-[var(--text-primary)]"

@@ -501,7 +501,7 @@ export const MainWorkspace = () => {
             <div className="mt-3 rounded-[16px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)] px-4 py-3">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
                 <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-                  Use the strip, trackpad, or mouse wheel to move across the pattern when step counts grow.
+                  Pattern timeline navigation
                 </div>
                 <div className="flex min-w-0 flex-1 items-center gap-3">
                   <button

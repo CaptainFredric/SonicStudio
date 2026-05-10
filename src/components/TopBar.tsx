@@ -29,7 +29,7 @@ const isMasterPresetMatch = (current: MasterSettings, target: MasterSettings) =>
   && Math.abs(current.limiterCeiling - target.limiterCeiling) <= 0.06
 );
 
-export const TopBar = () => {
+export const TopBar = ({ firstImpression = false }: { firstImpression?: boolean }) => {
   const {
     activeView,
     bpm,
@@ -86,14 +86,15 @@ export const TopBar = () => {
     renameProject(draftProjectName);
   };
 
-  const isFirstImpression = !isInitialized && !isPlaying;
+  const compactStart = firstImpression && !isPlaying;
+  const isFirstImpression = compactStart;
   const focusTitle = isFirstImpression
-    ? `Press play to hear ${projectName}`
+    ? `${projectName} ready`
     : selectedTrack
       ? `${selectedTrack.name} · ${selectedTrack.type}${selectedArrangerClipId ? ' · clip focused' : ''}`
       : 'No track selected';
   const focusMeta = isFirstImpression
-    ? 'Press ▶ or hit space to start playback.'
+    ? 'Session ready'
     : selectedTrack
       ? `${selectedTrack.source.engine === 'sample' ? 'Sample lane' : 'Synth lane'} · Pattern ${String.fromCharCode(65 + currentPattern)}${selectedArrangerClipId ? ' · selected clip' : ''} · ${transportMode === 'SONG' ? 'Song transport' : 'Pattern transport'}`
       : 'Choose a lane to inspect its pattern, sound, and song role.';
@@ -106,7 +107,7 @@ export const TopBar = () => {
     ? `Count in ${countInBeatsRemaining} beat${countInBeatsRemaining === 1 ? '' : 's'}`
     : isInitialized
       ? loopSummary
-      : 'Audio is idle until first interaction';
+      : 'Audio standby';
 
   return (
     <header className="surface-panel px-3 py-3 sm:px-5 sm:py-4">
@@ -118,7 +119,7 @@ export const TopBar = () => {
             </div>
             <div className="min-w-0">
               <h1 className="text-[18px] font-semibold tracking-tight text-[var(--text-primary)]">SonicStudio</h1>
-              <p className="mt-1 text-xs text-[var(--text-secondary)]">Browser-native song writing, arrangement, and sound design.</p>
+              <p className="mt-1 text-xs text-[var(--text-secondary)]">Arrangement, sequencing, and sound in one session.</p>
             </div>
           </div>
 
@@ -171,15 +172,17 @@ export const TopBar = () => {
                 <span className="truncate text-sm font-semibold text-[var(--text-primary)]">{focusTitle}</span>
               </div>
               {!isFirstImpression && (
-                <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2">
-                  <MiniStat label="Track" value={selectedTrack ? selectedTrack.name : 'None'} />
-                  <MiniStat label="Pattern" value={String.fromCharCode(65 + currentPattern)} />
-                  <MiniStat label="Clip" value={selectedArrangerClipId ? 'Selected' : 'None'} />
-                  <MiniStat label="Profile" value={activeMasterPreset ? activeMasterPreset.label : 'Custom'} />
-                  <MiniStat label="Master" value={`${master.outputGain.toFixed(1)} dB`} />
-                </div>
+                <>
+                  <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2">
+                    <MiniStat label="Track" value={selectedTrack ? selectedTrack.name : 'None'} />
+                    <MiniStat label="Pattern" value={String.fromCharCode(65 + currentPattern)} />
+                    <MiniStat label="Clip" value={selectedArrangerClipId ? 'Selected' : 'None'} />
+                    <MiniStat label="Profile" value={activeMasterPreset ? activeMasterPreset.label : 'Custom'} />
+                    <MiniStat label="Master" value={`${master.outputGain.toFixed(1)} dB`} />
+                  </div>
+                  <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">{focusMeta}</div>
+                </>
               )}
-              <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">{focusMeta}</div>
             </div>
 
             <div className="flex flex-wrap gap-4 border-t border-[var(--border-soft)] pt-3 xl:border-t-0 xl:pt-0 xl:justify-end">
@@ -208,8 +211,11 @@ export const TopBar = () => {
         <div className="grid gap-3 border-t border-[var(--border-soft)] pt-3 xl:self-stretch xl:border-l xl:border-t-0 xl:pl-4 xl:pt-0">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div
-              className="flex items-center gap-1 transition-opacity"
-              style={{ opacity: isFirstImpression ? 0.42 : 1 }}
+              className="flex items-center gap-1"
+              style={{
+                opacity: compactStart ? 0.42 : 1,
+                transition: 'opacity 230ms cubic-bezier(0.22,1,0.36,1)',
+              }}
             >
               <IconBtn disabled={!canUndo} label="Undo" onClick={undo} shortcut="⌘Z">
                 <Undo2 className="h-4 w-4" />
@@ -228,17 +234,30 @@ export const TopBar = () => {
                 data-active={isSettingsOpen}
                 data-ui-sound="settings"
                 onClick={() => setSettingsOpen(!isSettingsOpen)}
+                style={{
+                  opacity: compactStart ? 0.42 : 1,
+                  transition: 'opacity 230ms cubic-bezier(0.22,1,0.36,1)',
+                }}
                 type="button"
               >
                 <Settings2 className="h-3.5 w-3.5" />
                 Options
               </button>
-              <TransportBtn active={isRecording} label="Record" onClick={toggleRecording} tone="record">
+              <TransportBtn
+                active={isRecording}
+                label="Record"
+                onClick={toggleRecording}
+                style={{
+                  opacity: compactStart ? 0.42 : 1,
+                  transition: 'opacity 230ms cubic-bezier(0.22,1,0.36,1)',
+                }}
+                tone="record"
+              >
                 <Circle className="h-4 w-4 fill-current" />
               </TransportBtn>
               <TransportBtn
                 active={isPlaying}
-                emphasize={!isInitialized && !isPlaying}
+                emphasize={compactStart}
                 label={isPlaying ? 'Pause' : 'Play'}
                 onClick={togglePlay}
                 shortcut="Space"
@@ -252,38 +271,41 @@ export const TopBar = () => {
             </div>
           </div>
 
-          <div className="grid gap-3 border-t border-[var(--border-soft)] pt-3 sm:grid-cols-[minmax(0,1fr)_120px] sm:items-end">
-            <div className="flex flex-wrap items-center gap-2">
-              <ModeButton
-                active={transportMode === 'PATTERN'}
-                label="Pattern"
-                onClick={() => setTransportMode('PATTERN')}
-              />
-              <ModeButton
-                active={transportMode === 'SONG'}
-                label="Song"
-                onClick={() => setTransportMode('SONG')}
-              />
-              <ModeButton
-                active={metronomeEnabled}
-                label={metronomeEnabled ? 'Metronome on' : 'Metronome off'}
-                onClick={() => setMetronomeEnabled(!metronomeEnabled)}
-              />
+          {!compactStart && (
+            <div className="grid gap-3 border-t border-[var(--border-soft)] pt-3 sm:grid-cols-[minmax(0,1fr)_120px] sm:items-end">
+              <div className="flex flex-wrap items-center gap-2">
+                <ModeButton
+                  active={transportMode === 'PATTERN'}
+                  label="Pattern"
+                  onClick={() => setTransportMode('PATTERN')}
+                />
+                <ModeButton
+                  active={transportMode === 'SONG'}
+                  label="Song"
+                  onClick={() => setTransportMode('SONG')}
+                />
+                <ModeButton
+                  active={metronomeEnabled}
+                  label={metronomeEnabled ? 'Metronome on' : 'Metronome off'}
+                  onClick={() => setMetronomeEnabled(!metronomeEnabled)}
+                />
+              </div>
+              <label className="grid gap-2 text-xs text-[var(--text-secondary)]">
+                <span className="section-label">Count in</span>
+                <select
+                  className="control-field h-10 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                  onChange={(event) => setCountInBars(Number(event.target.value))}
+                  value={countInBars}
+                >
+                  <option value={0}>No count</option>
+                  <option value={1}>1 bar</option>
+                  <option value={2}>2 bars</option>
+                </select>
+              </label>
             </div>
-            <label className="grid gap-2 text-xs text-[var(--text-secondary)]">
-              <span className="section-label">Count in</span>
-              <select
-                className="control-field h-10 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                onChange={(event) => setCountInBars(Number(event.target.value))}
-                value={countInBars}
-              >
-                <option value={0}>No count</option>
-                <option value={1}>1 bar</option>
-                <option value={2}>2 bars</option>
-              </select>
-            </label>
-          </div>
+          )}
 
+          {!compactStart && (
           <div className="grid gap-3 border-t border-[var(--border-soft)] pt-3 sm:grid-cols-2 xl:grid-cols-4">
             <div className="min-w-0">
               <div className="section-label mb-1">Tempo</div>
@@ -328,23 +350,27 @@ export const TopBar = () => {
                 {metronomeEnabled
                   ? `Metronome armed${countInBars > 0 ? ` with ${countInBars} bar count in` : ''}.`
                   : isInitialized
-                    ? 'Audio armed. Re-arm if the browser suspended sound.'
-                    : 'Press play above to wake audio.'}
-                {isInitialized && (
-                  <button
-                    aria-label="Re-arm audio engine"
-                    className="control-chip mt-1 inline-flex h-9 items-center justify-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                    data-active="true"
-                    data-ui-sound="settings"
-                    onClick={() => void initAudio()}
-                  >
-                    <span aria-hidden="true" className="status-dot" data-tone="ready" />
-                    Audio armed
-                  </button>
-                )}
+                    ? 'Audio armed.'
+                    : 'Audio standby.'}
+                <button
+                  aria-label={isInitialized ? 'Re-arm audio engine' : 'Arm audio engine'}
+                  className="control-chip mt-1 inline-flex h-9 items-center justify-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                  data-active={isInitialized ? 'true' : 'false'}
+                  data-needs-attention={!isInitialized}
+                  data-ui-sound="settings"
+                  onClick={() => void initAudio()}
+                >
+                  <span
+                    aria-hidden="true"
+                    className="status-dot"
+                    data-tone={isInitialized ? 'ready' : 'attention'}
+                  />
+                  {isInitialized ? 'Audio armed' : 'Arm audio'}
+                </button>
               </div>
             </div>
           </div>
+          )}
         </div>
       </div>
     </header>
@@ -482,6 +508,7 @@ const TransportBtn = ({
   label,
   onClick,
   shortcut,
+  style,
   tone,
 }: {
   active?: boolean;
@@ -490,6 +517,7 @@ const TransportBtn = ({
   label: string;
   onClick: () => void;
   shortcut?: string;
+  style?: React.CSSProperties;
   tone: 'neutral' | 'play' | 'record';
 }) => {
   const activeStyles = tone === 'record'
@@ -498,21 +526,47 @@ const TransportBtn = ({
       ? 'bg-[var(--accent-muted)] border-[rgba(130,201,187,0.26)] text-[var(--accent-strong)]'
       : 'bg-[rgba(255,255,255,0.04)] border-[var(--border-soft)] text-[var(--text-primary)]';
   const restingStyles = emphasize && tone === 'play'
-    ? 'border-[rgba(114,217,255,0.32)] text-[var(--accent-strong)] bg-[rgba(114,217,255,0.06)] hover:bg-[rgba(114,217,255,0.12)]'
+    ? 'border-[rgba(255,255,255,0.18)] text-[#04141d] bg-[var(--accent)]'
     : tone === 'play'
       ? 'border-[rgba(114,217,255,0.18)] text-[var(--accent-strong)] hover:bg-[rgba(114,217,255,0.08)] hover:border-[rgba(114,217,255,0.32)]'
       : 'border-transparent text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.03)] hover:border-[var(--border-soft)] hover:text-[var(--text-primary)]';
 
+  const playStyle: React.CSSProperties | undefined = emphasize && tone === 'play'
+    ? {
+        boxShadow:
+          '0 0 0 1px rgba(114,217,255,0.5), 0 8px 30px rgba(114,217,255,0.32), inset 0 1px 0 rgba(255,255,255,0.35)',
+        transform: 'scale(1.05)',
+        transition: 'all 230ms cubic-bezier(0.22,1,0.36,1)',
+      }
+    : { transition: 'all 230ms cubic-bezier(0.22,1,0.36,1)' };
+
   return (
-    <button
-      aria-label={label}
-      className={`flex h-11 w-11 sm:h-9 sm:w-9 items-center justify-center border transition-colors ${active ? activeStyles : restingStyles}`}
-      data-ui-sound={tone === 'record' ? 'record' : 'transport'}
-      onClick={onClick}
-      title={shortcut ? `${label} (${shortcut})` : label}
-    >
-      {children}
-    </button>
+    <span style={{ position: 'relative', display: 'inline-flex' }}>
+      <button
+        aria-label={label}
+        className={`flex h-11 w-11 sm:h-9 sm:w-9 items-center justify-center border transition-colors ${active ? activeStyles : restingStyles}`}
+        data-ui-sound={tone === 'record' ? 'record' : 'transport'}
+        onClick={onClick}
+        style={{ ...playStyle, ...style }}
+        title={shortcut ? `${label} (${shortcut})` : label}
+      >
+        {children}
+      </button>
+      {emphasize && tone === 'play' && !active && (
+        <span
+          aria-hidden="true"
+          className="studio-play-pulse"
+          style={{
+            position: 'absolute',
+            inset: -6,
+            borderRadius: 'inherit',
+            border: '1px solid rgba(114,217,255,0.45)',
+            animation: 'ss-pulse 1.6s ease-out infinite',
+            pointerEvents: 'none',
+          }}
+        />
+      )}
+    </span>
   );
 };
 

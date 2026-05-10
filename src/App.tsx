@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { AudioProvider, useAudio } from './context/AudioContext';
 import { TopBar } from './components/TopBar';
 import { MainWorkspace as Sequencer } from './components/MainWorkspace';
@@ -20,15 +20,17 @@ const SideNav = () => {
   ];
 
   return (
-    <aside className="surface-panel sm:w-[96px] w-full shrink-0 px-2 py-3 sm:py-4 flex sm:flex-col flex-row items-center justify-start sm:justify-start gap-2 sm:gap-4 overflow-x-auto sm:overflow-x-visible [-webkit-overflow-scrolling:touch]">
+    <aside className="studio-rail sm:w-[88px] w-full shrink-0 px-2 py-2 sm:py-3 flex sm:flex-col flex-row items-center justify-start gap-2 overflow-x-auto sm:overflow-x-visible [-webkit-overflow-scrolling:touch]">
       <div className="section-label hidden sm:block">Views</div>
       <div className="flex sm:flex-col flex-row gap-2 w-full sm:w-auto">
         {navItems.map(item => (
           <button
             key={item.id}
             onClick={() => setActiveView(item.id as any)}
-            className={`rounded-2xl border px-2 py-3 transition-colors ${activeView === item.id ? 'bg-[var(--accent-muted)] border-[rgba(130,201,187,0.3)] text-[var(--accent-strong)]' : 'bg-transparent border-transparent text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.02)] hover:border-[var(--border-soft)] hover:text-[var(--text-primary)]'}`}
+            className="studio-nav-button"
+            data-active={activeView === item.id}
             title={item.label}
+            type="button"
           >
             <div className="flex flex-col items-center gap-2">
               {item.icon}
@@ -39,12 +41,15 @@ const SideNav = () => {
       </div>
       <div className="ml-auto sm:mt-auto sm:w-full pt-3 sm:border-t border-[var(--border-soft)]">
         <button
-          className={`rounded-2xl border px-2 py-3 transition-colors shrink-0 sm:w-full ${isSettingsOpen ? 'bg-[var(--accent-muted)] border-[rgba(130,201,187,0.3)] text-[var(--accent-strong)]' : 'bg-transparent border-transparent text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.02)] hover:border-[var(--border-soft)] hover:text-[var(--text-primary)]'}`}
+          className="studio-nav-button shrink-0 sm:w-full"
+          data-active={isSettingsOpen}
           onClick={toggleSettings}
+          title="Options"
+          type="button"
         >
           <div className="flex sm:flex-col flex-row items-center gap-2">
             <Settings size={20} />
-            <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Setup</span>
+            <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Options</span>
           </div>
         </button>
       </div>
@@ -64,18 +69,28 @@ const ViewRouter = () => {
   );
 };
 
+const useFirstImpression = () => {
+  const { isPlaying } = useAudio();
+  const [hasEverPlayed, setHasEverPlayed] = useState(false);
+  useEffect(() => {
+    if (isPlaying) setHasEverPlayed(true);
+  }, [isPlaying]);
+  return !hasEverPlayed;
+};
+
 const StudioShell = () => {
   const { isSettingsOpen } = useAudio();
+  const isFirstImpression = useFirstImpression();
 
   return (
-    <div className="min-h-screen w-full sm:h-screen sm:w-screen sm:overflow-hidden antialiased text-[var(--text-primary)]">
+    <div className="app-shell min-h-screen w-full sm:h-screen sm:w-screen sm:overflow-hidden antialiased text-[var(--text-primary)]">
       <div className="flex flex-col sm:h-full sm:overflow-hidden">
         <div className="px-3 pt-3">
-          <TopBar />
+          <TopBar firstImpression={isFirstImpression} />
         </div>
-        <div className="flex flex-col sm:flex-row sm:flex-1 sm:min-h-0 gap-3 px-3 pb-3">
+        <div className="studio-shell-grid flex flex-col sm:flex-row sm:flex-1 sm:min-h-0 gap-3 px-3 pb-3">
           <SideNav />
-          <div className="flex sm:min-h-0 sm:flex-1 flex-col gap-3">
+          <div className="studio-workbench flex sm:min-h-0 sm:flex-1 flex-col gap-3">
             <div className="flex flex-col sm:flex-row sm:min-h-0 sm:flex-1 gap-3">
               <ViewRouter />
               {isSettingsOpen && <SettingsSidebar />}

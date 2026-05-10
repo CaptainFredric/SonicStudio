@@ -453,7 +453,7 @@ export const Mixer = () => {
       <div className="border-t border-[var(--border-soft)] px-5 py-3">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
           <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-            Use the strip, trackpad, or mouse wheel to move across grouped mixer lanes.
+            Grouped mixer lane navigation
           </div>
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <button
