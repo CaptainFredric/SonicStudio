@@ -4,9 +4,11 @@ import path from 'path';
 import {defineConfig} from 'vite';
 
 export default defineConfig(({ command }) => {
-  const isBuild = command === 'build';
   return {
-    base: isBuild ? '/SonicStudio/' : '/',
+    // Use relative asset URLs for the default production build so the bundled
+    // app can be served from any static root, including VS Code Live Server.
+    // GitHub Pages keeps using an explicit subpath via `npm run build:pages`.
+    base: command === 'build' ? './' : '/',
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {

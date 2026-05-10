@@ -13,6 +13,9 @@ npm run lint
 # Build for production
 npm run build
 
+# Build for GitHub Pages
+npm run build:pages
+
 # Run tests
 npm run test
 ```

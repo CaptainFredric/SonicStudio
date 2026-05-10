@@ -78,7 +78,19 @@ npm install
 npm run dev
 ```
 
-Vite serves the studio at `http://localhost:3000/SonicStudio/`.
+Vite serves the studio at `http://localhost:3000/`.
+
+For a portable static bundle that works on root-based static servers, use:
+
+```bash
+npm run build
+```
+
+For GitHub Pages under `/SonicStudio/`, use:
+
+```bash
+npm run build:pages
+```
 
 ## Verification
 

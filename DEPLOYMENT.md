@@ -35,6 +35,14 @@ VITE_PUBLIC_URL=https://sonicstudio.io
 npm run build
 ```
 
+The default build emits relative asset URLs so `dist/` can be served from a generic static root such as Live Server, Vercel, Netlify, or `serve`.
+
+For GitHub Pages under `/SonicStudio/`, use:
+
+```bash
+npm run build:pages
+```
+
 The built files will be in the `dist/` directory.
 
 ## Deployment Options
