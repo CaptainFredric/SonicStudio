@@ -333,7 +333,7 @@ export const PianoRoll = () => {
   }, [normalizedSelectedNoteIndex, selectedNote, selectedStepIndex, updateSelectedGate]);
 
   return (
-    <section className="surface-panel flex flex-1 min-h-0 flex-col overflow-hidden">
+    <section className="surface-panel flex min-h-0 flex-1 flex-col overflow-auto xl:overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--border-soft)] px-5 py-4">
         <div>
           <div className="section-label">Piano roll</div>
@@ -431,8 +431,8 @@ export const PianoRoll = () => {
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 gap-4 p-4">
-        <div className="min-w-0 flex-1 overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 xl:flex-row">
+        <div className="min-h-[520px] min-w-0 flex-1 overflow-hidden xl:min-h-0">
           <div
             className="sequencer-grid-scroll h-full overflow-auto"
             onWheel={(event) => {
@@ -606,7 +606,7 @@ export const PianoRoll = () => {
           </div>
         </div>
 
-        <aside className="surface-panel-strong sonic-sidebar w-[320px] shrink-0 overflow-auto p-4">
+        <aside className="surface-panel-strong sonic-sidebar w-full shrink-0 overflow-auto p-4 xl:w-[320px]">
           <div className="flex items-center gap-2">
             <SlidersHorizontal className="h-4 w-4 text-[var(--accent)]" />
             <span className="section-label">Step inspector</span>

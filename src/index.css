@@ -543,6 +543,37 @@ input[type=range]:focus {
   background: rgba(114, 217, 255, 0.34);
 }
 
+.device-rack-panel,
+.settings-sheet,
+.sonic-sidebar,
+.timeline-shell {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.device-rack-panel::-webkit-scrollbar,
+.settings-sheet::-webkit-scrollbar,
+.sonic-sidebar::-webkit-scrollbar,
+.timeline-shell::-webkit-scrollbar {
+  height: 12px;
+  width: 12px;
+}
+
+.device-rack-panel::-webkit-scrollbar-thumb,
+.settings-sheet::-webkit-scrollbar-thumb,
+.sonic-sidebar::-webkit-scrollbar-thumb,
+.timeline-shell::-webkit-scrollbar-thumb {
+  background: rgba(114, 217, 255, 0.22);
+}
+
+.device-rack-panel::-webkit-scrollbar-thumb:hover,
+.settings-sheet::-webkit-scrollbar-thumb:hover,
+.sonic-sidebar::-webkit-scrollbar-thumb:hover,
+.timeline-shell::-webkit-scrollbar-thumb:hover {
+  background: rgba(114, 217, 255, 0.34);
+}
+
 .nav-button {
   position: relative;
   background: transparent;

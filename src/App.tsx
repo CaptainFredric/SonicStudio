@@ -20,9 +20,9 @@ const SideNav = () => {
   ];
 
   return (
-    <aside className="studio-rail sm:w-[88px] w-full shrink-0 px-2 py-2 sm:py-3 flex sm:flex-col flex-row items-center justify-start gap-2 overflow-x-auto sm:overflow-x-visible [-webkit-overflow-scrolling:touch]">
-      <div className="section-label hidden sm:block">Views</div>
-      <div className="flex sm:flex-col flex-row gap-2 w-full sm:w-auto">
+    <aside className="studio-rail md:w-[88px] w-full shrink-0 px-2 py-2 md:py-3 flex md:flex-col flex-row items-center justify-start gap-2 overflow-x-auto md:overflow-x-visible [-webkit-overflow-scrolling:touch]">
+      <div className="section-label hidden md:block">Views</div>
+      <div className="flex md:flex-col flex-row gap-2 w-full md:w-auto">
         {navItems.map(item => (
           <button
             key={item.id}
@@ -39,15 +39,15 @@ const SideNav = () => {
           </button>
         ))}
       </div>
-      <div className="ml-auto sm:mt-auto sm:w-full pt-3 sm:border-t border-[var(--border-soft)]">
+      <div className="ml-auto md:mt-auto md:w-full pt-3 md:border-t border-[var(--border-soft)]">
         <button
-          className="studio-nav-button shrink-0 sm:w-full"
+          className="studio-nav-button shrink-0 md:w-full"
           data-active={isSettingsOpen}
           onClick={toggleSettings}
           title="Options"
           type="button"
         >
-          <div className="flex sm:flex-col flex-row items-center gap-2">
+          <div className="flex md:flex-col flex-row items-center gap-2">
             <Settings size={20} />
             <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Options</span>
           </div>
@@ -60,7 +60,7 @@ const SideNav = () => {
 const ViewRouter = () => {
   const { activeView } = useAudio();
   return (
-    <main className="relative flex flex-col min-h-[60vh] sm:min-h-0 sm:flex-1 sm:overflow-hidden">
+    <main className="relative flex flex-col min-h-[60vh] md:min-h-0 md:flex-1 md:overflow-hidden">
       {activeView === 'SEQUENCER' && <Sequencer />}
       {activeView === 'PIANO_ROLL' && <PianoRoll />}
       {activeView === 'MIXER' && <Mixer />}
@@ -83,15 +83,15 @@ const StudioShell = () => {
   const isFirstImpression = useFirstImpression();
 
   return (
-    <div className="app-shell min-h-screen w-full sm:h-screen sm:w-screen sm:overflow-hidden antialiased text-[var(--text-primary)]">
-      <div className="flex flex-col sm:h-full sm:overflow-hidden">
+    <div className="app-shell min-h-screen w-full md:h-screen md:w-screen md:overflow-hidden antialiased text-[var(--text-primary)]">
+      <div className="flex flex-col md:h-full md:overflow-hidden">
         <div className="px-3 pt-3">
           <TopBar firstImpression={isFirstImpression} />
         </div>
-        <div className="studio-shell-grid flex flex-col sm:flex-row sm:flex-1 sm:min-h-0 gap-3 px-3 pb-3">
+        <div className="studio-shell-grid flex flex-col md:flex-row md:flex-1 md:min-h-0 gap-3 px-3 pb-3">
           <SideNav />
-          <div className="studio-workbench flex sm:min-h-0 sm:flex-1 flex-col gap-3">
-            <div className="flex flex-col sm:flex-row sm:min-h-0 sm:flex-1 gap-3">
+          <div className="studio-workbench flex md:min-h-0 md:flex-1 flex-col gap-3">
+            <div className="flex flex-col md:flex-row md:min-h-0 md:flex-1 gap-3">
               <ViewRouter />
               {isSettingsOpen && <SettingsSidebar />}
             </div>

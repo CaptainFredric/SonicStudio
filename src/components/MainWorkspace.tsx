@@ -200,7 +200,7 @@ export const MainWorkspace = () => {
   };
 
   return (
-    <section className="surface-panel flex flex-1 min-h-0 flex-col overflow-hidden">
+    <section className="surface-panel flex min-h-0 flex-1 flex-col overflow-auto xl:overflow-hidden">
       <div className="flex items-center justify-between gap-4 border-b border-[var(--border-soft)] px-5 py-4">
         <div>
           <div className="section-label">Sequencer</div>
@@ -221,8 +221,8 @@ export const MainWorkspace = () => {
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 gap-4 overflow-hidden p-4">
-        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-visible p-4 xl:flex-row xl:overflow-hidden">
+        <div className="flex min-h-[520px] min-w-0 flex-1 flex-col overflow-hidden xl:min-h-0">
           <div className="surface-panel-muted mb-3 px-4 py-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -545,7 +545,7 @@ export const MainWorkspace = () => {
           </div>
         </div>
 
-        <aside className="surface-panel-strong sonic-sidebar w-[320px] shrink-0 overflow-auto p-4">
+        <aside className="surface-panel-strong sonic-sidebar w-full shrink-0 overflow-auto p-4 xl:w-[320px]">
           <div className="flex items-center gap-2">
             <SlidersHorizontal className="h-4 w-4 text-[var(--accent)]" />
             <span className="section-label">Compose inspector</span>

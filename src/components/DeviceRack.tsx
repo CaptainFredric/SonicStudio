@@ -19,7 +19,7 @@ export const DeviceRack = () => {
 
   if (!track) {
     return (
-      <section className="surface-panel py-10 sm:h-[286px] sm:py-0 flex items-center justify-center">
+      <section className="surface-panel flex items-center justify-center py-10 md:h-[clamp(176px,24vh,232px)] md:shrink-0 md:py-0 lg:h-[clamp(190px,28vh,286px)]">
         <div className="text-center">
           <div className="section-label">Device rack</div>
           <p className="mt-3 text-sm text-[var(--text-secondary)]">Select a track to load its instrument and effect controls.</p>
@@ -29,8 +29,8 @@ export const DeviceRack = () => {
   }
 
   return (
-    <section className="surface-panel sm:h-[286px] sm:overflow-auto p-3">
-      <div className="grid grid-cols-1 sm:h-full sm:min-w-[1260px] sm:grid-cols-[220px_1.1fr_0.95fr_0.8fr_0.95fr_1.45fr] gap-3">
+    <section className="surface-panel device-rack-panel p-3 md:h-[clamp(176px,24vh,232px)] md:shrink-0 md:overflow-auto lg:h-[clamp(190px,28vh,286px)]">
+      <div className="grid grid-cols-1 gap-3 lg:h-full lg:min-w-[1260px] lg:grid-cols-[220px_1.1fr_0.95fr_0.8fr_0.95fr_1.45fr]">
         <div className="surface-panel-strong flex flex-col justify-between p-4">
           <div>
             <div className="section-label">Selected track</div>
