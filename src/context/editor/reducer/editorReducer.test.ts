@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { createSessionFromTemplate, hydrateSessionPayload } from '../../../project/storage';
 import type { EditorState } from '../editorTypes';
+import { SONG_FORM_DEFINITIONS } from '../songFormDefinitions';
 import { editorReducer } from './editorReducer';
 
 const createEditorState = (templateId: 'night-transit' | 'blank-grid' = 'night-transit'): EditorState => {
@@ -171,5 +172,26 @@ describe('editorReducer', () => {
       note: 'C4',
       velocity: 0.63,
     });
+  });
+
+  it('applies a song form through reducer history and live selection', () => {
+    const state = createEditorState();
+    const definition = SONG_FORM_DEFINITIONS.find((candidate) => candidate.id === 'club-lift');
+    const nextState = editorReducer(state, {
+      type: 'APPLY_SONG_FORM',
+      formId: 'club-lift',
+    });
+
+    if (!definition) {
+      throw new Error('Expected club lift song form');
+    }
+
+    expect(nextState.history.past).toHaveLength(1);
+    expect(nextState.history.present.transport.mode).toBe('SONG');
+    expect(nextState.history.present.markers.map((marker) => marker.name)).toEqual(
+      definition.sections.map((section) => section.label),
+    );
+    expect(nextState.ui.selectedArrangerClipId).toBe(nextState.history.present.arrangerClips[0]?.id ?? null);
+    expect(nextState.ui.selectedTrackId).toBe(nextState.history.present.arrangerClips[0]?.trackId ?? null);
   });
 });

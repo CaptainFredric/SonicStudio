@@ -45,7 +45,7 @@ export const WorkspaceOptionsPanel = ({
           <div>
             <div className="text-sm font-medium text-[var(--text-primary)]">Motion</div>
             <div className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
-              Fluid adds softer panel and button movement. Focus tightens the pace. Still removes most motion.
+              Choose the movement pace for panels, controls, and studio feedback.
             </div>
           </div>
         </div>

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Braces, Copy, Layers3 } from 'lucide-react';
 
+import type { SongFormId } from '../../context/editor/songFormDefinitions';
 import { type ArrangementClip, type NoteEvent, type SongMarker, type Track } from '../../project/schema';
 import { AutomationPanel } from './inspector/AutomationPanel';
 import { ComposePanel } from './inspector/ComposePanel';
@@ -14,6 +15,7 @@ import type {
 } from './types';
 
 interface ArrangerInspectorProps {
+  applySongForm: (formId: SongFormId) => void;
   collapsedGroups: Record<LaneSectionKey, boolean>;
   composerStepCount: number;
   composerSteps: NoteEvent[][];
@@ -85,6 +87,7 @@ interface ArrangerInspectorProps {
 }
 
 export const ArrangerInspector = ({
+  applySongForm,
   collapsedGroups,
   composerStepCount,
   composerSteps,
@@ -168,6 +171,7 @@ export const ArrangerInspector = ({
 
       {inspectorTab === 'SECTIONS' ? (
         <SongToolsPanel
+          applySongForm={applySongForm}
           collapsedGroups={collapsedGroups}
           createSongMarker={createSongMarker}
           currentStep={currentStep}

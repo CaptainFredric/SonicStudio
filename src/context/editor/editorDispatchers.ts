@@ -12,9 +12,11 @@ import type {
   TransportMode,
 } from '../../project/schema';
 import type { EditorAction } from './editorTypes';
+import type { SongFormId } from './songFormDefinitions';
 
 export const createEditorDispatchers = (dispatch: Dispatch<EditorAction>) => ({
   addArrangerClip: (trackId?: string) => dispatch({ type: 'ADD_ARRANGER_CLIP', trackId }),
+  applySongForm: (formId: SongFormId) => dispatch({ type: 'APPLY_SONG_FORM', formId }),
   applyMasterSnapshot: (snapshotId: string) => dispatch({ type: 'APPLY_MASTER_SNAPSHOT', snapshotId }),
   applyTrackSnapshot: (trackId: string, snapshotId: string) => dispatch({ type: 'APPLY_TRACK_SNAPSHOT', snapshotId, trackId }),
   applyTrackVoicePreset: (trackId: string, presetId: string) => dispatch({ type: 'APPLY_TRACK_VOICE_PRESET', presetId, trackId }),

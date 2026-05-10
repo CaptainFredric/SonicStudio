@@ -29,6 +29,7 @@ import {
   type TrackSource,
   type TransportMode,
 } from '../project/schema';
+import type { SongFormId } from './editor/songFormDefinitions';
 import {
   type MotionMode,
   loadStudioPreferences,
@@ -58,6 +59,7 @@ export type { BounceNormalizationMode, BounceTailMode, ExportScope } from '../se
 interface AudioContextType {
   activeView: AppView;
   addArrangerClip: (trackId?: string) => void;
+  applySongForm: (formId: SongFormId) => void;
   applyTrackVoicePreset: (trackId: string, presetId: string) => void;
   applyTrackSnapshot: (trackId: string, snapshotId: string) => void;
   applyMasterSnapshot: (snapshotId: string) => void;

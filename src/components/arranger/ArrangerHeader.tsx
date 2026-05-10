@@ -1,6 +1,7 @@
 import React from 'react';
 import { Plus } from 'lucide-react';
 
+import { SONG_FORM_DEFINITIONS, type SongFormId } from '../../context/editor/songFormDefinitions';
 import type { ArrangementClip, SongMarker, Track } from '../../project/schema';
 import type { LaneScope, SnapSize, ZoomPreset } from './types';
 
@@ -21,6 +22,7 @@ interface ArrangerHeaderProps {
   markerCount: number;
   onJumpToBoundary: (step: number) => void;
   onJumpToPlayhead: () => void;
+  onApplySongForm: (formId: SongFormId) => void;
   onRevealSelectedClip: () => void;
   onSelectClip: (clipId: string) => void;
   onSetCompactLaneView: (value: boolean) => void;
@@ -59,6 +61,7 @@ export const ArrangerHeader = ({
   markerCount,
   onJumpToBoundary,
   onJumpToPlayhead,
+  onApplySongForm,
   onRevealSelectedClip,
   onSelectClip,
   onSetCompactLaneView,
@@ -195,7 +198,31 @@ export const ArrangerHeader = ({
 
       <div className="min-w-0 xl:pl-5">
         <div className="section-label">View controls</div>
-        <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+          <label className="grid gap-2 text-xs text-[var(--text-secondary)]">
+            <span className="section-label">Form</span>
+            <select
+              className="control-field h-10 px-3 text-xs font-semibold uppercase tracking-[0.14em]"
+              data-song-form-select="true"
+              onChange={(event) => {
+                const formId = event.target.value as SongFormId;
+                if (!formId) {
+                  return;
+                }
+                onApplySongForm(formId);
+                event.currentTarget.value = '';
+              }}
+              value=""
+            >
+              <option value="">Build form</option>
+              {SONG_FORM_DEFINITIONS.map((definition) => (
+                <option key={definition.id} value={definition.id}>
+                  {definition.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
           <label className="grid gap-2 text-xs text-[var(--text-secondary)]">
             <span className="section-label">Zoom</span>
             <select

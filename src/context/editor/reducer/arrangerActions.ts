@@ -6,6 +6,7 @@ import {
   splitArrangerClipProject,
   syncArrangerClips,
 } from '../projectMutations';
+import { buildSongFormProject } from '../songFormBuilder';
 import {
   ARRANGER_SNAP,
   buildSongRangeDuplicate,
@@ -16,6 +17,20 @@ export const handleArrangerAction = (state: EditorState, action: EditorAction): 
   const { present } = state.history;
 
   switch (action.type) {
+    case 'APPLY_SONG_FORM': {
+      const result = buildSongFormProject(present, action.formId);
+      if (!result) {
+        return state;
+      }
+
+      return commitProject(
+        state,
+        result.project,
+        result.selectedTrackId,
+        result.selectedArrangerClipId,
+      );
+    }
+
     case 'DUPLICATE_SONG_RANGE':
       return commitProject(
         state,

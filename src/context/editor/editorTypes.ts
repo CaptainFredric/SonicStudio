@@ -14,6 +14,7 @@ import type {
   TrackSource,
   TransportMode,
 } from '../../project/schema';
+import type { SongFormId } from './songFormDefinitions';
 
 export interface HistoryState {
   future: Project[];
@@ -28,6 +29,7 @@ export interface EditorState {
 
 export type EditorAction =
   | { type: 'ADD_ARRANGER_CLIP'; trackId?: string }
+  | { type: 'APPLY_SONG_FORM'; formId: SongFormId }
   | { type: 'APPLY_TRACK_VOICE_PRESET'; presetId: string; trackId: string }
   | { type: 'APPLY_TRACK_SNAPSHOT'; snapshotId: string; trackId: string }
   | { type: 'APPEND_BOUNCE_HISTORY'; entry: BounceHistoryEntry }

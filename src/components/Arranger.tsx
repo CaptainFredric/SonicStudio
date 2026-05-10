@@ -42,6 +42,7 @@ const getVisibleRangeLabel = (startStep: number, endStep: number) => (
 export const Arranger = () => {
   const {
     addArrangerClip,
+    applySongForm,
     arrangerClips,
     bpm,
     createSongMarker,
@@ -99,6 +100,8 @@ export const Arranger = () => {
   const [isInspectorOpen, setIsInspectorOpen] = useState(true);
   const [openLaneMenuTrackId, setOpenLaneMenuTrackId] = useState<string | null>(null);
   const timelineRef = useRef<HTMLDivElement | null>(null);
+  const hasTrackedSelectedClipRef = useRef(false);
+  const previousSelectedClipIdRef = useRef<string | null>(null);
   const pixelsPerStep = ZOOM_PIXELS_PER_STEP[zoomPreset];
 
   const selectedClip = arrangerClips.find((clip) => clip.id === selectedArrangerClipId) ?? null;
@@ -231,10 +234,21 @@ export const Arranger = () => {
   }, [selectedArrangerClipId]);
 
   useEffect(() => {
-    if (selectedClip) {
+    const nextClipId = selectedClip?.id ?? null;
+
+    if (!hasTrackedSelectedClipRef.current) {
+      hasTrackedSelectedClipRef.current = true;
+      previousSelectedClipIdRef.current = nextClipId;
+      return;
+    }
+
+    const previousClipId = previousSelectedClipIdRef.current;
+    previousSelectedClipIdRef.current = nextClipId;
+
+    if (selectedClip && selectedClip.id !== previousClipId && inspectorTab === 'SHAPE') {
       setInspectorTab('COMPOSE');
     }
-  }, [selectedClip?.id]);
+  }, [inspectorTab, selectedClip?.id]);
 
   useEffect(() => {
     if (!openLaneMenuTrackId) {
@@ -300,7 +314,7 @@ export const Arranger = () => {
     : null;
 
   return (
-    <section className="surface-panel flex min-h-0 flex-1 flex-col overflow-hidden">
+    <section className="surface-panel arranger-surface flex min-h-0 flex-1 flex-col overflow-hidden">
       <ArrangerHeader
         addClip={() => addArrangerClip(selectedTrackId ?? undefined)}
         arrangerClips={arrangerClips}
@@ -313,6 +327,7 @@ export const Arranger = () => {
         markerCount={markerCount}
         onJumpToBoundary={jumpToBoundary}
         onJumpToPlayhead={jumpToPlayhead}
+        onApplySongForm={applySongForm}
         onRevealSelectedClip={revealSelectedClip}
         onSelectClip={selectClip}
         onSetCompactLaneView={setCompactLaneView}
@@ -339,8 +354,9 @@ export const Arranger = () => {
         zoomPreset={zoomPreset}
       />
 
-      <div className={`grid min-h-0 flex-1 gap-4 p-5 ${isInspectorOpen ? 'xl:grid-cols-[320px_minmax(0,1fr)]' : 'grid-cols-1'}`}>
+      <div className={`arranger-layout grid min-h-0 flex-1 gap-4 p-5 ${isInspectorOpen ? 'xl:grid-cols-[320px_minmax(0,1fr)]' : 'grid-cols-1'}`}>
         <ArrangerInspector
+          applySongForm={applySongForm}
           collapsedGroups={collapsedGroups}
           composerStepCount={composerStepCount}
           composerSteps={composerSteps}

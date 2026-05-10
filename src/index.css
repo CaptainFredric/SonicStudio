@@ -241,6 +241,13 @@ h3 {
   color: var(--text-primary);
 }
 
+.control-chip:active:not(:disabled),
+.ghost-icon-button:active:not(:disabled),
+.studio-nav-button:active:not(:disabled),
+.song-form-card:active:not(:disabled) {
+  transform: translateY(0) scale(0.985);
+}
+
 .ghost-icon-button {
   background: transparent;
   border: 1px solid transparent;
@@ -561,6 +568,21 @@ input[type=range]:focus {
     rgba(7, 10, 15, 0.56);
 }
 
+.song-form-card {
+  border-radius: 2px;
+  transform: translateY(0);
+  transition:
+    background-color var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease);
+}
+
+.song-form-card:hover:not(:disabled) {
+  box-shadow: 0 14px 26px rgba(0, 0, 0, 0.18);
+  transform: translateY(var(--motion-lift-distance));
+}
+
 .settings-sheet {
   animation: settings-sheet-in var(--motion-slow) var(--motion-ease);
   backdrop-filter: blur(var(--motion-panel-blur));
@@ -626,6 +648,92 @@ input[type=range]:focus {
   to {
     opacity: 1;
     transform: translate3d(0, 0, 0) scale(1);
+  }
+}
+
+@media (max-width: 1279px) {
+  .arranger-surface {
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .arranger-layout {
+    min-height: auto;
+    overflow: visible;
+  }
+
+  .sonic-sidebar {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .timeline-shell {
+    min-height: 360px;
+  }
+}
+
+@media (max-width: 767px) {
+  body {
+    overscroll-behavior-y: auto;
+  }
+
+  .app-shell {
+    min-height: 100dvh;
+  }
+
+  .studio-shell-grid {
+    gap: 0.7rem;
+    padding-inline: 0.65rem;
+    padding-bottom: 0.8rem;
+  }
+
+  .studio-rail {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    margin-inline: -0.65rem;
+    border-left: 0;
+    border-right: 0;
+    backdrop-filter: blur(16px);
+  }
+
+  .studio-nav-button {
+    min-width: 72px;
+    padding-block: 0.62rem;
+  }
+
+  .studio-workbench {
+    gap: 0.7rem;
+  }
+
+  .arranger-surface {
+    overflow: visible;
+  }
+
+  .arranger-layout {
+    gap: 0.75rem;
+    overflow: visible;
+    padding: 0.75rem;
+  }
+
+  .sonic-sidebar {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .timeline-shell {
+    max-height: 62vh;
+    min-height: 340px;
+  }
+
+  .song-form-grid {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  }
+
+  .control-chip,
+  .studio-nav-button,
+  .song-form-card {
+    touch-action: manipulation;
   }
 }
 
