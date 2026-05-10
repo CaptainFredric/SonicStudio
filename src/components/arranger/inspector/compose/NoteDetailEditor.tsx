@@ -79,47 +79,49 @@ export const NoteDetailEditor = ({
   );
 
   return (
-  <div className="mt-4 grid gap-3">
-    <div className="grid grid-cols-[40px_minmax(0,1fr)_40px] gap-2">
-      <button
-        className="ghost-icon-button flex h-10 w-10 items-center justify-center"
-        onClick={() => updateClipPatternStepEvent(
-          selectedClip.id,
-          selectedPhraseStepIndex,
-          selectedPhraseNoteIndex,
-          { note: shiftNote(selectedPhraseNote.note, -1) },
-        )}
-      >
-        <Minus className="h-4 w-4" />
-      </button>
-      <select
-        className="control-field h-10 px-3 text-sm"
-        onChange={(event) => updateClipPatternStepEvent(
-          selectedClip.id,
-          selectedPhraseStepIndex,
-          selectedPhraseNoteIndex,
-          { note: event.target.value },
-        )}
-        value={selectedPhraseNote.note}
-      >
-        {phraseRowsForNote(selectedPhraseNote.note).map((note) => (
-          <option key={note} value={note}>
-            {note}
-          </option>
-        ))}
-      </select>
-      <button
-        className="ghost-icon-button flex h-10 w-10 items-center justify-center"
-        onClick={() => updateClipPatternStepEvent(
-          selectedClip.id,
-          selectedPhraseStepIndex,
-          selectedPhraseNoteIndex,
-          { note: shiftNote(selectedPhraseNote.note, 1) },
-        )}
-      >
-        <Plus className="h-4 w-4" />
-      </button>
-    </div>
+    <div className="mt-4 grid gap-3">
+      <div className="note-pitch-row grid grid-cols-[40px_minmax(0,1fr)_40px] gap-2">
+        <button
+          className="ghost-icon-button flex h-10 w-10 items-center justify-center"
+          onClick={() => updateClipPatternStepEvent(
+            selectedClip.id,
+            selectedPhraseStepIndex,
+            selectedPhraseNoteIndex,
+            { note: shiftNote(selectedPhraseNote.note, -1) },
+          )}
+          type="button"
+        >
+          <Minus className="h-4 w-4" />
+        </button>
+        <select
+          className="control-field h-10 px-3 text-sm"
+          onChange={(event) => updateClipPatternStepEvent(
+            selectedClip.id,
+            selectedPhraseStepIndex,
+            selectedPhraseNoteIndex,
+            { note: event.target.value },
+          )}
+          value={selectedPhraseNote.note}
+        >
+          {phraseRowsForNote(selectedPhraseNote.note).map((note) => (
+            <option key={note} value={note}>
+              {note}
+            </option>
+          ))}
+        </select>
+        <button
+          className="ghost-icon-button flex h-10 w-10 items-center justify-center"
+          onClick={() => updateClipPatternStepEvent(
+            selectedClip.id,
+            selectedPhraseStepIndex,
+            selectedPhraseNoteIndex,
+            { note: shiftNote(selectedPhraseNote.note, 1) },
+          )}
+          type="button"
+        >
+          <Plus className="h-4 w-4" />
+        </button>
+      </div>
 
     <label className="text-xs text-[var(--text-secondary)]">
       <div className="mb-2 flex items-center justify-between">
@@ -165,7 +167,7 @@ export const NoteDetailEditor = ({
       </div>
       <div className="mt-3 grid gap-2">
         {gateAdjustmentGroups.map((group) => (
-          <div className="flex items-center justify-between gap-3" key={group.label}>
+          <div className="note-gate-row flex items-center justify-between gap-3" key={group.label}>
             <span className="section-label text-[10px] text-[var(--text-tertiary)]">{group.label}</span>
             <div className="flex flex-wrap justify-end gap-2">
               {group.steps.map((step) => (
@@ -196,7 +198,7 @@ export const NoteDetailEditor = ({
       </div>
     </div>
 
-    <div className="flex gap-2">
+    <div className="note-editor-actions flex gap-2">
       <button
         className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
         onClick={() => {

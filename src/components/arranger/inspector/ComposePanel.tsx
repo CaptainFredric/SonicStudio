@@ -68,7 +68,7 @@ export const ComposePanel = ({
               ? 'Map saved sample slices directly to song steps.'
               : linkedPhraseCount >= 0 && DRUM_ROW_LABELS[selectedClipTrack.type]
                 ? selectedClipTrack.type === 'kick' || selectedClipTrack.type === 'snare' || selectedClipTrack.type === 'hihat'
-                  ? 'Paint drum triggers directly in song view.'
+                  ? 'Paint or drag hits, then shape the selected step below.'
                   : 'Paint notes directly in song view, then shape the selected step below.'
                 : 'Paint notes directly in song view, then use the step editor below.'}
           </div>

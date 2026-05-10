@@ -481,7 +481,7 @@ export const PianoRoll = () => {
               return (
                 <div className="flex border-b border-[var(--border-soft)]/80 last:border-b-0" key={note} style={{ height: `${rowHeight}px` }}>
                   <div className={`flex w-[88px] shrink-0 items-center justify-between border-r border-[var(--border-soft)] px-3 font-mono text-[10px] ${isBlackKey ? 'bg-[rgba(255,255,255,0.02)] text-[var(--text-tertiary)]' : 'bg-[rgba(255,255,255,0.05)] text-[var(--text-primary)]'}`}>
-                    <span>{isDrum ? 'TRIG' : note}</span>
+                    <span>{isDrum ? 'HIT' : note}</span>
                     {!isDrum && note.startsWith('C') && (
                       <span className="text-[9px] text-[var(--text-tertiary)]">oct</span>
                     )}

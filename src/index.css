@@ -583,6 +583,29 @@ input[type=range]:focus {
   transform: translateY(var(--motion-lift-distance));
 }
 
+.phrase-grid-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scrollbar-gutter: stable;
+}
+
+.phrase-grid-scroll::-webkit-scrollbar {
+  height: 10px;
+}
+
+.phrase-grid-scroll::-webkit-scrollbar-thumb {
+  background: rgba(114, 217, 255, 0.2);
+}
+
+.phrase-step-button {
+  touch-action: manipulation;
+  user-select: none;
+}
+
+.operation-button {
+  min-height: 40px;
+}
+
 .settings-sheet {
   animation: settings-sheet-in var(--motion-slow) var(--motion-ease);
   backdrop-filter: blur(var(--motion-panel-blur));
@@ -732,8 +755,55 @@ input[type=range]:focus {
 
   .control-chip,
   .studio-nav-button,
-  .song-form-card {
+  .song-form-card,
+  .phrase-desk-tab {
     touch-action: manipulation;
+  }
+
+  .phrase-desk-tabs {
+    gap: 0.45rem;
+    overflow-x: auto;
+    padding-bottom: 2px;
+  }
+
+  .phrase-desk-tab {
+    white-space: nowrap;
+    min-height: 42px;
+    padding-inline: 0.45rem;
+    letter-spacing: 0.08em;
+  }
+
+  .operation-button {
+    min-height: 44px;
+    width: 100%;
+    justify-content: flex-start;
+    letter-spacing: 0.1em;
+  }
+
+  .phrase-grid-scroll {
+    margin-inline: -0.25rem;
+  }
+
+  .note-gate-row,
+  .note-editor-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .note-gate-row > div,
+  .note-editor-actions > button {
+    justify-content: stretch;
+    width: 100%;
+  }
+
+  .note-gate-row button,
+  .note-editor-actions button {
+    min-height: 42px;
+    justify-content: center;
+  }
+
+  .note-editor-actions .ml-auto {
+    margin-left: 0;
   }
 }
 

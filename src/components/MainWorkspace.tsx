@@ -634,7 +634,7 @@ export const MainWorkspace = () => {
                 <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
                   {selectedLeadEvent
                     ? `${selectedLeadEvent.note} · velocity ${Math.round(selectedLeadEvent.velocity * 100)} · gate ${selectedLeadEvent.gate.toFixed(2)}`
-                    : 'This step is empty. Click the grid to place a note or trigger.'}
+                    : 'This step is empty. Click the grid to place a note or hit.'}
                 </div>
                 {!isSelectedTrackDrum && selectedLeadEvent && (
                   <div className="mt-4 space-y-3">

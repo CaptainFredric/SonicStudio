@@ -143,6 +143,140 @@ const SampleSliceEditor = ({
   </div>
 );
 
+const DrumStepEditor = ({
+  onSetSelectedPhraseNoteIndex,
+  onToggleClipPatternStep,
+  selectedClip,
+  selectedPhraseStep,
+  selectedPhraseStepIndex,
+  track,
+  updateClipPatternStepEvent,
+}: {
+  onSetSelectedPhraseNoteIndex: (value: number | null) => void;
+  onToggleClipPatternStep: (clipId: string, stepIndex: number, note: string, mode?: 'add' | 'remove') => void;
+  selectedClip: ArrangementClip;
+  selectedPhraseStep: NoteEvent[];
+  selectedPhraseStepIndex: number;
+  track: Track;
+  updateClipPatternStepEvent: (
+    clipId: string,
+    stepIndex: number,
+    noteIndex: number,
+    updates: Partial<NoteEvent>,
+  ) => void;
+}) => {
+  const defaultNote = defaultNoteForTrack(track);
+  const drumNoteIndex = selectedPhraseStep.findIndex((event) => event.note === defaultNote);
+  const activeEvent = drumNoteIndex >= 0 ? selectedPhraseStep[drumNoteIndex] : null;
+
+  const setHit = (updates?: Partial<NoteEvent>) => {
+    if (!activeEvent) {
+      onToggleClipPatternStep(selectedClip.id, selectedPhraseStepIndex, defaultNote, 'add');
+      onSetSelectedPhraseNoteIndex(0);
+      if (updates) {
+        updateClipPatternStepEvent(selectedClip.id, selectedPhraseStepIndex, 0, updates);
+      }
+      return;
+    }
+
+    onSetSelectedPhraseNoteIndex(drumNoteIndex);
+    if (updates) {
+      updateClipPatternStepEvent(selectedClip.id, selectedPhraseStepIndex, drumNoteIndex, updates);
+    }
+  };
+
+  const clearHit = () => {
+    if (!activeEvent) {
+      return;
+    }
+
+    onToggleClipPatternStep(selectedClip.id, selectedPhraseStepIndex, defaultNote, 'remove');
+    onSetSelectedPhraseNoteIndex(null);
+  };
+
+  const velocity = activeEvent?.velocity ?? 0.82;
+  const gate = activeEvent?.gate ?? 0.5;
+
+  return (
+    <div className="mt-4 grid gap-3">
+      <div className="grid grid-cols-2 gap-2">
+        <button
+          className="control-chip px-3 py-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
+          data-active={Boolean(activeEvent)}
+          data-ui-sound="action"
+          onClick={() => setHit()}
+          type="button"
+        >
+          Hit
+        </button>
+        <button
+          className="control-chip px-3 py-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--danger)]"
+          data-ui-sound="action"
+          disabled={!activeEvent}
+          onClick={clearHit}
+          type="button"
+        >
+          Rest
+        </button>
+      </div>
+
+      <div className="rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
+        <div className="section-label">Feel</div>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          {[
+            { gate: 0.35, label: 'Tight', velocity: 0.58 },
+            { gate: 0.5, label: 'Ghost', velocity: 0.45 },
+            { gate: 0.75, label: 'Firm', velocity: 0.82 },
+            { gate: 1, label: 'Accent', velocity: 1 },
+          ].map((preset) => (
+            <button
+              className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+              data-ui-sound="action"
+              key={preset.label}
+              onClick={() => setHit({ gate: preset.gate, velocity: preset.velocity })}
+              type="button"
+            >
+              {preset.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <label className="text-xs text-[var(--text-secondary)]">
+        <div className="mb-2 flex items-center justify-between">
+          <span className="section-label">Velocity</span>
+          <span className="font-mono text-[10px] text-[var(--text-tertiary)]">{Math.round(velocity * 100)}</span>
+        </div>
+        <input
+          className="w-full"
+          max="1"
+          min="0.1"
+          onChange={(event) => setHit({ velocity: Number(event.target.value) })}
+          step="0.01"
+          type="range"
+          value={velocity}
+        />
+      </label>
+
+      <label className="text-xs text-[var(--text-secondary)]">
+        <div className="mb-2 flex items-center justify-between">
+          <span className="section-label">Gate</span>
+          <span className="font-mono text-[10px] text-[var(--text-tertiary)]">{gate.toFixed(2)}</span>
+        </div>
+        <input
+          className="w-full"
+          max={NOTE_GATE_MAX}
+          min={NOTE_GATE_MIN}
+          onChange={(event) => setHit({ gate: clampNoteGate(Number(event.target.value)) })}
+          step={NOTE_GATE_FINE_STEP}
+          type="range"
+          value={gate}
+        />
+      </label>
+    </div>
+  );
+};
+
 export const StepEditor = ({
   isStepMappedSampleTrack,
   onSetSelectedPhraseNoteIndex,
@@ -166,16 +300,35 @@ export const StepEditor = ({
         </div>
       </div>
       {!isStepMappedSampleTrack && !(track.type === 'kick' || track.type === 'snare' || track.type === 'hihat') && (
-        <button
-          className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-          onClick={() => {
-            const note = selectedPhraseNote?.note ?? defaultNoteForTrack(track);
-            onToggleClipPatternStep(selectedClip.id, selectedPhraseStepIndex, shiftNote(note, 12), 'add');
-            onSetSelectedPhraseNoteIndex(selectedPhraseStep.length);
-          }}
-        >
-          Add +8va
-        </button>
+        <div className="flex flex-wrap justify-end gap-2">
+          <button
+            className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+            onClick={() => {
+              const note = selectedPhraseNote?.note ?? defaultNoteForTrack(track);
+              const existingIndex = selectedPhraseStep.findIndex((event) => event.note === note);
+              onToggleClipPatternStep(selectedClip.id, selectedPhraseStepIndex, note, 'add');
+              onSetSelectedPhraseNoteIndex(existingIndex >= 0 ? existingIndex : selectedPhraseStep.length);
+            }}
+            type="button"
+          >
+            Add note
+          </button>
+          {selectedPhraseStep.length > 0 && (
+            <button
+              className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+              onClick={() => {
+                const note = selectedPhraseNote?.note ?? defaultNoteForTrack(track);
+                const octaveNote = shiftNote(note, 12);
+                const existingIndex = selectedPhraseStep.findIndex((event) => event.note === octaveNote);
+                onToggleClipPatternStep(selectedClip.id, selectedPhraseStepIndex, octaveNote, 'add');
+                onSetSelectedPhraseNoteIndex(existingIndex >= 0 ? existingIndex : selectedPhraseStep.length);
+              }}
+              type="button"
+            >
+              Add +8va
+            </button>
+          )}
+        </div>
       )}
     </div>
 
@@ -232,9 +385,15 @@ export const StepEditor = ({
         </div>
       )
     ) : (
-      <div className="mt-3 text-xs text-[var(--text-secondary)]">
-        Drum clips keep the step editor simple. Add or remove triggers from the grid above.
-      </div>
+      <DrumStepEditor
+        onSetSelectedPhraseNoteIndex={onSetSelectedPhraseNoteIndex}
+        onToggleClipPatternStep={onToggleClipPatternStep}
+        selectedClip={selectedClip}
+        selectedPhraseStep={selectedPhraseStep}
+        selectedPhraseStepIndex={selectedPhraseStepIndex}
+        track={track}
+        updateClipPatternStepEvent={updateClipPatternStepEvent}
+      />
     )}
   </div>
 );
