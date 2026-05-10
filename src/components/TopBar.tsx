@@ -88,6 +88,7 @@ export const TopBar = ({ firstImpression = false }: { firstImpression?: boolean 
 
   const compactStart = firstImpression && !isPlaying;
   const isFirstImpression = compactStart;
+  const showPlayPulse = !isPlaying && !countInActive;
   const focusTitle = isFirstImpression
     ? `${projectName} ready`
     : selectedTrack
@@ -257,7 +258,7 @@ export const TopBar = ({ firstImpression = false }: { firstImpression?: boolean 
               </TransportBtn>
               <TransportBtn
                 active={isPlaying}
-                emphasize={compactStart}
+                emphasize={showPlayPulse}
                 label={isPlaying ? 'Pause' : 'Play'}
                 onClick={togglePlay}
                 shortcut="Space"

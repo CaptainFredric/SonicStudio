@@ -524,6 +524,25 @@ input[type=range]:focus {
     rgba(151, 163, 180, 0.16);
 }
 
+.sequencer-grid-scroll {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.sequencer-grid-scroll::-webkit-scrollbar {
+  height: 12px;
+  width: 12px;
+}
+
+.sequencer-grid-scroll::-webkit-scrollbar-thumb {
+  background: rgba(114, 217, 255, 0.22);
+}
+
+.sequencer-grid-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(114, 217, 255, 0.34);
+}
+
 .nav-button {
   position: relative;
   background: transparent;

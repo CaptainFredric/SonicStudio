@@ -275,10 +275,10 @@ export const MainWorkspace = () => {
 
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <div
-              className="flex-1 overflow-auto rounded-[18px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]"
+              className="sequencer-grid-scroll flex-1 overflow-auto rounded-[18px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]"
               onWheel={(event) => {
                 const node = gridViewportRef.current;
-                if (!node || Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
+                if (!node || !event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
                   return;
                 }
 

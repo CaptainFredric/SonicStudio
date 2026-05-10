@@ -12,6 +12,33 @@ interface KnobProps {
   value: number;
 }
 
+const KNOB_CENTER = 28;
+const KNOB_RING_RADIUS = 22;
+const KNOB_NEEDLE_INNER_RADIUS = 5;
+const KNOB_NEEDLE_OUTER_RADIUS = 17;
+const KNOB_MIN_ANGLE = -135;
+const KNOB_MAX_ANGLE = 135;
+const KNOB_SWEEP = KNOB_MAX_ANGLE - KNOB_MIN_ANGLE;
+
+const pointOnKnob = (angle: number, radius: number) => {
+  const radians = angle * (Math.PI / 180);
+  return {
+    x: KNOB_CENTER + (Math.sin(radians) * radius),
+    y: KNOB_CENTER - (Math.cos(radians) * radius),
+  };
+};
+
+const describeKnobArc = (startAngle: number, endAngle: number) => {
+  const start = pointOnKnob(startAngle, KNOB_RING_RADIUS);
+  const end = pointOnKnob(endAngle, KNOB_RING_RADIUS);
+  const largeArcFlag = Math.abs(endAngle - startAngle) > 180 ? 1 : 0;
+
+  return [
+    `M ${start.x.toFixed(3)} ${start.y.toFixed(3)}`,
+    `A ${KNOB_RING_RADIUS} ${KNOB_RING_RADIUS} 0 ${largeArcFlag} 1 ${end.x.toFixed(3)} ${end.y.toFixed(3)}`,
+  ].join(' ');
+};
+
 export const Knob = ({
   label,
   value,
@@ -24,10 +51,14 @@ export const Knob = ({
   disabled = false,
 }: KnobProps) => {
   const knobRef = useRef<HTMLDivElement | null>(null);
-  const percentage = ((value - min) / (max - min)) * 100;
-  const rotation = (percentage / 100) * 270 - 135;
+  const ratio = Math.max(0, Math.min(1, (value - min) / (max - min || 1)));
+  const angle = KNOB_MIN_ANGLE + (ratio * KNOB_SWEEP);
   const formattedValue = formatValue(value, unit);
   const normalizedStep = step ?? (max - min) / 100;
+  const backgroundArc = describeKnobArc(KNOB_MIN_ANGLE, KNOB_MAX_ANGLE);
+  const progressArc = ratio > 0.002 ? describeKnobArc(KNOB_MIN_ANGLE, angle) : '';
+  const needleStart = pointOnKnob(angle, KNOB_NEEDLE_INNER_RADIUS);
+  const needleEnd = pointOnKnob(angle, KNOB_NEEDLE_OUTER_RADIUS);
 
   const applyPointerValue = (clientX: number, clientY: number) => {
     const knob = knobRef.current;
@@ -40,19 +71,9 @@ export const Knob = ({
     const centerY = bounds.top + (bounds.height / 2);
     const deltaX = clientX - centerX;
     const deltaY = clientY - centerY;
-    const pointerAngle = Math.atan2(deltaY, deltaX) * (180 / Math.PI);
-    let normalizedAngle = pointerAngle + 90;
-
-    if (normalizedAngle < 0) {
-      normalizedAngle += 360;
-    }
-
-    if (normalizedAngle > 315) {
-      normalizedAngle -= 360;
-    }
-
-    const clampedAngle = Math.max(-135, Math.min(135, normalizedAngle));
-    const pointerRatio = (clampedAngle + 135) / 270;
+    const pointerAngle = Math.atan2(deltaX, -deltaY) * (180 / Math.PI);
+    const clampedAngle = Math.max(KNOB_MIN_ANGLE, Math.min(KNOB_MAX_ANGLE, pointerAngle));
+    const pointerRatio = (clampedAngle - KNOB_MIN_ANGLE) / KNOB_SWEEP;
     const rawValue = min + (max - min) * pointerRatio;
     const steppedValue = min + Math.round((rawValue - min) / normalizedStep) * normalizedStep;
     const precision = normalizedStep >= 1 ? 0 : Math.min(4, Math.max(0, `${normalizedStep}`.split('.')[1]?.length ?? 0));
@@ -83,24 +104,28 @@ export const Knob = ({
         ref={knobRef}
         style={{ borderRadius: '2px', touchAction: 'none' }}
       >
-        <svg className="absolute inset-0 h-full w-full -rotate-90" viewBox="0 0 56 56">
-          <circle cx="28" cy="28" fill="none" r="22" stroke="rgba(255,255,255,0.08)" strokeWidth="4" />
-          <circle
-            cx="28"
-            cy="28"
+        <svg className="absolute inset-0 h-full w-full" viewBox="0 0 56 56">
+          <path d={backgroundArc} fill="none" stroke="rgba(255,255,255,0.08)" strokeLinecap="round" strokeWidth="4" />
+          {progressArc && (
+            <path
+              d={progressArc}
+              fill="none"
+              stroke={disabled ? 'rgba(255,255,255,0.16)' : color}
+              strokeLinecap="round"
+              strokeWidth="4"
+            />
+          )}
+          <line
+            x1={needleStart.x}
+            x2={needleEnd.x}
+            y1={needleStart.y}
+            y2={needleEnd.y}
             fill="none"
-            r="22"
-            stroke={disabled ? 'rgba(255,255,255,0.16)' : color}
-            strokeDasharray={`${(percentage / 100) * 138} 138`}
+            stroke="var(--text-primary)"
             strokeLinecap="round"
-            strokeWidth="4"
+            strokeWidth="3"
           />
         </svg>
-
-        <div
-          className="absolute h-5 w-[3px] rounded-full bg-[var(--text-primary)] origin-bottom"
-          style={{ transform: `rotate(${rotation}deg) translateY(-10px)` }}
-        />
       </div>
 
       <div className="flex flex-col items-center gap-0.5">

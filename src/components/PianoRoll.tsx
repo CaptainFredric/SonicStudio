@@ -434,10 +434,10 @@ export const PianoRoll = () => {
       <div className="flex min-h-0 flex-1 gap-4 p-4">
         <div className="min-w-0 flex-1 overflow-hidden">
           <div
-            className="h-full overflow-auto"
+            className="sequencer-grid-scroll h-full overflow-auto"
             onWheel={(event) => {
               const node = gridViewportRef.current;
-              if (!node || Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
+              if (!node || !event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
                 return;
               }
 
