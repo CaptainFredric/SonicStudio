@@ -146,6 +146,22 @@
       </div>
     </div>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      window.__ssFallbackToBuiltApp = function () {
+        if (window.location.pathname.includes('/dist/')) {
+          return;
+        }
+
+        const distUrl = new URL('./dist/', window.location.href);
+        distUrl.search = window.location.search;
+        distUrl.hash = window.location.hash;
+        window.location.replace(distUrl.toString());
+      };
+    </script>
+    <script
+      type="module"
+      src="./src/main.tsx"
+      onerror="window.__ssFallbackToBuiltApp && window.__ssFallbackToBuiltApp()"
+    ></script>
   </body>
 </html>
