@@ -352,6 +352,7 @@ export const StepEditor = ({
                 className={`flex items-center justify-between rounded-[12px] border px-3 py-3 text-left transition-colors ${selectedPhraseNoteIndex === noteIndex ? 'border-[rgba(125,211,252,0.34)] bg-[rgba(125,211,252,0.12)] text-[var(--accent-strong)]' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.04)] hover:text-[var(--text-primary)]'}`}
                 key={`inline-${event.note}-${noteIndex}`}
                 onClick={() => onSetSelectedPhraseNoteIndex(noteIndex)}
+                type="button"
               >
                 <div>
                   <div className="font-mono text-[12px]">{event.note}</div>
@@ -360,7 +361,7 @@ export const StepEditor = ({
                   </div>
                 </div>
                 <span className="rounded-sm border border-[var(--border-soft)] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.14em]">
-                  {noteIndex + 1}
+                  {selectedPhraseNoteIndex === noteIndex ? 'editing' : `edit ${noteIndex + 1}`}
                 </span>
               </button>
             ))}

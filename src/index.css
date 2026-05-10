@@ -802,6 +802,22 @@ input[type=range]:focus {
     justify-content: center;
   }
 
+  .note-pitch-nudges,
+  .note-velocity-presets,
+  .note-articulation-presets,
+  .note-harmony-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .note-pitch-nudges button,
+  .note-velocity-presets button,
+  .note-articulation-presets button,
+  .note-harmony-actions button {
+    min-height: 42px;
+    padding-inline: 0.45rem;
+    letter-spacing: 0.08em;
+  }
+
   .note-editor-actions .ml-auto {
     margin-left: 0;
   }
