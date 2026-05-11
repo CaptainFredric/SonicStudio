@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Activity, ChevronDown, ChevronUp, GripHorizontal, SlidersHorizontal, Sparkles, Volume2, Zap } from 'lucide-react';
+import { Activity, ChevronDown, ChevronUp, GripHorizontal, Save, SlidersHorizontal, Sparkles, Volume2, Zap } from 'lucide-react';
 
 import { useAudio } from '../context/AudioContext';
 import { getTrackPersonality, TrackIcon } from '../utils/trackPersonality';
@@ -37,6 +37,7 @@ const readInitialHeight = () => {
 export const DeviceRack = () => {
   const {
     isRecording,
+    saveTrackSnapshot,
     selectedTrackId,
     setTrackParams,
     toggleRecording,
@@ -44,6 +45,12 @@ export const DeviceRack = () => {
     updateTrackPan,
     updateTrackVolume,
   } = useAudio();
+  const [justSaved, setJustSaved] = useState(false);
+  useEffect(() => {
+    if (!justSaved) return undefined;
+    const id = window.setTimeout(() => setJustSaved(false), 1400);
+    return () => window.clearTimeout(id);
+  }, [justSaved]);
   const track = tracks.find((candidate) => candidate.id === selectedTrackId) ?? null;
   const [collapsed, setCollapsed] = useState<boolean>(readInitialCollapsed);
   const [rackHeight, setRackHeight] = useState<number>(readInitialHeight);
@@ -214,10 +221,24 @@ export const DeviceRack = () => {
               >
                 <TrackIcon type={track.type} className="h-5 w-5" />
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <div className="truncate text-base font-semibold tracking-tight text-[var(--text-primary)]">{track.name}</div>
                 <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.type}</div>
               </div>
+              <button
+                aria-label="Save current sound as a snapshot"
+                className="control-chip flex h-8 items-center gap-1 px-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                data-active={justSaved ? 'true' : undefined}
+                onClick={() => {
+                  saveTrackSnapshot(track.id);
+                  setJustSaved(true);
+                }}
+                title="Capture the current synth and source settings as a personal preset"
+                type="button"
+              >
+                <Save className="h-3 w-3" />
+                {justSaved ? 'Saved' : 'Save sound'}
+              </button>
             </div>
           </div>
 

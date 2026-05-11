@@ -13,6 +13,8 @@ const SETTINGS_TABS: SettingsTab[] = ['WORKSPACE', 'TRACK', 'OUTPUT'];
 const VIEW_ALIASES: Record<string, AppView> = {
   arrange: 'ARRANGER',
   arranger: 'ARRANGER',
+  compose: 'COMPOSE',
+  composer: 'COMPOSE',
   grid: 'SEQUENCER',
   mix: 'MIXER',
   mixer: 'MIXER',

@@ -460,6 +460,7 @@ input[type=range]:focus {
   border: 1px solid transparent;
   border-radius: 2px;
   padding: 0.7rem 0.55rem;
+  min-height: 48px;
   color: var(--text-secondary);
   background: transparent;
   transition:

@@ -11,14 +11,16 @@ import { TapToPlay } from './components/TapToPlay';
 import { Launchpad } from './components/Launchpad';
 import { ShortcutOverlay } from './components/ShortcutOverlay';
 import { WelcomeTour } from './components/WelcomeTour';
+import { ComposeView } from './components/ComposeView';
 import { resolveStudioRoute } from './app/routeController';
 import type { SessionTemplateId } from './project/schema';
-import { Music, LayoutGrid, Volume2, Settings, Layers3, Sparkles } from 'lucide-react';
+import { Music, LayoutGrid, Volume2, Settings, Layers3, Sparkles, Rows2 } from 'lucide-react';
 
 const SideNav = ({ onOpenLaunchpad }: { onOpenLaunchpad: () => void }) => {
   const { activeView, isSettingsOpen, setActiveView, toggleSettings } = useAudio();
 
   const navItems = [
+    { id: 'COMPOSE', icon: <Rows2 size={20} />, label: 'Compose' },
     { id: 'SEQUENCER', icon: <Music size={20} />, label: 'Sequencer' },
     { id: 'PIANO_ROLL', icon: <LayoutGrid size={20} />, label: 'Piano Roll' },
     { id: 'MIXER', icon: <Volume2 size={20} />, label: 'Mixer' },
@@ -52,7 +54,7 @@ const SideNav = ({ onOpenLaunchpad }: { onOpenLaunchpad: () => void }) => {
           >
             <div className="flex flex-col items-center gap-2">
               {item.icon}
-            <span className="font-mono text-[9px] uppercase tracking-[0.18em]">{item.label === 'Piano Roll' ? 'Roll' : item.label === 'Sequencer' ? 'Seq' : item.label === 'Mixer' ? 'Mix' : 'Arrange'}</span>
+            <span className="font-mono text-[9px] uppercase tracking-[0.18em]">{item.label === 'Piano Roll' ? 'Roll' : item.label === 'Sequencer' ? 'Seq' : item.label === 'Mixer' ? 'Mix' : item.label === 'Arranger' ? 'Arrange' : item.label}</span>
             </div>
           </button>
         ))}
@@ -77,6 +79,9 @@ const SideNav = ({ onOpenLaunchpad }: { onOpenLaunchpad: () => void }) => {
 
 const ViewRouter = () => {
   const { activeView } = useAudio();
+  if (activeView === 'COMPOSE') {
+    return <ComposeView />;
+  }
   return (
     <main className="relative flex flex-col min-h-[60vh] md:min-h-0 md:flex-1 md:overflow-hidden">
       {activeView === 'SEQUENCER' && <Sequencer />}

@@ -36,8 +36,10 @@ const normalizeUiState = (value: unknown, project: Project): StudioUIState => {
   const activeView = candidate.activeView === 'PIANO_ROLL'
     || candidate.activeView === 'MIXER'
     || candidate.activeView === 'ARRANGER'
+    || candidate.activeView === 'SEQUENCER'
+    || candidate.activeView === 'COMPOSE'
     ? candidate.activeView
-    : 'ARRANGER';
+    : 'COMPOSE';
   const selectedTrackId = typeof candidate.selectedTrackId === 'string'
     ? candidate.selectedTrackId
     : project.tracks[0]?.id ?? null;
@@ -118,7 +120,7 @@ export const createDefaultSession = (
   return {
     project,
     ui: {
-      activeView: 'ARRANGER',
+      activeView: 'COMPOSE',
       isSettingsOpen: false,
       loopRangeEndBeat: null,
       loopRangeStartBeat: null,
