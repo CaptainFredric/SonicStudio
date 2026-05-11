@@ -202,7 +202,7 @@ export const DeviceRack = () => {
       >
         <ChevronDown className="h-4 w-4" />
       </button>
-      <div className="grid grid-cols-1 gap-3 lg:h-full lg:min-w-[1260px] lg:grid-cols-[220px_1.1fr_0.95fr_0.8fr_0.95fr_1.45fr]">
+      <div className="grid grid-cols-1 gap-3 lg:h-full lg:min-w-[1380px] lg:grid-cols-[220px_1.1fr_0.95fr_1.3fr_0.95fr_1.45fr]">
         <div className="surface-panel-strong flex flex-col justify-between p-4">
           <div>
             <div className="section-label">Selected track</div>
@@ -272,14 +272,18 @@ export const DeviceRack = () => {
           </div>
         </RackSection>
 
-        <RackSection icon={<Zap className="h-4 w-4 text-[var(--accent)]" />} title="Drive">
-          <div className="flex h-full items-center justify-center">
+        <RackSection icon={<Zap className="h-4 w-4 text-[var(--accent)]" />} title="Character">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-5">
             <Knob color="#f08f86" label="Saturate" max={1} min={0} onChange={(value) => setTrackParams(track.id, { distortion: value })} value={track.params.distortion} />
+            <Knob color="#f08f86" label="Bitcrush" max={1} min={0} onChange={(value) => setTrackParams(track.id, { bitCrush: value })} value={track.params.bitCrush} />
+            <Knob color="#f08f86" label="Vibrato" max={1} min={0} onChange={(value) => setTrackParams(track.id, { vibratoDepth: value })} value={track.params.vibratoDepth} />
+            <Knob color="#f08f86" label="Vib rate" max={10} min={0.5} onChange={(value) => setTrackParams(track.id, { vibratoRate: value })} unit="Hz" value={track.params.vibratoRate} />
           </div>
         </RackSection>
 
         <RackSection icon={<Sparkles className="h-4 w-4 text-[var(--accent)]" />} title="Spatial">
           <div className="flex h-full items-center justify-around gap-3">
+            <Knob color="#96b9f3" label="Chorus" max={1} min={0} onChange={(value) => setTrackParams(track.id, { chorusSend: value })} value={track.params.chorusSend} />
             <Knob color="#96b9f3" label="Delay" max={1} min={0} onChange={(value) => setTrackParams(track.id, { delaySend: value })} value={track.params.delaySend} />
             <Knob color="#96b9f3" label="Reverb" max={1} min={0} onChange={(value) => setTrackParams(track.id, { reverbSend: value })} value={track.params.reverbSend} />
           </div>

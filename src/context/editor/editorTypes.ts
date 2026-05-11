@@ -89,6 +89,8 @@ export type EditorAction =
   | { type: 'TRANSFORM_CLIP_PATTERN'; clipId: string; transform: 'clear' | 'double-density' | 'halve-density' | 'randomize-velocity' | 'reset-automation' | 'shift-left' | 'shift-right' | 'transpose'; value?: number }
   | { type: 'TRANSPOSE_PATTERN'; semitones: number; trackId: string }
   | { type: 'TRANSPOSE_PATTERN_AT'; semitones: number; trackId: string; patternIndex: number }
+  | { type: 'HUMANIZE_PATTERN'; trackId: string; patternIndex?: number; amount?: number }
+  | { type: 'STAMP_CHORD'; trackId: string; patternIndex?: number; stepIndex: number; notes: string[]; gate?: number; velocity?: number }
   | { type: 'UNDO' }
   | { type: 'UPDATE_ARRANGER_CLIP'; clipId: string; updates: Partial<ArrangementClip> }
   | { type: 'UPDATE_CLIP_PATTERN_AUTOMATION_STEP'; clipId: string; stepIndex: number; lane: 'level' | 'tone'; value: number }

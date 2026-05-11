@@ -66,6 +66,59 @@ const clearPattern = (
   )));
 };
 
+const humanizePattern = (
+  state: EditorState,
+  trackId: string,
+  patternIndex: number,
+  amount: number,
+) => {
+  const { present } = state.history;
+  const range = Math.max(0, Math.min(0.5, amount));
+
+  return commitProject(state, updateTrack(present, trackId, (track) => (
+    updatePatternSteps(track, patternIndex, present.transport.stepsPerPattern, (currentPattern) => {
+      let changed = false;
+      const next = currentPattern.map((step) => (
+        step.map((event) => {
+          const jitter = (Math.random() - 0.5) * 2 * range;
+          const nextVelocity = Math.max(0.18, Math.min(1, event.velocity + jitter));
+          if (Math.abs(nextVelocity - event.velocity) < 0.01) return event;
+          changed = true;
+          return { ...event, velocity: nextVelocity };
+        })
+      ));
+      return changed ? next : currentPattern;
+    })
+  )));
+};
+
+const stampChord = (
+  state: EditorState,
+  trackId: string,
+  patternIndex: number,
+  stepIndex: number,
+  notes: string[],
+  gate: number,
+  velocity: number,
+) => {
+  const { present } = state.history;
+  if (stepIndex < 0 || stepIndex >= present.transport.stepsPerPattern) return state;
+
+  return commitProject(state, updateTrack(present, trackId, (track) => (
+    updatePatternSteps(track, patternIndex, present.transport.stepsPerPattern, (currentPattern) => {
+      const next = currentPattern.map(cloneStepEvents);
+      const targetStep = next[stepIndex] ?? [];
+      const existingNotes = new Set(targetStep.map((event) => event.note));
+      notes.forEach((note) => {
+        if (existingNotes.has(note)) return;
+        targetStep.push({ note, velocity, gate });
+      });
+      next[stepIndex] = targetStep;
+      return next;
+    })
+  )));
+};
+
 export const handleTrackNotePatternAction = (state: EditorState, action: EditorAction): EditorState | null => {
   const { present } = state.history;
 
@@ -87,6 +140,20 @@ export const handleTrackNotePatternAction = (state: EditorState, action: EditorA
 
     case 'CLEAR_PATTERN_AT':
       return clearPattern(state, action.trackId, action.patternIndex);
+
+    case 'HUMANIZE_PATTERN':
+      return humanizePattern(state, action.trackId, action.patternIndex ?? present.transport.currentPattern, action.amount ?? 0.18);
+
+    case 'STAMP_CHORD':
+      return stampChord(
+        state,
+        action.trackId,
+        action.patternIndex ?? present.transport.currentPattern,
+        action.stepIndex,
+        action.notes,
+        action.gate ?? 1.25,
+        action.velocity ?? 0.78,
+      );
 
     default:
       return null;

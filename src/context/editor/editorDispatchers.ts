@@ -72,6 +72,8 @@ export const createEditorDispatchers = (dispatch: Dispatch<EditorAction>) => ({
   transformClipPattern: (clipId: string, transform: 'clear' | 'double-density' | 'halve-density' | 'randomize-velocity' | 'reset-automation' | 'shift-left' | 'shift-right' | 'transpose', value?: number) => dispatch({ type: 'TRANSFORM_CLIP_PATTERN', clipId, transform, value }),
   transposePattern: (trackId: string, semitones: number) => dispatch({ type: 'TRANSPOSE_PATTERN', semitones, trackId }),
   transposePatternAt: (trackId: string, patternIndex: number, semitones: number) => dispatch({ type: 'TRANSPOSE_PATTERN_AT', semitones, trackId, patternIndex }),
+  humanizePattern: (trackId: string, amount: number = 0.18) => dispatch({ type: 'HUMANIZE_PATTERN', trackId, amount }),
+  stampChord: (trackId: string, stepIndex: number, notes: string[], options?: { gate?: number; velocity?: number }) => dispatch({ type: 'STAMP_CHORD', trackId, stepIndex, notes, gate: options?.gate, velocity: options?.velocity }),
   undo: () => dispatch({ type: 'UNDO' }),
   updateArrangerClip: (clipId: string, updates: Partial<ArrangementClip>) => dispatch({ type: 'UPDATE_ARRANGER_CLIP', clipId, updates }),
   updateClipPatternAutomationStep: (clipId: string, stepIndex: number, lane: 'level' | 'tone', value: number) => dispatch({ type: 'UPDATE_CLIP_PATTERN_AUTOMATION_STEP', clipId, stepIndex, lane, value }),

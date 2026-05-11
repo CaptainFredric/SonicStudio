@@ -167,6 +167,8 @@ interface AudioContextType {
   transformClipPattern: (clipId: string, transform: 'clear' | 'double-density' | 'halve-density' | 'randomize-velocity' | 'reset-automation' | 'shift-left' | 'shift-right' | 'transpose', value?: number) => void;
   transposePatternAt: (trackId: string, patternIndex: number, semitones: number) => void;
   transposePattern: (trackId: string, semitones: number) => void;
+  humanizePattern: (trackId: string, amount?: number) => void;
+  stampChord: (trackId: string, stepIndex: number, notes: string[], options?: { gate?: number; velocity?: number }) => void;
   transportMode: TransportMode;
   undo: () => void;
   updateArrangerClip: (clipId: string, updates: Partial<ArrangementClip>) => void;

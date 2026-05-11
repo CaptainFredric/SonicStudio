@@ -5,7 +5,9 @@ import {
   LayoutGrid,
   Layers3,
   Minus,
+  Music,
   Plus,
+  Shuffle,
   SlidersHorizontal,
   Trash2,
 } from 'lucide-react';
@@ -13,6 +15,14 @@ import {
 import { useAudio } from '../context/AudioContext';
 import { type NoteEvent } from '../project/schema';
 import { TrackIcon, getTrackPersonality } from '../utils/trackPersonality';
+import {
+  KEY_OPTIONS,
+  MAJOR_KEY_TRIADS,
+  MINOR_KEY_TRIADS,
+  buildChordNotes,
+  guessKeyAndOctaveFromTrack,
+  type KeyName,
+} from '../utils/chords';
 import {
   NOTE_GATE_COARSE_STEP,
   NOTE_GATE_FINE_STEP,
@@ -90,8 +100,10 @@ export const PianoRoll = () => {
     clearTrack,
     currentPattern,
     currentStep,
+    humanizePattern,
     selectedTrackId,
     shiftPattern,
+    stampChord,
     stepsPerPattern,
     toggleStep,
     tracks,
@@ -106,6 +118,9 @@ export const PianoRoll = () => {
   const [rowZoom, setRowZoom] = useState<RowZoomKey>('DETAIL');
   const [focusSelectedNote, setFocusSelectedNote] = useState(false);
   const [noteResizeState, setNoteResizeState] = useState<NoteResizeState | null>(null);
+  const [chordKey, setChordKey] = useState<KeyName>('C');
+  const [chordMode, setChordMode] = useState<'major' | 'minor'>('major');
+  const [chordPaletteOpen, setChordPaletteOpen] = useState(false);
   const gridViewportRef = useRef<HTMLDivElement | null>(null);
   const [gridScrollLeft, setGridScrollLeft] = useState(0);
   const [gridViewportWidth, setGridViewportWidth] = useState(0);
@@ -422,12 +437,70 @@ export const PianoRoll = () => {
                 </ToolButton>
               </>
             )}
+            <ToolButton label="Humanize velocities" onClick={() => humanizePattern(track.id)}>
+              <Shuffle className="h-4 w-4" />
+            </ToolButton>
+            {!isDrum && (
+              <ToolButton label={chordPaletteOpen ? 'Hide chord palette' : 'Show chord palette'} onClick={() => setChordPaletteOpen((current) => !current)}>
+                <Music className="h-4 w-4" />
+              </ToolButton>
+            )}
             <ToolButton label="Clear pattern" onClick={() => clearTrack(track.id)}>
               <Eraser className="h-4 w-4" />
             </ToolButton>
           </div>
         </div>
       </div>
+
+      {chordPaletteOpen && !isDrum && (
+        <div className="border-b border-[var(--border-soft)] bg-[rgba(255,255,255,0.015)] px-4 py-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Music className="h-3.5 w-3.5 text-[var(--accent)]" />
+              <span className="section-label">Chord palette</span>
+            </div>
+            <label className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
+              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Key</span>
+              <select
+                className="control-field h-7 px-2 text-xs"
+                onChange={(event) => setChordKey(event.target.value as KeyName)}
+                value={chordKey}
+              >
+                {KEY_OPTIONS.map((k) => (
+                  <option key={k} value={k}>{k}</option>
+                ))}
+              </select>
+            </label>
+            <div className="surface-panel-muted flex items-center gap-1 p-1">
+              <WindowButton active={chordMode === 'major'} label="Major" onClick={() => setChordMode('major')} />
+              <WindowButton active={chordMode === 'minor'} label="Minor" onClick={() => setChordMode('minor')} />
+            </div>
+            <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+              Stamps at {selectedStepIndex !== null ? `step ${selectedStepIndex + 1}` : 'step 1'} · click any chord
+            </span>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {(chordMode === 'major' ? MAJOR_KEY_TRIADS : MINOR_KEY_TRIADS).map((triad) => (
+              <button
+                key={triad.numeral}
+                className="control-chip flex flex-col items-center gap-0.5 px-3 py-2 text-xs"
+                onClick={() => {
+                  const targetStep = selectedStepIndex ?? 0;
+                  const baseOctave = guessKeyAndOctaveFromTrack(track.type, track.source.octaveShift).octave;
+                  const notes = buildChordNotes(chordKey, triad.degree, triad.quality, baseOctave);
+                  stampChord(track.id, targetStep, notes, { gate: 2, velocity: 0.7 });
+                  setSelectedStepIndex(targetStep);
+                }}
+                title={`${triad.label} chord`}
+                type="button"
+              >
+                <span className="font-semibold tracking-wide">{triad.numeral}</span>
+                <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">{triad.quality}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 xl:flex-row">
         <div className="min-h-[520px] min-w-0 flex-1 overflow-hidden xl:min-h-0">
