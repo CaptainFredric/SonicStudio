@@ -9,6 +9,7 @@ import { SettingsSidebar } from './components/SettingsSidebar';
 import { Arranger } from './components/Arranger';
 import { TapToPlay } from './components/TapToPlay';
 import { Launchpad } from './components/Launchpad';
+import { ShortcutOverlay } from './components/ShortcutOverlay';
 import { resolveStudioRoute } from './app/routeController';
 import type { SessionTemplateId } from './project/schema';
 import { Music, LayoutGrid, Volume2, Settings, Layers3, Sparkles } from 'lucide-react';
@@ -130,6 +131,7 @@ const StudioShell = () => {
 
   return (
     <div className="app-shell min-h-screen w-full md:h-screen md:w-screen md:overflow-hidden antialiased text-[var(--text-primary)]">
+      <ShortcutOverlay />
       <input
         ref={fileInputRef}
         type="file"

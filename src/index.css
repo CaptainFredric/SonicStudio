@@ -48,6 +48,28 @@ html[data-motion-mode="still"] {
   --motion-panel-blur: 0px;
 }
 
+html[data-density="compact"] .surface-panel,
+html[data-density="compact"] .surface-panel-strong,
+html[data-density="compact"] .surface-panel-muted {
+  --density-py: 0.5rem;
+  --density-px: 0.625rem;
+}
+
+html[data-density="compact"] .control-chip,
+html[data-density="compact"] .ghost-icon-button {
+  letter-spacing: 0.1em;
+}
+
+html[data-density="compact"] .section-label {
+  font-size: 9px;
+  letter-spacing: 0.18em;
+}
+
+html[data-density="compact"] .device-rack-panel,
+html[data-density="compact"] header.surface-panel {
+  padding: 0.6rem 0.75rem !important;
+}
+
 @layer base {
   * {
     border-color: var(--border-soft);
@@ -236,9 +258,15 @@ h3 {
 }
 
 .control-chip[data-active="true"] {
-  background: rgba(255,255,255,0.04);
-  border-color: rgba(125, 211, 252, 0.18);
+  background: var(--accent-muted);
+  border-color: var(--accent);
   color: var(--text-primary);
+  box-shadow: 0 0 0 1px var(--accent-muted), 0 0 12px -2px var(--accent-muted);
+}
+
+.control-chip[data-needs-attention="true"] {
+  border-color: rgba(228, 191, 106, 0.42);
+  color: var(--warning);
 }
 
 .control-chip:active:not(:disabled),

@@ -31,6 +31,9 @@ import {
 } from '../project/schema';
 import type { SongFormId } from './editor/songFormDefinitions';
 import {
+  ACCENT_PRESETS,
+  type AccentColor,
+  type Density,
   type MotionMode,
   loadStudioPreferences,
   persistStudioPreferences,
@@ -86,6 +89,10 @@ interface AudioContextType {
   makeClipPatternUnique: (clipId: string) => void;
   moveTrack: (trackId: string, direction: 'up' | 'down') => void;
   motionMode: MotionMode;
+  accentColor: AccentColor;
+  density: Density;
+  setAccentColor: (color: AccentColor) => void;
+  setDensity: (density: Density) => void;
   duplicateTrack: (trackId: string) => void;
   exportSession: () => void;
   importSession: (file: File) => Promise<boolean>;
@@ -241,6 +248,25 @@ export const AudioProvider = ({
 
     document.documentElement.dataset.motionMode = preferences.motionMode;
   }, [preferences.motionMode]);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') {
+      return;
+    }
+    const tokens = ACCENT_PRESETS[preferences.accentColor];
+    document.documentElement.dataset.accent = preferences.accentColor;
+    document.documentElement.style.setProperty('--accent', tokens.accent);
+    document.documentElement.style.setProperty('--accent-strong', tokens.accentStrong);
+    document.documentElement.style.setProperty('--accent-muted', tokens.accentMuted);
+    document.documentElement.style.setProperty('--chrome-line', tokens.chromeLine);
+  }, [preferences.accentColor]);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') {
+      return;
+    }
+    document.documentElement.dataset.density = preferences.density;
+  }, [preferences.density]);
 
   useEffect(() => {
     engine.syncProject(project);
@@ -432,6 +458,8 @@ export const AudioProvider = ({
       masterSnapshots: project.masterSnapshots,
       metronomeEnabled: project.transport.metronomeEnabled,
       motionMode: preferences.motionMode,
+      accentColor: preferences.accentColor,
+      density: preferences.density,
       newSession,
       patternCount: project.transport.patternCount,
       pinnedTrackIds,
@@ -461,6 +489,8 @@ export const AudioProvider = ({
       setMotionMode: (motionMode) => setPreferences((current) => ({ ...current, motionMode })),
       setSettingsOpen: (open) => dispatch({ type: 'SET_SETTINGS_OPEN', open }),
       setUiSoundsEnabled: (uiSoundsEnabled) => setPreferences((current) => ({ ...current, uiSoundsEnabled })),
+      setAccentColor: (accentColor) => setPreferences((current) => ({ ...current, accentColor })),
+      setDensity: (density) => setPreferences((current) => ({ ...current, density })),
     }}>
       {children}
     </AudioContext.Provider>

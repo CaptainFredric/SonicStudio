@@ -1,20 +1,60 @@
-import { useEffect, useState } from 'react';
-import { X } from 'lucide-react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { Settings2, Sliders, Speaker, X } from 'lucide-react';
 
 import { useAudio } from '../context/AudioContext';
 import { OutputSettingsPanel } from './settings/OutputSettingsPanel';
-import { SegmentButton } from './settings/SettingsPrimitives';
+import { PreferencesPanel } from './settings/PreferencesPanel';
 import { TrackSettingsPanel } from './settings/TrackSettingsPanel';
 import { WorkspaceSettingsPanel } from './settings/WorkspaceSettingsPanel';
 import type { SettingsTab } from '../app/routeController';
+
+type StudioTab = SettingsTab | 'PREFERENCES';
+
+const TAB_DEFINITIONS: Array<{ id: StudioTab; label: string; icon: ReactNode; description: string }> = [
+  {
+    id: 'PREFERENCES',
+    label: 'Preferences',
+    icon: <Settings2 className="h-3.5 w-3.5" />,
+    description: 'Accent, density, motion, keyboard shortcuts.',
+  },
+  {
+    id: 'WORKSPACE',
+    label: 'Workspace',
+    icon: <Sliders className="h-3.5 w-3.5" />,
+    description: 'Session, transport, recovery, bounce.',
+  },
+  {
+    id: 'TRACK',
+    label: 'Track',
+    icon: <Sliders className="h-3.5 w-3.5" />,
+    description: 'Sources, voice presets, lane settings.',
+  },
+  {
+    id: 'OUTPUT',
+    label: 'Output',
+    icon: <Speaker className="h-3.5 w-3.5" />,
+    description: 'Master chain, glue, limiter ceiling.',
+  },
+];
 
 export const SettingsSidebar = ({
   requestedTab = 'WORKSPACE',
 }: {
   requestedTab?: SettingsTab;
 }) => {
-  const { isSettingsOpen, setSettingsOpen } = useAudio();
-  const [settingsTab, setSettingsTab] = useState<SettingsTab>(requestedTab);
+  const {
+    accentColor,
+    density,
+    isSettingsOpen,
+    motionMode,
+    setAccentColor,
+    setDensity,
+    setMotionMode,
+    setSettingsOpen,
+    setUiSoundsEnabled,
+    uiSoundsEnabled,
+  } = useAudio();
+  const [settingsTab, setSettingsTab] = useState<StudioTab>(requestedTab);
 
   useEffect(() => {
     setSettingsTab(requestedTab);
@@ -24,32 +64,61 @@ export const SettingsSidebar = ({
     return null;
   }
 
+  const activeDefinition = TAB_DEFINITIONS.find((tab) => tab.id === settingsTab) ?? TAB_DEFINITIONS[0];
+
   return (
-    <aside className="surface-panel settings-sheet h-full w-full overflow-auto p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="section-label">Controls</div>
-          <h2 className="mt-2 text-lg font-semibold tracking-tight text-[var(--text-primary)]">Studio Controls</h2>
-          <p className="mt-1 text-sm text-[var(--text-secondary)]">Session actions, transport, track controls, and output settings.</p>
+    <aside className="surface-panel settings-sheet flex h-full w-full flex-col overflow-hidden">
+      <div className="sticky top-0 z-10 border-b border-[var(--border-soft)] bg-[var(--bg-panel-strong)] px-4 pb-3 pt-4 backdrop-blur-sm">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="section-label">Controls</div>
+            <h2 className="mt-1.5 text-lg font-semibold tracking-tight text-[var(--text-primary)]">{activeDefinition.label}</h2>
+            <p className="mt-0.5 text-[12px] leading-5 text-[var(--text-secondary)]">{activeDefinition.description}</p>
+          </div>
+          <button
+            aria-label="Close settings"
+            className="ghost-icon-button flex h-9 w-9 shrink-0 items-center justify-center"
+            data-ui-sound="settings"
+            onClick={() => setSettingsOpen(false)}
+            type="button"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
-        <button
-          aria-label="Close settings"
-          className="ghost-icon-button flex h-10 w-10 items-center justify-center"
-          data-ui-sound="settings"
-          onClick={() => setSettingsOpen(false)}
-          type="button"
-        >
-          <X className="h-4 w-4" />
-        </button>
+
+        <nav className="mt-3 flex flex-wrap gap-1.5" aria-label="Settings sections">
+          {TAB_DEFINITIONS.map((tab) => {
+            const isActive = settingsTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                className="control-chip flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] transition-colors"
+                data-active={isActive}
+                data-ui-sound="tab"
+                onClick={() => setSettingsTab(tab.id)}
+                type="button"
+              >
+                <span className="text-[var(--accent)]">{tab.icon}</span>
+                {tab.label}
+              </button>
+            );
+          })}
+        </nav>
       </div>
 
-      <div className="mt-4 space-y-4">
-        <div className="grid grid-cols-3 gap-2">
-          <SegmentButton active={settingsTab === 'WORKSPACE'} label="Workspace" onClick={() => setSettingsTab('WORKSPACE')} />
-          <SegmentButton active={settingsTab === 'TRACK'} label="Track" onClick={() => setSettingsTab('TRACK')} />
-          <SegmentButton active={settingsTab === 'OUTPUT'} label="Output" onClick={() => setSettingsTab('OUTPUT')} />
-        </div>
-
+      <div className="min-h-0 flex-1 overflow-auto p-4">
+        {settingsTab === 'PREFERENCES' ? (
+          <PreferencesPanel
+            accentColor={accentColor}
+            density={density}
+            motionMode={motionMode}
+            uiSoundsEnabled={uiSoundsEnabled}
+            onAccentChange={setAccentColor}
+            onDensityChange={setDensity}
+            onMotionModeChange={setMotionMode}
+            onUiSoundsEnabledChange={setUiSoundsEnabled}
+          />
+        ) : null}
         {settingsTab === 'WORKSPACE' ? <WorkspaceSettingsPanel /> : null}
         {settingsTab === 'TRACK' ? <TrackSettingsPanel /> : null}
         {settingsTab === 'OUTPUT' ? <OutputSettingsPanel /> : null}

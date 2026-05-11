@@ -5,13 +5,15 @@ import { DEFAULT_STUDIO_PREFERENCES, normalizeStudioPreferences } from './prefer
 describe('studio preferences', () => {
   it('falls back to defaults for invalid payloads', () => {
     expect(normalizeStudioPreferences(null)).toEqual(DEFAULT_STUDIO_PREFERENCES);
-    expect(normalizeStudioPreferences({ motionMode: 'unknown', uiSoundsEnabled: 'yes' })).toEqual(DEFAULT_STUDIO_PREFERENCES);
+    expect(normalizeStudioPreferences({ motionMode: 'unknown', uiSoundsEnabled: 'yes', accentColor: 'pumpkin', density: 'wide' })).toEqual(DEFAULT_STUDIO_PREFERENCES);
   });
 
-  it('preserves supported motion and sound preferences', () => {
-    expect(normalizeStudioPreferences({ motionMode: 'focus', uiSoundsEnabled: false })).toEqual({
+  it('preserves supported motion, sound, accent, and density preferences', () => {
+    expect(normalizeStudioPreferences({ motionMode: 'focus', uiSoundsEnabled: false, accentColor: 'violet', density: 'compact' })).toEqual({
       motionMode: 'focus',
       uiSoundsEnabled: false,
+      accentColor: 'violet',
+      density: 'compact',
     });
   });
 });
