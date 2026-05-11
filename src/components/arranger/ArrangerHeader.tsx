@@ -256,6 +256,7 @@ export const ArrangerHeader = ({
               onChange={(event) => onSetZoomPreset(event.target.value as ZoomPreset)}
               value={zoomPreset}
             >
+              <option value="FIT">Fit to window</option>
               <option value="SONG">Song</option>
               <option value="SECTION">Section</option>
               <option value="PHRASE">Phrase</option>

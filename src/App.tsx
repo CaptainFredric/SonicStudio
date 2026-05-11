@@ -10,6 +10,7 @@ import { Arranger } from './components/Arranger';
 import { TapToPlay } from './components/TapToPlay';
 import { Launchpad } from './components/Launchpad';
 import { ShortcutOverlay } from './components/ShortcutOverlay';
+import { WelcomeTour } from './components/WelcomeTour';
 import { resolveStudioRoute } from './app/routeController';
 import type { SessionTemplateId } from './project/schema';
 import { Music, LayoutGrid, Volume2, Settings, Layers3, Sparkles } from 'lucide-react';
@@ -29,6 +30,7 @@ const SideNav = ({ onOpenLaunchpad }: { onOpenLaunchpad: () => void }) => {
       <div className="section-label hidden md:block">Views</div>
       <button
         className="studio-nav-button shrink-0 md:w-full"
+        data-tour-target="sessions"
         onClick={onOpenLaunchpad}
         title="Open a starter session"
         type="button"
@@ -144,6 +146,7 @@ const StudioShell = () => {
   return (
     <div className="app-shell min-h-screen w-full md:h-screen md:w-screen md:overflow-hidden antialiased text-[var(--text-primary)]">
       <ShortcutOverlay />
+      <WelcomeTour shouldStart={!isLaunchpadOpen} />
       <input
         ref={fileInputRef}
         type="file"

@@ -2,7 +2,7 @@ import type { ArrangementClip, Track } from '../../project/schema';
 
 export type DragMode = 'move' | 'trim-start' | 'trim-end';
 export type SnapSize = 1 | 2 | 4 | 8 | 16;
-export type ZoomPreset = 'PHRASE' | 'SECTION' | 'SONG';
+export type ZoomPreset = 'PHRASE' | 'SECTION' | 'SONG' | 'FIT';
 export type PaintMode = 'add' | 'remove';
 export type LaneScope = 'ALL' | 'ACTIVE' | 'FOCUSED' | 'PINNED' | 'DRUMS' | 'MUSICAL';
 export type LaneGroupKey = 'RHYTHM' | 'MUSICAL' | 'TEXTURE';

@@ -233,6 +233,7 @@ export const TopBar = ({ firstImpression = false }: { firstImpression?: boolean 
               <button
                 className={`control-chip flex h-9 items-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] ${isSettingsOpen ? 'text-[var(--text-primary)]' : ''}`}
                 data-active={isSettingsOpen}
+                data-tour-target="options"
                 data-ui-sound="settings"
                 onClick={() => setSettingsOpen(!isSettingsOpen)}
                 style={{
@@ -258,6 +259,7 @@ export const TopBar = ({ firstImpression = false }: { firstImpression?: boolean 
               </TransportBtn>
               <TransportBtn
                 active={isPlaying}
+                data-tour-target="play"
                 emphasize={showPlayPulse}
                 label={isPlaying ? 'Pause' : 'Play'}
                 onClick={togglePlay}
@@ -511,6 +513,7 @@ const TransportBtn = ({
   shortcut,
   style,
   tone,
+  ...rest
 }: {
   active?: boolean;
   children: React.ReactNode;
@@ -520,6 +523,7 @@ const TransportBtn = ({
   shortcut?: string;
   style?: React.CSSProperties;
   tone: 'neutral' | 'play' | 'record';
+  [key: `data-${string}`]: string | undefined;
 }) => {
   const activeStyles = tone === 'record'
     ? 'bg-[rgba(240,143,134,0.16)] border-[rgba(240,143,134,0.28)] text-[var(--danger)]'
@@ -550,6 +554,7 @@ const TransportBtn = ({
         onClick={onClick}
         style={{ ...playStyle, ...style }}
         title={shortcut ? `${label} (${shortcut})` : label}
+        {...rest}
       >
         {children}
       </button>

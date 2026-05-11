@@ -1,4 +1,5 @@
 import React, { useCallback, useRef } from 'react';
+import { GripVertical } from 'lucide-react';
 
 import type { ArrangementClip, Track } from '../../project/schema';
 import { ArrangerLaneMenu } from './ArrangerLaneMenu';
@@ -10,6 +11,7 @@ interface ArrangerTimelineProps {
   clipHeightClass: string;
   collapsedGroups: Record<LaneSectionKey, boolean>;
   currentStep: number;
+  onPinchZoom?: (delta: number, anchorRatio: number) => void;
   getRenderedClipFrame: (clip: ArrangementClip) => { beatLength: number; startBeat: number };
   handleTimelineWheel: (event: React.WheelEvent<HTMLDivElement>) => void;
   inspectorOpen: boolean;
@@ -52,6 +54,7 @@ export const ArrangerTimeline = ({
   clipHeightClass,
   collapsedGroups,
   currentStep,
+  onPinchZoom,
   getRenderedClipFrame,
   handleTimelineWheel,
   inspectorOpen,
@@ -90,6 +93,64 @@ export const ArrangerTimeline = ({
   zoomPreset,
 }: ArrangerTimelineProps) => {
   const panStateRef = useRef<{ startX: number; startScroll: number } | null>(null);
+  const pinchStateRef = useRef<{ distance: number } | null>(null);
+
+  const handleTouchStart = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    if (event.touches.length === 2 && onPinchZoom) {
+      const [a, b] = [event.touches[0], event.touches[1]];
+      pinchStateRef.current = { distance: Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY) };
+    }
+  }, [onPinchZoom]);
+
+  const handleTouchMove = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
+    if (event.touches.length !== 2 || !pinchStateRef.current || !onPinchZoom) return;
+    const [a, b] = [event.touches[0], event.touches[1]];
+    const distance = Math.hypot(b.clientX - a.clientX, b.clientY - a.clientY);
+    const delta = distance - pinchStateRef.current.distance;
+    if (Math.abs(delta) < 3) return;
+    event.preventDefault();
+    const node = timelineRef.current;
+    const bounds = node?.getBoundingClientRect();
+    const midX = (a.clientX + b.clientX) / 2;
+    const ratio = bounds && bounds.width > 0 ? (midX - bounds.left) / bounds.width : 0.5;
+    onPinchZoom(delta * 0.5, ratio);
+    pinchStateRef.current = { distance };
+  }, [onPinchZoom, timelineRef]);
+
+  const handleTouchEnd = useCallback(() => {
+    pinchStateRef.current = null;
+  }, []);
+
+  const laneDragStateRef = useRef<{ trackId: string; lastY: number } | null>(null);
+
+  const handleLaneDragStart = useCallback((trackId: string) => (event: React.PointerEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    laneDragStateRef.current = { trackId, lastY: event.clientY };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    document.body.style.cursor = 'grabbing';
+  }, []);
+
+  const handleLaneDragMove = useCallback((event: React.PointerEvent<HTMLButtonElement>) => {
+    const state = laneDragStateRef.current;
+    if (!state) return;
+    const ROW_THRESHOLD = 44;
+    const delta = event.clientY - state.lastY;
+    if (Math.abs(delta) < ROW_THRESHOLD) return;
+    const direction = delta > 0 ? 'down' : 'up';
+    onMoveTrack(state.trackId, direction);
+    laneDragStateRef.current = { trackId: state.trackId, lastY: state.lastY + (direction === 'down' ? ROW_THRESHOLD : -ROW_THRESHOLD) };
+  }, [onMoveTrack]);
+
+  const handleLaneDragEnd = useCallback((event: React.PointerEvent<HTMLButtonElement>) => {
+    try {
+      event.currentTarget.releasePointerCapture?.(event.pointerId);
+    } catch {
+      /* ignore */
+    }
+    laneDragStateRef.current = null;
+    document.body.style.cursor = '';
+  }, []);
 
   const handleRulerPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     const node = timelineRef.current;
@@ -180,6 +241,10 @@ export const ArrangerTimeline = ({
     <div
       className="timeline-shell h-full overflow-auto border border-[var(--border-soft)] bg-[rgba(0,0,0,0.24)]"
       onWheel={handleTimelineWheel}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
       ref={timelineRef}
     >
       <div className="min-h-full p-4" style={{ minWidth: `${timelineWidth}px` }}>
@@ -243,7 +308,7 @@ export const ArrangerTimeline = ({
                 return (
                   <React.Fragment key={track.id}>
                     <div
-                      className={`group/lane sticky left-0 z-10 flex items-center gap-3 border-b border-r border-[var(--border-soft)] px-4 py-4 text-left transition-colors ${isSelectedTrack ? 'bg-[rgba(124,211,252,0.09)]' : 'bg-[rgba(8,12,17,0.96)] hover:bg-[rgba(255,255,255,0.03)]'}`}
+                      className={`group/lane sticky left-0 z-10 flex items-center gap-2 border-b border-r border-[var(--border-soft)] px-3 py-4 text-left transition-colors ${isSelectedTrack ? 'bg-[rgba(124,211,252,0.09)]' : 'bg-[rgba(8,12,17,0.96)] hover:bg-[rgba(255,255,255,0.03)]'}`}
                       onClick={() => onSetSelectedTrackId(track.id)}
                       onKeyDown={(event) => {
                         if (event.key === 'Enter' || event.key === ' ') {
@@ -255,6 +320,19 @@ export const ArrangerTimeline = ({
                       style={{ width: `${laneLabelWidth}px` }}
                       tabIndex={0}
                     >
+                      <button
+                        aria-label={`Drag to reorder ${track.name}`}
+                        className="flex h-6 w-5 cursor-grab items-center justify-center text-[var(--text-tertiary)] hover:text-[var(--text-primary)] touch-none"
+                        onClick={(event) => event.stopPropagation()}
+                        onPointerDown={handleLaneDragStart(track.id)}
+                        onPointerMove={handleLaneDragMove}
+                        onPointerUp={handleLaneDragEnd}
+                        onPointerCancel={handleLaneDragEnd}
+                        title="Drag to reorder"
+                        type="button"
+                      >
+                        <GripVertical className="h-4 w-4" />
+                      </button>
                       <span className="h-3 w-3 rounded-full" style={{ backgroundColor: track.color }} />
                       <div className="min-w-0">
                         <div className="truncate text-sm font-semibold text-[var(--text-primary)]">{track.name}</div>

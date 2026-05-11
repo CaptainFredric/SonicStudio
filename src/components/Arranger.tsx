@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useAudio } from '../context/AudioContext';
 import { type ArrangementClip } from '../project/schema';
@@ -23,6 +23,7 @@ export const ZOOM_PIXELS_PER_STEP: Record<ZoomPreset, number> = {
   PHRASE: 30,
   SECTION: 18,
   SONG: 10,
+  FIT: 18,
 };
 
 const SNAP_OPTIONS: Array<{ label: string; value: SnapSize }> = [
@@ -102,7 +103,27 @@ export const Arranger = () => {
   const timelineRef = useRef<HTMLDivElement | null>(null);
   const hasTrackedSelectedClipRef = useRef(false);
   const previousSelectedClipIdRef = useRef<string | null>(null);
-  const pixelsPerStep = ZOOM_PIXELS_PER_STEP[zoomPreset];
+  const [timelineContainerWidth, setTimelineContainerWidth] = useState(0);
+  const [customPixelsPerStep, setCustomPixelsPerStep] = useState<number | null>(null);
+
+  useEffect(() => {
+    const node = timelineRef.current;
+    if (!node || typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) setTimelineContainerWidth(entry.contentRect.width);
+    });
+    observer.observe(node);
+    setTimelineContainerWidth(node.clientWidth);
+    return () => observer.disconnect();
+  }, []);
+
+  const presetPixelsPerStep = ZOOM_PIXELS_PER_STEP[zoomPreset];
+  const songLengthSteps = Math.max(songLengthInBeats, 32);
+  const fitPixelsPerStep = timelineContainerWidth > 0
+    ? Math.max(4, Math.min(80, Math.floor(timelineContainerWidth / Math.max(1, songLengthSteps))))
+    : presetPixelsPerStep;
+  const pixelsPerStep = customPixelsPerStep ?? (zoomPreset === 'FIT' ? fitPixelsPerStep : presetPixelsPerStep);
 
   const selectedClip = arrangerClips.find((clip) => clip.id === selectedArrangerClipId) ?? null;
   const selectedClipTrack = tracks.find((track) => track.id === selectedClip?.trackId) ?? null;
@@ -143,7 +164,7 @@ export const Arranger = () => {
     && selectedClipTrack.source.engine === 'sample'
     && selectedClipTrack.source.sampleTriggerMode === 'step-mapped',
   );
-  const timelineSteps = Math.max(songLengthInBeats, 32);
+  const timelineSteps = songLengthSteps;
   const timelineWidth = timelineSteps * pixelsPerStep;
   const { beginClipDrag, dragState } = useArrangerClipDrag({
     arrangerClips,
@@ -175,7 +196,7 @@ export const Arranger = () => {
     toggleClipPatternStep,
   });
   const {
-    handleTimelineWheel,
+    handleTimelineWheel: baseHandleTimelineWheel,
     jumpToStep,
     scrollLeft,
     scrollTimelineByViewport,
@@ -189,6 +210,34 @@ export const Arranger = () => {
     timelineRef,
     timelineWidth,
   });
+  const adjustPixelsPerStep = useCallback((delta: number, anchorRatio = 0.5) => {
+    const node = timelineRef.current;
+    const previousPx = pixelsPerStep;
+    const nextPx = Math.max(4, Math.min(80, previousPx + delta));
+    if (Math.abs(nextPx - previousPx) < 0.5) return;
+    setCustomPixelsPerStep(nextPx);
+    if (node) {
+      const anchor = node.scrollLeft + node.clientWidth * anchorRatio;
+      const scaledAnchor = (anchor / previousPx) * nextPx;
+      requestAnimationFrame(() => {
+        if (timelineRef.current) {
+          timelineRef.current.scrollLeft = Math.max(0, scaledAnchor - node.clientWidth * anchorRatio);
+        }
+      });
+    }
+  }, [pixelsPerStep]);
+
+  const handleTimelineWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
+    if (event.ctrlKey || event.metaKey) {
+      event.preventDefault();
+      const bounds = event.currentTarget.getBoundingClientRect();
+      const ratio = bounds.width > 0 ? (event.clientX - bounds.left) / bounds.width : 0.5;
+      adjustPixelsPerStep(-event.deltaY * 0.18, ratio);
+      return;
+    }
+    baseHandleTimelineWheel(event);
+  }, [adjustPixelsPerStep, baseHandleTimelineWheel]);
+
   const totalBars = formatBars(timelineSteps);
   const totalDurationSeconds = songLengthInBeats * (60 / bpm) * 0.25;
   const visibleStartStep = Math.floor(scrollLeft / pixelsPerStep);
@@ -337,7 +386,7 @@ export const Arranger = () => {
         onSetInspectorTab={() => setInspectorTab('SECTIONS')}
         onSetLaneScope={setLaneScope}
         onSetSnapSize={setSnapSize}
-        onSetZoomPreset={setZoomPreset}
+        onSetZoomPreset={(value) => { setZoomPreset(value); setCustomPixelsPerStep(null); }}
         phraseSummary={phraseSummary}
         sectionCount={sectionRanges.length}
         selectedArrangerClipId={selectedArrangerClipId}
@@ -421,6 +470,7 @@ export const Arranger = () => {
           currentStep={currentStep}
           getRenderedClipFrame={(clip) => getRenderedClipFrame(clip, dragState)}
           handleTimelineWheel={handleTimelineWheel}
+          onPinchZoom={adjustPixelsPerStep}
           inspectorOpen={isInspectorOpen}
           laneDataCount={laneData.length}
           laneHeightClass={laneHeightClass}

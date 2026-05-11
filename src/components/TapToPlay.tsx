@@ -186,7 +186,7 @@ export const TapToPlay = () => {
 
   if (!open) {
     return (
-      <section className="surface-panel md:h-[40px] md:shrink-0 flex items-center gap-2 px-3 py-1.5">
+      <section data-tour-target="tap-to-play" className="surface-panel md:h-[40px] md:shrink-0 flex items-center gap-2 px-3 py-1.5">
         <button
           aria-expanded="false"
           aria-label="Open tap-to-play keyboard"
@@ -205,7 +205,7 @@ export const TapToPlay = () => {
   }
 
   return (
-    <section className="surface-panel md:shrink-0 flex flex-col gap-2 px-3 py-2">
+    <section data-tour-target="tap-to-play" className="surface-panel md:shrink-0 flex flex-col gap-2 px-3 py-2">
       <div className="flex flex-wrap items-center gap-2">
         <button
           aria-expanded="true"
