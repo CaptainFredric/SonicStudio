@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
-import { Palette, Type, Volume2, Waves, Keyboard } from 'lucide-react';
+import { Palette, Rows2, Type, Volume2, Waves, Keyboard } from 'lucide-react';
 
-import { ACCENT_PRESETS, type AccentColor, type Density, type MotionMode } from '../../project/preferences';
+import { ACCENT_PRESETS, type AccentColor, type DefaultWorkspace, type Density, type MotionMode } from '../../project/preferences';
 import { SegmentButton, StateButton } from './SettingsPrimitives';
 
 interface PreferencesPanelProps {
@@ -9,10 +9,12 @@ interface PreferencesPanelProps {
   density: Density;
   motionMode: MotionMode;
   uiSoundsEnabled: boolean;
+  defaultWorkspace: DefaultWorkspace;
   onAccentChange: (color: AccentColor) => void;
   onDensityChange: (density: Density) => void;
   onMotionModeChange: (mode: MotionMode) => void;
   onUiSoundsEnabledChange: (enabled: boolean) => void;
+  onDefaultWorkspaceChange: (workspace: DefaultWorkspace) => void;
 }
 
 const SHORTCUTS: Array<{ keys: string; label: string; group: 'Transport' | 'Edit' | 'Tap to play' }> = [
@@ -31,12 +33,27 @@ export const PreferencesPanel = ({
   density,
   motionMode,
   uiSoundsEnabled,
+  defaultWorkspace,
   onAccentChange,
   onDensityChange,
   onMotionModeChange,
   onUiSoundsEnabledChange,
+  onDefaultWorkspaceChange,
 }: PreferencesPanelProps) => (
   <div className="space-y-4">
+    <PanelCard icon={<Rows2 className="h-4 w-4 text-[var(--accent)]" />} title="Default workspace">
+      <p className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
+        Which view opens when you start a new session. Compose shows the arranger and piano roll together.
+      </p>
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        <SegmentButton active={defaultWorkspace === 'compose'} label="Compose" onClick={() => onDefaultWorkspaceChange('compose')} />
+        <SegmentButton active={defaultWorkspace === 'arranger'} label="Arranger" onClick={() => onDefaultWorkspaceChange('arranger')} />
+        <SegmentButton active={defaultWorkspace === 'piano-roll'} label="Piano roll" onClick={() => onDefaultWorkspaceChange('piano-roll')} />
+        <SegmentButton active={defaultWorkspace === 'mixer'} label="Mixer" onClick={() => onDefaultWorkspaceChange('mixer')} />
+        <SegmentButton active={defaultWorkspace === 'sequencer'} label="Sequencer" onClick={() => onDefaultWorkspaceChange('sequencer')} />
+      </div>
+    </PanelCard>
+
     <PanelCard icon={<Palette className="h-4 w-4 text-[var(--accent)]" />} title="Accent color">
       <p className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
         Used for active tabs, focus rings, and highlights.

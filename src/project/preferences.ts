@@ -1,12 +1,14 @@
 export type MotionMode = 'fluid' | 'focus' | 'still';
 export type AccentColor = 'aqua' | 'violet' | 'amber' | 'rose' | 'mint';
 export type Density = 'comfortable' | 'compact';
+export type DefaultWorkspace = 'compose' | 'arranger' | 'piano-roll' | 'mixer' | 'sequencer';
 
 export interface StudioPreferences {
   motionMode: MotionMode;
   uiSoundsEnabled: boolean;
   accentColor: AccentColor;
   density: Density;
+  defaultWorkspace: DefaultWorkspace;
 }
 
 const STUDIO_PREFERENCES_KEY = 'sonicstudio:preferences:v1';
@@ -16,6 +18,7 @@ export const DEFAULT_STUDIO_PREFERENCES: StudioPreferences = {
   uiSoundsEnabled: true,
   accentColor: 'aqua',
   density: 'comfortable',
+  defaultWorkspace: 'compose',
 };
 
 export interface AccentTokenSet {
@@ -80,6 +83,10 @@ const isDensity = (value: unknown): value is Density => (
   value === 'comfortable' || value === 'compact'
 );
 
+const isDefaultWorkspace = (value: unknown): value is DefaultWorkspace => (
+  value === 'compose' || value === 'arranger' || value === 'piano-roll' || value === 'mixer' || value === 'sequencer'
+);
+
 export const normalizeStudioPreferences = (value: unknown): StudioPreferences => {
   const candidate = isRecord(value) ? value : {};
 
@@ -92,6 +99,7 @@ export const normalizeStudioPreferences = (value: unknown): StudioPreferences =>
       : true,
     accentColor: isAccentColor(candidate.accentColor) ? candidate.accentColor : 'aqua',
     density: isDensity(candidate.density) ? candidate.density : 'comfortable',
+    defaultWorkspace: isDefaultWorkspace(candidate.defaultWorkspace) ? candidate.defaultWorkspace : 'compose',
   };
 };
 

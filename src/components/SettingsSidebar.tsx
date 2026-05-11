@@ -45,9 +45,11 @@ export const SettingsSidebar = ({
   const {
     accentColor,
     density,
+    defaultWorkspace,
     isSettingsOpen,
     motionMode,
     setAccentColor,
+    setDefaultWorkspace,
     setDensity,
     setMotionMode,
     setSettingsOpen,
@@ -110,10 +112,12 @@ export const SettingsSidebar = ({
         {settingsTab === 'PREFERENCES' ? (
           <PreferencesPanel
             accentColor={accentColor}
+            defaultWorkspace={defaultWorkspace}
             density={density}
             motionMode={motionMode}
             uiSoundsEnabled={uiSoundsEnabled}
             onAccentChange={setAccentColor}
+            onDefaultWorkspaceChange={setDefaultWorkspace}
             onDensityChange={setDensity}
             onMotionModeChange={setMotionMode}
             onUiSoundsEnabledChange={setUiSoundsEnabled}

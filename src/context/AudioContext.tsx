@@ -33,6 +33,7 @@ import type { SongFormId } from './editor/songFormDefinitions';
 import {
   ACCENT_PRESETS,
   type AccentColor,
+  type DefaultWorkspace,
   type Density,
   type MotionMode,
   loadStudioPreferences,
@@ -91,8 +92,10 @@ interface AudioContextType {
   motionMode: MotionMode;
   accentColor: AccentColor;
   density: Density;
+  defaultWorkspace: DefaultWorkspace;
   setAccentColor: (color: AccentColor) => void;
   setDensity: (density: Density) => void;
+  setDefaultWorkspace: (workspace: DefaultWorkspace) => void;
   duplicateTrack: (trackId: string) => void;
   exportSession: () => void;
   importSession: (file: File) => Promise<boolean>;
@@ -462,6 +465,7 @@ export const AudioProvider = ({
       motionMode: preferences.motionMode,
       accentColor: preferences.accentColor,
       density: preferences.density,
+      defaultWorkspace: preferences.defaultWorkspace,
       newSession,
       patternCount: project.transport.patternCount,
       pinnedTrackIds,
@@ -493,6 +497,7 @@ export const AudioProvider = ({
       setUiSoundsEnabled: (uiSoundsEnabled) => setPreferences((current) => ({ ...current, uiSoundsEnabled })),
       setAccentColor: (accentColor) => setPreferences((current) => ({ ...current, accentColor })),
       setDensity: (density) => setPreferences((current) => ({ ...current, density })),
+      setDefaultWorkspace: (defaultWorkspace) => setPreferences((current) => ({ ...current, defaultWorkspace })),
     }}>
       {children}
     </AudioContext.Provider>

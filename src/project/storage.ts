@@ -112,6 +112,27 @@ export const hydrateSessionPayload = (value: unknown): StudioSession | null => {
   };
 };
 
+const WORKSPACE_TO_VIEW: Record<string, AppView> = {
+  compose: 'COMPOSE',
+  arranger: 'ARRANGER',
+  'piano-roll': 'PIANO_ROLL',
+  mixer: 'MIXER',
+  sequencer: 'SEQUENCER',
+};
+
+const readDefaultWorkspaceView = (): AppView => {
+  if (typeof window === 'undefined') return 'COMPOSE';
+  try {
+    const raw = window.localStorage.getItem('sonicstudio:preferences:v1');
+    if (!raw) return 'COMPOSE';
+    const parsed = JSON.parse(raw);
+    const workspace = parsed?.defaultWorkspace;
+    return WORKSPACE_TO_VIEW[workspace] ?? 'COMPOSE';
+  } catch {
+    return 'COMPOSE';
+  }
+};
+
 export const createDefaultSession = (
   templateId: SessionTemplateId = 'night-transit',
 ): StudioSession => {
@@ -120,7 +141,7 @@ export const createDefaultSession = (
   return {
     project,
     ui: {
-      activeView: 'COMPOSE',
+      activeView: readDefaultWorkspaceView(),
       isSettingsOpen: false,
       loopRangeEndBeat: null,
       loopRangeStartBeat: null,
