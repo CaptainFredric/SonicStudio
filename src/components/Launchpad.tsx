@@ -123,9 +123,14 @@ export const Launchpad = ({
 
   return (
     <section className="launchpad-panel mx-auto grid max-w-[1240px] gap-6 border border-[var(--border-strong)] px-5 py-6 md:min-h-[calc(100vh-1.5rem)] md:px-8 md:py-8">
-      <div className="flex items-center gap-2 text-[var(--accent-strong)]">
-        <Disc3 className="h-4 w-4" />
-        <span className="section-label text-[var(--accent-strong)]">Launchpad</span>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-[var(--accent-strong)]">
+          <Disc3 className="h-4 w-4" />
+          <span className="section-label text-[var(--accent-strong)]">Launchpad</span>
+        </div>
+        <span className="hidden sm:inline font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+          Press <kbd className="font-mono text-[10px] text-[var(--text-secondary)]">Esc</kbd> to close
+        </span>
       </div>
 
       <div className="grid gap-6 md:grid-cols-[1.2fr_0.8fr] md:items-start">

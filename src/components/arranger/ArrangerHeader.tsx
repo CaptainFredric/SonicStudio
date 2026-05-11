@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus } from 'lucide-react';
+import { Flag, Plus } from 'lucide-react';
 
 import { SONG_FORM_DEFINITIONS, type SongFormId } from '../../context/editor/songFormDefinitions';
 import type { ArrangementClip, SongMarker, Track } from '../../project/schema';
@@ -12,6 +12,7 @@ interface SnapOption {
 
 interface ArrangerHeaderProps {
   addClip: () => void;
+  onAddMarkerAtPlayhead: () => void;
   arrangerClips: ArrangementClip[];
   compactLaneView: boolean;
   currentStep: number;
@@ -51,6 +52,7 @@ interface ArrangerHeaderProps {
 
 export const ArrangerHeader = ({
   addClip,
+  onAddMarkerAtPlayhead,
   arrangerClips,
   compactLaneView,
   currentStep,
@@ -96,13 +98,25 @@ export const ArrangerHeader = ({
           Build the song directly on the timeline.
         </p>
       </div>
-      <button
-        className="control-field flex items-center gap-2 px-4 py-2 text-sm font-medium text-[var(--accent-strong)] hover:text-[var(--text-primary)]"
-        onClick={addClip}
-      >
-        <Plus className="h-4 w-4" />
-        Add clip
-      </button>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          className="control-field flex items-center gap-2 px-3 py-2 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+          onClick={onAddMarkerAtPlayhead}
+          title="Place a section marker at the playhead position"
+          type="button"
+        >
+          <Flag className="h-3.5 w-3.5" />
+          Mark here
+        </button>
+        <button
+          className="control-field flex items-center gap-2 px-4 py-2 text-sm font-medium text-[var(--accent-strong)] hover:text-[var(--text-primary)]"
+          onClick={addClip}
+          type="button"
+        >
+          <Plus className="h-4 w-4" />
+          Add clip
+        </button>
+      </div>
     </div>
 
     <div className="mt-4 grid gap-4 border-t border-[var(--border-soft)] pt-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,0.95fr)]">
@@ -114,7 +128,11 @@ export const ArrangerHeader = ({
           <span>{totalDurationSeconds.toFixed(1)}s</span>
           <span className="text-[var(--text-secondary)]">Visible {visibleRangeLabel}</span>
         </div>
-        <div className="mt-3 h-2 overflow-hidden rounded-full bg-[rgba(255,255,255,0.05)]">
+        <div
+          aria-label="Portion of the song currently visible in the timeline"
+          className="mt-3 h-2 overflow-hidden rounded-full bg-[rgba(255,255,255,0.05)]"
+          title="The teal bar shows which part of the song the timeline below is showing right now."
+        >
           <div
             className="h-full rounded-full bg-[linear-gradient(90deg,#7dd3fc,#67e8f9)]"
             style={{
@@ -123,7 +141,15 @@ export const ArrangerHeader = ({
             }}
           />
         </div>
-        <div className="relative mt-3 h-10 overflow-hidden border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]">
+        <div className="mt-2 flex items-center justify-between gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+          <span>Song minimap</span>
+          <span className="hidden sm:inline">Click anywhere below to jump there</span>
+        </div>
+        <div
+          aria-label="Song minimap — each colored block is a clip; click to jump"
+          className="relative mt-1 h-10 overflow-hidden border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]"
+          title="Each colored block is one clip on the timeline. Click anywhere to jump the playhead there."
+        >
           <button
             className="absolute inset-0"
             onClick={(event) => {

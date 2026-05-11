@@ -112,6 +112,18 @@ const StudioShell = () => {
   });
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  useEffect(() => {
+    if (!isLaunchpadOpen) return undefined;
+    const handler = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !event.metaKey && !event.ctrlKey) {
+        event.preventDefault();
+        setLaunchpadOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [isLaunchpadOpen]);
+
   const handleSelectTemplate = (templateId: SessionTemplateId) => {
     loadSessionTemplate(templateId);
     setLaunchpadOpen(false);

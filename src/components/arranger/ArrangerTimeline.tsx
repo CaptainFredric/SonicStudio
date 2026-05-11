@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useRef } from 'react';
 
 import type { ArrangementClip, Track } from '../../project/schema';
 import { ArrangerLaneMenu } from './ArrangerLaneMenu';
@@ -88,7 +88,39 @@ export const ArrangerTimeline = ({
   visibleEndStep,
   visibleStartStep,
   zoomPreset,
-}: ArrangerTimelineProps) => (
+}: ArrangerTimelineProps) => {
+  const panStateRef = useRef<{ startX: number; startScroll: number } | null>(null);
+
+  const handleRulerPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const node = timelineRef.current;
+    if (!node) return;
+    if (event.button !== 0 && event.button !== 1) return;
+    panStateRef.current = { startX: event.clientX, startScroll: node.scrollLeft };
+    node.setPointerCapture?.(event.pointerId);
+    node.style.cursor = 'grabbing';
+  }, [timelineRef]);
+
+  const handleRulerPointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const state = panStateRef.current;
+    const node = timelineRef.current;
+    if (!state || !node) return;
+    node.scrollLeft = state.startScroll - (event.clientX - state.startX);
+  }, [timelineRef]);
+
+  const handleRulerPointerUp = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    const node = timelineRef.current;
+    if (panStateRef.current && node) {
+      try {
+        node.releasePointerCapture?.(event.pointerId);
+      } catch {
+        /* ignore */
+      }
+      node.style.cursor = '';
+    }
+    panStateRef.current = null;
+  }, [timelineRef]);
+
+  return (
   <div className="flex min-w-0 flex-1 flex-col">
     <div className="mb-3 flex items-center justify-between gap-4">
       <div className="flex min-w-0 items-center gap-3">
@@ -107,25 +139,46 @@ export const ArrangerTimeline = ({
           </button>
         )}
         <button
-          className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+          aria-label="Scroll the timeline left"
+          className="control-chip flex h-9 w-9 items-center justify-center text-base"
+          disabled={scrollLeft <= 0}
           onClick={() => onScrollTimelineByViewport(-1)}
+          title="Scroll left (one viewport)"
         >
-          Scroll left
+          ‹
         </button>
         <button
-          className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+          aria-label="Scroll the timeline right"
+          className="control-chip flex h-9 w-9 items-center justify-center text-base"
+          disabled={scrollLeft >= maxTimelineScrollLeft - 1}
           onClick={() => onScrollTimelineByViewport(1)}
+          title="Scroll right (one viewport)"
         >
-          Scroll right
+          ›
         </button>
-        <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-          {totalBars} bars · snap {snapSize} steps · {zoomPreset.toLowerCase()} zoom
+        <div className="hidden sm:block font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+          {totalBars} bars · snap {snapSize} · {zoomPreset.toLowerCase()}
         </div>
       </div>
     </div>
 
+    <div className="relative min-h-0 flex-1">
+      {scrollLeft > 4 && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 left-0 z-10 w-6"
+          style={{ background: 'linear-gradient(90deg, rgba(4,7,11,0.85), transparent)' }}
+        />
+      )}
+      {scrollLeft < maxTimelineScrollLeft - 4 && (
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 right-0 z-10 w-6"
+          style={{ background: 'linear-gradient(270deg, rgba(4,7,11,0.85), transparent)' }}
+        />
+      )}
     <div
-      className="timeline-shell min-h-0 flex-1 overflow-auto border border-[var(--border-soft)] bg-[rgba(0,0,0,0.24)]"
+      className="timeline-shell h-full overflow-auto border border-[var(--border-soft)] bg-[rgba(0,0,0,0.24)]"
       onWheel={handleTimelineWheel}
       ref={timelineRef}
     >
@@ -134,7 +187,14 @@ export const ArrangerTimeline = ({
           <div className="sticky left-0 z-10 border-b border-r border-[var(--border-soft)] bg-[rgba(8,12,17,0.96)] px-4 py-3 backdrop-blur" style={{ width: `${laneLabelWidth}px` }}>
             <div className="section-label">Track lanes</div>
           </div>
-          <div className="relative border-b border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]">
+          <div
+            className="relative cursor-grab border-b border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] select-none touch-pan-x"
+            onPointerDown={handleRulerPointerDown}
+            onPointerMove={handleRulerPointerMove}
+            onPointerUp={handleRulerPointerUp}
+            onPointerCancel={handleRulerPointerUp}
+            title="Drag horizontally to pan the timeline"
+          >
             <div className="flex h-full min-w-full">
               {Array.from({ length: timelineSteps }, (_, stepIndex) => (
                 <div
@@ -289,6 +349,7 @@ export const ArrangerTimeline = ({
         </div>
       </div>
     </div>
+    </div>
     <div className="mt-3 rounded-[16px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)] px-4 py-3">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
         <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
@@ -314,4 +375,5 @@ export const ArrangerTimeline = ({
       </div>
     </div>
   </div>
-);
+  );
+};
