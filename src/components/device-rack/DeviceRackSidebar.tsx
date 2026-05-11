@@ -1,5 +1,7 @@
 import React from 'react';
-import { ChevronDown, ChevronUp, Disc3, Gauge, Play, Save, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Gauge, Play, Save, Trash2 } from 'lucide-react';
+
+import { TrackIcon } from '../../utils/trackPersonality';
 
 import { defaultNoteForTrack, type Track, type TrackSnapshot } from '../../project/schema';
 import { Visualizer } from '../Visualizer';
@@ -61,7 +63,7 @@ export const DeviceRackSidebar = ({
           className="flex h-11 w-11 items-center justify-center border"
           style={{ background: `${track.color}12`, borderColor: `${track.color}44`, borderRadius: '4px', color: track.color }}
         >
-          <Disc3 className="h-5 w-5" />
+          <TrackIcon type={track.type} className="h-5 w-5" />
         </div>
         <div className="min-w-0">
           <div className="truncate text-base font-semibold tracking-tight text-[var(--text-primary)]">{track.name}</div>

@@ -22,6 +22,7 @@ import {
   NOTE_GATE_MIN,
   clampNoteGate,
 } from '../utils/noteEditing';
+import { TrackIcon, getTrackPersonality } from '../utils/trackPersonality';
 
 const TRACK_BUTTONS = [
   { label: 'Kick', type: 'kick' as const },
@@ -362,7 +363,13 @@ export const MainWorkspace = () => {
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
                               <div className="flex items-center gap-3">
-                                <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: track.color }} />
+                                <div
+                                  className="flex h-7 w-7 items-center justify-center"
+                                  style={{ borderRadius: '2px', border: `1px solid ${track.color}55`, background: `${track.color}1a`, color: track.color }}
+                                  title={getTrackPersonality(track.type).blurb}
+                                >
+                                  <TrackIcon type={track.type} className="h-3.5 w-3.5" />
+                                </div>
                                 <span className="truncate text-sm font-semibold tracking-tight text-[var(--text-primary)]">{track.name}</span>
                               </div>
                               <div className="mt-2 flex items-center gap-3">

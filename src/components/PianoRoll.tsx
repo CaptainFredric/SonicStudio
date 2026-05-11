@@ -12,6 +12,7 @@ import {
 
 import { useAudio } from '../context/AudioContext';
 import { type NoteEvent } from '../project/schema';
+import { TrackIcon, getTrackPersonality } from '../utils/trackPersonality';
 import {
   NOTE_GATE_COARSE_STEP,
   NOTE_GATE_FINE_STEP,
@@ -334,40 +335,37 @@ export const PianoRoll = () => {
 
   return (
     <section className="surface-panel flex min-h-0 flex-1 flex-col overflow-auto xl:overflow-hidden">
-      <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[var(--border-soft)] px-5 py-4">
-        <div>
-          <div className="section-label">Piano roll</div>
-          <div className="mt-2 flex items-center gap-3">
-            <h2 className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">{track.name}</h2>
-            <span className="rounded-sm border px-3 py-1 font-mono text-[10px] uppercase tracking-[0.16em]" style={{ borderColor: `${track.color}55`, color: track.color }}>
-              {track.type}
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-soft)] px-4 py-2.5">
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
+          <div className="section-label whitespace-nowrap">Piano roll</div>
+          <div
+            className="flex h-7 w-7 items-center justify-center"
+            style={{ borderRadius: '2px', border: `1px solid ${track.color}55`, background: `${track.color}1a`, color: track.color }}
+            title={getTrackPersonality(track.type).blurb}
+          >
+            <TrackIcon type={track.type} className="h-3.5 w-3.5" />
+          </div>
+          <h2
+            className="truncate text-base font-semibold tracking-tight text-[var(--text-primary)]"
+            title={getTrackPersonality(track.type).blurb}
+          >
+            {track.name}
+          </h2>
+          <span className="rounded-sm border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.16em]" style={{ borderColor: `${track.color}55`, color: track.color }}>
+            {track.type}
+          </span>
+          <div className="flex items-center gap-3 text-[var(--text-secondary)]">
+            <div className="flex items-center gap-1.5">
+              <LayoutGrid className="h-3.5 w-3.5 text-[var(--accent)]" />
+              <span className="font-mono text-[11px]">{String.fromCharCode(65 + currentPattern)}</span>
+            </div>
+            <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+              {activeStepCount}st · {totalNoteCount}n{!isDrum && stackedStepCount > 0 ? ` · ${stackedStepCount}stk` : ''}
             </span>
           </div>
-          <p className="mt-2 max-w-2xl text-sm text-[var(--text-secondary)]">
-            {isDrum
-              ? 'Edit drum patterns quickly here, then use the sound desk to shape tone and space.'
-              : 'Build melodies, chords, and stacked voicings inside a single pattern with tighter note control.'}
-          </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="surface-panel-muted flex items-center gap-4 px-4 py-3 text-[var(--text-secondary)]">
-            <div className="flex items-center gap-2">
-              <LayoutGrid className="h-4 w-4 text-[var(--accent)]" />
-              <span className="text-sm">Pattern {String.fromCharCode(65 + currentPattern)}</span>
-            </div>
-            <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-              {activeStepCount} active steps
-            </div>
-            <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-              {totalNoteCount} notes
-            </div>
-            {!isDrum && (
-              <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-                {stackedStepCount} stacked
-              </div>
-            )}
-          </div>
+        <div className="flex flex-wrap items-center gap-2">
 
           {!isDrum && (
             <div className="surface-panel-muted flex items-center gap-2 p-1">

@@ -4,6 +4,7 @@ import { SlidersHorizontal } from 'lucide-react';
 import { useAudio } from '../context/AudioContext';
 import { engine } from '../audio/ToneEngine';
 import type { Track } from '../project/schema';
+import { TrackIcon } from '../utils/trackPersonality';
 
 type MixerScope = 'ALL' | 'PINNED' | 'RHYTHM' | 'MUSICAL' | 'TEXTURE';
 type MixerGroupKey = 'PINNED' | 'RHYTHM' | 'MUSICAL' | 'TEXTURE';
@@ -57,7 +58,12 @@ const VUChannel: React.FC<{ selected: boolean; track: Track }> = ({ selected, tr
       tabIndex={0}
     >
       <div className="flex items-center gap-3">
-        <div className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: track.color }} />
+        <div
+          className="flex h-7 w-7 items-center justify-center"
+          style={{ borderRadius: '2px', border: `1px solid ${track.color}55`, background: `${track.color}1a`, color: track.color }}
+        >
+          <TrackIcon type={track.type} className="h-3.5 w-3.5" />
+        </div>
         <div className="min-w-0">
           <div className="truncate text-sm font-semibold tracking-tight text-[var(--text-primary)]">{track.name}</div>
           <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.type}</div>

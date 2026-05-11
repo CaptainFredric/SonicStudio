@@ -9,7 +9,7 @@ export type SourceEngine = 'synth' | 'sample';
 export type SamplePlaybackMode = 'pitched' | 'oneshot';
 export type SampleTriggerMode = 'active-slice' | 'full-source' | 'step-mapped';
 export type SamplePreset = 'kick-thud' | 'snare-crack' | 'hat-air' | 'bass-pluck' | 'lead-glass' | 'pad-haze' | 'pluck-mallet' | 'fx-rise';
-export type SessionTemplateId = 'blank-grid' | 'night-transit' | 'beat-lab' | 'ambient-drift';
+export type SessionTemplateId = 'blank-grid' | 'night-transit' | 'beat-lab' | 'ambient-drift' | 'lofi-sunday' | 'synthwave-drive';
 
 export interface SessionTemplateDefinition {
   description: string;
@@ -394,6 +394,8 @@ const DEMO_TRACK_ORDER: InstrumentType[] = ['kick', 'snare', 'hihat', 'bass', 'l
 const BLANK_TRACK_ORDER: InstrumentType[] = ['kick', 'bass', 'lead'];
 const BEAT_TRACK_ORDER: InstrumentType[] = ['kick', 'snare', 'hihat', 'bass', 'fx'];
 const AMBIENT_TRACK_ORDER: InstrumentType[] = ['pad', 'pad', 'bass', 'lead', 'fx'];
+const LOFI_TRACK_ORDER: InstrumentType[] = ['kick', 'snare', 'hihat', 'bass', 'pad', 'lead'];
+const SYNTHWAVE_TRACK_ORDER: InstrumentType[] = ['kick', 'snare', 'hihat', 'bass', 'lead', 'pad'];
 
 export const SESSION_TEMPLATE_DEFINITIONS: SessionTemplateDefinition[] = [
   {
@@ -419,6 +421,18 @@ export const SESSION_TEMPLATE_DEFINITIONS: SessionTemplateDefinition[] = [
     focus: 'Atmosphere and harmony',
     id: 'ambient-drift',
     label: 'Ambient Drift',
+  },
+  {
+    description: 'Lazy 78 BPM groove with dusty drums, soft chords, and a sparse lead line. Easy to vibe.',
+    focus: 'Lo-fi hip hop sketch',
+    id: 'lofi-sunday',
+    label: 'Lo-Fi Sunday',
+  },
+  {
+    description: 'Driving 108 BPM 80s pulse — four-on-the-floor kick, syncopated bass, neon lead, wide pad bed.',
+    focus: 'Synthwave drive',
+    id: 'synthwave-drive',
+    label: 'Synthwave Drive',
   },
 ];
 
@@ -1648,6 +1662,131 @@ export const createAmbientProject = (projectName: string = 'Ambient Drift'): Pro
   ]);
 };
 
+export const createLoFiSundayProject = (projectName: string = 'Lo-Fi Sunday'): Project => {
+  const { buildProject, tracks, transport } = createProjectFrame(projectName, {
+    bpm: 78,
+    mode: 'SONG',
+    trackOrder: LOFI_TRACK_ORDER,
+  });
+  const [kickTrack, snareTrack, hihatTrack, bassTrack, padTrack, leadTrack] = tracks;
+
+  for (const step of [0, 7, 10]) {
+    putStep(kickTrack, 0, step, 'C1', { velocity: step === 0 ? 0.92 : 0.74 });
+  }
+  for (const step of [4, 12]) {
+    putStep(snareTrack, 0, step, 'C1', { velocity: 0.7 });
+  }
+  for (let step = 0; step < 16; step += 2) {
+    const isOff = step % 4 === 2;
+    putStep(hihatTrack, 0, step, 'C1', { gate: 0.4, velocity: isOff ? 0.42 : 0.58 });
+  }
+  putStep(bassTrack, 0, 0, 'C2', { gate: 2.5, velocity: 0.68 });
+  putStep(bassTrack, 0, 6, 'A1', { gate: 1.5, velocity: 0.62 });
+  putStep(bassTrack, 0, 10, 'F1', { gate: 2, velocity: 0.62 });
+
+  stackStep(padTrack, 0, 0, [
+    { note: 'C4', options: { gate: 4, velocity: 0.42 } },
+    { note: 'E4', options: { gate: 4, velocity: 0.38 } },
+    { note: 'G4', options: { gate: 4, velocity: 0.38 } },
+    { note: 'B4', options: { gate: 4, velocity: 0.34 } },
+  ]);
+  stackStep(padTrack, 0, 8, [
+    { note: 'A3', options: { gate: 4, velocity: 0.42 } },
+    { note: 'C4', options: { gate: 4, velocity: 0.4 } },
+    { note: 'E4', options: { gate: 4, velocity: 0.36 } },
+    { note: 'G4', options: { gate: 4, velocity: 0.34 } },
+  ]);
+
+  putStep(leadTrack, 0, 4, 'E5', { gate: 1, velocity: 0.6 });
+  putStep(leadTrack, 0, 11, 'D5', { gate: 1.25, velocity: 0.58 });
+  putStep(leadTrack, 0, 14, 'G4', { gate: 1.5, velocity: 0.54 });
+
+  padTrack.params.reverbSend = 0.52;
+  padTrack.params.delaySend = 0.22;
+  padTrack.params.chorusSend = 0.28;
+  leadTrack.params.reverbSend = 0.46;
+  leadTrack.params.delaySend = 0.36;
+  hihatTrack.source.engine = 'sample';
+  hihatTrack.source.samplePlayback = 'oneshot';
+  hihatTrack.source.sampleTriggerMode = 'step-mapped';
+
+  return buildProject([
+    createArrangerClip(kickTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(snareTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(hihatTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(bassTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(padTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(leadTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+  ], [
+    { beat: 0, id: createId('marker'), name: 'Sunday loop' },
+  ]);
+};
+
+export const createSynthwaveDriveProject = (projectName: string = 'Synthwave Drive'): Project => {
+  const { buildProject, tracks, transport } = createProjectFrame(projectName, {
+    bpm: 108,
+    mode: 'SONG',
+    trackOrder: SYNTHWAVE_TRACK_ORDER,
+  });
+  const [kickTrack, snareTrack, hihatTrack, bassTrack, leadTrack, padTrack] = tracks;
+
+  for (const step of [0, 4, 8, 12]) {
+    putStep(kickTrack, 0, step, 'C1', { velocity: 0.94 });
+  }
+  for (const step of [4, 12]) {
+    putStep(snareTrack, 0, step, 'C1', { velocity: 0.82 });
+  }
+  for (let step = 0; step < 16; step += 1) {
+    if (step % 4 === 0) continue;
+    putStep(hihatTrack, 0, step, 'C1', { gate: 0.35, velocity: step % 2 === 0 ? 0.55 : 0.42 });
+  }
+
+  const bassPattern = ['C2', 'C2', 'G2', 'C2', 'A1', 'A1', 'E2', 'A1', 'F2', 'F2', 'C3', 'F2', 'G2', 'G2', 'D3', 'G2'];
+  bassPattern.forEach((note, step) => {
+    putStep(bassTrack, 0, step, note, { gate: 0.85, velocity: step % 4 === 0 ? 0.82 : 0.66 });
+  });
+
+  const leadPattern = [
+    { step: 0, note: 'E5' },
+    { step: 2, note: 'G5' },
+    { step: 4, note: 'B5' },
+    { step: 6, note: 'A5' },
+    { step: 8, note: 'G5' },
+    { step: 10, note: 'E5' },
+    { step: 12, note: 'D5' },
+    { step: 14, note: 'C5' },
+  ];
+  leadPattern.forEach(({ step, note }) => {
+    putStep(leadTrack, 0, step, note, { gate: 1.25, velocity: 0.7 });
+  });
+
+  stackStep(padTrack, 0, 0, [
+    { note: 'C4', options: { gate: 4, velocity: 0.4 } },
+    { note: 'G4', options: { gate: 4, velocity: 0.36 } },
+  ]);
+  stackStep(padTrack, 0, 8, [
+    { note: 'A3', options: { gate: 4, velocity: 0.4 } },
+    { note: 'E4', options: { gate: 4, velocity: 0.36 } },
+  ]);
+
+  leadTrack.params.delaySend = 0.46;
+  leadTrack.params.reverbSend = 0.36;
+  leadTrack.params.chorusSend = 0.24;
+  padTrack.params.reverbSend = 0.58;
+  padTrack.params.chorusSend = 0.32;
+
+  return buildProject([
+    createArrangerClip(kickTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(snareTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(hihatTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(bassTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(leadTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(padTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+  ], [
+    { beat: 0, id: createId('marker'), name: 'Drive' },
+  ]);
+};
+
 export const createProjectFromTemplate = (
   templateId: SessionTemplateId,
 ): Project => {
@@ -1658,6 +1797,10 @@ export const createProjectFromTemplate = (
       return createBeatLabProject();
     case 'ambient-drift':
       return createAmbientProject();
+    case 'lofi-sunday':
+      return createLoFiSundayProject();
+    case 'synthwave-drive':
+      return createSynthwaveDriveProject();
     case 'night-transit':
     default:
       return createNightTransitProject();
