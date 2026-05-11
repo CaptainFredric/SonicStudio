@@ -423,13 +423,13 @@ export const SESSION_TEMPLATE_DEFINITIONS: SessionTemplateDefinition[] = [
     label: 'Ambient Drift',
   },
   {
-    description: 'Lazy 78 BPM groove with dusty drums, soft chords, and a sparse lead line. Easy to vibe.',
+    description: 'Slow drums, soft chords, and a sparse lead line at 78 BPM. Easy to start writing over.',
     focus: 'Lo-fi hip hop sketch',
     id: 'lofi-sunday',
     label: 'Lo-Fi Sunday',
   },
   {
-    description: 'Driving 108 BPM 80s pulse — four-on-the-floor kick, syncopated bass, neon lead, wide pad bed.',
+    description: 'Four-on-the-floor kick, syncopated bass, melodic lead, and a wide pad. 108 BPM.',
     focus: 'Synthwave drive',
     id: 'synthwave-drive',
     label: 'Synthwave Drive',

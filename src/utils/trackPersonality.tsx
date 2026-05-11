@@ -21,42 +21,42 @@ export interface TrackPersonality {
 const PERSONALITIES: Record<InstrumentType, TrackPersonality> = {
   kick: {
     icon: CircleDot,
-    blurb: 'Foundation thump — sits forward and locks the grid.',
+    blurb: 'Sits forward in the mix and locks the grid.',
     family: 'drum',
   },
   snare: {
     icon: Drum,
-    blurb: 'Backbeat snap — defines the groove’s shoulders.',
+    blurb: 'Hits the backbeat. Usually on 2 and 4.',
     family: 'drum',
   },
   hihat: {
     icon: Activity,
-    blurb: 'Top-end shimmer — moves the air between hits.',
+    blurb: 'Drives the eighth or sixteenth notes on top.',
     family: 'drum',
   },
   bass: {
     icon: Waves,
-    blurb: 'Low-end engine — anchors the harmony and pulse.',
+    blurb: 'Anchors the harmony from the low end.',
     family: 'low',
   },
   lead: {
     icon: Music2,
-    blurb: 'The voice up front — phrasing, hook, and motion.',
+    blurb: 'Carries the melody or hook.',
     family: 'voice',
   },
   pad: {
     icon: Cloud,
-    blurb: 'Sustained air — the cushion every other lane sits inside.',
+    blurb: 'Holds the chords underneath everything else.',
     family: 'air',
   },
   pluck: {
     icon: Sparkles,
-    blurb: 'Quick articulation — punctuates space without crowding it.',
+    blurb: 'Short, bright notes for accents and counter-lines.',
     family: 'voice',
   },
   fx: {
     icon: Zap,
-    blurb: 'Texture and lift — transitions, risers, ear-candy.',
+    blurb: 'Risers, sweeps, and transitions.',
     family: 'spark',
   },
 };

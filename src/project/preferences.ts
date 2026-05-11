@@ -28,7 +28,7 @@ export interface AccentTokenSet {
 export const ACCENT_PRESETS: Record<AccentColor, AccentTokenSet & { label: string; description: string }> = {
   aqua: {
     label: 'Aqua',
-    description: 'Cool neon blue — the SonicStudio default.',
+    description: 'Default blue.',
     accent: '#72d9ff',
     accentStrong: '#dff6ff',
     accentMuted: 'rgba(114, 217, 255, 0.1)',
@@ -36,7 +36,7 @@ export const ACCENT_PRESETS: Record<AccentColor, AccentTokenSet & { label: strin
   },
   violet: {
     label: 'Violet',
-    description: 'Late-night studio — purple with cool highlights.',
+    description: 'Purple.',
     accent: '#c5a8ff',
     accentStrong: '#ece1ff',
     accentMuted: 'rgba(197, 168, 255, 0.12)',
@@ -44,7 +44,7 @@ export const ACCENT_PRESETS: Record<AccentColor, AccentTokenSet & { label: strin
   },
   amber: {
     label: 'Amber',
-    description: 'Warm desk lamp — golden tape-room glow.',
+    description: 'Warm yellow.',
     accent: '#f5c66c',
     accentStrong: '#fbeac1',
     accentMuted: 'rgba(245, 198, 108, 0.12)',
@@ -52,7 +52,7 @@ export const ACCENT_PRESETS: Record<AccentColor, AccentTokenSet & { label: strin
   },
   rose: {
     label: 'Rose',
-    description: 'Sunset synthwave — coral pink accent.',
+    description: 'Coral pink.',
     accent: '#ffa1bb',
     accentStrong: '#ffd9e2',
     accentMuted: 'rgba(255, 161, 187, 0.12)',
@@ -60,7 +60,7 @@ export const ACCENT_PRESETS: Record<AccentColor, AccentTokenSet & { label: strin
   },
   mint: {
     label: 'Mint',
-    description: 'Clean room — soft green for long sessions.',
+    description: 'Soft green.',
     accent: '#86efac',
     accentStrong: '#dcfce7',
     accentMuted: 'rgba(134, 239, 172, 0.12)',

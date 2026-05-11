@@ -30,7 +30,7 @@ const SideNav = ({ onOpenLaunchpad }: { onOpenLaunchpad: () => void }) => {
       <button
         className="studio-nav-button shrink-0 md:w-full"
         onClick={onOpenLaunchpad}
-        title="Open launchpad — pick a starter session"
+        title="Open a starter session"
         type="button"
       >
         <div className="flex md:flex-col flex-row items-center gap-2">

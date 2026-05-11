@@ -15,25 +15,25 @@ const TAB_DEFINITIONS: Array<{ id: StudioTab; label: string; icon: ReactNode; de
     id: 'PREFERENCES',
     label: 'Preferences',
     icon: <Settings2 className="h-3.5 w-3.5" />,
-    description: 'Accent, density, motion, keyboard shortcuts.',
+    description: 'How the app looks and feels, plus a keyboard shortcut reference.',
   },
   {
     id: 'WORKSPACE',
     label: 'Workspace',
     icon: <Sliders className="h-3.5 w-3.5" />,
-    description: 'Session, transport, recovery, bounce.',
+    description: 'Session tools, transport settings, recovery checkpoints, and exporting.',
   },
   {
     id: 'TRACK',
     label: 'Track',
     icon: <Sliders className="h-3.5 w-3.5" />,
-    description: 'Sources, voice presets, lane settings.',
+    description: 'Settings for the selected track: source, voice preset, and routing.',
   },
   {
     id: 'OUTPUT',
     label: 'Output',
     icon: <Speaker className="h-3.5 w-3.5" />,
-    description: 'Master chain, glue, limiter ceiling.',
+    description: 'Master chain, glue compression, and limiter ceiling.',
   },
 ];
 

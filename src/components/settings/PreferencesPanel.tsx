@@ -16,14 +16,14 @@ interface PreferencesPanelProps {
 }
 
 const SHORTCUTS: Array<{ keys: string; label: string; group: 'Transport' | 'Edit' | 'Tap to play' }> = [
-  { keys: 'Space', label: 'Play / Pause', group: 'Transport' },
-  { keys: '⌘ S', label: 'Save project', group: 'Edit' },
+  { keys: 'Space', label: 'Play or pause', group: 'Transport' },
+  { keys: '⌘ S', label: 'Save', group: 'Edit' },
   { keys: '⌘ Z', label: 'Undo', group: 'Edit' },
   { keys: '⇧ ⌘ Z', label: 'Redo', group: 'Edit' },
-  { keys: '[ ]', label: 'Nudge selected note gate', group: 'Edit' },
-  { keys: 'A–L', label: 'Play white keys', group: 'Tap to play' },
-  { keys: 'W E T Y U O P', label: 'Play black keys', group: 'Tap to play' },
-  { keys: 'A S D F', label: 'Drum pads (when drum track is focused)', group: 'Tap to play' },
+  { keys: '[ ]', label: 'Shorten or lengthen the selected note', group: 'Edit' },
+  { keys: 'A–L', label: 'White keys (melodic tracks)', group: 'Tap to play' },
+  { keys: 'W E T Y U O P', label: 'Black keys', group: 'Tap to play' },
+  { keys: 'A S D F', label: 'Drum pads (when a drum track is selected)', group: 'Tap to play' },
 ];
 
 export const PreferencesPanel = ({
@@ -39,7 +39,7 @@ export const PreferencesPanel = ({
   <div className="space-y-4">
     <PanelCard icon={<Palette className="h-4 w-4 text-[var(--accent)]" />} title="Accent color">
       <p className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
-        Pick the highlight tone for buttons, focus rings, and active states.
+        Used for active tabs, focus rings, and highlights.
       </p>
       <div className="mt-3 flex flex-wrap gap-2">
         {(Object.keys(ACCENT_PRESETS) as AccentColor[]).map((id) => {
@@ -78,7 +78,7 @@ export const PreferencesPanel = ({
 
     <PanelCard icon={<Type className="h-4 w-4 text-[var(--accent)]" />} title="Density">
       <p className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
-        Comfortable gives panels room to breathe. Compact pulls more onto screen.
+        Compact reduces padding around panels and controls.
       </p>
       <div className="mt-3 grid grid-cols-2 gap-2">
         <SegmentButton active={density === 'comfortable'} label="Comfortable" onClick={() => onDensityChange('comfortable')} />
@@ -88,7 +88,7 @@ export const PreferencesPanel = ({
 
     <PanelCard icon={<Waves className="h-4 w-4 text-[var(--accent)]" />} title="Motion">
       <p className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
-        Pace of transitions across panels, tabs, and feedback.
+        How fast UI elements animate.
       </p>
       <div className="mt-3 grid grid-cols-3 gap-2">
         <SegmentButton active={motionMode === 'fluid'} label="Fluid" onClick={() => onMotionModeChange('fluid')} />
@@ -99,7 +99,7 @@ export const PreferencesPanel = ({
 
     <PanelCard icon={<Volume2 className="h-4 w-4 text-[var(--accent)]" />} title="UI sounds">
       <p className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
-        Subtle clicks for nav, transport, and edit actions. Off for silent demos.
+        Subtle clicks when you interact with controls.
       </p>
       <div className="mt-3 flex gap-2">
         <StateButton active={uiSoundsEnabled} label="On" onClick={() => onUiSoundsEnabledChange(true)} />
@@ -109,7 +109,7 @@ export const PreferencesPanel = ({
 
     <PanelCard icon={<Keyboard className="h-4 w-4 text-[var(--accent)]" />} title="Keyboard shortcuts">
       <p className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
-        Hands-on-keys speed-ups. Tap-to-play keys are active while the keyboard strip is open.
+        Press ? anywhere to open this list as an overlay. Tap-to-play keys only work while the keyboard strip is open.
       </p>
       <ShortcutGroup title="Transport" shortcuts={SHORTCUTS.filter((s) => s.group === 'Transport')} />
       <ShortcutGroup title="Edit" shortcuts={SHORTCUTS.filter((s) => s.group === 'Edit')} />

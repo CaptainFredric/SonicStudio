@@ -10,31 +10,31 @@ const GROUPS: Array<{ title: string; entries: ShortcutEntry[] }> = [
   {
     title: 'Transport',
     entries: [
-      { keys: 'Space', label: 'Play / Pause' },
+      { keys: 'Space', label: 'Play or pause' },
     ],
   },
   {
     title: 'Edit',
     entries: [
-      { keys: '⌘ S', label: 'Save project' },
+      { keys: '⌘ S', label: 'Save' },
       { keys: '⌘ Z', label: 'Undo' },
       { keys: '⇧ ⌘ Z', label: 'Redo' },
-      { keys: '[ ]', label: 'Nudge selected note gate' },
+      { keys: '[ ]', label: 'Shorten or lengthen the selected note' },
     ],
   },
   {
     title: 'Tap to play',
     entries: [
-      { keys: 'A S D F G H J K L', label: 'White keys C-D-E-F-G-A-B-C-D' },
+      { keys: 'A S D F G H J K L', label: 'White keys, two octaves' },
       { keys: 'W E T Y U O P', label: 'Black keys' },
-      { keys: 'A S D F', label: 'Drum pads when drum track focused' },
+      { keys: 'A S D F', label: 'Drum pads (when a drum track is selected)' },
     ],
   },
   {
     title: 'Help',
     entries: [
-      { keys: '?', label: 'Toggle this overlay' },
-      { keys: 'Esc', label: 'Close overlay or settings' },
+      { keys: '?', label: 'Open or close this list' },
+      { keys: 'Esc', label: 'Close the overlay or settings panel' },
     ],
   },
 ];
@@ -83,9 +83,9 @@ export const ShortcutOverlay = () => {
               <Keyboard className="h-4 w-4" />
               <span className="section-label text-[var(--accent)]">Shortcuts</span>
             </div>
-            <h2 className="mt-1.5 text-lg font-semibold tracking-tight text-[var(--text-primary)]">Keyboard reference</h2>
+            <h2 className="mt-1.5 text-lg font-semibold tracking-tight text-[var(--text-primary)]">Keyboard shortcuts</h2>
             <p className="mt-1 text-[12px] leading-5 text-[var(--text-secondary)]">
-              Press <kbd className="font-mono text-[11px] text-[var(--accent-strong)]">?</kbd> anywhere to toggle. Tap-to-play keys only fire while the keyboard strip is open.
+              Press <kbd className="font-mono text-[11px] text-[var(--accent-strong)]">?</kbd> anywhere to open or close this list. The tap-to-play keys only work while the keyboard strip is open.
             </p>
           </div>
           <button

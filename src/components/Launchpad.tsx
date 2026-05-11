@@ -31,8 +31,8 @@ interface StartOption {
 
 const START_OPTIONS: StartOption[] = [
   {
-    body: 'A finished sketch already moving — drums, bass, lead, and pads in a tight late-night groove.',
-    focus: 'Hear a finished idea',
+    body: 'A finished song you can play right away. Drums, bass, lead, and pads already in motion.',
+    focus: 'Full arrangement',
     genre: 'Synth pop',
     bpm: 112,
     id: 'night-transit',
@@ -41,8 +41,8 @@ const START_OPTIONS: StartOption[] = [
     emoji: '🌃',
   },
   {
-    body: 'Driving four-on-the-floor with a neon lead, syncopated bass, and a wide pad bed.',
-    focus: 'Synthwave drive',
+    body: 'Four-on-the-floor kick, syncopated bass, melodic lead, and a wide pad underneath.',
+    focus: '80s synthwave',
     genre: '80s synthwave',
     bpm: 108,
     id: 'synthwave-drive',
@@ -51,7 +51,7 @@ const START_OPTIONS: StartOption[] = [
     emoji: '🌆',
   },
   {
-    body: 'Lazy 78 BPM groove with dusty drums, soft chords, and a sparse lead. Easy to vibe with.',
+    body: 'Slow drums, soft chords, a sparse lead line. 78 BPM, easy to start writing over.',
     focus: 'Lo-fi hip hop',
     genre: 'Lo-fi',
     bpm: 78,
@@ -61,8 +61,8 @@ const START_OPTIONS: StartOption[] = [
     emoji: '☕',
   },
   {
-    body: 'Tighter beat-first layout with sample-driven drums, walking bass, and an FX riser.',
-    focus: 'Beat lab',
+    body: 'Sample-driven drums, walking bass, and an FX riser. Built for loop work.',
+    focus: 'Beat-first',
     genre: 'Hip-hop beat',
     bpm: 136,
     id: 'beat-lab',
@@ -71,8 +71,8 @@ const START_OPTIONS: StartOption[] = [
     emoji: '🥁',
   },
   {
-    body: 'Wide pads, slow phrases, and gentle motion for ambient or score-like writing.',
-    focus: 'Atmosphere and harmony',
+    body: 'Wide pads and slow phrases. Good for ambient writing or scoring sketches.',
+    focus: 'Atmosphere',
     genre: 'Ambient',
     bpm: 94,
     id: 'ambient-drift',
@@ -81,7 +81,7 @@ const START_OPTIONS: StartOption[] = [
     emoji: '🌫️',
   },
   {
-    body: 'Minimal lanes only — kick, bass, lead. Bring your own vibe.',
+    body: 'Just kick, bass, and lead. Start from scratch.',
     focus: 'Start blank',
     genre: 'Blank canvas',
     bpm: 120,
@@ -131,12 +131,12 @@ export const Launchpad = ({
       <div className="grid gap-6 md:grid-cols-[1.2fr_0.8fr] md:items-start">
         <div className="min-w-0">
           <h1 className="max-w-[14ch] text-[clamp(2.1rem,4.4vw,4rem)] font-semibold leading-[0.96] tracking-tight">
-            Start with a vibe, not a blank page.
+            Open a session.
           </h1>
           <p className="mt-5 max-w-[58ch] text-sm leading-6 text-[var(--text-secondary)] md:text-[15px]">
-            Pick a sketch and SonicStudio loads a real arrangement — drums,
-            bass, lead, and pad already in place. Hit play, or grab the
-            tap-to-play keys and start performing immediately.
+            Each starter loads a working song with drums, bass, lead, and pad
+            already arranged. Press play to hear it, then edit anything. You
+            can also import a MIDI file or open a blank session.
           </p>
           <div className="mt-6 flex flex-wrap items-center gap-2">
             <button
@@ -174,16 +174,16 @@ export const Launchpad = ({
 
           <div className="mt-6 flex items-center gap-2 rounded-sm border border-[var(--border-soft)] bg-[rgba(114,217,255,0.04)] px-3 py-2 text-[12px] text-[var(--text-secondary)]">
             <Hand className="h-3.5 w-3.5 text-[var(--accent)]" />
-            <span><strong className="text-[var(--text-primary)] font-medium">New:</strong> tap-to-play keyboard — every track speaks back. Press <span className="font-mono text-[11px] text-[var(--text-primary)]">A–L</span> after loading.</span>
+            <span>Tip: once a session is loaded, open the tap-to-play strip and use <span className="font-mono text-[11px] text-[var(--text-primary)]">A</span>–<span className="font-mono text-[11px] text-[var(--text-primary)]">L</span> to play the selected track from your keyboard.</span>
           </div>
         </div>
 
         <div className="surface-panel-strong px-4 py-4">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <div className="section-label">Quick starts</div>
+              <div className="section-label">Starter sessions</div>
               <div className="mt-2 text-sm font-medium text-[var(--text-primary)]">
-                Land in the right view, with sound already moving.
+                Pick one to open the studio with a song already in it.
               </div>
             </div>
             <Sparkles className="h-4 w-4 text-[var(--accent)]" />
@@ -212,7 +212,7 @@ export const Launchpad = ({
                 <div>
                   <div className="text-sm font-semibold text-[var(--text-primary)]">Import a MIDI file</div>
                   <div className="mt-1 text-[12px] leading-5 text-[var(--text-secondary)]">
-                    Bring an outside sketch into SonicStudio and keep working here.
+                    Open a MIDI file and continue editing it here.
                   </div>
                 </div>
               </div>

@@ -188,7 +188,7 @@ export const DeviceRack = () => {
         onTouchStart={handleResizeStart}
         role="separator"
         tabIndex={0}
-        title="Drag to resize · ↑/↓ to adjust"
+        title="Drag to resize. Use the up and down arrow keys for fine adjustments."
       >
         <GripHorizontal className="h-3 w-3 text-[var(--text-tertiary)] opacity-50 transition-opacity group-hover:opacity-100" />
       </div>
