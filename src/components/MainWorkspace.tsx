@@ -134,10 +134,10 @@ export const MainWorkspace = () => {
         return true;
     }
   }), [currentPattern, laneScope, pinnedTrackIds, selectedTrackId, tracks]);
-  const laneHeaderWidthClass = compactLanes ? 'w-[252px]' : 'w-[284px]';
+  const laneHeaderWidthClass = compactLanes ? 'w-[300px]' : 'w-[340px]';
   const laneHeaderPaddingClass = compactLanes ? 'px-4 py-3' : 'px-5 py-4';
   const laneGridPaddingClass = compactLanes ? 'px-2 py-1.5' : 'px-2 py-2';
-  const laneHeaderWidth = compactLanes ? 252 : 284;
+  const laneHeaderWidth = compactLanes ? 300 : 340;
   const stepCellWidth = compactLanes ? 54 : 64;
   const stepGridWidth = stepsPerPattern * stepCellWidth;
   const maxGridScrollLeft = Math.max(0, stepGridWidth - gridViewportWidth);
@@ -231,6 +231,37 @@ export const MainWorkspace = () => {
   const selectStep = (stepIndex: number, noteIndex = 0) => {
     setSelectedStepIndex(stepIndex);
     setSelectedStepNoteIndex(noteIndex);
+  };
+
+  const paintStateRef = useRef<{ trackId: string; mode: 'add' | 'remove'; visited: Set<string> } | null>(null);
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const endPaint = () => { paintStateRef.current = null; };
+    window.addEventListener('pointerup', endPaint);
+    window.addEventListener('pointercancel', endPaint);
+    return () => {
+      window.removeEventListener('pointerup', endPaint);
+      window.removeEventListener('pointercancel', endPaint);
+    };
+  }, []);
+
+  const handleSeqCellPointerDown = (trackId: string, stepIndex: number, hasNote: boolean, event: React.PointerEvent<HTMLButtonElement>) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    setSelectedTrackId(trackId);
+    selectStep(stepIndex);
+    paintStateRef.current = { trackId, mode: hasNote ? 'remove' : 'add', visited: new Set([`${stepIndex}`]) };
+    toggleStep(trackId, stepIndex);
+  };
+
+  const handleSeqCellPointerEnter = (trackId: string, stepIndex: number, hasNote: boolean) => {
+    const state = paintStateRef.current;
+    if (!state || state.trackId !== trackId) return;
+    const key = `${stepIndex}`;
+    if (state.visited.has(key)) return;
+    state.visited.add(key);
+    if (state.mode === 'add' && !hasNote) toggleStep(trackId, stepIndex);
+    else if (state.mode === 'remove' && hasNote) toggleStep(trackId, stepIndex);
   };
 
   const updateSelectedStepNote = (noteIndex: number, updates: Parameters<typeof updateStepEvent>[3]) => {
@@ -411,7 +442,7 @@ export const MainWorkspace = () => {
                         key={track.id}
                       >
                         <div
-                          className={`group relative ${laneHeaderWidthClass} shrink-0 border-r border-[var(--border-soft)] ${laneHeaderPaddingClass} text-left cursor-pointer`}
+                          className={`group relative ${laneHeaderWidthClass} shrink-0 overflow-hidden border-r border-[var(--border-soft)] ${laneHeaderPaddingClass} text-left cursor-pointer`}
                           onClick={() => setSelectedTrackId(track.id)}
                           onKeyDown={(event) => {
                             if (event.key === 'Enter' || event.key === ' ') {
@@ -423,91 +454,87 @@ export const MainWorkspace = () => {
                           tabIndex={0}
                         >
                           {selected && <div className="absolute left-0 top-3 bottom-3 w-[2px] rounded-full" style={{ backgroundColor: track.color }} />}
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-3">
-                                <div
-                                  className="flex h-7 w-7 items-center justify-center"
-                                  style={{ borderRadius: '10px', border: `1px solid ${track.color}55`, background: `${track.color}1a`, color: track.color }}
-                                  title={getTrackPersonality(track.type).blurb}
-                                >
-                                  <TrackIcon type={track.type} className="h-3.5 w-3.5" />
-                                </div>
-                                <span className="truncate text-sm font-semibold tracking-tight text-[var(--text-primary)]">{track.name}</span>
-                              </div>
-                              <div className="mt-2 flex items-center gap-3">
-                                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.type}</span>
-                                {pinned && <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--accent-strong)]">Pinned</span>}
-                                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.source.engine}</span>
-                                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{sourceLabel}</span>
-                                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.volume.toFixed(0)} dB</span>
-                                <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-                                  {patternSteps.reduce((sum, step) => sum + step.length, 0)} notes
-                                </span>
-                              </div>
+                          <div className="flex min-w-0 items-center gap-2">
+                            <div
+                              className="shrink-0 flex h-7 w-7 items-center justify-center"
+                              style={{ borderRadius: '3px', border: `1px solid ${track.color}55`, background: `${track.color}1a`, color: track.color }}
+                              title={getTrackPersonality(track.type).blurb}
+                            >
+                              <TrackIcon type={track.type} className="h-3.5 w-3.5" />
                             </div>
-                            <div className="flex items-center gap-1">
-                              <StateActionBtn
-                                active={track.muted}
-                                label={track.muted ? 'Unmute lane' : 'Mute lane'}
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  toggleMute(track.id);
-                                }}
-                              >
-                                <VolumeX className="h-3.5 w-3.5" />
-                              </StateActionBtn>
-                              <StateActionBtn
-                                active={track.solo}
-                                label={track.solo ? 'Release solo' : 'Solo lane'}
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  toggleSolo(track.id);
-                                }}
-                              >
-                                <Focus className="h-3.5 w-3.5" />
-                              </StateActionBtn>
-                              <StateActionBtn
-                                active={pinned}
-                                label={pinned ? 'Unpin lane' : 'Pin lane'}
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  togglePinnedTrack(track.id);
-                                }}
-                              >
-                                <Pin className="h-3.5 w-3.5" />
-                              </StateActionBtn>
-                              <RowActionBtn label="Move track up" onClick={(event) => {
+                            <span className="min-w-0 truncate text-sm font-semibold tracking-tight text-[var(--text-primary)]">{track.name}</span>
+                          </div>
+                          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                            <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.type}</span>
+                            {pinned && <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--accent-strong)]">Pinned</span>}
+                            <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.source.engine}</span>
+                            <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{sourceLabel}</span>
+                            <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.volume.toFixed(0)} dB</span>
+                            <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+                              {patternSteps.reduce((sum, step) => sum + step.length, 0)} notes
+                            </span>
+                          </div>
+                          <div className="mt-2 flex flex-wrap items-center gap-1 pt-1 border-t border-[var(--border-soft)]/60">
+                            <StateActionBtn
+                              active={track.muted}
+                              label={track.muted ? 'Unmute lane' : 'Mute lane'}
+                              onClick={(event) => {
                                 event.stopPropagation();
-                                moveTrack(track.id, 'up');
-                              }}>
-                                <ArrowUp className="h-3.5 w-3.5" />
-                              </RowActionBtn>
-                              <RowActionBtn label="Move track down" onClick={(event) => {
+                                toggleMute(track.id);
+                              }}
+                            >
+                              <VolumeX className="h-3.5 w-3.5" />
+                            </StateActionBtn>
+                            <StateActionBtn
+                              active={track.solo}
+                              label={track.solo ? 'Release solo' : 'Solo lane'}
+                              onClick={(event) => {
                                 event.stopPropagation();
-                                moveTrack(track.id, 'down');
-                              }}>
-                                <ArrowDown className="h-3.5 w-3.5" />
-                              </RowActionBtn>
-                              <RowActionBtn label="Duplicate track" onClick={(event) => {
+                                toggleSolo(track.id);
+                              }}
+                            >
+                              <Focus className="h-3.5 w-3.5" />
+                            </StateActionBtn>
+                            <StateActionBtn
+                              active={pinned}
+                              label={pinned ? 'Unpin lane' : 'Pin lane'}
+                              onClick={(event) => {
                                 event.stopPropagation();
-                                duplicateTrack(track.id);
-                              }}>
-                                <Copy className="h-3.5 w-3.5" />
-                              </RowActionBtn>
-                              <RowActionBtn label="Clear pattern" onClick={(event) => {
-                                event.stopPropagation();
-                                clearTrack(track.id);
-                              }}>
-                                <Eraser className="h-3.5 w-3.5" />
-                              </RowActionBtn>
-                              <RowActionBtn label="Delete track" onClick={(event) => {
-                                event.stopPropagation();
-                                removeTrack(track.id);
-                              }}>
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </RowActionBtn>
-                            </div>
+                                togglePinnedTrack(track.id);
+                              }}
+                            >
+                              <Pin className="h-3.5 w-3.5" />
+                            </StateActionBtn>
+                            <RowActionBtn label="Move track up" onClick={(event) => {
+                              event.stopPropagation();
+                              moveTrack(track.id, 'up');
+                            }}>
+                              <ArrowUp className="h-3.5 w-3.5" />
+                            </RowActionBtn>
+                            <RowActionBtn label="Move track down" onClick={(event) => {
+                              event.stopPropagation();
+                              moveTrack(track.id, 'down');
+                            }}>
+                              <ArrowDown className="h-3.5 w-3.5" />
+                            </RowActionBtn>
+                            <RowActionBtn label="Duplicate track" onClick={(event) => {
+                              event.stopPropagation();
+                              duplicateTrack(track.id);
+                            }}>
+                              <Copy className="h-3.5 w-3.5" />
+                            </RowActionBtn>
+                            <RowActionBtn label="Clear pattern" onClick={(event) => {
+                              event.stopPropagation();
+                              clearTrack(track.id);
+                            }}>
+                              <Eraser className="h-3.5 w-3.5" />
+                            </RowActionBtn>
+                            <RowActionBtn label="Delete track" onClick={(event) => {
+                              event.stopPropagation();
+                              removeTrack(track.id);
+                            }}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </RowActionBtn>
                           </div>
                         </div>
 
@@ -522,22 +549,22 @@ export const MainWorkspace = () => {
 
                             return (
                               <button
-                                className={`relative shrink-0 border transition-colors ${compactLanes ? 'min-h-[38px]' : 'min-h-[48px]'} ${isActive ? 'border-transparent' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.05)]'} ${isCurrent ? 'ring-1 ring-inset ring-[rgba(255,255,255,0.08)]' : ''} ${isSelectedStep ? 'outline outline-1 outline-offset-0 outline-[rgba(125,211,252,0.26)]' : ''}`}
+                                className={`relative shrink-0 touch-none border transition-colors ${compactLanes ? 'min-h-[38px]' : 'min-h-[48px]'} ${isActive ? 'border-transparent' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.05)]'} ${isCurrent ? 'ring-1 ring-inset ring-[rgba(255,255,255,0.08)]' : ''} ${isSelectedStep ? 'outline outline-1 outline-offset-0 outline-[rgba(125,211,252,0.26)]' : ''}`}
                                 key={`${track.id}-${stepIndex}`}
-                                onClick={() => {
-                                  setSelectedTrackId(track.id);
-                                  selectStep(stepIndex);
-                                  toggleStep(track.id, stepIndex);
-                                }}
+                                onPointerDown={(event) => handleSeqCellPointerDown(track.id, stepIndex, isActive, event)}
+                                onPointerEnter={() => handleSeqCellPointerEnter(track.id, stepIndex, isActive)}
                                 style={isActive
                                   ? {
                                       background: isCurrent ? track.color : `${track.color}cc`,
                                       boxShadow: 'inset 0 0 0 1px rgba(15, 23, 42, 0.12)',
                                       width: `${stepCellWidth - 2}px`,
+                                      touchAction: 'none',
                                     }
                                   : {
                                       width: `${stepCellWidth - 2}px`,
+                                      touchAction: 'none',
                                     }}
+                                type="button"
                               >
                                 {isActive && !['kick', 'snare', 'hihat'].includes(track.type) && leadEvent && (
                                   <span className="absolute bottom-1 right-1 font-mono text-[9px] font-medium text-black/60">

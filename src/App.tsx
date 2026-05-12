@@ -12,11 +12,12 @@ import { Launchpad } from './components/Launchpad';
 import { ShortcutOverlay } from './components/ShortcutOverlay';
 import { ComposeView } from './components/ComposeView';
 import { ShareDialog } from './components/ShareDialog';
+import { AudioCapture } from './components/AudioCapture';
 import { resolveStudioRoute } from './app/routeController';
 import type { SessionTemplateId } from './project/schema';
-import { Music, LayoutGrid, Volume2, Settings, Layers3, Sparkles, Rows2, Share2 } from 'lucide-react';
+import { Music, LayoutGrid, Volume2, Settings, Layers3, Sparkles, Rows2, Share2, Mic } from 'lucide-react';
 
-const SideNav = ({ onOpenLaunchpad, onOpenShare }: { onOpenLaunchpad: () => void; onOpenShare: () => void }) => {
+const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchpad: () => void; onOpenShare: () => void; onOpenRecord: () => void }) => {
   const { activeView, isSettingsOpen, setActiveView, toggleSettings } = useAudio();
 
   const navItems = [
@@ -62,6 +63,17 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare }: { onOpenLaunchpad: () => void
       <div className="ml-auto md:mt-auto md:w-full md:border-t border-[var(--border-soft)] pt-3 flex md:flex-col flex-row gap-2 md:gap-0">
         <button
           className="studio-nav-button shrink-0 md:w-full"
+          onClick={onOpenRecord}
+          title="Record audio and match it to a track type"
+          type="button"
+        >
+          <div className="flex md:flex-col flex-row items-center gap-2">
+            <Mic size={20} className="text-[var(--danger)]" />
+            <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Record</span>
+          </div>
+        </button>
+        <button
+          className="studio-nav-button shrink-0 md:w-full"
           onClick={onOpenShare}
           title="Share this session"
           type="button"
@@ -74,6 +86,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare }: { onOpenLaunchpad: () => void
         <button
           className="studio-nav-button shrink-0 md:w-full"
           data-active={isSettingsOpen}
+          data-tour-target="options"
           onClick={toggleSettings}
           title="Options"
           type="button"
@@ -150,6 +163,7 @@ const StudioShell = () => {
     return resolveStudioRoute(window.location.search, hasPersistedRef.current ?? false).showLaunchpad;
   });
   const [isShareOpen, setShareOpen] = useState(false);
+  const [isRecordOpen, setRecordOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -193,6 +207,7 @@ const StudioShell = () => {
     <div className="app-shell min-h-screen w-full md:h-screen md:w-screen md:overflow-hidden antialiased text-[var(--text-primary)]">
       <ShortcutOverlay />
       <ShareDialog open={isShareOpen} onClose={() => setShareOpen(false)} />
+      <AudioCapture open={isRecordOpen} onClose={() => setRecordOpen(false)} />
       <input
         ref={fileInputRef}
         type="file"
@@ -218,7 +233,7 @@ const StudioShell = () => {
           <TopBar firstImpression={isFirstImpression} />
         </div>
         <div className="studio-shell-grid flex flex-col md:flex-row md:flex-1 md:min-h-0 gap-3 px-3 pb-3">
-          <SideNav onOpenLaunchpad={() => setLaunchpadOpen(true)} onOpenShare={() => setShareOpen(true)} />
+          <SideNav onOpenLaunchpad={() => setLaunchpadOpen(true)} onOpenShare={() => setShareOpen(true)} onOpenRecord={() => setRecordOpen(true)} />
           <div className="studio-workbench flex md:min-h-0 md:flex-1 flex-col gap-3">
             <div className="flex flex-col md:flex-row md:min-h-0 md:flex-1 gap-3">
               <ViewRouter />
