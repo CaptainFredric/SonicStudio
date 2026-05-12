@@ -339,7 +339,7 @@ export const MainWorkspace = () => {
 
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <div
-              className="sequencer-grid-scroll flex-1 overflow-auto rounded-[18px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]"
+              className="sequencer-grid-scroll flex-1 overflow-auto rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]"
               onWheel={(event) => {
                 const node = gridViewportRef.current;
                 if (!node || !event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
@@ -568,7 +568,7 @@ export const MainWorkspace = () => {
               ))}
               </div>
             </div>
-            <div className="mt-3 rounded-[16px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)] px-4 py-3">
+            <div className="mt-3 rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)] px-4 py-3">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
                 <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
                   Pattern timeline navigation
@@ -623,7 +623,7 @@ export const MainWorkspace = () => {
 
           {selectedTrack ? (
             <div className="mt-4 space-y-4">
-              <div className="rounded-[18px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+              <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
                 <div className="section-label">Selected lane</div>
                 <div className="mt-2 flex items-center justify-between gap-3">
                   <div>
@@ -657,7 +657,7 @@ export const MainWorkspace = () => {
                 </div>
               </div>
 
-              <div className="rounded-[18px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+              <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
                 <div className="section-label">Pattern actions</div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button
@@ -693,7 +693,7 @@ export const MainWorkspace = () => {
                 </div>
               </div>
 
-              <div className="rounded-[18px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+              <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
                 <div className="section-label">Selected step</div>
                 <div className="mt-2 flex items-center justify-between gap-3">
                   <div className="text-sm font-medium text-[var(--text-primary)]">Step {selectedStepIndex + 1}</div>
@@ -800,7 +800,7 @@ export const MainWorkspace = () => {
                   <div className="mt-4 grid gap-2">
                     {selectedStep.map((event, noteIndex) => (
                       <div
-                        className={`flex items-center gap-2 rounded-[10px] border px-3 py-2 transition-colors ${noteIndex === normalizedSelectedStepNoteIndex ? 'border-[rgba(124,211,252,0.34)] bg-[rgba(124,211,252,0.08)]' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]'}`}
+                        className={`flex items-center gap-2 rounded-[3px] border px-3 py-2 transition-colors ${noteIndex === normalizedSelectedStepNoteIndex ? 'border-[rgba(124,211,252,0.34)] bg-[rgba(124,211,252,0.08)]' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]'}`}
                         key={`${event.note}-${noteIndex}`}
                       >
                         <button

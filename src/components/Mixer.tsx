@@ -423,14 +423,14 @@ export const Mixer = () => {
             </div>
           </div>
           {mixerSections.length === 0 ? (
-            <div className="flex min-h-[440px] sm:min-h-[560px] min-w-[240px] items-center justify-center rounded-[24px] border border-dashed border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-6 py-8 text-center text-sm text-[var(--text-secondary)]">
+            <div className="flex min-h-[440px] sm:min-h-[560px] min-w-[240px] items-center justify-center rounded-[6px] border border-dashed border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-6 py-8 text-center text-sm text-[var(--text-secondary)]">
               No mixer strips match the current scope.
             </div>
           ) : mixerSections.map(({ key, label, tracks: sectionTracks }) => (
             <div key={key} className="scroll-snap-align-start">
-              <div className="flex h-full min-h-[440px] sm:min-h-[560px] flex-col rounded-[24px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.015)] p-3">
+              <div className="flex h-full min-h-[440px] sm:min-h-[560px] flex-col rounded-[6px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.015)] p-3">
                 <button
-                  className="flex items-center justify-between gap-3 rounded-[18px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-4 py-3 text-left"
+                  className="flex items-center justify-between gap-3 rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-4 py-3 text-left"
                   onClick={() => setCollapsedGroups((current) => ({ ...current, [key]: !current[key] }))}
                 >
                   <div>

@@ -19,7 +19,7 @@ export const DeviceRackCustomSamplePanel = ({
   sampleStatus,
   track,
 }: DeviceRackCustomSamplePanelProps) => (
-  <div className="rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
+  <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
     <div className="section-label">Custom sample</div>
     <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
       {track.source.customSampleName

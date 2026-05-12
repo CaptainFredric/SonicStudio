@@ -9,7 +9,7 @@ export const DeviceRackVoiceStartsPanel = ({
   onApplyTrackVoicePreset,
   trackVoicePresets,
 }: DeviceRackVoiceStartsPanelProps) => (
-  <div className="rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
+  <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
     <div className="section-label">Voice starts</div>
     <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
       Sound starting points for this lane.
@@ -18,7 +18,7 @@ export const DeviceRackVoiceStartsPanel = ({
       {trackVoicePresets.map((preset) => (
         <button
           key={preset.id}
-          className="rounded-[12px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3 text-left transition-colors hover:border-[rgba(114,217,255,0.26)] hover:bg-[rgba(114,217,255,0.05)]"
+          className="rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3 text-left transition-colors hover:border-[rgba(114,217,255,0.26)] hover:bg-[rgba(114,217,255,0.05)]"
           data-ui-sound="action"
           onClick={() => onApplyTrackVoicePreset(preset.id)}
           type="button"

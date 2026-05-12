@@ -30,10 +30,10 @@
   --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
   --motion-lift-distance: -2px;
   --motion-panel-blur: 18px;
-  --radius-panel: 18px;
-  --radius-panel-lg: 26px;
-  --radius-control: 12px;
-  --radius-control-sm: 9px;
+  --radius-panel: 4px;
+  --radius-panel-lg: 6px;
+  --radius-control: 3px;
+  --radius-control-sm: 2px;
 }
 
 html[data-motion-mode="focus"] {

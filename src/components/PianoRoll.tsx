@@ -755,7 +755,7 @@ export const PianoRoll = () => {
             }}
             ref={gridViewportRef}
           >
-          <div className="inline-flex min-w-max flex-col overflow-hidden rounded-[18px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+          <div className="inline-flex min-w-max flex-col overflow-hidden rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
             <div className="flex h-10 border-b border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)]">
               <div className="w-[88px] shrink-0 border-r border-[var(--border-soft)]" />
               {Array.from({ length: stepsPerPattern }, (_, stepIndex) => {
@@ -908,7 +908,7 @@ export const PianoRoll = () => {
             })}
           </div>
           </div>
-          <div className="mt-3 rounded-[16px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)] px-4 py-3">
+          <div className="mt-3 rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)] px-4 py-3">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
               <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
                 Detailed timing window
@@ -962,7 +962,7 @@ export const PianoRoll = () => {
 
           {selectedStepIndex !== null ? (
             <div className="mt-4 space-y-4">
-              <div className="rounded-[18px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+              <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
                 <div className="section-label">Selected step</div>
                 <div className="mt-2 flex items-center justify-between">
                   <div className="text-sm font-medium text-[var(--text-primary)]">Step {selectedStepIndex + 1}</div>
@@ -984,7 +984,7 @@ export const PianoRoll = () => {
                   <div className="mt-3 grid gap-2">
                     {selectedStep.map((event, noteIndex) => (
                       <button
-                        className={`flex items-center justify-between rounded-[12px] border px-3 py-3 text-left transition-colors ${normalizedSelectedNoteIndex === noteIndex ? 'border-[rgba(125,211,252,0.34)] bg-[rgba(125,211,252,0.12)] text-[var(--accent-strong)]' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.04)] hover:text-[var(--text-primary)]'}`}
+                        className={`flex items-center justify-between rounded-[3px] border px-3 py-3 text-left transition-colors ${normalizedSelectedNoteIndex === noteIndex ? 'border-[rgba(125,211,252,0.34)] bg-[rgba(125,211,252,0.12)] text-[var(--accent-strong)]' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.04)] hover:text-[var(--text-primary)]'}`}
                         key={`${event.note}-${noteIndex}`}
                         onClick={() => setSelectedNoteIndex(noteIndex)}
                       >
@@ -1123,7 +1123,7 @@ export const PianoRoll = () => {
                 <div>
                   <div className="section-label">Fine edit</div>
                   <div className="mt-3 grid gap-3">
-                    <div className="rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+                    <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
                       <div className="flex items-center justify-between">
                         <span className="section-label">Semitone nudges</span>
                         <span className="font-mono text-[10px] text-[var(--text-secondary)]">{selectedNote.note}</span>
@@ -1135,7 +1135,7 @@ export const PianoRoll = () => {
                         <WindowButton label="+2" active={false} onClick={() => bumpSelectedNote({ note: shiftNote(selectedNote.note, 2) })} />
                       </div>
                     </div>
-                    <div className="rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+                    <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
                       <div className="flex items-center justify-between">
                         <span className="section-label">Velocity nudges</span>
                         <span className="font-mono text-[10px] text-[var(--text-secondary)]">{Math.round(selectedNote.velocity * 100)}</span>
@@ -1147,7 +1147,7 @@ export const PianoRoll = () => {
                         <WindowButton label="+5" active={false} onClick={() => bumpSelectedNote({ velocity: clampNumber(selectedNote.velocity + 0.05, 0.1, 1) })} />
                       </div>
                     </div>
-                    <div className="rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+                    <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
                       <div className="flex items-center justify-between">
                         <span className="section-label">Gate nudges</span>
                         <span className="font-mono text-[10px] text-[var(--text-secondary)]">{selectedNote.gate.toFixed(2)}</span>

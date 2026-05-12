@@ -191,7 +191,7 @@ export const ArrangerInspector = ({
         />
       ) : selectedClip && selectedClipTrack ? (
         <div className="space-y-4 pt-4">
-          <div className="rounded-[16px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-4">
+          <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2">

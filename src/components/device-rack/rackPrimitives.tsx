@@ -37,7 +37,7 @@ export const RackSection = ({
   icon: React.ReactNode;
   title: string;
 }) => (
-  <div className="flex flex-col rounded-[18px] border border-[rgba(149,169,189,0.1)] bg-[rgba(255,255,255,0.015)] p-4">
+  <div className="flex flex-col rounded-[4px] border border-[rgba(149,169,189,0.1)] bg-[rgba(255,255,255,0.015)] p-4">
     <div className="flex items-center gap-2">
       {icon}
       <span className="section-label">{title}</span>
@@ -58,7 +58,7 @@ export const RackTab = ({
   onClick: () => void;
 }) => (
   <button
-    className="flex items-center gap-2 rounded-[12px] border border-transparent px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-soft)] hover:bg-[rgba(255,255,255,0.03)] hover:text-[var(--text-primary)]"
+    className="flex items-center gap-2 rounded-[3px] border border-transparent px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-soft)] hover:bg-[rgba(255,255,255,0.03)] hover:text-[var(--text-primary)]"
     data-active={active}
     data-ui-sound="tab"
     onClick={onClick}
@@ -77,7 +77,7 @@ export const RackTab = ({
 );
 
 export const StatusCell = ({ label, value }: { label: string; value: string }) => (
-  <div className="rounded-[12px] border border-[rgba(149,169,189,0.1)] bg-[rgba(255,255,255,0.015)] px-3 py-2">
+  <div className="rounded-[3px] border border-[rgba(149,169,189,0.1)] bg-[rgba(255,255,255,0.015)] px-3 py-2">
     <div className="section-label">{label}</div>
     <div className="mt-1 text-xs font-medium text-[var(--text-primary)]">{value}</div>
   </div>

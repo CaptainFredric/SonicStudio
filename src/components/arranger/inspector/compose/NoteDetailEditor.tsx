@@ -173,7 +173,7 @@ export const NoteDetailEditor = ({
 
   return (
     <div className="mt-4 grid gap-3">
-      <div className="rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
+      <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="section-label">Selected note</div>
@@ -229,7 +229,7 @@ export const NoteDetailEditor = ({
         </div>
       </div>
 
-      <div className="rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
+      <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
         <div className="flex items-center justify-between">
           <span className="section-label">Velocity</span>
           <span className="font-mono text-[10px] text-[var(--text-tertiary)]">{Math.round(selectedPhraseNote.velocity * 100)}</span>
@@ -273,7 +273,7 @@ export const NoteDetailEditor = ({
         </div>
       </div>
 
-      <div className="rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
+      <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
         <div className="flex items-center justify-between">
           <span className="section-label">Length</span>
           <span className="font-mono text-[10px] text-[var(--text-tertiary)]">{selectedPhraseNote.gate.toFixed(2)}x</span>
@@ -301,7 +301,7 @@ export const NoteDetailEditor = ({
         </div>
       </div>
 
-      <div className="rounded-[12px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+      <div className="rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
         <div className="flex items-center justify-between">
           <span className="section-label">Resize note</span>
           <span className="font-mono text-[10px] text-[var(--text-tertiary)]">{selectedPhraseNote.gate.toFixed(2)}x</span>
@@ -339,7 +339,7 @@ export const NoteDetailEditor = ({
         </div>
       </div>
 
-      <div className="rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
+      <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
         <div className="section-label">Harmony</div>
         <div className="note-harmony-actions mt-3 grid grid-cols-3 gap-2">
           {harmonyActions.map((action) => (

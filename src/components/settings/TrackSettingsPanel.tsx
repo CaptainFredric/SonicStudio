@@ -51,7 +51,7 @@ export const TrackSettingsPanel = () => {
           <div className="flex items-center justify-between gap-3">
             <div>
               <div className="section-label">Instrument</div>
-              <div className="mt-2 inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium uppercase tracking-[0.16em]" style={{ borderColor: `${selectedTrack.color}55`, color: selectedTrack.color }}>
+              <div className="mt-2 inline-flex items-center rounded-[2px] border px-3 py-1 text-xs font-medium uppercase tracking-[0.16em]" style={{ borderColor: `${selectedTrack.color}55`, color: selectedTrack.color }}>
                 {selectedTrack.type}
               </div>
             </div>
@@ -107,7 +107,7 @@ export const TrackSettingsPanel = () => {
           </div>
         </div>
       ) : (
-        <div className="mt-4 rounded-2xl border border-dashed border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-4 py-6 text-sm text-[var(--text-secondary)]">
+        <div className="mt-4 rounded-[4px] border border-dashed border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-4 py-6 text-sm text-[var(--text-secondary)]">
           Select a track from the sequencer, piano roll, mixer, or arranger to edit its identity and channel settings.
         </div>
       )}

@@ -67,7 +67,7 @@ interface WorkspaceBouncePanelProps {
 
 const qualityChip = (entry: BounceHistoryEntryView): ReactNode => (
   <span
-    className="rounded-full border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em]"
+    className="rounded-[2px] border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em]"
     style={{
       borderColor: entry.quality === 'hot' ? 'rgba(248,113,113,0.32)' : entry.quality === 'quiet' ? 'rgba(251,191,36,0.32)' : 'rgba(114,217,255,0.26)',
       color: entry.quality === 'hot' ? '#fca5a5' : entry.quality === 'quiet' ? '#fde68a' : '#b6f1ff',
@@ -106,14 +106,14 @@ export const WorkspaceBouncePanel = ({
       <span className="section-label">Bounce and Export</span>
     </div>
     {renderMode ? (
-      <div className="mt-4 rounded-2xl border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+      <div className="mt-4 rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
         <div className="flex items-center justify-between gap-3">
           <span className="section-label">{renderMode === 'stems' ? 'Stem bounce' : 'Mix bounce'}</span>
           <span className="font-mono text-xs text-[var(--accent-strong)]">{Math.round(renderProgress * 100)}%</span>
         </div>
-        <div className="mt-2 h-2 overflow-hidden rounded-full bg-[rgba(255,255,255,0.05)]">
+        <div className="mt-2 h-2 overflow-hidden rounded-[2px] bg-[rgba(255,255,255,0.05)]">
           <div
-            className="h-full rounded-full bg-[linear-gradient(90deg,rgba(114,217,255,0.55),rgba(223,246,255,0.92))]"
+            className="h-full rounded-[2px] bg-[linear-gradient(90deg,rgba(114,217,255,0.55),rgba(223,246,255,0.92))]"
             style={{ width: `${Math.round(renderProgress * 100)}%` }}
           />
         </div>
@@ -230,7 +230,7 @@ export const WorkspaceBouncePanel = ({
       <ActionButton disabled={renderMode !== null} icon={<Download className="h-3.5 w-3.5" />} label="Export JSON" onClick={exportSession} />
     </div>
 
-    <div className="mt-3 rounded-2xl border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3 text-[11px] leading-5 text-[var(--text-secondary)]">
+    <div className="mt-3 rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3 text-[11px] leading-5 text-[var(--text-secondary)]">
       Mixes and stems render offline before encoding, so timing and analysis come from the full audio buffer.
     </div>
 
@@ -241,7 +241,7 @@ export const WorkspaceBouncePanel = ({
       </div>
       <div className="mt-3 grid gap-2">
         {bounceHistory.length > 0 ? bounceHistory.map((entry) => (
-          <div key={entry.id} className="rounded-2xl border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+          <div key={entry.id} className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="text-sm font-semibold text-[var(--text-primary)]">{entry.label}</div>
@@ -255,7 +255,7 @@ export const WorkspaceBouncePanel = ({
               </span>
             </div>
             {entry.quality && entry.peakDb !== undefined && entry.rmsDb !== undefined && entry.sampleRate ? (
-              <div className="mt-3 rounded-2xl border border-[var(--border-soft)] bg-[rgba(255,255,255,0.025)] px-3 py-3">
+              <div className="mt-3 rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.025)] px-3 py-3">
                 <div className="flex flex-wrap items-center gap-2">
                   {qualityChip(entry)}
                   <span className="text-[11px] text-[var(--text-secondary)]">
@@ -275,7 +275,7 @@ export const WorkspaceBouncePanel = ({
                 {entry.targetVerdict ? (
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <span
-                      className="rounded-full border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em]"
+                      className="rounded-[2px] border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em]"
                       style={{
                         borderColor: entry.targetVerdict === 'aligned'
                           ? 'rgba(114,217,255,0.26)'
@@ -329,7 +329,7 @@ export const WorkspaceBouncePanel = ({
             </div>
           </div>
         )) : (
-          <div className="rounded-2xl border border-dashed border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-4 py-4 text-[11px] leading-5 text-[var(--text-secondary)]">
+          <div className="rounded-[4px] border border-dashed border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-4 py-4 text-[11px] leading-5 text-[var(--text-secondary)]">
             Repeat a previous print with the same scope, treatment, and mix state in one action.
           </div>
         )}

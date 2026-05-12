@@ -12,21 +12,21 @@ export const DeviceRackSampleWindowPanel = ({
   sampleWindowWidth,
   track,
 }: DeviceRackSampleWindowPanelProps) => (
-  <div className="rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
+  <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
     <div className="section-label">Source window</div>
     <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
       Playback region, gain, and reverse state.
     </div>
-    <div className="mt-4 rounded-[12px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+    <div className="mt-4 rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
       <div className="flex items-center justify-between">
         <span className="section-label">Region strip</span>
         <span className="font-mono text-[10px] text-[var(--text-secondary)]">
           {Math.round(track.source.sampleStart * 100)}% to {Math.round(track.source.sampleEnd * 100)}%
         </span>
       </div>
-      <div className="relative mt-3 h-4 overflow-hidden rounded-full bg-[rgba(255,255,255,0.05)]">
+      <div className="relative mt-3 h-4 overflow-hidden rounded-[2px] bg-[rgba(255,255,255,0.05)]">
         <div
-          className="absolute inset-y-0 rounded-full bg-[linear-gradient(90deg,#7dd3fc,#67e8f9)]"
+          className="absolute inset-y-0 rounded-[2px] bg-[linear-gradient(90deg,#7dd3fc,#67e8f9)]"
           style={{
             left: `${track.source.sampleStart * 100}%`,
             width: `${sampleWindowWidth * 100}%`,

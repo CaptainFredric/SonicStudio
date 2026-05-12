@@ -23,7 +23,7 @@ export const WorkspaceOptionsPanel = ({
     </div>
 
     <div className="mt-4 space-y-4">
-      <div className="rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
+      <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
         <div className="flex items-center gap-2">
           <Volume2 className="h-4 w-4 text-[var(--accent)]" />
           <div>
@@ -39,7 +39,7 @@ export const WorkspaceOptionsPanel = ({
         </div>
       </div>
 
-      <div className="rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
+      <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
         <div className="flex items-center gap-2">
           <Waves className="h-4 w-4 text-[var(--accent)]" />
           <div>

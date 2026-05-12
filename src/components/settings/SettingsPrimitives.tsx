@@ -24,7 +24,7 @@ export const ActionButton = ({
 );
 
 export const MetricCell = ({ label, value }: { label: string; value: string }) => (
-  <div className="rounded-2xl border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+  <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
     <div className="section-label">{label}</div>
     <div className="mt-2 text-sm font-medium text-[var(--text-primary)]">{value}</div>
   </div>
@@ -77,7 +77,7 @@ export const ShortcutRow = ({
   command: string;
   description: string;
 }) => (
-  <div className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-2">
+  <div className="flex items-center justify-between gap-3 rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-2">
     <span className="font-mono text-xs text-[var(--accent-strong)]">{command}</span>
     <span className="text-right text-xs text-[var(--text-secondary)]">{description}</span>
   </div>

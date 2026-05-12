@@ -101,7 +101,7 @@ export const PhraseGrid = ({
     const gridWidth = labelWidth + (composerSteps.length * stepWidth);
 
     return (
-      <div className="phrase-grid-scroll mt-4 overflow-x-auto rounded-[14px] border border-[var(--border-soft)] bg-[rgba(0,0,0,0.16)] p-2">
+      <div className="phrase-grid-scroll mt-4 overflow-x-auto rounded-[4px] border border-[var(--border-soft)] bg-[rgba(0,0,0,0.16)] p-2">
         <div
           className="grid gap-1"
           style={{
@@ -120,7 +120,7 @@ export const PhraseGrid = ({
             return (
               <button
                 aria-label={`Step ${stepIndex + 1} ${isActive ? 'hit' : 'rest'}`}
-                className={`phrase-step-button h-14 rounded-[10px] border transition-colors ${isActive ? 'border-[rgba(125,211,252,0.34)] bg-[rgba(125,211,252,0.12)] text-[var(--accent-strong)]' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.04)]'}`}
+                className={`phrase-step-button h-14 rounded-[3px] border transition-colors ${isActive ? 'border-[rgba(125,211,252,0.34)] bg-[rgba(125,211,252,0.12)] text-[var(--accent-strong)]' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.04)]'}`}
                 key={`drum-step-${stepIndex}`}
                 onKeyDown={(event) => runKeyboardAction(event, toggleStep)}
                 onPointerCancel={() => clearPointerAction(actionKey)}
@@ -149,7 +149,7 @@ export const PhraseGrid = ({
   const gridWidth = labelWidth + (composerSteps.length * stepWidth);
 
   return (
-    <div className="phrase-grid-scroll mt-4 overflow-auto rounded-[14px] border border-[var(--border-soft)] bg-[rgba(0,0,0,0.18)] p-2">
+    <div className="phrase-grid-scroll mt-4 overflow-auto rounded-[4px] border border-[var(--border-soft)] bg-[rgba(0,0,0,0.18)] p-2">
       <div
         className="grid gap-1"
         style={{
@@ -160,7 +160,7 @@ export const PhraseGrid = ({
         <div />
         {composerSteps.map((_, stepIndex) => (
           <div
-            className={`flex h-8 items-center justify-center rounded-[8px] text-[10px] font-mono ${selectedPhraseStepIndex === stepIndex ? 'bg-[rgba(124,211,252,0.12)] text-[var(--accent-strong)]' : 'text-[var(--text-tertiary)]'}`}
+            className={`flex h-8 items-center justify-center rounded-[3px] text-[10px] font-mono ${selectedPhraseStepIndex === stepIndex ? 'bg-[rgba(124,211,252,0.12)] text-[var(--accent-strong)]' : 'text-[var(--text-tertiary)]'}`}
             key={`step-label-${stepIndex}`}
           >
             {stepIndex + 1}
@@ -185,7 +185,7 @@ export const PhraseGrid = ({
               return (
                 <button
                   aria-label={`${note} step ${stepIndex + 1} ${isActive ? 'on' : 'off'}`}
-                  className={`phrase-step-button h-8 rounded-[8px] border transition-colors ${isActive ? 'border-[rgba(125,211,252,0.34)] bg-[rgba(125,211,252,0.16)] text-[var(--accent-strong)]' : 'border-[rgba(151,163,180,0.1)] bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.04)]'} ${selectedPhraseStepIndex === stepIndex ? 'ring-1 ring-[rgba(125,211,252,0.2)]' : ''}`}
+                  className={`phrase-step-button h-8 rounded-[3px] border transition-colors ${isActive ? 'border-[rgba(125,211,252,0.34)] bg-[rgba(125,211,252,0.16)] text-[var(--accent-strong)]' : 'border-[rgba(151,163,180,0.1)] bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.04)]'} ${selectedPhraseStepIndex === stepIndex ? 'ring-1 ring-[rgba(125,211,252,0.2)]' : ''}`}
                   key={`${note}-${stepIndex}`}
                   onKeyDown={(event) => runKeyboardAction(event, toggleStep)}
                   onPointerCancel={() => clearPointerAction(actionKey)}

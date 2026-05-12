@@ -44,7 +44,7 @@ export const SongToolsPanel = ({
   songMarkers,
 }: SongToolsPanelProps) => (
   <div className="space-y-4 pt-4">
-    <div className="song-form-panel rounded-[12px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-4">
+    <div className="song-form-panel rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-4">
       <div className="flex items-center justify-between gap-3">
         <div>
           <div className="section-label">Song forms</div>
@@ -95,7 +95,7 @@ export const SongToolsPanel = ({
       </div>
     </div>
 
-    <div className="rounded-[16px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-4">
+    <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-4">
       <div className="flex items-center justify-between gap-3">
         <div>
           <div className="section-label">Lane groups</div>
@@ -120,7 +120,7 @@ export const SongToolsPanel = ({
       </div>
     </div>
 
-    <div className="rounded-[16px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-4">
+    <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-4">
       <div className="flex items-center justify-between gap-3">
         <div>
           <div className="section-label">Marker actions</div>
@@ -154,7 +154,7 @@ export const SongToolsPanel = ({
             Add markers from the playhead or selected clip.
           </div>
         ) : songMarkers.map((marker) => (
-          <div key={marker.id} className="rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+          <div key={marker.id} className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
             <div className="flex items-center gap-2">
               <input
                 className="control-field h-9 flex-1 px-3 text-xs font-medium"
@@ -189,7 +189,7 @@ export const SongToolsPanel = ({
       </div>
     </div>
 
-    <div className="rounded-[16px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-4">
+    <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-4">
       <div className="flex items-center justify-between gap-3">
         <div>
           <div className="section-label">Sections</div>
@@ -203,7 +203,7 @@ export const SongToolsPanel = ({
       </div>
       <div className="mt-4 space-y-2">
         {sectionRanges.map((section) => (
-          <div key={section.id} className="rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+          <div key={section.id} className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="text-sm font-semibold text-[var(--text-primary)]">{section.label}</div>

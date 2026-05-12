@@ -142,11 +142,12 @@ export const Launchpad = ({
       <div className="grid gap-7 md:grid-cols-[1.05fr_0.95fr] md:items-start">
         <div className="min-w-0">
           <h1 className="max-w-[12ch] text-[clamp(2.35rem,5vw,4.8rem)] font-semibold leading-[0.92] tracking-[-0.06em]">
-            Start with a real session.
+            Open a session.
           </h1>
           <p className="mt-5 max-w-[58ch] text-sm leading-6 text-[var(--text-secondary)] md:text-[15px]">
-            Open a complete scene, start blank, or import MIDI. Each path
-            lands in the same write, arrange, shape, and export workflow.
+            Each starter loads a working song with drums, bass, lead, and pad
+            already arranged. Press play to hear it, then edit anything. You
+            can also import a MIDI file or open a blank session.
           </p>
           <div className="mt-7 grid gap-3 sm:grid-cols-3">
             <LaunchStat label="Scenes" value="6" />
@@ -216,7 +217,7 @@ export const Launchpad = ({
               type="button"
             >
               <div className="flex items-center gap-3">
-                <span className="flex h-8 w-8 items-center justify-center rounded-[12px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)] text-[var(--warning)]">
+                <span className="flex h-8 w-8 items-center justify-center rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)] text-[var(--warning)]">
                   <FileInput className="h-4 w-4" />
                 </span>
                 <div>

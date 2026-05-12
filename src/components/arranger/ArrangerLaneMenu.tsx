@@ -39,7 +39,7 @@ export const ArrangerLaneMenu = ({
       <MoreHorizontal className="h-3.5 w-3.5" />
     </LaneStateButton>
     {isOpen && (
-      <div className="absolute right-0 top-[calc(100%+0.4rem)] z-30 min-w-[176px] rounded-[10px] border border-[var(--border-soft)] bg-[rgba(9,12,17,0.98)] p-2 shadow-[0_18px_40px_rgba(0,0,0,0.45)]">
+      <div className="absolute right-0 top-[calc(100%+0.4rem)] z-30 min-w-[176px] rounded-[3px] border border-[var(--border-soft)] bg-[rgba(9,12,17,0.98)] p-2 shadow-[0_18px_40px_rgba(0,0,0,0.45)]">
         <LaneMenuAction
           icon={<VolumeX className="h-3.5 w-3.5" />}
           label={track.muted ? 'Unmute lane' : 'Mute lane'}
@@ -116,7 +116,7 @@ const LaneMenuAction = ({
   onClick: () => void;
 }) => (
   <button
-    className="flex w-full items-center gap-2 rounded-[8px] px-2.5 py-2 text-left text-[11px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[rgba(255,255,255,0.04)] hover:text-[var(--text-primary)]"
+    className="flex w-full items-center gap-2 rounded-[3px] px-2.5 py-2 text-left text-[11px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[rgba(255,255,255,0.04)] hover:text-[var(--text-primary)]"
     onClick={onClick}
     type="button"
   >

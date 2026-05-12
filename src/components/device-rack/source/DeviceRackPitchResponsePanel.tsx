@@ -46,7 +46,7 @@ export const DeviceRackPitchResponsePanel = ({
       />
     </div>
     {track.source.engine === 'sample' ? (
-      <div className="mt-4 rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3 text-[11px] leading-5 text-[var(--text-secondary)]">
+      <div className="mt-4 rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3 text-[11px] leading-5 text-[var(--text-secondary)]">
         Sample mode keeps octave transpose active for musical playback. Fine detune and glide stay synth-only so playback stays reliable.
       </div>
     ) : null}

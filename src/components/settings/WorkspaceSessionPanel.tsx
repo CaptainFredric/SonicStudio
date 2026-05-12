@@ -45,7 +45,7 @@ export const WorkspaceSessionPanel = ({
         {SESSION_TEMPLATE_DEFINITIONS.map((template) => (
           <button
             key={template.id}
-            className="rounded-2xl border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-4 py-3 text-left transition-colors hover:border-[rgba(114,217,255,0.28)] hover:bg-[rgba(114,217,255,0.05)]"
+            className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-4 py-3 text-left transition-colors hover:border-[rgba(114,217,255,0.28)] hover:bg-[rgba(114,217,255,0.05)]"
             disabled={isRendering}
             onClick={() => loadSessionTemplate(template.id)}
             type="button"

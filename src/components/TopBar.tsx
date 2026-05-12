@@ -415,7 +415,7 @@ const PatternButton = ({
   onClick: () => void;
 }) => (
   <button
-    className="h-11 min-w-11 rounded-[12px] sm:h-9 sm:min-w-9 border px-3 font-mono text-xs font-medium uppercase tracking-[0.16em] transition-colors"
+    className="h-11 min-w-11 rounded-[3px] sm:h-9 sm:min-w-9 border px-3 font-mono text-xs font-medium uppercase tracking-[0.16em] transition-colors"
     data-ui-sound="tab"
     onClick={onClick}
     style={active
@@ -444,7 +444,7 @@ const ModeButton = ({
   onClick: () => void;
 }) => (
   <button
-    className="rounded-[12px] border px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] transition-colors"
+    className="rounded-[3px] border px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] transition-colors"
     data-ui-sound="tab"
     onClick={onClick}
     style={active
@@ -475,7 +475,7 @@ const WorkflowButton = ({
   onClick: () => void;
 }) => (
   <button
-    className="flex items-center gap-2 rounded-[12px] border border-transparent px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-soft)] hover:bg-[rgba(255,255,255,0.03)] hover:text-[var(--text-primary)]"
+    className="flex items-center gap-2 rounded-[3px] border border-transparent px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-soft)] hover:bg-[rgba(255,255,255,0.03)] hover:text-[var(--text-primary)]"
     data-active={active}
     data-ui-sound="nav"
     onClick={onClick}
@@ -550,7 +550,7 @@ const TransportBtn = ({
     <span style={{ position: 'relative', display: 'inline-flex' }}>
       <button
         aria-label={label}
-        className={`flex h-11 w-11 rounded-[14px] sm:h-9 sm:w-9 items-center justify-center border transition-colors ${active ? activeStyles : restingStyles}`}
+        className={`flex h-11 w-11 rounded-[4px] sm:h-9 sm:w-9 items-center justify-center border transition-colors ${active ? activeStyles : restingStyles}`}
         data-ui-sound={tone === 'record' ? 'record' : 'transport'}
         onClick={onClick}
         style={{ ...playStyle, ...style }}

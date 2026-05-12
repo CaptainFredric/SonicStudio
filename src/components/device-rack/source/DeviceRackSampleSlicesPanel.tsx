@@ -28,7 +28,7 @@ export const DeviceRackSampleSlicesPanel = ({
   selectedSampleSlice,
   track,
 }: DeviceRackSampleSlicesPanelProps) => (
-  <div className="rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
+  <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
     <div className="flex items-center justify-between gap-3">
       <div>
         <div className="section-label">Slices</div>
@@ -71,7 +71,7 @@ export const DeviceRackSampleSlicesPanel = ({
     <div className="mt-4 grid gap-2">
       {track.source.sampleSlices.length > 0 ? track.source.sampleSlices.map((slice, index) => (
         <div
-          className={`rounded-[12px] border p-3 ${track.source.activeSampleSlice === index ? 'border-[rgba(125,211,252,0.34)] bg-[rgba(125,211,252,0.12)]' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]'}`}
+          className={`rounded-[3px] border p-3 ${track.source.activeSampleSlice === index ? 'border-[rgba(125,211,252,0.34)] bg-[rgba(125,211,252,0.12)]' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]'}`}
           key={`slice-${index}`}
         >
           <div className="flex items-start justify-between gap-3">
@@ -114,7 +114,7 @@ export const DeviceRackSampleSlicesPanel = ({
     </div>
 
     {selectedSampleSlice && typeof track.source.activeSampleSlice === 'number' ? (
-      <div className="mt-4 rounded-[12px] border border-[var(--border-soft)] bg-[rgba(0,0,0,0.18)] p-3">
+      <div className="mt-4 rounded-[3px] border border-[var(--border-soft)] bg-[rgba(0,0,0,0.18)] p-3">
         <div className="section-label">Selected slice</div>
         <div className="mt-3 grid gap-3">
           <label className="text-xs text-[var(--text-secondary)]">

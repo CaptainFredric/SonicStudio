@@ -63,7 +63,7 @@ export const OutputSettingsPanel = () => {
         </div>
         <div className="mt-3 grid gap-2">
           {masterSnapshots.length > 0 ? masterSnapshots.map((snapshot) => (
-            <div key={snapshot.id} className="rounded-2xl border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+            <div key={snapshot.id} className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <div className="text-sm font-semibold text-[var(--text-primary)]">{snapshot.name}</div>
@@ -81,7 +81,7 @@ export const OutputSettingsPanel = () => {
               </div>
             </div>
           )) : (
-            <div className="rounded-2xl border border-dashed border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-4 py-4 text-[11px] leading-5 text-[var(--text-secondary)]">
+            <div className="rounded-[4px] border border-dashed border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-4 py-4 text-[11px] leading-5 text-[var(--text-secondary)]">
               Save master states and recall them while checking a section print.
             </div>
           )}
@@ -98,7 +98,7 @@ export const OutputSettingsPanel = () => {
           {MASTER_PRESET_DEFINITIONS.map((preset) => (
             <button
               key={preset.id}
-              className="rounded-2xl border px-4 py-3 text-left transition-colors"
+              className="rounded-[4px] border px-4 py-3 text-left transition-colors"
               data-active={activeMasterPreset?.id === preset.id}
               onClick={() => setMasterSettings(preset.settings)}
               style={{

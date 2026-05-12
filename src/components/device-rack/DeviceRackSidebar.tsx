@@ -53,7 +53,7 @@ export const DeviceRackSidebar = ({
           <div className="section-label">Selected track</div>
           <div className="mt-1 text-sm text-[var(--text-secondary)]">Lane sound and output.</div>
         </div>
-        <span className="rounded-[10px] border border-[var(--border-soft)] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+        <span className="rounded-[3px] border border-[var(--border-soft)] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--text-secondary)]">
           {track.type}
         </span>
       </div>
@@ -68,10 +68,10 @@ export const DeviceRackSidebar = ({
         <div className="min-w-0">
           <div className="truncate text-base font-semibold tracking-tight text-[var(--text-primary)]">{track.name}</div>
           <div className="mt-2 flex flex-wrap gap-2">
-            <span className="rounded-[10px] border border-[var(--border-soft)] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+            <span className="rounded-[3px] border border-[var(--border-soft)] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--text-secondary)]">
               {track.source.engine}
             </span>
-            <span className="rounded-[10px] border border-[var(--border-soft)] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+            <span className="rounded-[3px] border border-[var(--border-soft)] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--text-secondary)]">
               {voiceLabel}
             </span>
           </div>
@@ -119,7 +119,7 @@ export const DeviceRackSidebar = ({
               {activeTrackSnapshot ? 'Update current sound' : 'Store current sound'}
             </button>
             {activeTrackSnapshot && (
-              <div className="rounded-[8px] bg-[rgba(114,217,255,0.08)] px-3 py-2 text-[11px] text-[var(--accent-strong)]">
+              <div className="rounded-[3px] bg-[rgba(114,217,255,0.08)] px-3 py-2 text-[11px] text-[var(--accent-strong)]">
                 Active recall: {activeTrackSnapshot.name}
               </div>
             )}
@@ -127,7 +127,7 @@ export const DeviceRackSidebar = ({
 
           <div className="grid gap-2">
             {matchingTrackSnapshots.length > 0 ? matchingTrackSnapshots.slice(-4).reverse().map((snapshot) => (
-              <div key={snapshot.id} className="rounded-[8px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.015)] px-3 py-3">
+              <div key={snapshot.id} className="rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.015)] px-3 py-3">
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium text-[var(--text-primary)]">{snapshot.name}</div>

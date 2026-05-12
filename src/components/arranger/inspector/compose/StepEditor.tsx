@@ -61,7 +61,7 @@ const SampleSliceEditor = ({
         const isAssigned = selectedPhraseSliceIndex === index;
         return (
           <button
-            className={`flex items-center justify-between rounded-[12px] border px-3 py-3 text-left transition-colors ${isAssigned ? 'border-[rgba(125,211,252,0.34)] bg-[rgba(125,211,252,0.12)] text-[var(--accent-strong)]' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.04)] hover:text-[var(--text-primary)]'}`}
+            className={`flex items-center justify-between rounded-[3px] border px-3 py-3 text-left transition-colors ${isAssigned ? 'border-[rgba(125,211,252,0.34)] bg-[rgba(125,211,252,0.12)] text-[var(--accent-strong)]' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.04)] hover:text-[var(--text-primary)]'}`}
             key={`inline-${slice.label}-${index}`}
             onClick={() => {
               onSetSelectedPhraseNoteIndex(0);
@@ -220,7 +220,7 @@ const DrumStepEditor = ({
         </button>
       </div>
 
-      <div className="rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
+      <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
         <div className="section-label">Feel</div>
         <div className="mt-3 grid grid-cols-2 gap-2">
           {[
@@ -349,7 +349,7 @@ export const StepEditor = ({
           <div className="mt-4 grid gap-2">
             {selectedPhraseStep.map((event, noteIndex) => (
               <button
-                className={`flex items-center justify-between rounded-[12px] border px-3 py-3 text-left transition-colors ${selectedPhraseNoteIndex === noteIndex ? 'border-[rgba(125,211,252,0.34)] bg-[rgba(125,211,252,0.12)] text-[var(--accent-strong)]' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.04)] hover:text-[var(--text-primary)]'}`}
+                className={`flex items-center justify-between rounded-[3px] border px-3 py-3 text-left transition-colors ${selectedPhraseNoteIndex === noteIndex ? 'border-[rgba(125,211,252,0.34)] bg-[rgba(125,211,252,0.12)] text-[var(--accent-strong)]' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.04)] hover:text-[var(--text-primary)]'}`}
                 key={`inline-${event.note}-${noteIndex}`}
                 onClick={() => onSetSelectedPhraseNoteIndex(noteIndex)}
                 type="button"

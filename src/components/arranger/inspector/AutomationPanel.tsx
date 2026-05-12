@@ -31,7 +31,7 @@ export const AutomationPanel = ({
   setSelectedPhraseStepIndex,
   updateClipPatternAutomationStep,
 }: AutomationPanelProps) => (
-  <div className="rounded-[16px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-4">
+  <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-4">
     <div className="flex items-center justify-between gap-3">
       <div>
         <div className="section-label">Automation</div>
@@ -126,7 +126,7 @@ const AutomationLaneRow = ({
     <div className="grid grid-cols-16 gap-1">
       {values.map((value, stepIndex) => (
         <button
-          className={`rounded-[8px] border px-0 py-2 transition-colors ${selectedStepIndex === stepIndex ? 'border-[rgba(125,211,252,0.34)] bg-[rgba(125,211,252,0.12)]' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.04)]'}`}
+          className={`rounded-[3px] border px-0 py-2 transition-colors ${selectedStepIndex === stepIndex ? 'border-[rgba(125,211,252,0.34)] bg-[rgba(125,211,252,0.12)]' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.04)]'}`}
           key={`${label}-${stepIndex}`}
           onClick={() => onSelectStep(stepIndex)}
         >

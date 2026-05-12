@@ -29,7 +29,7 @@ export const WorkspaceRecoveryPanel = ({
     </div>
     <div className="mt-3 grid gap-2">
       {checkpoints.length > 0 ? checkpoints.map((checkpoint) => (
-        <div key={checkpoint.id} className="rounded-2xl border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+        <div key={checkpoint.id} className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
           <div className="flex items-center justify-between gap-3">
             <div>
               <div className="text-sm font-semibold text-[var(--text-primary)]">{checkpoint.label}</div>
@@ -47,7 +47,7 @@ export const WorkspaceRecoveryPanel = ({
           </div>
         </div>
       )) : (
-        <div className="rounded-2xl border border-dashed border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-4 py-4 text-[11px] leading-5 text-[var(--text-secondary)]">
+        <div className="rounded-[4px] border border-dashed border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-4 py-4 text-[11px] leading-5 text-[var(--text-secondary)]">
           Save a checkpoint before big edits, imports, or arrangement surgery.
         </div>
       )}

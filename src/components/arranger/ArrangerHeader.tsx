@@ -130,11 +130,11 @@ export const ArrangerHeader = ({
         </div>
         <div
           aria-label="Portion of the song currently visible in the timeline"
-          className="mt-3 h-2 overflow-hidden rounded-full bg-[rgba(255,255,255,0.05)]"
+          className="mt-3 h-2 overflow-hidden rounded-[2px] bg-[rgba(255,255,255,0.05)]"
           title="The teal bar shows which part of the song the timeline below is showing right now."
         >
           <div
-            className="h-full rounded-full bg-[linear-gradient(90deg,#7dd3fc,#67e8f9)]"
+            className="h-full rounded-[2px] bg-[linear-gradient(90deg,#7dd3fc,#67e8f9)]"
             style={{
               marginLeft: `${(visibleStartStep / timelineSteps) * 100}%`,
               width: `${Math.min(100, (Math.max(1, visibleEndStep - visibleStartStep) / timelineSteps) * 100)}%`,
