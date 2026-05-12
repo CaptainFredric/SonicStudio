@@ -146,7 +146,7 @@ export const ArrangerHeader = ({
           <span className="hidden sm:inline">Click anywhere below to jump there</span>
         </div>
         <div
-          aria-label="Song minimap — each colored block is a clip; click to jump"
+          aria-label="Song minimap. Each colored block is a clip. Click to jump"
           className="relative mt-1 h-10 overflow-hidden border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]"
           title="Each colored block is one clip on the timeline. Click anywhere to jump the playhead there."
         >

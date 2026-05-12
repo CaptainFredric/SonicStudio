@@ -38,7 +38,7 @@ export const ShareDialog = ({ open, onClose }: ShareDialogProps) => {
     try {
       return JSON.stringify({
         project: {
-          // We only need the project + ui state — pulled from audio context
+          // We only need the project and ui state pulled from audio context.
           // The full project lives under audio.tracks etc. but we don't have a direct getter, so build minimal info
         },
       });

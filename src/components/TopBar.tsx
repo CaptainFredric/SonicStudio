@@ -90,37 +90,37 @@ export const TopBar = ({ firstImpression = false }: { firstImpression?: boolean 
   const isFirstImpression = compactStart;
   const showPlayPulse = !isPlaying && !countInActive;
   const focusTitle = isFirstImpression
-    ? `${projectName} ready`
+    ? projectName
     : selectedTrack
-      ? `${selectedTrack.name} · ${selectedTrack.type}${selectedArrangerClipId ? ' · clip focused' : ''}`
-      : 'No track selected';
+      ? `${selectedTrack.name} · ${selectedTrack.type}${selectedArrangerClipId ? ' · clip' : ''}`
+      : 'Workspace';
   const focusMeta = isFirstImpression
-    ? 'Session ready'
+    ? 'Arrangement workspace'
     : selectedTrack
-      ? `${selectedTrack.source.engine === 'sample' ? 'Sample lane' : 'Synth lane'} · Pattern ${String.fromCharCode(65 + currentPattern)}${selectedArrangerClipId ? ' · selected clip' : ''} · ${transportMode === 'SONG' ? 'Song transport' : 'Pattern transport'}`
-      : 'Choose a lane to inspect its pattern, sound, and song role.';
+      ? `${selectedTrack.source.engine === 'sample' ? 'Sample lane' : 'Synth lane'} · Pattern ${String.fromCharCode(65 + currentPattern)}${selectedArrangerClipId ? ' · selected clip' : ''} · ${transportMode === 'SONG' ? 'Song' : 'Pattern'} transport`
+      : 'Arrange, write notes, shape sound, and export from one session.';
   const loopSummary = loopRangeStartBeat !== null && loopRangeEndBeat !== null
-    ? `Looping steps ${loopRangeStartBeat + 1}-${loopRangeEndBeat}`
+    ? `Loop ${loopRangeStartBeat + 1} to ${loopRangeEndBeat}`
     : transportMode === 'SONG'
-      ? 'Arranger timeline is active'
-      : 'Pattern loop is active';
+      ? 'Song timeline'
+      : 'Pattern loop';
   const transportSummary = countInActive
     ? `Count in ${countInBeatsRemaining} beat${countInBeatsRemaining === 1 ? '' : 's'}`
     : isInitialized
       ? loopSummary
-      : 'Audio standby';
+      : 'Audio off';
 
   return (
     <header className="surface-panel px-3 py-3 sm:px-5 sm:py-4">
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_400px] xl:items-start" data-first-impression={isFirstImpression}>
         <div className="grid min-w-0 content-start gap-4">
           <div className="flex min-w-0 items-center gap-3 border-b border-[var(--border-soft)] pb-3">
-            <div className="surface-panel-strong flex h-11 w-11 items-center justify-center" style={{ borderRadius: '2px' }}>
+            <div className="surface-panel-strong flex h-11 w-11 items-center justify-center" style={{ borderRadius: '14px' }}>
               <BrandMark className="h-5 w-5 text-[var(--accent)]" speed={isPlaying ? 1.4 : 1} />
             </div>
             <div className="min-w-0">
               <h1 className="text-[18px] font-semibold tracking-tight text-[var(--text-primary)]">SonicStudio</h1>
-              <p className="mt-1 text-xs text-[var(--text-secondary)]">Arrangement, sequencing, and sound in one session.</p>
+              <p className="mt-1 text-xs text-[var(--text-secondary)]">Write, arrange, shape, and print audio locally.</p>
             </div>
           </div>
 
@@ -328,7 +328,7 @@ export const TopBar = ({ firstImpression = false }: { firstImpression?: boolean 
             <div className="min-w-0">
               <div className="section-label mb-1">Song span</div>
               <div className="text-sm font-medium text-[var(--text-primary)]">{songLengthInBeats} steps</div>
-              <div className="mt-1 text-[11px] text-[var(--text-secondary)]">{Math.max(1, Math.ceil(songLengthInBeats / 16))} bars ready</div>
+              <div className="mt-1 text-[11px] text-[var(--text-secondary)]">{Math.max(1, Math.ceil(songLengthInBeats / 16))} bars</div>
             </div>
 
             <div className="min-w-0">
@@ -351,12 +351,12 @@ export const TopBar = ({ firstImpression = false }: { firstImpression?: boolean 
               <div className="section-label mb-1">Audio</div>
               <div className="flex flex-col gap-2 text-[11px] leading-5 text-[var(--text-secondary)]">
                 {metronomeEnabled
-                  ? `Metronome armed${countInBars > 0 ? ` with ${countInBars} bar count in` : ''}.`
+                  ? `Metronome on${countInBars > 0 ? ` with ${countInBars} bar count in` : ''}.`
                   : isInitialized
-                    ? 'Audio armed.'
-                    : 'Audio standby.'}
+                    ? 'Audio on.'
+                    : 'Audio off.'}
                 <button
-                  aria-label={isInitialized ? 'Re-arm audio engine' : 'Arm audio engine'}
+                  aria-label={isInitialized ? 'Audio engine enabled' : 'Enable audio engine'}
                   className="control-chip mt-1 inline-flex h-9 items-center justify-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
                   data-active={isInitialized ? 'true' : 'false'}
                   data-needs-attention={!isInitialized}
@@ -368,7 +368,7 @@ export const TopBar = ({ firstImpression = false }: { firstImpression?: boolean 
                     className="status-dot"
                     data-tone={isInitialized ? 'ready' : 'attention'}
                   />
-                  {isInitialized ? 'Audio armed' : 'Arm audio'}
+                  {isInitialized ? 'Audio on' : 'Enable audio'}
                 </button>
               </div>
             </div>
@@ -415,7 +415,7 @@ const PatternButton = ({
   onClick: () => void;
 }) => (
   <button
-    className="h-11 min-w-11 sm:h-9 sm:min-w-9 border px-3 font-mono text-xs font-medium uppercase tracking-[0.16em] transition-colors"
+    className="h-11 min-w-11 rounded-[12px] sm:h-9 sm:min-w-9 border px-3 font-mono text-xs font-medium uppercase tracking-[0.16em] transition-colors"
     data-ui-sound="tab"
     onClick={onClick}
     style={active
@@ -444,7 +444,7 @@ const ModeButton = ({
   onClick: () => void;
 }) => (
   <button
-    className="border px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] transition-colors"
+    className="rounded-[12px] border px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] transition-colors"
     data-ui-sound="tab"
     onClick={onClick}
     style={active
@@ -475,13 +475,14 @@ const WorkflowButton = ({
   onClick: () => void;
 }) => (
   <button
-    className="flex items-center gap-2 border-b border-transparent px-1 pb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
+    className="flex items-center gap-2 rounded-[12px] border border-transparent px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)] transition-colors hover:border-[var(--border-soft)] hover:bg-[rgba(255,255,255,0.03)] hover:text-[var(--text-primary)]"
     data-active={active}
     data-ui-sound="nav"
     onClick={onClick}
     style={active
       ? {
-          borderBottomColor: 'rgba(124, 211, 252, 0.4)',
+          borderColor: 'rgba(124, 211, 252, 0.22)',
+          background: 'rgba(124, 211, 252, 0.07)',
           color: 'var(--text-primary)',
         }
       : undefined}
@@ -549,7 +550,7 @@ const TransportBtn = ({
     <span style={{ position: 'relative', display: 'inline-flex' }}>
       <button
         aria-label={label}
-        className={`flex h-11 w-11 sm:h-9 sm:w-9 items-center justify-center border transition-colors ${active ? activeStyles : restingStyles}`}
+        className={`flex h-11 w-11 rounded-[14px] sm:h-9 sm:w-9 items-center justify-center border transition-colors ${active ? activeStyles : restingStyles}`}
         data-ui-sound={tone === 'record' ? 'record' : 'transport'}
         onClick={onClick}
         style={{ ...playStyle, ...style }}
@@ -586,7 +587,7 @@ const formatSaveLabel = (saveStatus: 'idle' | 'saving' | 'saved' | 'error', last
   }
 
   if (!lastSavedAt) {
-    return 'Ready';
+    return 'Unsaved';
   }
 
   return `Saved ${new Date(lastSavedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;

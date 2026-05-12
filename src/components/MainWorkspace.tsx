@@ -269,7 +269,7 @@ export const MainWorkspace = () => {
         <div>
           <div className="section-label">Sequencer</div>
           <h2 className="mt-2 text-lg font-semibold tracking-tight text-[var(--text-primary)]">Pattern grid</h2>
-          <p className="mt-2 text-sm text-[var(--text-secondary)]">Build patterns lane by lane here, then move into notes or song view for deeper edits.</p>
+          <p className="mt-2 text-sm text-[var(--text-secondary)]">Write lanes, stack notes, and shape the current pattern before arranging clips.</p>
         </div>
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
           <span className="section-label shrink-0">Add lane</span>
@@ -297,7 +297,7 @@ export const MainWorkspace = () => {
                 <div className="mt-1 text-[11px] text-[var(--text-secondary)]">
                   {selectedTrack
                     ? `${selectedTrackPattern.filter((step) => step.length > 0).length} active steps · ${selectedTrackPattern.reduce((sum, step) => sum + step.length, 0)} notes · ${isSelectedTrackDrum ? 'drum lane' : 'melodic lane'}`
-                    : `${tracks.length} total tracks · ${melodicTrackCount} melodic lanes ready for note editing`}
+                    : `${tracks.length} total tracks · ${melodicTrackCount} melodic lanes`}
                 </div>
               </div>
               <div className="flex flex-wrap gap-2">
@@ -428,7 +428,7 @@ export const MainWorkspace = () => {
                               <div className="flex items-center gap-3">
                                 <div
                                   className="flex h-7 w-7 items-center justify-center"
-                                  style={{ borderRadius: '2px', border: `1px solid ${track.color}55`, background: `${track.color}1a`, color: track.color }}
+                                  style={{ borderRadius: '10px', border: `1px solid ${track.color}55`, background: `${track.color}1a`, color: track.color }}
                                   title={getTrackPersonality(track.type).blurb}
                                 >
                                   <TrackIcon type={track.type} className="h-3.5 w-3.5" />
@@ -834,7 +834,7 @@ export const MainWorkspace = () => {
               </div>
             </div>
           ) : (
-            <p className="mt-4 text-sm text-[var(--text-secondary)]">Select a lane to inspect the current pattern without leaving the grid.</p>
+            <p className="mt-4 text-sm text-[var(--text-secondary)]">Select a lane to edit notes, dynamics, and pattern movement.</p>
           )}
         </aside>
       </div>

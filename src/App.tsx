@@ -10,7 +10,6 @@ import { Arranger } from './components/Arranger';
 import { TapToPlay } from './components/TapToPlay';
 import { Launchpad } from './components/Launchpad';
 import { ShortcutOverlay } from './components/ShortcutOverlay';
-import { WelcomeTour } from './components/WelcomeTour';
 import { ComposeView } from './components/ComposeView';
 import { ShareDialog } from './components/ShareDialog';
 import { resolveStudioRoute } from './app/routeController';
@@ -35,12 +34,12 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare }: { onOpenLaunchpad: () => void
         className="studio-nav-button shrink-0 md:w-full"
         data-tour-target="sessions"
         onClick={onOpenLaunchpad}
-        title="Open a starter session"
+        title="Open session library"
         type="button"
       >
         <div className="flex md:flex-col flex-row items-center gap-2">
           <Sparkles size={20} className="text-[var(--accent)]" />
-          <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Sessions</span>
+          <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Library</span>
         </div>
       </button>
       <div className="flex md:flex-col flex-row gap-2 w-full md:w-auto">
@@ -193,7 +192,6 @@ const StudioShell = () => {
   return (
     <div className="app-shell min-h-screen w-full md:h-screen md:w-screen md:overflow-hidden antialiased text-[var(--text-primary)]">
       <ShortcutOverlay />
-      <WelcomeTour shouldStart={!isLaunchpadOpen} />
       <ShareDialog open={isShareOpen} onClose={() => setShareOpen(false)} />
       <input
         ref={fileInputRef}

@@ -326,7 +326,7 @@ export const AudioProvider = ({
     return () => {
       window.clearTimeout(timeoutId);
     };
-    // persistCurrentSession is a useEffectEvent and is intentionally omitted —
+    // persistCurrentSession is a useEffectEvent and is intentionally omitted.
     // including it caused the effect to re-fire after each save, leaving the
     // status indicator stuck in 'saving'.
     // eslint-disable-next-line react-hooks/exhaustive-deps

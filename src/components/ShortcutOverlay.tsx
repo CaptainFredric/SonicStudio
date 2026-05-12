@@ -85,7 +85,7 @@ export const ShortcutOverlay = () => {
             </div>
             <h2 className="mt-1.5 text-lg font-semibold tracking-tight text-[var(--text-primary)]">Keyboard shortcuts</h2>
             <p className="mt-1 text-[12px] leading-5 text-[var(--text-secondary)]">
-              Press <kbd className="font-mono text-[11px] text-[var(--accent-strong)]">?</kbd> anywhere to open or close this list. The tap-to-play keys only work while the keyboard strip is open.
+              Reference for transport, editing, and playable keys.
             </p>
           </div>
           <button

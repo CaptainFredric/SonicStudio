@@ -23,7 +23,7 @@ const SHORTCUTS: Array<{ keys: string; label: string; group: 'Transport' | 'Edit
   { keys: '⌘ Z', label: 'Undo', group: 'Edit' },
   { keys: '⇧ ⌘ Z', label: 'Redo', group: 'Edit' },
   { keys: '[ ]', label: 'Shorten or lengthen the selected note', group: 'Edit' },
-  { keys: 'A–L', label: 'White keys (melodic tracks)', group: 'Tap to play' },
+  { keys: 'A to L', label: 'White keys for melodic tracks', group: 'Tap to play' },
   { keys: 'W E T Y U O P', label: 'Black keys', group: 'Tap to play' },
   { keys: 'A S D F', label: 'Drum pads (when a drum track is selected)', group: 'Tap to play' },
 ];
@@ -126,7 +126,7 @@ export const PreferencesPanel = ({
 
     <PanelCard icon={<Keyboard className="h-4 w-4 text-[var(--accent)]" />} title="Keyboard shortcuts">
       <p className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
-        Press ? anywhere to open this list as an overlay. Tap-to-play keys only work while the keyboard strip is open.
+        Reference for transport, editing, and playable keys.
       </p>
       <ShortcutGroup title="Transport" shortcuts={SHORTCUTS.filter((s) => s.group === 'Transport')} />
       <ShortcutGroup title="Edit" shortcuts={SHORTCUTS.filter((s) => s.group === 'Edit')} />

@@ -278,7 +278,7 @@ export const exportOfflineMix = async ({
     onMixRendered(analysis);
     setRenderState((current) => ({
       ...current,
-      phase: 'Mix ready',
+      phase: 'Mix prepared',
       progress: 1,
     }));
   } finally {
@@ -368,7 +368,7 @@ export const exportOfflineStems = async ({
     setRenderState((current) => ({
       ...current,
       currentTrackName: null,
-      phase: 'Stems ready',
+      phase: 'Stems prepared',
       progress: 1,
     }));
   } finally {

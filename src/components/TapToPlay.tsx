@@ -199,7 +199,7 @@ export const TapToPlay = () => {
         </button>
         <Hand className="h-3.5 w-3.5 text-[var(--accent)]" />
         <span className="section-label">Tap to play</span>
-        <span className="hidden sm:inline text-[11px] text-[var(--text-secondary)]">Click a key or press A–L to play the selected track.</span>
+        <span className="hidden sm:inline text-[11px] text-[var(--text-secondary)]">Playable keys for the focused track.</span>
       </section>
     );
   }
@@ -233,10 +233,10 @@ export const TapToPlay = () => {
             data-needs-attention="true"
             onClick={() => void initAudio()}
             type="button"
-            title="Arm audio engine"
+            title="Enable audio engine"
           >
             <Power className="h-3 w-3" />
-            Arm audio
+            Enable audio
           </button>
         )}
       </div>
