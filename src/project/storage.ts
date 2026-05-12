@@ -193,9 +193,13 @@ export const persistSession = (session: StudioSession): PersistedSessionEnvelope
       version: 1,
     };
 
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(envelope));
+    const serialized = JSON.stringify(envelope);
+    window.localStorage.setItem(STORAGE_KEY, serialized);
     return envelope;
-  } catch {
+  } catch (error) {
+    if (typeof console !== 'undefined') {
+      console.error('SonicStudio: failed to persist session', error);
+    }
     return null;
   }
 };

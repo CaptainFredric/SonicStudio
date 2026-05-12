@@ -12,11 +12,12 @@ import { Launchpad } from './components/Launchpad';
 import { ShortcutOverlay } from './components/ShortcutOverlay';
 import { WelcomeTour } from './components/WelcomeTour';
 import { ComposeView } from './components/ComposeView';
+import { ShareDialog } from './components/ShareDialog';
 import { resolveStudioRoute } from './app/routeController';
 import type { SessionTemplateId } from './project/schema';
-import { Music, LayoutGrid, Volume2, Settings, Layers3, Sparkles, Rows2 } from 'lucide-react';
+import { Music, LayoutGrid, Volume2, Settings, Layers3, Sparkles, Rows2, Share2 } from 'lucide-react';
 
-const SideNav = ({ onOpenLaunchpad }: { onOpenLaunchpad: () => void }) => {
+const SideNav = ({ onOpenLaunchpad, onOpenShare }: { onOpenLaunchpad: () => void; onOpenShare: () => void }) => {
   const { activeView, isSettingsOpen, setActiveView, toggleSettings } = useAudio();
 
   const navItems = [
@@ -59,7 +60,18 @@ const SideNav = ({ onOpenLaunchpad }: { onOpenLaunchpad: () => void }) => {
           </button>
         ))}
       </div>
-      <div className="ml-auto md:mt-auto md:w-full pt-3 md:border-t border-[var(--border-soft)]">
+      <div className="ml-auto md:mt-auto md:w-full md:border-t border-[var(--border-soft)] pt-3 flex md:flex-col flex-row gap-2 md:gap-0">
+        <button
+          className="studio-nav-button shrink-0 md:w-full"
+          onClick={onOpenShare}
+          title="Share this session"
+          type="button"
+        >
+          <div className="flex md:flex-col flex-row items-center gap-2">
+            <Share2 size={20} className="text-[var(--accent)]" />
+            <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Share</span>
+          </div>
+        </button>
         <button
           className="studio-nav-button shrink-0 md:w-full"
           data-active={isSettingsOpen}
@@ -101,14 +113,35 @@ const useFirstImpression = () => {
   return !hasEverPlayed;
 };
 
+const decodeShareHashOnce = (() => {
+  let consumed = false;
+  return (): string | null => {
+    if (consumed) return null;
+    if (typeof window === 'undefined') return null;
+    const match = window.location.hash.match(/#share=([^&]+)/);
+    if (!match) return null;
+    consumed = true;
+    try {
+      const encoded = match[1];
+      const decoded = decodeURIComponent(escape(window.atob(encoded)));
+      // Clear the hash so reloads don't re-import
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+      return decoded;
+    } catch (error) {
+      console.error('SonicStudio: failed to decode share link', error);
+      return null;
+    }
+  };
+})();
+
 const StudioShell = () => {
-  const { initAudio, isInitialized, isSettingsOpen, importMidiSession, loadSessionTemplate } = useAudio();
+  const { initAudio, isInitialized, isSettingsOpen, importSession, importMidiSession, loadSessionTemplate } = useAudio();
   const isFirstImpression = useFirstImpression();
 
   const hasPersistedRef = useRef<boolean | null>(null);
   if (hasPersistedRef.current === null && typeof window !== 'undefined') {
     try {
-      hasPersistedRef.current = !!window.localStorage.getItem('sonicstudio:session');
+      hasPersistedRef.current = !!window.localStorage.getItem('sonicstudio:session:v1');
     } catch {
       hasPersistedRef.current = false;
     }
@@ -117,6 +150,7 @@ const StudioShell = () => {
     if (typeof window === 'undefined') return false;
     return resolveStudioRoute(window.location.search, hasPersistedRef.current ?? false).showLaunchpad;
   });
+  const [isShareOpen, setShareOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -130,6 +164,14 @@ const StudioShell = () => {
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [isLaunchpadOpen]);
+
+  useEffect(() => {
+    const shared = decodeShareHashOnce();
+    if (!shared) return;
+    setLaunchpadOpen(false);
+    const file = new File([shared], 'shared-session.sonicstudio.json', { type: 'application/json' });
+    void importSession(file);
+  }, [importSession]);
 
   const handleSelectTemplate = (templateId: SessionTemplateId) => {
     loadSessionTemplate(templateId);
@@ -152,6 +194,7 @@ const StudioShell = () => {
     <div className="app-shell min-h-screen w-full md:h-screen md:w-screen md:overflow-hidden antialiased text-[var(--text-primary)]">
       <ShortcutOverlay />
       <WelcomeTour shouldStart={!isLaunchpadOpen} />
+      <ShareDialog open={isShareOpen} onClose={() => setShareOpen(false)} />
       <input
         ref={fileInputRef}
         type="file"
@@ -177,7 +220,7 @@ const StudioShell = () => {
           <TopBar firstImpression={isFirstImpression} />
         </div>
         <div className="studio-shell-grid flex flex-col md:flex-row md:flex-1 md:min-h-0 gap-3 px-3 pb-3">
-          <SideNav onOpenLaunchpad={() => setLaunchpadOpen(true)} />
+          <SideNav onOpenLaunchpad={() => setLaunchpadOpen(true)} onOpenShare={() => setShareOpen(true)} />
           <div className="studio-workbench flex md:min-h-0 md:flex-1 flex-col gap-3">
             <div className="flex flex-col md:flex-row md:min-h-0 md:flex-1 gap-3">
               <ViewRouter />
