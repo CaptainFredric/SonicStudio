@@ -81,12 +81,12 @@ const writePresets = (presets: LayoutPreset[]) => {
   }
 };
 
-const MIN_TOP_RATIO = 0.22;
-const MAX_TOP_RATIO = 0.78;
+const MIN_TOP_RATIO = 0.12;
+const MAX_TOP_RATIO = 0.88;
 const DEFAULT_TOP_RATIO = 0.5;
 
-const MIN_SIDE_WIDTH = 280;
-const MAX_SIDE_WIDTH = 640;
+const MIN_SIDE_WIDTH = 220;
+const MAX_SIDE_WIDTH = 880;
 const DEFAULT_SIDE_WIDTH = 380;
 
 const readNumberSetting = (key: string, fallback: number, min: number, max: number) => {
@@ -407,7 +407,7 @@ export const ComposeView = () => {
           style={{ flexBasis: `${topRatio * 100}%`, flexShrink: 0, flexGrow: 0 }}
         >
           <PaneHeader label="Top pane" value={topView} onChange={handleTopChange} exclude={bottomView} />
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="compose-pane-body flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden">
             {renderTarget(topView)}
           </div>
         </section>
@@ -434,7 +434,7 @@ export const ComposeView = () => {
           style={{ flexBasis: `${(1 - topRatio) * 100}%`, flexShrink: 0, flexGrow: 0 }}
         >
           <PaneHeader label="Bottom pane" value={bottomView} onChange={handleBottomChange} exclude={topView} />
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="compose-pane-body flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden">
             {renderTarget(bottomView)}
           </div>
         </section>

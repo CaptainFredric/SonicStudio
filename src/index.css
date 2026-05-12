@@ -553,10 +553,25 @@ input[type=range]:focus {
     rgba(151, 163, 180, 0.16);
 }
 
-.sequencer-grid-scroll {
+.sequencer-grid-scroll,
+.compose-pane-body {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
+}
+
+.compose-pane-body::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.compose-pane-body::-webkit-scrollbar-thumb {
+  background: rgba(114, 217, 255, 0.18);
+  border-radius: 4px;
+}
+
+.compose-pane-body::-webkit-scrollbar-thumb:hover {
+  background: rgba(114, 217, 255, 0.32);
 }
 
 .sequencer-grid-scroll::-webkit-scrollbar {

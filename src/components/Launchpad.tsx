@@ -5,6 +5,7 @@ import {
   Hand,
   Shuffle,
   Sparkles,
+  X,
 } from 'lucide-react';
 
 import type { SessionTemplateId } from '../project/schema';
@@ -128,9 +129,20 @@ export const Launchpad = ({
           <Disc3 className="h-4 w-4" />
           <span className="section-label text-[var(--accent-strong)]">Launchpad</span>
         </div>
-        <span className="hidden sm:inline font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
-          Press <kbd className="font-mono text-[10px] text-[var(--text-secondary)]">Esc</kbd> to close
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="hidden sm:inline font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+            Press <kbd className="font-mono text-[10px] text-[var(--text-secondary)]">Esc</kbd> to close
+          </span>
+          <button
+            aria-label="Close launchpad"
+            className="ghost-icon-button flex h-9 w-9 items-center justify-center"
+            onClick={onClose}
+            title="Close (Esc)"
+            type="button"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-[1.2fr_0.8fr] md:items-start">
