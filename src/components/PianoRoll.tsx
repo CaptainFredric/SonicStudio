@@ -37,6 +37,18 @@ import {
 } from '../utils/noteEditing';
 
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
+const shiftPitch = (note: string, semitones: number): string | null => {
+  const match = note.match(/^([A-G]#?)(-?\d+)$/);
+  if (!match) return null;
+  const [, name, octaveStr] = match;
+  const semitoneIndex = NOTE_NAMES.indexOf(name);
+  if (semitoneIndex < 0) return null;
+  const totalSemitones = Number(octaveStr) * 12 + semitoneIndex + semitones;
+  const newOctave = Math.floor(totalSemitones / 12);
+  const newSemitone = ((totalSemitones % 12) + 12) % 12;
+  return `${NOTE_NAMES[newSemitone]}${newOctave}`;
+};
 const NOTE_WINDOWS = {
   HIGH: buildNoteRange(6, 4),
   LOW: buildNoteRange(4, 2),
@@ -93,6 +105,7 @@ interface NoteResizeState {
   noteIndex: number;
   startClientX: number;
   stepIndex: number;
+  edge?: 'start' | 'end';
 }
 
 export const PianoRoll = () => {
@@ -101,13 +114,16 @@ export const PianoRoll = () => {
     currentPattern,
     currentStep,
     humanizePattern,
+    moveNoteToStep,
     selectedTrackId,
+    setLoopRange,
     shiftPattern,
     stampChord,
     stepsPerPattern,
     toggleStep,
     tracks,
     transposePattern,
+    transposePatternAt,
     updateStepEvent,
   } = useAudio();
   const track = tracks.find((candidate) => candidate.id === selectedTrackId);
@@ -220,14 +236,43 @@ export const PianoRoll = () => {
     toggleStep(track.id, stepIndex, note);
   };
 
-  const paintStateRef = useRef<{ mode: 'add' | 'remove'; visited: Set<string> } | null>(null);
+  const paintStateRef = useRef<{ mode: 'add' | 'remove'; visited: Set<string>; lastClientX?: number; lastClientY?: number } | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
-    const endPaint = () => { paintStateRef.current = null; };
+    const trackPointer = (event: PointerEvent) => {
+      if (!paintStateRef.current) return;
+      paintStateRef.current.lastClientX = event.clientX;
+      paintStateRef.current.lastClientY = event.clientY;
+    };
+    const endPaint = () => {
+      const state = paintStateRef.current;
+      paintStateRef.current = null;
+      if (!state) return;
+      // If user painted 2+ cells in add mode, surface a Loop-this chip
+      if (state.mode !== 'add' || state.visited.size < 2) return;
+      // Compute painted step range
+      const steps: number[] = [];
+      state.visited.forEach((key) => {
+        const stepStr = key.split(':')[0];
+        const n = Number(stepStr);
+        if (Number.isFinite(n)) steps.push(n);
+      });
+      if (steps.length < 2) return;
+      const startStep = Math.min(...steps);
+      const endStep = Math.max(...steps);
+      const x = state.lastClientX ?? 0;
+      const y = (state.lastClientY ?? 0) + 12;
+      setLoopChipState({ x, y, startStep, endStep });
+      window.setTimeout(() => {
+        setLoopChipState((current) => (current?.startStep === startStep && current?.endStep === endStep ? null : current));
+      }, 3200);
+    };
+    window.addEventListener('pointermove', trackPointer);
     window.addEventListener('pointerup', endPaint);
     window.addEventListener('pointercancel', endPaint);
     return () => {
+      window.removeEventListener('pointermove', trackPointer);
       window.removeEventListener('pointerup', endPaint);
       window.removeEventListener('pointercancel', endPaint);
     };
@@ -251,6 +296,114 @@ export const PianoRoll = () => {
     if (state.mode === 'add' && !hasNote) handleGridToggle(stepIndex, note);
     else if (state.mode === 'remove' && hasNote) handleGridToggle(stepIndex, note);
   };
+
+  // --- Note gesture system (drag-to-pitch, velocity drag, click-to-erase, drag-to-erase) ---
+  const noteGestureRef = useRef<{
+    kind: 'pending' | 'pitch' | 'velocity' | 'erase';
+    stepIndex: number;
+    noteIndex: number;
+    note: string;
+    rowIndex: number;
+    originalEvent: NoteEvent;
+    originX: number;
+    originY: number;
+    shiftKey: boolean;
+    lastNote: string;
+  } | null>(null);
+  const [loopChipState, setLoopChipState] = useState<{ x: number; y: number; startStep: number; endStep: number } | null>(null);
+  const [contextMenuState, setContextMenuState] = useState<{ stepIndex: number; noteIndex: number; note: string; x: number; y: number } | null>(null);
+
+  const handleNotePointerDown = (
+    stepIndex: number,
+    noteIndex: number,
+    note: string,
+    eventData: NoteEvent,
+    rowIndex: number,
+    event: React.PointerEvent,
+  ) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    noteGestureRef.current = {
+      kind: 'pending',
+      stepIndex,
+      noteIndex,
+      note,
+      rowIndex,
+      originalEvent: { ...eventData },
+      originX: event.clientX,
+      originY: event.clientY,
+      shiftKey: event.shiftKey,
+      lastNote: note,
+    };
+    setSelectedStepIndex(stepIndex);
+    setSelectedNoteIndex(noteIndex);
+  };
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !track) return undefined;
+    const ENGAGE_THRESHOLD = 4;
+    const VELOCITY_RANGE_PX = 90;
+
+    const onMove = (event: PointerEvent) => {
+      const g = noteGestureRef.current;
+      if (!g) return;
+      const dx = event.clientX - g.originX;
+      const dy = event.clientY - g.originY;
+
+      if (g.kind === 'pending') {
+        const dist = Math.hypot(dx, dy);
+        if (dist < ENGAGE_THRESHOLD) return;
+        if (g.shiftKey || event.shiftKey) {
+          noteGestureRef.current = { ...g, kind: 'velocity' };
+        } else if (Math.abs(dy) > Math.abs(dx)) {
+          noteGestureRef.current = { ...g, kind: 'pitch' };
+        } else {
+          noteGestureRef.current = { ...g, kind: 'erase' };
+          paintStateRef.current = { mode: 'remove', visited: new Set([`${g.stepIndex}:${g.note}`]) };
+          handleGridToggle(g.stepIndex, g.note);
+        }
+        return;
+      }
+
+      if (g.kind === 'pitch') {
+        const rowDelta = Math.round(dy / rowHeight);
+        const newRowIndex = Math.max(0, Math.min(renderNotes.length - 1, g.rowIndex + rowDelta));
+        const targetNote = renderNotes[newRowIndex];
+        if (!targetNote || targetNote === g.lastNote) return;
+        // Move by updating the note property
+        updateStepEvent(track.id, g.stepIndex, g.noteIndex, { note: targetNote });
+        noteGestureRef.current = { ...g, lastNote: targetNote };
+        return;
+      }
+
+      if (g.kind === 'velocity') {
+        const delta = -dy / VELOCITY_RANGE_PX;
+        const nextVel = Math.max(0.18, Math.min(1, g.originalEvent.velocity + delta));
+        updateStepEvent(track.id, g.stepIndex, g.noteIndex, { velocity: nextVel });
+        return;
+      }
+    };
+
+    const onUp = () => {
+      const g = noteGestureRef.current;
+      if (g && g.kind === 'pending') {
+        // No movement — single click on existing note → delete it
+        handleGridToggle(g.stepIndex, g.note);
+      }
+      noteGestureRef.current = null;
+    };
+
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [track?.id, renderNotes, rowHeight]);
 
   useEffect(() => {
     const node = gridViewportRef.current;
@@ -318,13 +471,33 @@ export const PianoRoll = () => {
       return undefined;
     }
 
+    const isStartEdge = noteResizeState.edge === 'start';
+
     const handlePointerMove = (event: MouseEvent) => {
-      const deltaSteps = (event.clientX - noteResizeState.startClientX) / stepCellWidth;
-      const snappedStep = event.shiftKey ? NOTE_GATE_FINE_STEP : NOTE_GATE_GRID_STEP;
-      const nextGate = snapNoteGate(noteResizeState.initialGate + deltaSteps, snappedStep);
-      updateStepEvent(track.id, noteResizeState.stepIndex, noteResizeState.noteIndex, {
-        gate: nextGate,
-      });
+      const rawDelta = (event.clientX - noteResizeState.startClientX) / stepCellWidth;
+      if (!isStartEdge) {
+        const snappedStep = event.shiftKey ? NOTE_GATE_FINE_STEP : NOTE_GATE_GRID_STEP;
+        const nextGate = snapNoteGate(noteResizeState.initialGate + rawDelta, snappedStep);
+        updateStepEvent(track.id, noteResizeState.stepIndex, noteResizeState.noteIndex, {
+          gate: nextGate,
+        });
+        return;
+      }
+      // Start-edge: integer step delta moves the note's start while keeping the end position fixed
+      const stepDelta = Math.round(rawDelta);
+      if (stepDelta === 0) return;
+      const newStepIndex = noteResizeState.stepIndex + stepDelta;
+      if (newStepIndex < 0 || newStepIndex >= stepsPerPattern) return;
+      const originalEnd = noteResizeState.stepIndex + noteResizeState.initialGate;
+      const newGate = Math.max(NOTE_GATE_MIN, originalEnd - newStepIndex);
+      moveNoteToStep(track.id, noteResizeState.stepIndex, noteResizeState.noteIndex, newStepIndex, newGate);
+      setNoteResizeState((current) => current ? {
+        initialGate: newGate,
+        noteIndex: 0,
+        startClientX: event.clientX,
+        stepIndex: newStepIndex,
+        edge: 'start',
+      } : null);
     };
 
     const stopResizing = () => {
@@ -338,7 +511,7 @@ export const PianoRoll = () => {
       window.removeEventListener('mousemove', handlePointerMove);
       window.removeEventListener('mouseup', stopResizing);
     };
-  }, [noteResizeState, stepCellWidth, track.id, updateStepEvent]);
+  }, [noteResizeState, stepCellWidth, stepsPerPattern, track.id, updateStepEvent, moveNoteToStep]);
 
   useEffect(() => {
     if (!selectedNote || normalizedSelectedNoteIndex === null || selectedStepIndex === null) {
@@ -379,6 +552,29 @@ export const PianoRoll = () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [normalizedSelectedNoteIndex, selectedNote, selectedStepIndex, updateSelectedGate]);
+
+  const closeContextMenu = () => setContextMenuState(null);
+
+  const handleNoteContextAction = (action: 'delete' | 'duplicate' | 'octave-up' | 'octave-down') => {
+    if (!contextMenuState) return;
+    const { stepIndex, noteIndex, note } = contextMenuState;
+    const event = patternSteps[stepIndex]?.[noteIndex];
+    if (!event) {
+      closeContextMenu();
+      return;
+    }
+    if (action === 'delete') {
+      toggleStep(track.id, stepIndex, note);
+    } else if (action === 'duplicate') {
+      const nextStepIndex = Math.min(stepsPerPattern - 1, stepIndex + Math.max(1, Math.floor(event.gate)));
+      stampChord(track.id, nextStepIndex, [note], { gate: event.gate, velocity: event.velocity });
+    } else if (action === 'octave-up' || action === 'octave-down') {
+      const semitones = action === 'octave-up' ? 12 : -12;
+      const targetNote = shiftPitch(note, semitones);
+      if (targetNote) updateStepEvent(track.id, stepIndex, noteIndex, { note: targetNote });
+    }
+    closeContextMenu();
+  };
 
   return (
     <section className="surface-panel flex min-h-0 flex-1 flex-col overflow-auto xl:overflow-hidden">
@@ -584,7 +780,7 @@ export const PianoRoll = () => {
               })}
             </div>
 
-            {renderNotes.map((note) => {
+            {renderNotes.map((note, rowIndex) => {
               const isBlackKey = note.includes('#');
 
               return (
@@ -605,23 +801,60 @@ export const PianoRoll = () => {
 
                     return (
                       <button
-                        className={`relative border-r border-[var(--border-soft)] transition-colors touch-none ${stepIndex % 4 === 0 ? 'bg-[rgba(255,255,255,0.02)]' : ''} ${isSelected ? 'ring-1 ring-inset ring-[rgba(124,211,252,0.22)]' : ''} hover:bg-[rgba(255,255,255,0.04)]`}
+                        className={`group relative border-r border-[var(--border-soft)] transition-colors touch-none ${stepIndex % 4 === 0 ? 'bg-[rgba(255,255,255,0.02)]' : ''} ${isSelected ? 'ring-1 ring-inset ring-[rgba(124,211,252,0.22)]' : ''} hover:bg-[rgba(255,255,255,0.04)]`}
                         key={`${note}-${stepIndex}`}
                         onPointerDown={(event) => handleCellPointerDown(stepIndex, note, !!activeEvent, event)}
                         onPointerEnter={() => handleCellPointerEnter(stepIndex, note, !!activeEvent)}
                         style={{ width: `${stepCellWidth}px`, touchAction: 'none' }}
                         type="button"
                       >
+                        {!activeEvent && (
+                          <span
+                            aria-hidden
+                            className="pointer-events-none absolute inset-y-[3px] left-[3px] rounded-md opacity-0 transition-opacity group-hover:opacity-30"
+                            style={{
+                              background: track.color,
+                              width: `${Math.max(10, stepCellWidth - 6)}px`,
+                            }}
+                          />
+                        )}
                         {activeEvent && (
                           <>
                             <span
-                              className="absolute inset-y-[3px] left-[3px] rounded-md"
+                              className="absolute inset-y-[3px] left-[3px] cursor-grab rounded-md"
+                              onContextMenu={(event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                setContextMenuState({ stepIndex, noteIndex, note, x: event.clientX, y: event.clientY });
+                              }}
+                              onPointerDown={(event) => handleNotePointerDown(stepIndex, noteIndex, note, activeEvent, rowIndex, event)}
                               style={{
                                 background: track.color,
                                 boxShadow: 'inset 0 0 0 1px rgba(15, 23, 42, 0.16)',
                                 opacity: isCurrent ? 1 : 0.9,
                                 width: `${Math.max(10, Math.min((stepCellWidth * NOTE_GATE_MAX) - 6, (activeEvent.gate * stepCellWidth) - 6))}px`,
+                                touchAction: 'none',
                               }}
+                              title="Drag up or down to change pitch. Shift+drag to change velocity. Right-click for options."
+                            />
+                            <span
+                              className="absolute inset-y-[3px] z-[2] cursor-ew-resize rounded-l-md border-r border-white/20 bg-[rgba(10,15,21,0.32)] transition-colors hover:bg-[rgba(10,15,21,0.55)]"
+                              onPointerDown={(event) => { event.stopPropagation(); }}
+                              onMouseDown={(event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                setSelectedStepIndex(stepIndex);
+                                setSelectedNoteIndex(noteIndex);
+                                setNoteResizeState({
+                                  initialGate: activeEvent.gate,
+                                  noteIndex,
+                                  startClientX: event.clientX,
+                                  stepIndex,
+                                  edge: 'start',
+                                });
+                              }}
+                              style={{ left: '3px', width: '8px' }}
+                              title="Drag to shift the note's start"
                             />
                             <span
                               className="absolute inset-y-[3px] z-[2] cursor-ew-resize rounded-r-md border-l border-white/20 bg-[rgba(10,15,21,0.38)] transition-colors hover:bg-[rgba(10,15,21,0.58)]"
@@ -638,13 +871,14 @@ export const PianoRoll = () => {
                                   noteIndex,
                                   startClientX: event.clientX,
                                   stepIndex,
+                                  edge: 'end',
                                 });
                               }}
                               style={{
                                 left: `${Math.max(10, Math.min((stepCellWidth * NOTE_GATE_MAX) - 14, (activeEvent.gate * stepCellWidth) - 14))}px`,
                                 width: '10px',
                               }}
-                              title="Resize note length"
+                              title="Drag to change note length"
                             />
                             <span
                               className="absolute bottom-1 right-1 rounded-full bg-black/25"
@@ -1004,9 +1238,53 @@ export const PianoRoll = () => {
           )}
         </aside>
       </div>
+      {contextMenuState && (
+        <>
+          <div className="fixed inset-0 z-[60]" onClick={closeContextMenu} onContextMenu={(event) => { event.preventDefault(); closeContextMenu(); }} />
+          <div
+            className="surface-panel-strong fixed z-[61] min-w-[180px] p-1 shadow-[0_16px_32px_rgba(0,0,0,0.4)]"
+            role="menu"
+            style={{ left: Math.min(contextMenuState.x, (typeof window !== 'undefined' ? window.innerWidth : 1000) - 200), top: Math.min(contextMenuState.y, (typeof window !== 'undefined' ? window.innerHeight : 700) - 180) }}
+          >
+            <div className="px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+              {contextMenuState.note}
+            </div>
+            <ContextMenuItem onClick={() => handleNoteContextAction('octave-up')}>Octave up</ContextMenuItem>
+            <ContextMenuItem onClick={() => handleNoteContextAction('octave-down')}>Octave down</ContextMenuItem>
+            <ContextMenuItem onClick={() => handleNoteContextAction('duplicate')}>Duplicate</ContextMenuItem>
+            <div className="my-1 border-t border-[var(--border-soft)]" />
+            <ContextMenuItem danger onClick={() => handleNoteContextAction('delete')}>Delete note</ContextMenuItem>
+          </div>
+        </>
+      )}
+      {loopChipState && (
+        <button
+          className="fixed z-[55] control-chip flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] shadow-[0_8px_18px_rgba(0,0,0,0.4)]"
+          data-active="true"
+          onClick={() => {
+            setLoopRange(loopChipState.startStep, loopChipState.endStep + 1);
+            setLoopChipState(null);
+          }}
+          style={{ left: loopChipState.x, top: loopChipState.y }}
+          type="button"
+        >
+          Loop this
+        </button>
+      )}
     </section>
   );
 };
+
+const ContextMenuItem = ({ children, danger = false, onClick }: { children: React.ReactNode; danger?: boolean; onClick: () => void }) => (
+  <button
+    className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-xs transition-colors ${danger ? 'text-[var(--danger)] hover:bg-[rgba(255,156,138,0.08)]' : 'text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.04)] hover:text-[var(--text-primary)]'}`}
+    onClick={onClick}
+    role="menuitem"
+    type="button"
+  >
+    {children}
+  </button>
+);
 
 const ToolButton = ({
   children,

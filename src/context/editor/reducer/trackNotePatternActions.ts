@@ -119,6 +119,37 @@ const stampChord = (
   )));
 };
 
+const moveNoteToStep = (
+  state: EditorState,
+  trackId: string,
+  patternIndex: number,
+  fromStepIndex: number,
+  fromNoteIndex: number,
+  toStepIndex: number,
+  newGate?: number,
+) => {
+  const { present } = state.history;
+  if (fromStepIndex === toStepIndex && newGate === undefined) return state;
+  const stepsPerPattern = present.transport.stepsPerPattern;
+  if (toStepIndex < 0 || toStepIndex >= stepsPerPattern) return state;
+
+  return commitProject(state, updateTrack(present, trackId, (track) => (
+    updatePatternSteps(track, patternIndex, stepsPerPattern, (currentPattern) => {
+      const source = currentPattern[fromStepIndex];
+      const event = source?.[fromNoteIndex];
+      if (!event) return currentPattern;
+      const next = currentPattern.map(cloneStepEvents);
+      // Remove from source
+      next[fromStepIndex] = next[fromStepIndex].filter((_, i) => i !== fromNoteIndex);
+      // Add to destination (or update if a note with same pitch already there — replace to avoid collision)
+      const destStep = next[toStepIndex].filter((existing) => existing.note !== event.note);
+      destStep.push({ ...event, gate: newGate ?? event.gate });
+      next[toStepIndex] = destStep;
+      return next;
+    })
+  )));
+};
+
 export const handleTrackNotePatternAction = (state: EditorState, action: EditorAction): EditorState | null => {
   const { present } = state.history;
 
@@ -143,6 +174,17 @@ export const handleTrackNotePatternAction = (state: EditorState, action: EditorA
 
     case 'HUMANIZE_PATTERN':
       return humanizePattern(state, action.trackId, action.patternIndex ?? present.transport.currentPattern, action.amount ?? 0.18);
+
+    case 'MOVE_NOTE_TO_STEP':
+      return moveNoteToStep(
+        state,
+        action.trackId,
+        action.patternIndex ?? present.transport.currentPattern,
+        action.fromStepIndex,
+        action.fromNoteIndex,
+        action.toStepIndex,
+        action.newGate,
+      );
 
     case 'STAMP_CHORD':
       return stampChord(
