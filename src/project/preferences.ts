@@ -18,7 +18,7 @@ export const DEFAULT_STUDIO_PREFERENCES: StudioPreferences = {
   uiSoundsEnabled: true,
   accentColor: 'aqua',
   density: 'comfortable',
-  defaultWorkspace: 'compose',
+  defaultWorkspace: 'piano-roll',
 };
 
 export interface AccentTokenSet {
@@ -99,7 +99,7 @@ export const normalizeStudioPreferences = (value: unknown): StudioPreferences =>
       : true,
     accentColor: isAccentColor(candidate.accentColor) ? candidate.accentColor : 'aqua',
     density: isDensity(candidate.density) ? candidate.density : 'comfortable',
-    defaultWorkspace: isDefaultWorkspace(candidate.defaultWorkspace) ? candidate.defaultWorkspace : 'compose',
+    defaultWorkspace: isDefaultWorkspace(candidate.defaultWorkspace) ? candidate.defaultWorkspace : 'piano-roll',
   };
 };
 

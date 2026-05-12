@@ -42,6 +42,14 @@ import {
 import { type PersistedCheckpoint } from '../project/storage';
 import { listStudioCheckpoints, persistStudioSession } from '../services/sessionWorkflow';
 import {
+  type Scoresheet,
+  deleteScoresheet as deleteScoresheetService,
+  listScoresheets,
+  loadScoresheet as loadScoresheetService,
+  renameScoresheet as renameScoresheetService,
+  saveScoresheet as saveScoresheetService,
+} from '../services/scoresheets';
+import {
   IDLE_RENDER_STATE,
   type BounceNormalizationMode,
   type BounceTailMode,
@@ -115,6 +123,11 @@ interface AudioContextType {
   previewTrack: (trackId: string, note?: string, sampleSliceIndex?: number) => Promise<void>;
   projectName: string;
   projectCheckpoints: PersistedCheckpoint[];
+  scoresheets: Scoresheet[];
+  saveScoresheet: (name: string, options?: { replaceId?: string }) => void;
+  loadScoresheet: (id: string) => void;
+  renameScoresheet: (id: string, name: string) => void;
+  deleteScoresheet: (id: string) => void;
   redo: () => void;
   renderState: RenderState;
   removeArrangerClip: (clipId: string) => void;
@@ -225,6 +238,7 @@ export const AudioProvider = ({
   const [isRecording, setIsRecording] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const [projectCheckpoints, setProjectCheckpoints] = useState<PersistedCheckpoint[]>(() => listStudioCheckpoints());
+  const [scoresheets, setScoresheets] = useState<Scoresheet[]>(() => listScoresheets());
   const [renderState, setRenderState] = useState<RenderState>(IDLE_RENDER_STATE);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const countInTokenRef = useRef(0);
@@ -418,6 +432,24 @@ export const AudioProvider = ({
     setSaveStatus,
   });
 
+  const handleSaveScoresheet = (name: string, options?: { replaceId?: string }) => {
+    const next = saveScoresheetService(name, { project, ui: editorState.ui }, options ?? {});
+    setScoresheets(next);
+  };
+  const handleLoadScoresheet = (id: string) => {
+    const sheet = loadScoresheetService(id);
+    if (!sheet) return;
+    dispatch({ type: 'HYDRATE_SESSION', session: sheet.session });
+    resetTransportState();
+    setSaveStatus('idle');
+  };
+  const handleRenameScoresheet = (id: string, name: string) => {
+    setScoresheets(renameScoresheetService(id, name));
+  };
+  const handleDeleteScoresheet = (id: string) => {
+    setScoresheets(deleteScoresheetService(id));
+  };
+
   const {
     exportAudioMix,
     exportMidi,
@@ -472,6 +504,11 @@ export const AudioProvider = ({
       pinnedTrackIds,
       previewTrack,
       projectCheckpoints,
+      scoresheets,
+      saveScoresheet: handleSaveScoresheet,
+      loadScoresheet: handleLoadScoresheet,
+      renameScoresheet: handleRenameScoresheet,
+      deleteScoresheet: handleDeleteScoresheet,
       projectName: project.metadata.name,
       renderState,
       rerunBounceHistory,

@@ -1,14 +1,15 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Settings2, Sliders, Speaker, X } from 'lucide-react';
+import { BookOpen, Settings2, Sliders, Speaker, X } from 'lucide-react';
 
 import { useAudio } from '../context/AudioContext';
 import { OutputSettingsPanel } from './settings/OutputSettingsPanel';
 import { PreferencesPanel } from './settings/PreferencesPanel';
+import { ScoresheetsPanel } from './settings/ScoresheetsPanel';
 import { TrackSettingsPanel } from './settings/TrackSettingsPanel';
 import { WorkspaceSettingsPanel } from './settings/WorkspaceSettingsPanel';
 import type { SettingsTab } from '../app/routeController';
 
-type StudioTab = SettingsTab | 'PREFERENCES';
+type StudioTab = SettingsTab | 'PREFERENCES' | 'SCORESHEETS';
 
 const TAB_DEFINITIONS: Array<{ id: StudioTab; label: string; icon: ReactNode; description: string }> = [
   {
@@ -16,6 +17,12 @@ const TAB_DEFINITIONS: Array<{ id: StudioTab; label: string; icon: ReactNode; de
     label: 'Preferences',
     icon: <Settings2 className="h-3.5 w-3.5" />,
     description: 'How the app looks and feels, plus a keyboard shortcut reference.',
+  },
+  {
+    id: 'SCORESHEETS',
+    label: 'Scoresheets',
+    icon: <BookOpen className="h-3.5 w-3.5" />,
+    description: 'Save many named snapshots of the current session and switch between them.',
   },
   {
     id: 'WORKSPACE',
@@ -123,6 +130,7 @@ export const SettingsSidebar = ({
             onUiSoundsEnabledChange={setUiSoundsEnabled}
           />
         ) : null}
+        {settingsTab === 'SCORESHEETS' ? <ScoresheetsPanel /> : null}
         {settingsTab === 'WORKSPACE' ? <WorkspaceSettingsPanel /> : null}
         {settingsTab === 'TRACK' ? <TrackSettingsPanel /> : null}
         {settingsTab === 'OUTPUT' ? <OutputSettingsPanel /> : null}

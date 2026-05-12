@@ -39,7 +39,7 @@ const normalizeUiState = (value: unknown, project: Project): StudioUIState => {
     || candidate.activeView === 'SEQUENCER'
     || candidate.activeView === 'COMPOSE'
     ? candidate.activeView
-    : 'COMPOSE';
+    : 'PIANO_ROLL';
   const selectedTrackId = typeof candidate.selectedTrackId === 'string'
     ? candidate.selectedTrackId
     : project.tracks[0]?.id ?? null;
@@ -121,15 +121,15 @@ const WORKSPACE_TO_VIEW: Record<string, AppView> = {
 };
 
 const readDefaultWorkspaceView = (): AppView => {
-  if (typeof window === 'undefined') return 'COMPOSE';
+  if (typeof window === 'undefined') return 'PIANO_ROLL';
   try {
     const raw = window.localStorage.getItem('sonicstudio:preferences:v1');
-    if (!raw) return 'COMPOSE';
+    if (!raw) return 'PIANO_ROLL';
     const parsed = JSON.parse(raw);
     const workspace = parsed?.defaultWorkspace;
-    return WORKSPACE_TO_VIEW[workspace] ?? 'COMPOSE';
+    return WORKSPACE_TO_VIEW[workspace] ?? 'PIANO_ROLL';
   } catch {
-    return 'COMPOSE';
+    return 'PIANO_ROLL';
   }
 };
 
