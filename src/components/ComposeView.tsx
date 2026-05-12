@@ -321,7 +321,7 @@ export const ComposeView = () => {
 
   const sideSeparator = sideOpen && (
     <div
-      aria-label="Resize side rack"
+      aria-label="Resize side pane"
       aria-orientation="vertical"
       className="hidden md:flex w-2 cursor-ew-resize items-center justify-center"
       onPointerCancel={handleSideEnd}
@@ -330,7 +330,7 @@ export const ComposeView = () => {
       onPointerUp={handleSideEnd}
       role="separator"
       tabIndex={0}
-      title="Resize the side rack"
+      title="Drag to resize the side pane"
     >
       <GripVertical className="h-3 w-3 text-[var(--text-tertiary)] opacity-50 hover:opacity-100" />
     </div>
@@ -343,9 +343,9 @@ export const ComposeView = () => {
     >
       <div className="flex items-center justify-between gap-2 border-b border-[var(--border-soft)] bg-[rgba(255,255,255,0.014)] px-3 py-1.5">
         <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--text-tertiary)]">
-          <span>Side rack</span>
+          <span>Side</span>
           <button
-            aria-label={sidePlacement === 'right' ? 'Move side rack to left' : 'Move side rack to right'}
+            aria-label={sidePlacement === 'right' ? 'Move side pane to left' : 'Move side pane to right'}
             className="ghost-icon-button flex h-6 w-6 items-center justify-center"
             onClick={() => setSidePlacement(sidePlacement === 'right' ? 'left' : 'right')}
             title={sidePlacement === 'right' ? 'Move to left' : 'Move to right'}
@@ -356,7 +356,7 @@ export const ComposeView = () => {
         </div>
         <div className="flex items-center gap-2">
           <select
-            aria-label="Side rack content"
+            aria-label="Side pane content"
             className="control-field h-7 px-2 text-[11px] font-semibold uppercase tracking-[0.14em]"
             onChange={(event) => setSideView(event.target.value as PaneTarget)}
             value={sideView}
@@ -366,10 +366,10 @@ export const ComposeView = () => {
             ))}
           </select>
           <button
-            aria-label="Close side rack"
+            aria-label="Close side pane"
             className="ghost-icon-button flex h-7 w-7 items-center justify-center"
             onClick={() => setSideOpen(false)}
-            title="Close side rack"
+            title="Close side pane"
             type="button"
           >
             {sidePlacement === 'right' ? <PanelRightClose className="h-3.5 w-3.5" /> : <PanelLeftClose className="h-3.5 w-3.5" />}
@@ -406,8 +406,13 @@ export const ComposeView = () => {
           className="surface-panel flex min-h-[420px] flex-col overflow-hidden md:min-h-0"
           style={{ flexBasis: `${topRatio * 100}%`, flexShrink: 0, flexGrow: 0 }}
         >
-          <PaneHeader label="Song desk" value={topView} onChange={handleTopChange} exclude={bottomView} />
+<<<<<<< HEAD
+          <PaneHeader label="Top pane" value={topView} onChange={handleTopChange} exclude={bottomView} />
           <div className="compose-pane-body flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden">
+=======
+          <PaneHeader label="Song desk" value={topView} onChange={handleTopChange} exclude={bottomView} />
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+>>>>>>> f4b8226 (Revamp main studio shell)
             {renderTarget(topView)}
           </div>
         </section>
@@ -433,8 +438,13 @@ export const ComposeView = () => {
           className="surface-panel flex min-h-[420px] flex-col overflow-hidden md:min-h-0"
           style={{ flexBasis: `${(1 - topRatio) * 100}%`, flexShrink: 0, flexGrow: 0 }}
         >
-          <PaneHeader label="Note desk" value={bottomView} onChange={handleBottomChange} exclude={topView} />
+<<<<<<< HEAD
+          <PaneHeader label="Bottom pane" value={bottomView} onChange={handleBottomChange} exclude={topView} />
           <div className="compose-pane-body flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden">
+=======
+          <PaneHeader label="Note desk" value={bottomView} onChange={handleBottomChange} exclude={topView} />
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+>>>>>>> f4b8226 (Revamp main studio shell)
             {renderTarget(bottomView)}
           </div>
         </section>
@@ -450,13 +460,72 @@ export const ComposeView = () => {
         </div>
       </div>
 
+<<<<<<< HEAD
       {sidePlacement === 'right' && sideSeparator}
       {sidePlacement === 'right' && sidePane}
 
       {!sideOpen && (
         <button
-          aria-label="Open side rack"
+          aria-label="Open side pane"
           className={`ghost-icon-button absolute top-2 z-20 hidden md:flex h-8 w-8 items-center justify-center ${sidePlacement === 'right' ? 'right-2' : 'left-2'}`}
+=======
+      {sideOpen && (
+        <div
+          aria-label="Resize side pane"
+          aria-orientation="vertical"
+          className="hidden md:flex w-2 cursor-ew-resize items-center justify-center"
+          onPointerCancel={handleSideEnd}
+          onPointerDown={handleSideStart}
+          onPointerMove={handleSideMove}
+          onPointerUp={handleSideEnd}
+          role="separator"
+          tabIndex={0}
+          title="Resize the side rack"
+        >
+          <GripVertical className="h-3 w-3 text-[var(--text-tertiary)] opacity-50 hover:opacity-100" />
+        </div>
+      )}
+
+      {sideOpen && (
+        <section
+          className="surface-panel flex min-h-[420px] flex-col overflow-hidden md:min-h-0"
+          style={{ width: typeof window !== 'undefined' && window.innerWidth >= 768 ? `${sideWidth}px` : undefined, flexShrink: 0 }}
+        >
+          <div className="flex items-center justify-between gap-2 border-b border-[var(--border-soft)] bg-[rgba(255,255,255,0.014)] px-3 py-1.5">
+            <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--text-tertiary)]">Side rack</div>
+            <div className="flex items-center gap-2">
+              <select
+                aria-label="Side rack content"
+                className="control-field h-7 px-2 text-[11px] font-semibold uppercase tracking-[0.14em]"
+                onChange={(event) => setSideView(event.target.value as PaneTarget)}
+                value={sideView}
+              >
+                {(Object.keys(TARGET_LABELS) as PaneTarget[]).map((target) => (
+                  <option key={target} value={target}>{TARGET_LABELS[target]}</option>
+                ))}
+              </select>
+              <button
+                aria-label="Close side rack"
+                className="ghost-icon-button flex h-7 w-7 items-center justify-center"
+                onClick={() => setSideOpen(false)}
+                title="Close side rack"
+                type="button"
+              >
+                <PanelRightClose className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            {renderTarget(sideView)}
+          </div>
+        </section>
+      )}
+
+      {!sideOpen && (
+        <button
+          aria-label="Open side rack"
+          className="ghost-icon-button absolute right-2 top-2 z-20 hidden md:flex h-8 w-8 items-center justify-center"
+>>>>>>> f4b8226 (Revamp main studio shell)
           onClick={() => setSideOpen(true)}
           title="Open side rack"
           type="button"
@@ -509,7 +578,7 @@ const PresetBar = ({
                 className="control-chip flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
                 onClick={() => onApply(preset)}
                 onDoubleClick={() => { setDraft(preset.name); setRenamingIndex(index); }}
-                title={`Apply "${preset.name}". Key ${index + 1}. Shift plus ${index + 1} saves the current layout here. Double click to rename.`}
+                title={`Apply "${preset.name}" — press ${index + 1} anywhere. Shift+${index + 1} saves the current layout here. Double-click to rename.`}
                 type="button"
               >
                 <span className="font-mono text-[9px] opacity-60">{index + 1}</span>

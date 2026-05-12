@@ -83,7 +83,7 @@ html[data-density="compact"] header.surface-panel {
   :focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
-    border-radius: var(--radius-control-sm);
+    border-radius: 2px;
   }
 
   html {
@@ -144,13 +144,10 @@ html[data-density="compact"] header.surface-panel {
 }
 
 .surface-panel {
-  background:
-    radial-gradient(circle at 100% 0%, rgba(114, 217, 255, 0.035), transparent 24%),
-    linear-gradient(180deg, rgba(255,255,255,0.018), rgba(255,255,255,0) 16%),
-    var(--bg-panel);
+  background: linear-gradient(180deg, rgba(255,255,255,0.012), rgba(255,255,255,0) 12%), var(--bg-panel);
   border: 1px solid var(--border-soft);
-  border-radius: var(--radius-panel);
-  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255,255,255,0.026);
+  border-radius: 2px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
   transition:
     background-color var(--motion-base) var(--motion-ease),
     border-color var(--motion-base) var(--motion-ease),
@@ -159,13 +156,10 @@ html[data-density="compact"] header.surface-panel {
 }
 
 .surface-panel-strong {
-  background:
-    radial-gradient(circle at 100% 0%, rgba(114, 217, 255, 0.045), transparent 28%),
-    linear-gradient(180deg, rgba(255,255,255,0.022), rgba(255,255,255,0) 16%),
-    var(--bg-panel-strong);
+  background: linear-gradient(180deg, rgba(255,255,255,0.015), rgba(255,255,255,0) 14%), var(--bg-panel-strong);
   border: 1px solid var(--border-soft);
-  border-radius: var(--radius-panel);
-  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.14), inset 0 1px 0 rgba(255,255,255,0.036);
+  border-radius: 2px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
   transition:
     background-color var(--motion-base) var(--motion-ease),
     border-color var(--motion-base) var(--motion-ease),
@@ -188,16 +182,12 @@ html[data-density="compact"] header.surface-panel {
     var(--bg-panel-strong);
   box-shadow: var(--shadow-panel), inset 0 1px 0 rgba(255,255,255,0.05);
   animation: launchpad-enter var(--motion-slow) var(--motion-ease);
-  border-radius: var(--radius-panel-lg);
 }
 
 .surface-panel-muted {
-  background:
-    radial-gradient(circle at 100% 0%, rgba(114, 217, 255, 0.025), transparent 24%),
-    linear-gradient(180deg, rgba(255,255,255,0.012), rgba(255,255,255,0) 12%),
-    var(--bg-panel-muted);
+  background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0) 12%), var(--bg-panel-muted);
   border: 1px solid var(--border-soft);
-  border-radius: var(--radius-panel);
+  border-radius: 2px;
   transition:
     background-color var(--motion-base) var(--motion-ease),
     border-color var(--motion-base) var(--motion-ease),
@@ -234,7 +224,7 @@ h3 {
 .control-field {
   background: var(--bg-control);
   border: 1px solid var(--border-soft);
-  border-radius: var(--radius-control);
+  border-radius: 2px;
   color: var(--text-primary);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
   transition:
@@ -252,7 +242,7 @@ h3 {
 .control-chip {
   background: transparent;
   border: 1px solid var(--border-soft);
-  border-radius: var(--radius-control);
+  border-radius: 2px;
   color: var(--text-secondary);
   transform: translateY(0);
   transition:
@@ -293,7 +283,7 @@ h3 {
 .ghost-icon-button {
   background: transparent;
   border: 1px solid transparent;
-  border-radius: var(--radius-control);
+  border-radius: 4px;
   color: var(--text-secondary);
   transform: translateY(0);
   transition:
@@ -399,7 +389,7 @@ html[data-motion-mode="still"] .status-dot {
 
 ::-webkit-scrollbar-thumb {
   background: rgba(151, 163, 180, 0.22);
-  border-radius: 999px;
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -465,14 +455,14 @@ input[type=range]:focus {
     linear-gradient(180deg, rgba(255,255,255,0.018), rgba(255,255,255,0) 22%),
     rgba(6, 9, 13, 0.74);
   border: 1px solid rgba(190, 208, 228, 0.08);
-  border-radius: var(--radius-panel);
+  border-radius: 2px;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.025);
 }
 
 .studio-nav-button {
   position: relative;
   border: 1px solid transparent;
-  border-radius: var(--radius-control);
+  border-radius: 2px;
   padding: 0.7rem 0.55rem;
   min-height: 48px;
   color: var(--text-secondary);
@@ -496,7 +486,7 @@ input[type=range]:focus {
   color: var(--accent-strong);
   border-color: rgba(114, 217, 255, 0.18);
   background: rgba(114, 217, 255, 0.065);
-  box-shadow: inset 0 0 0 1px rgba(114, 217, 255, 0.08), 0 12px 24px rgba(0, 0, 0, 0.14);
+  box-shadow: inset 2px 0 0 rgba(114, 217, 255, 0.72);
 }
 
 .studio-play-pulse {
@@ -506,7 +496,7 @@ input[type=range]:focus {
 .chrome-frame {
   position: relative;
   border: 1px solid rgba(190, 208, 228, 0.06);
-  border-radius: var(--radius-panel);
+  border-radius: 2px;
   background: linear-gradient(180deg, rgba(255,255,255,0.008), rgba(255,255,255,0) 10%), var(--bg-panel-muted);
   transition:
     border-color var(--motion-base) var(--motion-ease),
@@ -521,7 +511,7 @@ input[type=range]:focus {
 .studio-nav {
   background: rgba(6, 9, 13, 0.72);
   border: 1px solid rgba(190, 208, 228, 0.06);
-  border-radius: var(--radius-panel);
+  border-radius: 2px;
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
   transition:
     border-color var(--motion-base) var(--motion-ease),
@@ -636,7 +626,7 @@ input[type=range]:focus {
   position: relative;
   background: transparent;
   border: 1px solid transparent;
-  border-radius: var(--radius-control);
+  border-radius: 2px;
   color: var(--text-secondary);
   transform: translateY(0);
   transition:
@@ -677,7 +667,7 @@ input[type=range]:focus {
 }
 
 .song-form-card {
-  border-radius: var(--radius-control);
+  border-radius: 2px;
   transform: translateY(0);
   transition:
     background-color var(--motion-fast) var(--motion-ease),
@@ -712,32 +702,6 @@ input[type=range]:focus {
 
 .operation-button {
   min-height: 40px;
-}
-
-.launch-session-stack {
-  border-radius: 22px;
-}
-
-.session-card {
-  border-radius: 16px;
-  transform: translateY(0);
-  transition:
-    background-color var(--motion-fast) var(--motion-ease),
-    border-color var(--motion-fast) var(--motion-ease),
-    box-shadow var(--motion-fast) var(--motion-ease),
-    transform var(--motion-fast) var(--motion-ease);
-}
-
-.session-card:hover {
-  box-shadow: 0 18px 34px rgba(0, 0, 0, 0.18);
-  transform: translateY(var(--motion-lift-distance));
-}
-
-.launch-stat {
-  border-radius: 16px;
-  background:
-    linear-gradient(180deg, rgba(255,255,255,0.038), rgba(255,255,255,0.012)),
-    rgba(255,255,255,0.02);
 }
 
 .settings-sheet {
@@ -851,7 +815,6 @@ input[type=range]:focus {
     margin-inline: -0.65rem;
     border-left: 0;
     border-right: 0;
-    border-radius: 0 0 var(--radius-panel) var(--radius-panel);
     backdrop-filter: blur(16px);
   }
 

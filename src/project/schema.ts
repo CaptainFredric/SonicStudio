@@ -405,13 +405,13 @@ export const SESSION_TEMPLATE_DEFINITIONS: SessionTemplateDefinition[] = [
     label: 'Blank Grid',
   },
   {
-    description: 'A finished starter sketch with arrangement clips, drums, bass, lead, and pads in motion.',
+    description: 'A finished starter sketch with arrangement clips, drums, bass, lead, and pads already in motion.',
     focus: 'Songwriting reference session',
     id: 'night-transit',
     label: 'Night Transit',
   },
   {
-    description: 'A tighter beat-first layout with sample-driven drums, bass, and FX for loop building.',
+    description: 'A tighter beat-first layout with sample-driven drums, bass, and FX ready for loop building.',
     focus: 'Beat writing and loop work',
     id: 'beat-lab',
     label: 'Beat Lab',

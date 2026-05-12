@@ -1234,7 +1234,7 @@ export const PianoRoll = () => {
               )}
             </div>
           ) : (
-            <p className="mt-4 text-sm text-[var(--text-secondary)]">Select a step to edit its performance details.</p>
+            <p className="mt-4 text-sm text-[var(--text-secondary)]">Choose a step to edit its performance details.</p>
           )}
         </aside>
       </div>

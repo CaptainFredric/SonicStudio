@@ -31,7 +31,7 @@ interface StartOption {
 
 const START_OPTIONS: StartOption[] = [
   {
-    body: 'A full arrangement with drums, bass, lead, pad, and mix movement.',
+    body: 'Complete song form with drums, bass, lead, pad, and mix movement.',
     focus: 'Full arrangement',
     genre: 'Synth pop',
     bpm: 112,
@@ -41,7 +41,7 @@ const START_OPTIONS: StartOption[] = [
     mark: 'NT',
   },
   {
-    body: 'Drive pulse, sidechain bass, glassy lead, and wide late-night pads.',
+    body: 'Drive pulse, sidechain bass, glass lead, and wide late-night pads.',
     focus: '80s synthwave',
     genre: '80s synthwave',
     bpm: 108,
@@ -61,7 +61,7 @@ const START_OPTIONS: StartOption[] = [
     mark: 'LS',
   },
   {
-    body: 'Sample drums, walking bass, and FX detail for loop-first writing.',
+    body: 'Sample drums, walking bass, and riser detail for loop-first writing.',
     focus: 'Beat-first',
     genre: 'Hip-hop beat',
     bpm: 136,
@@ -71,7 +71,7 @@ const START_OPTIONS: StartOption[] = [
     mark: 'BL',
   },
   {
-    body: 'Wide pads, slow phrases, and open space for soundtrack sketches.',
+    body: 'Wide pads, slow phrases, and open space for score-like sketches.',
     focus: 'Atmosphere',
     genre: 'Ambient',
     bpm: 94,
@@ -129,10 +129,10 @@ export const Launchpad = ({
           <span className="section-label text-[var(--accent-strong)]">Session library</span>
         </div>
         <button
-          aria-label="Close session library"
+          aria-label="Close launchpad"
           className="ghost-icon-button flex h-9 w-9 items-center justify-center"
           onClick={onClose}
-          title="Close session library"
+          title="Close"
           type="button"
         >
           <X className="h-4 w-4" />
@@ -142,12 +142,12 @@ export const Launchpad = ({
       <div className="grid gap-7 md:grid-cols-[1.05fr_0.95fr] md:items-start">
         <div className="min-w-0">
           <h1 className="max-w-[12ch] text-[clamp(2.35rem,5vw,4.8rem)] font-semibold leading-[0.92] tracking-[-0.06em]">
-            Open a session.
+            Start where the song is.
           </h1>
           <p className="mt-5 max-w-[58ch] text-sm leading-6 text-[var(--text-secondary)] md:text-[15px]">
-            Each starter loads a working song with drums, bass, lead, and pad
-            already arranged. Press play to hear it, then edit anything. You
-            can also import a MIDI file or open a blank session.
+            Pick a complete scene, open a blank grid, or bring in MIDI. Every
+            choice lands inside the same arrange, write, shape, and export
+            workflow.
           </p>
           <div className="mt-7 grid gap-3 sm:grid-cols-3">
             <LaunchStat label="Scenes" value="6" />
@@ -194,7 +194,7 @@ export const Launchpad = ({
             <div>
               <div className="section-label">Starter sessions</div>
               <div className="mt-2 text-sm font-medium text-[var(--text-primary)]">
-                Structured scenes, editable lanes, WAV and MIDI export.
+                Editable structures, lanes, and exports.
               </div>
             </div>
             <Sparkles className="h-4 w-4 text-[var(--accent)]" />
@@ -217,7 +217,7 @@ export const Launchpad = ({
               type="button"
             >
               <div className="flex items-center gap-3">
-                <span className="flex h-8 w-8 items-center justify-center rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)] text-[var(--warning)]">
+                <span className="flex h-8 w-8 items-center justify-center border border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)] text-[var(--warning)]">
                   <FileInput className="h-4 w-4" />
                 </span>
                 <div>
