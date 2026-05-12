@@ -220,6 +220,38 @@ export const PianoRoll = () => {
     toggleStep(track.id, stepIndex, note);
   };
 
+  const paintStateRef = useRef<{ mode: 'add' | 'remove'; visited: Set<string> } | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return undefined;
+    const endPaint = () => { paintStateRef.current = null; };
+    window.addEventListener('pointerup', endPaint);
+    window.addEventListener('pointercancel', endPaint);
+    return () => {
+      window.removeEventListener('pointerup', endPaint);
+      window.removeEventListener('pointercancel', endPaint);
+    };
+  }, []);
+
+  const handleCellPointerDown = (stepIndex: number, note: string, hasNote: boolean, event: React.PointerEvent<HTMLButtonElement>) => {
+    // Right-click / middle-click etc. fall through to default
+    if (event.button !== 0) return;
+    event.preventDefault();
+    const mode: 'add' | 'remove' = hasNote ? 'remove' : 'add';
+    paintStateRef.current = { mode, visited: new Set([`${stepIndex}:${note}`]) };
+    handleGridToggle(stepIndex, note);
+  };
+
+  const handleCellPointerEnter = (stepIndex: number, note: string, hasNote: boolean) => {
+    const state = paintStateRef.current;
+    if (!state) return;
+    const key = `${stepIndex}:${note}`;
+    if (state.visited.has(key)) return;
+    state.visited.add(key);
+    if (state.mode === 'add' && !hasNote) handleGridToggle(stepIndex, note);
+    else if (state.mode === 'remove' && hasNote) handleGridToggle(stepIndex, note);
+  };
+
   useEffect(() => {
     const node = gridViewportRef.current;
     if (!node) {
@@ -376,6 +408,12 @@ export const PianoRoll = () => {
             </div>
             <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
               {activeStepCount}st · {totalNoteCount}n{!isDrum && stackedStepCount > 0 ? ` · ${stackedStepCount}stk` : ''}
+            </span>
+            <span
+              className="hidden lg:inline font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]"
+              title="Click and drag across cells to paint a series of notes. Drag from an existing note to erase a range."
+            >
+              · drag to paint
             </span>
           </div>
         </div>
@@ -567,10 +605,12 @@ export const PianoRoll = () => {
 
                     return (
                       <button
-                        className={`relative border-r border-[var(--border-soft)] transition-colors ${stepIndex % 4 === 0 ? 'bg-[rgba(255,255,255,0.02)]' : ''} ${isSelected ? 'ring-1 ring-inset ring-[rgba(124,211,252,0.22)]' : ''} hover:bg-[rgba(255,255,255,0.04)]`}
+                        className={`relative border-r border-[var(--border-soft)] transition-colors touch-none ${stepIndex % 4 === 0 ? 'bg-[rgba(255,255,255,0.02)]' : ''} ${isSelected ? 'ring-1 ring-inset ring-[rgba(124,211,252,0.22)]' : ''} hover:bg-[rgba(255,255,255,0.04)]`}
                         key={`${note}-${stepIndex}`}
-                        onClick={() => handleGridToggle(stepIndex, note)}
-                        style={{ width: `${stepCellWidth}px` }}
+                        onPointerDown={(event) => handleCellPointerDown(stepIndex, note, !!activeEvent, event)}
+                        onPointerEnter={() => handleCellPointerEnter(stepIndex, note, !!activeEvent)}
+                        style={{ width: `${stepCellWidth}px`, touchAction: 'none' }}
+                        type="button"
                       >
                         {activeEvent && (
                           <>
@@ -585,6 +625,9 @@ export const PianoRoll = () => {
                             />
                             <span
                               className="absolute inset-y-[3px] z-[2] cursor-ew-resize rounded-r-md border-l border-white/20 bg-[rgba(10,15,21,0.38)] transition-colors hover:bg-[rgba(10,15,21,0.58)]"
+                              onPointerDown={(event) => {
+                                event.stopPropagation();
+                              }}
                               onMouseDown={(event) => {
                                 event.preventDefault();
                                 event.stopPropagation();
