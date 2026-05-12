@@ -16,10 +16,12 @@ import {
 
 import { getSamplePresetMeta } from '../audio/sampleLibrary';
 import { useAudio } from '../context/AudioContext';
+import { shiftNote } from './arranger/noteUtils';
 import {
   NOTE_GATE_FINE_STEP,
   NOTE_GATE_MAX,
   NOTE_GATE_MIN,
+  NOTE_GATE_PRESETS,
   clampNoteGate,
 } from '../utils/noteEditing';
 import { TrackIcon, getTrackPersonality } from '../utils/trackPersonality';
@@ -34,6 +36,15 @@ const TRACK_BUTTONS = [
   { label: 'Pluck', type: 'pluck' as const },
   { label: 'FX', type: 'fx' as const },
 ];
+
+const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const QUICK_INTERVALS = [
+  { label: '-8va', semitones: -12 },
+  { label: '-5th', semitones: -7 },
+  { label: '+5th', semitones: 7 },
+  { label: '+8va', semitones: 12 },
+] as const;
+const NOTE_OPTIONS = buildNoteOptions(6, 2);
 
 type LaneGroupKey = 'RHYTHM' | 'MUSICAL' | 'TEXTURE';
 type LaneSectionKey = LaneGroupKey | 'PINNED';
@@ -81,6 +92,7 @@ export const MainWorkspace = () => {
     updateStepEvent,
   } = useAudio();
   const [selectedStepIndex, setSelectedStepIndex] = useState(0);
+  const [selectedStepNoteIndex, setSelectedStepNoteIndex] = useState(0);
   const [laneScope, setLaneScope] = useState<'ALL' | 'ACTIVE' | 'FOCUSED' | 'PINNED' | 'DRUMS' | 'MUSICAL'>('ALL');
   const [compactLanes, setCompactLanes] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<LaneSectionKey, boolean>>({
@@ -96,6 +108,10 @@ export const MainWorkspace = () => {
   const selectedTrackPattern = selectedTrack?.patterns[currentPattern] ?? Array.from({ length: stepsPerPattern }, () => []);
   const selectedStep = selectedTrackPattern[selectedStepIndex] ?? [];
   const selectedLeadEvent = selectedStep[0] ?? null;
+  const selectedStepNote = selectedStep[selectedStepNoteIndex] ?? selectedLeadEvent;
+  const normalizedSelectedStepNoteIndex = selectedStepNote
+    ? Math.max(0, selectedStep.findIndex((event) => event === selectedStepNote))
+    : null;
   const isSelectedTrackDrum = selectedTrack ? ['kick', 'snare', 'hihat'].includes(selectedTrack.type) : false;
   const melodicTrackCount = useMemo(() => (
     tracks.filter((track) => !['kick', 'snare', 'hihat'].includes(track.type)).length
@@ -160,12 +176,24 @@ export const MainWorkspace = () => {
   useEffect(() => {
     if (!selectedTrack) {
       setSelectedStepIndex(0);
+      setSelectedStepNoteIndex(0);
       return;
     }
 
-    const firstActiveStep = selectedTrackPattern.findIndex((step) => step.length > 0);
+    const pattern = selectedTrack.patterns[currentPattern] ?? Array.from({ length: stepsPerPattern }, () => []);
+    const firstActiveStep = pattern.findIndex((step) => step.length > 0);
     setSelectedStepIndex(firstActiveStep >= 0 ? firstActiveStep : 0);
-  }, [currentPattern, selectedTrack?.id, selectedTrackPattern]);
+    setSelectedStepNoteIndex(0);
+  }, [currentPattern, selectedTrack?.id, stepsPerPattern]);
+
+  useEffect(() => {
+    if (selectedStep.length === 0) {
+      setSelectedStepNoteIndex(0);
+      return;
+    }
+
+    setSelectedStepNoteIndex((current) => Math.min(current, selectedStep.length - 1));
+  }, [selectedStep.length, selectedStepIndex]);
 
   useEffect(() => {
     const node = gridViewportRef.current;
@@ -198,6 +226,41 @@ export const MainWorkspace = () => {
       behavior: 'smooth',
       left: Math.max(0, Math.min(maxGridScrollLeft, node.scrollLeft + direction * Math.max(180, node.clientWidth * 0.72))),
     });
+  };
+
+  const selectStep = (stepIndex: number, noteIndex = 0) => {
+    setSelectedStepIndex(stepIndex);
+    setSelectedStepNoteIndex(noteIndex);
+  };
+
+  const updateSelectedStepNote = (noteIndex: number, updates: Parameters<typeof updateStepEvent>[3]) => {
+    if (!selectedTrack) {
+      return;
+    }
+
+    updateStepEvent(selectedTrack.id, selectedStepIndex, noteIndex, updates);
+    setSelectedStepNoteIndex(noteIndex);
+  };
+
+  const addIntervalToSelectedStep = (semitones: number) => {
+    if (!selectedTrack || isSelectedTrackDrum) {
+      return;
+    }
+
+    const baseNote = selectedStepNote?.note ?? selectedLeadEvent?.note;
+    if (!baseNote) {
+      return;
+    }
+
+    const nextNote = shiftNote(baseNote, semitones);
+    const existingNoteIndex = selectedStep.findIndex((event) => event.note === nextNote);
+    if (existingNoteIndex >= 0) {
+      setSelectedStepNoteIndex(existingNoteIndex);
+      return;
+    }
+
+    toggleStep(selectedTrack.id, selectedStepIndex, nextNote);
+    setSelectedStepNoteIndex(selectedStep.length);
   };
 
   return (
@@ -305,7 +368,7 @@ export const MainWorkspace = () => {
                       <button
                         className={`shrink-0 border-r border-[var(--border-soft)] flex items-center justify-center ${stepIndex % 4 === 0 ? 'bg-[rgba(255,255,255,0.035)]' : ''} ${selectedStepIndex === stepIndex ? 'text-[var(--accent-strong)]' : ''}`}
                         key={stepIndex}
-                        onClick={() => setSelectedStepIndex(stepIndex)}
+                        onClick={() => selectStep(stepIndex)}
                         style={{ width: `${stepCellWidth}px` }}
                       >
                         <span className={`font-mono text-[11px] ${stepIndex % 4 === 0 ? 'text-[var(--text-primary)]' : 'text-[var(--text-tertiary)]'}`}>
@@ -463,7 +526,7 @@ export const MainWorkspace = () => {
                                 key={`${track.id}-${stepIndex}`}
                                 onClick={() => {
                                   setSelectedTrackId(track.id);
-                                  setSelectedStepIndex(stepIndex);
+                                  selectStep(stepIndex);
                                   toggleStep(track.id, stepIndex);
                                 }}
                                 style={isActive
@@ -639,56 +702,131 @@ export const MainWorkspace = () => {
                   </div>
                 </div>
                 <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
-                  {selectedLeadEvent
-                    ? `${selectedLeadEvent.note} · velocity ${Math.round(selectedLeadEvent.velocity * 100)} · gate ${selectedLeadEvent.gate.toFixed(2)}`
+                  {selectedStepNote
+                    ? `${selectedStepNote.note} · velocity ${Math.round(selectedStepNote.velocity * 100)} · gate ${selectedStepNote.gate.toFixed(2)}`
                     : 'This step is empty. Click the grid to place a note or hit.'}
                 </div>
-                {!isSelectedTrackDrum && selectedLeadEvent && (
+                {!isSelectedTrackDrum && selectedStepNote && normalizedSelectedStepNoteIndex !== null && (
                   <div className="mt-4 space-y-3">
                     <div>
                       <div className="flex items-center justify-between">
+                        <span className="section-label">Pitch</span>
+                        <span className="font-mono text-[10px] text-[var(--text-secondary)]">Note {normalizedSelectedStepNoteIndex + 1}</span>
+                      </div>
+                      <div className="mt-3 flex items-center gap-2">
+                        <button
+                          className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                          onClick={() => updateSelectedStepNote(normalizedSelectedStepNoteIndex, { note: shiftNote(selectedStepNote.note, -1) })}
+                          type="button"
+                        >
+                          -1
+                        </button>
+                        <select
+                          className="min-w-0 flex-1 rounded-sm border border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)] px-3 py-2 text-sm text-[var(--text-primary)]"
+                          onChange={(event) => updateSelectedStepNote(normalizedSelectedStepNoteIndex, { note: event.target.value })}
+                          value={selectedStepNote.note}
+                        >
+                          {NOTE_OPTIONS.map((note) => (
+                            <option key={note} value={note}>{note}</option>
+                          ))}
+                        </select>
+                        <button
+                          className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                          onClick={() => updateSelectedStepNote(normalizedSelectedStepNoteIndex, { note: shiftNote(selectedStepNote.note, 1) })}
+                          type="button"
+                        >
+                          +1
+                        </button>
+                      </div>
+                      <div className="mt-2 grid grid-cols-4 gap-2">
+                        {QUICK_INTERVALS.map((interval) => (
+                          <button
+                            className="control-chip px-2 py-2 text-[10px] font-semibold uppercase tracking-[0.12em]"
+                            key={interval.label}
+                            onClick={() => addIntervalToSelectedStep(interval.semitones)}
+                            type="button"
+                          >
+                            {interval.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="flex items-center justify-between">
                         <span className="section-label">Velocity</span>
-                        <span className="font-mono text-[10px] text-[var(--text-secondary)]">{Math.round(selectedLeadEvent.velocity * 100)}</span>
+                        <span className="font-mono text-[10px] text-[var(--text-secondary)]">{Math.round(selectedStepNote.velocity * 100)}</span>
                       </div>
                       <input
                         className="mt-3"
                         max="1"
                         min="0.1"
-                        onChange={(event) => updateStepEvent(selectedTrack.id, selectedStepIndex, 0, { velocity: Number(event.target.value) })}
+                        onChange={(event) => updateSelectedStepNote(normalizedSelectedStepNoteIndex, { velocity: Number(event.target.value) })}
                         step="0.01"
                         type="range"
-                        value={selectedLeadEvent.velocity}
+                        value={selectedStepNote.velocity}
                       />
                     </div>
                     <div>
                       <div className="flex items-center justify-between">
                         <span className="section-label">Gate</span>
-                        <span className="font-mono text-[10px] text-[var(--text-secondary)]">{selectedLeadEvent.gate.toFixed(2)}</span>
+                        <span className="font-mono text-[10px] text-[var(--text-secondary)]">{selectedStepNote.gate.toFixed(2)}</span>
                       </div>
                       <input
                         className="mt-3"
                         max={NOTE_GATE_MAX}
                         min={NOTE_GATE_MIN}
-                        onChange={(event) => updateStepEvent(selectedTrack.id, selectedStepIndex, 0, { gate: clampNoteGate(Number(event.target.value)) })}
+                        onChange={(event) => updateSelectedStepNote(normalizedSelectedStepNoteIndex, { gate: clampNoteGate(Number(event.target.value)) })}
                         step={NOTE_GATE_FINE_STEP}
                         type="range"
-                        value={selectedLeadEvent.gate}
+                        value={selectedStepNote.gate}
                       />
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {NOTE_GATE_PRESETS.map((preset) => (
+                          <button
+                            className={`control-chip px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] ${Math.abs(selectedStepNote.gate - preset) < NOTE_GATE_FINE_STEP ? 'text-[var(--accent-strong)]' : ''}`}
+                            key={preset}
+                            onClick={() => updateSelectedStepNote(normalizedSelectedStepNoteIndex, { gate: preset })}
+                            type="button"
+                          >
+                            {preset}x
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </div>
                 )}
 
-                {selectedStep.length > 1 && (
+                {selectedStep.length > 0 && (
                   <div className="mt-4 grid gap-2">
                     {selectedStep.map((event, noteIndex) => (
                       <div
-                        className="rounded-[10px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-2"
+                        className={`flex items-center gap-2 rounded-[10px] border px-3 py-2 transition-colors ${noteIndex === normalizedSelectedStepNoteIndex ? 'border-[rgba(124,211,252,0.34)] bg-[rgba(124,211,252,0.08)]' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]'}`}
                         key={`${event.note}-${noteIndex}`}
                       >
-                        <div className="font-mono text-[12px] text-[var(--text-primary)]">{event.note}</div>
-                        <div className="mt-1 text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-                          Vel {Math.round(event.velocity * 100)} · Gate {event.gate.toFixed(2)}
-                        </div>
+                        <button
+                          className="min-w-0 flex-1 text-left"
+                          onClick={() => setSelectedStepNoteIndex(noteIndex)}
+                          type="button"
+                        >
+                          <div>
+                            <div className="font-mono text-[12px] text-[var(--text-primary)]">{event.note}</div>
+                            <div className="mt-1 text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+                              Vel {Math.round(event.velocity * 100)} · Gate {event.gate.toFixed(2)}
+                            </div>
+                          </div>
+                        </button>
+                        {!isSelectedTrackDrum && (
+                          <button
+                            className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--text-secondary)] transition-colors hover:text-[var(--danger)]"
+                            onClick={() => {
+                              toggleStep(selectedTrack.id, selectedStepIndex, event.note);
+                              setSelectedStepNoteIndex(Math.max(0, noteIndex - 1));
+                            }}
+                            type="button"
+                          >
+                            Remove
+                          </button>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -786,3 +924,15 @@ const waveformLabel = (waveform: 'sine' | 'triangle' | 'sawtooth' | 'square') =>
       return waveform.charAt(0).toUpperCase() + waveform.slice(1);
   }
 };
+
+function buildNoteOptions(highOctave: number, lowOctave: number) {
+  const notes: string[] = [];
+
+  for (let octave = highOctave; octave >= lowOctave; octave -= 1) {
+    for (let noteIndex = NOTE_NAMES.length - 1; noteIndex >= 0; noteIndex -= 1) {
+      notes.push(`${NOTE_NAMES[noteIndex]}${octave}`);
+    }
+  }
+
+  return notes;
+}
