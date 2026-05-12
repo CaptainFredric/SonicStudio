@@ -51,9 +51,9 @@ export const DeviceRackSidebar = ({
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="section-label">Selected track</div>
-          <div className="mt-1 text-sm text-[var(--text-secondary)]">Focus one lane and shape it here.</div>
+          <div className="mt-1 text-sm text-[var(--text-secondary)]">Lane sound and output.</div>
         </div>
-        <span className="rounded-sm border border-[var(--border-soft)] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+        <span className="rounded-[10px] border border-[var(--border-soft)] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--text-secondary)]">
           {track.type}
         </span>
       </div>
@@ -61,17 +61,17 @@ export const DeviceRackSidebar = ({
       <div className="mt-4 flex items-center gap-3">
         <div
           className="flex h-11 w-11 items-center justify-center border"
-          style={{ background: `${track.color}12`, borderColor: `${track.color}44`, borderRadius: '4px', color: track.color }}
+          style={{ background: `${track.color}12`, borderColor: `${track.color}44`, borderRadius: '14px', color: track.color }}
         >
           <TrackIcon type={track.type} className="h-5 w-5" />
         </div>
         <div className="min-w-0">
           <div className="truncate text-base font-semibold tracking-tight text-[var(--text-primary)]">{track.name}</div>
           <div className="mt-2 flex flex-wrap gap-2">
-            <span className="rounded-sm border border-[var(--border-soft)] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+            <span className="rounded-[10px] border border-[var(--border-soft)] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--text-secondary)]">
               {track.source.engine}
             </span>
-            <span className="rounded-sm border border-[var(--border-soft)] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+            <span className="rounded-[10px] border border-[var(--border-soft)] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--text-secondary)]">
               {voiceLabel}
             </span>
           </div>

@@ -1,16 +1,34 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Activity, ChevronDown, ChevronUp, GripHorizontal, Save, SlidersHorizontal, Sparkles, Volume2, Zap } from 'lucide-react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ChevronDown,
+  ChevronUp,
+  GripHorizontal,
+  Layers3,
+  SlidersHorizontal,
+  Sparkles,
+  Waves,
+} from 'lucide-react';
 
+import { getSamplePresetMeta, getSamplePresetOptions } from '../audio/sampleLibrary';
 import { useAudio } from '../context/AudioContext';
-import { getTrackPersonality, TrackIcon } from '../utils/trackPersonality';
-import { Knob } from './Knob';
-import { Visualizer } from './Visualizer';
+import { defaultNoteForTrack, getTrackVoicePresetDefinitions, type SampleSliceMemory } from '../project/schema';
+import { filterLabel, type RackView, waveformLabel } from './device-rack/rackPrimitives';
+import { DeviceRackShapePanel } from './device-rack/DeviceRackShapePanel';
+import { DeviceRackSidebar } from './device-rack/DeviceRackSidebar';
+import { DeviceRackSourcePanel } from './device-rack/DeviceRackSourcePanel';
+import { DeviceRackSpacePanel } from './device-rack/DeviceRackSpacePanel';
 
 const RACK_COLLAPSED_KEY = 'sonicstudio:deviceRack:collapsed';
 const RACK_HEIGHT_KEY = 'sonicstudio:deviceRack:height';
-const RACK_MIN_HEIGHT = 168;
-const RACK_MAX_HEIGHT = 520;
-const RACK_DEFAULT_HEIGHT = 232;
+const RACK_VIEW_KEY = 'sonicstudio:deviceRack:view';
+const RACK_SOURCE_VIEW_KEY = 'sonicstudio:deviceRack:sourceView';
+const RACK_MIN_HEIGHT = 240;
+const RACK_MAX_HEIGHT = 660;
+const RACK_DEFAULT_HEIGHT = 360;
+
+const isRackView = (value: unknown): value is RackView => (
+  value === 'SOURCE' || value === 'SHAPE' || value === 'SPACE'
+);
 
 const readInitialCollapsed = () => {
   if (typeof window === 'undefined') return false;
@@ -34,27 +52,76 @@ const readInitialHeight = () => {
   }
 };
 
+const readRackView = () => {
+  if (typeof window === 'undefined') return 'SOURCE' as RackView;
+  try {
+    const raw = window.localStorage.getItem(RACK_VIEW_KEY);
+    return isRackView(raw) ? raw : 'SOURCE';
+  } catch {
+    return 'SOURCE';
+  }
+};
+
+const readSourceView = () => {
+  if (typeof window === 'undefined') return 'CORE' as const;
+  try {
+    return window.localStorage.getItem(RACK_SOURCE_VIEW_KEY) === 'SLICES' ? 'SLICES' : 'CORE';
+  } catch {
+    return 'CORE';
+  }
+};
+
+const makeEvenSlices = (parts: number): SampleSliceMemory[] => (
+  Array.from({ length: parts }, (_, index) => {
+    const start = index / parts;
+    const end = (index + 1) / parts;
+    return {
+      end,
+      gain: 1,
+      label: `Slice ${index + 1}`,
+      reverse: false,
+      start,
+    };
+  })
+);
+
+const REGION_TEMPLATE: SampleSliceMemory[] = [
+  { end: 0.25, gain: 1, label: 'Attack', reverse: false, start: 0 },
+  { end: 0.64, gain: 1, label: 'Body', reverse: false, start: 0.22 },
+  { end: 1, gain: 1, label: 'Tail', reverse: false, start: 0.58 },
+];
+
 export const DeviceRack = () => {
   const {
+    applyTrackSnapshot,
+    applyTrackVoicePreset,
+    createSampleSlice,
+    currentPattern,
+    deleteSampleSlice,
+    deleteTrackSnapshot,
     isRecording,
+    previewTrack,
     saveTrackSnapshot,
+    selectSampleSlice,
     selectedTrackId,
     setTrackParams,
+    setTrackSource,
     toggleRecording,
+    trackSnapshots,
     tracks,
+    updateSampleSlice,
     updateTrackPan,
     updateTrackVolume,
   } = useAudio();
-  const [justSaved, setJustSaved] = useState(false);
-  useEffect(() => {
-    if (!justSaved) return undefined;
-    const id = window.setTimeout(() => setJustSaved(false), 1400);
-    return () => window.clearTimeout(id);
-  }, [justSaved]);
-  const track = tracks.find((candidate) => candidate.id === selectedTrackId) ?? null;
+  const [activeRackView, setActiveRackView] = useState<RackView>(readRackView);
+  const [activeSourceSubView, setActiveSourceSubView] = useState<'CORE' | 'SLICES'>(readSourceView);
   const [collapsed, setCollapsed] = useState<boolean>(readInitialCollapsed);
   const [rackHeight, setRackHeight] = useState<number>(readInitialHeight);
+  const [sampleStatus, setSampleStatus] = useState<string | null>(null);
+  const [isSoundRecallOpen, setSoundRecallOpen] = useState(false);
   const dragStateRef = useRef<{ startY: number; startHeight: number } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const track = tracks.find((candidate) => candidate.id === selectedTrackId) ?? null;
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -73,6 +140,16 @@ export const DeviceRack = () => {
       /* ignore */
     }
   }, [rackHeight]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(RACK_VIEW_KEY, activeRackView);
+      window.localStorage.setItem(RACK_SOURCE_VIEW_KEY, activeSourceSubView);
+    } catch {
+      /* ignore */
+    }
+  }, [activeRackView, activeSourceSubView]);
 
   const handleResizeStart = useCallback(
     (event: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
@@ -113,33 +190,112 @@ export const DeviceRack = () => {
   const handleResizeKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
     if (event.key === 'ArrowUp') {
       event.preventDefault();
-      setRackHeight((current) => Math.min(RACK_MAX_HEIGHT, current + (event.shiftKey ? 24 : 8)));
+      setRackHeight((current) => Math.min(RACK_MAX_HEIGHT, current + (event.shiftKey ? 32 : 12)));
     } else if (event.key === 'ArrowDown') {
       event.preventDefault();
-      setRackHeight((current) => Math.max(RACK_MIN_HEIGHT, current - (event.shiftKey ? 24 : 8)));
+      setRackHeight((current) => Math.max(RACK_MIN_HEIGHT, current - (event.shiftKey ? 32 : 12)));
     } else if (event.key === 'Home') {
       event.preventDefault();
       setRackHeight(RACK_DEFAULT_HEIGHT);
     }
   }, []);
 
+  const trackVoicePresets = useMemo(
+    () => (track ? getTrackVoicePresetDefinitions(track.type) : []),
+    [track],
+  );
+
+  const sampleOptions = useMemo(
+    () => (track ? getSamplePresetOptions(track.type) : []),
+    [track],
+  );
+
   if (!track) {
     return (
       <section className="surface-panel flex items-center justify-center py-6 md:h-[68px] md:shrink-0 md:py-0">
         <div className="text-center">
-          <div className="section-label">Device rack</div>
-          <p className="mt-2 text-xs text-[var(--text-secondary)]">Select a track to load its instrument and effect controls.</p>
+          <div className="section-label">Sound desk</div>
+          <p className="mt-2 text-xs text-[var(--text-secondary)]">Select a lane to shape its instrument, samples, and effects.</p>
         </div>
       </section>
     );
   }
 
+  const selectedSliceIndex = typeof track.source.activeSampleSlice === 'number'
+    ? track.source.activeSampleSlice
+    : null;
+  const selectedSampleSlice = selectedSliceIndex !== null
+    ? track.source.sampleSlices[selectedSliceIndex] ?? null
+    : null;
+  const activeSampleMeta = track.source.customSampleName
+    ? {
+        description: 'Custom audio source stored with this project.',
+        label: track.source.customSampleName,
+      }
+    : getSamplePresetMeta(track.source.samplePreset);
+  const sampleWindowWidth = Math.max(0.05, track.source.sampleEnd - track.source.sampleStart);
+  const voiceLabel = track.source.engine === 'sample'
+    ? track.source.customSampleName ?? activeSampleMeta.label
+    : waveformLabel(track.source.waveform);
+  const patternNoteCount = (track.patterns[currentPattern] ?? []).reduce((sum, step) => sum + step.length, 0);
+  const triggerModeLabel = track.source.sampleTriggerMode === 'active-slice'
+    ? 'Active slice'
+    : track.source.sampleTriggerMode === 'step-mapped'
+      ? 'Step mapped'
+      : 'Full source';
+  const motionSummary = track.source.engine === 'sample'
+    ? triggerModeLabel
+    : `${track.params.vibratoRate.toFixed(1)} Hz vibrato`;
+  const matchingTrackSnapshots = trackSnapshots.filter((snapshot) => snapshot.trackType === track.type);
+
+  const setView = (view: RackView) => {
+    setActiveRackView(view);
+    setCollapsed(false);
+  };
+
+  const applyCurrentWindowAsSlice = () => {
+    const nextSlice: SampleSliceMemory = {
+      end: track.source.sampleEnd,
+      gain: track.source.sampleGain,
+      label: selectedSampleSlice?.label ?? `Slice ${track.source.sampleSlices.length + 1}`,
+      reverse: track.source.sampleReverse,
+      start: track.source.sampleStart,
+    };
+
+    if (selectedSliceIndex !== null && selectedSampleSlice) {
+      updateSampleSlice(track.id, selectedSliceIndex, nextSlice);
+      setSampleStatus(`Updated ${nextSlice.label}`);
+      return;
+    }
+
+    createSampleSlice(track.id, nextSlice);
+    setSampleStatus(`Saved ${nextSlice.label}`);
+  };
+
+  const applyEvenSplit = (parts: number) => {
+    setTrackSource(track.id, {
+      activeSampleSlice: 0,
+      sampleSlices: makeEvenSlices(parts),
+      sampleTriggerMode: 'step-mapped',
+    });
+    setSampleStatus(`Created ${parts} slices`);
+  };
+
+  const applyRegionTemplate = () => {
+    setTrackSource(track.id, {
+      activeSampleSlice: 0,
+      sampleSlices: REGION_TEMPLATE,
+      sampleTriggerMode: 'step-mapped',
+    });
+    setSampleStatus('Created Attack, Body, and Tail slices');
+  };
+
   if (collapsed) {
     return (
-      <section className="surface-panel device-rack-panel md:h-[56px] md:shrink-0 flex items-center gap-3 px-4 py-2">
+      <section className="surface-panel device-rack-panel flex items-center gap-3 px-4 py-2 md:h-[56px] md:shrink-0">
         <button
           aria-expanded="false"
-          aria-label="Expand device rack"
+          aria-label="Expand sound desk"
           className="ghost-icon-button flex h-9 w-9 items-center justify-center"
           onClick={() => setCollapsed(false)}
           title="Open sound desk"
@@ -147,41 +303,29 @@ export const DeviceRack = () => {
         >
           <ChevronUp className="h-4 w-4" />
         </button>
-        <div
-          className="flex h-7 w-7 items-center justify-center"
-          style={{ borderRadius: '2px', border: `1px solid ${track.color}44`, background: `${track.color}14`, color: track.color }}
-          title={getTrackPersonality(track.type).blurb}
-        >
-          <TrackIcon type={track.type} className="h-3.5 w-3.5" />
-        </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="section-label">Sound desk</span>
             <span className="truncate text-sm font-medium text-[var(--text-primary)]">{track.name}</span>
-            <span className="hidden sm:inline font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.type}</span>
+            <span className="hidden sm:inline font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{voiceLabel}</span>
           </div>
         </div>
         <div className="hidden sm:flex items-center gap-4 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
           <span>vol <span className="text-[var(--text-secondary)]">{track.volume.toFixed(0)}</span></span>
-          <span>cut <span className="text-[var(--text-secondary)]">{(track.params.cutoff / 1000).toFixed(1)}k</span></span>
-          <span>rev <span className="text-[var(--text-secondary)]">{track.params.reverbSend.toFixed(2)}</span></span>
+          <span>filter <span className="text-[var(--text-secondary)]">{filterLabel(track.params.filterMode)}</span></span>
+          <span>mode <span className="text-[var(--text-secondary)]">{motionSummary}</span></span>
         </div>
-        <button
-          className={`border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] transition-colors ${isRecording ? 'border-[rgba(240,143,134,0.28)] bg-[rgba(240,143,134,0.16)] text-[var(--danger)]' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
-          onClick={toggleRecording}
-          title="Render the current scope to WAV"
-          type="button"
-        >
-          {isRecording ? 'Stop' : 'Export'}
-        </button>
+        <RackModeButton active={activeRackView === 'SOURCE'} icon={<Waves className="h-3.5 w-3.5" />} label="Source" onClick={() => setView('SOURCE')} />
+        <RackModeButton active={activeRackView === 'SHAPE'} icon={<SlidersHorizontal className="h-3.5 w-3.5" />} label="Shape" onClick={() => setView('SHAPE')} />
+        <RackModeButton active={activeRackView === 'SPACE'} icon={<Sparkles className="h-3.5 w-3.5" />} label="Space" onClick={() => setView('SPACE')} />
       </section>
     );
   }
 
   return (
     <section
-      className="surface-panel device-rack-panel p-3 md:shrink-0 md:overflow-auto relative"
-      style={{ height: `${rackHeight}px` }}
+      className="surface-panel device-rack-panel relative p-3 md:h-[var(--rack-height)] md:shrink-0 md:overflow-auto"
+      style={{ '--rack-height': `${rackHeight}px` } as React.CSSProperties}
     >
       <div
         aria-label="Resize sound desk"
@@ -189,19 +333,20 @@ export const DeviceRack = () => {
         aria-valuemax={RACK_MAX_HEIGHT}
         aria-valuemin={RACK_MIN_HEIGHT}
         aria-valuenow={rackHeight}
-        className="group absolute inset-x-0 top-0 z-20 flex h-3 cursor-ns-resize items-center justify-center"
+        className="group absolute inset-x-0 top-0 z-20 hidden h-3 cursor-ns-resize items-center justify-center md:flex"
         onKeyDown={handleResizeKeyDown}
         onMouseDown={handleResizeStart}
         onTouchStart={handleResizeStart}
         role="separator"
         tabIndex={0}
-        title="Drag to resize. Use the up and down arrow keys for fine adjustments."
+        title="Resize sound desk"
       >
         <GripHorizontal className="h-3 w-3 text-[var(--text-tertiary)] opacity-50 transition-opacity group-hover:opacity-100" />
       </div>
+
       <button
         aria-expanded="true"
-        aria-label="Collapse device rack"
+        aria-label="Collapse sound desk"
         className="ghost-icon-button absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center"
         onClick={() => setCollapsed(true)}
         title="Collapse sound desk"
@@ -209,126 +354,82 @@ export const DeviceRack = () => {
       >
         <ChevronDown className="h-4 w-4" />
       </button>
-      <div className="grid grid-cols-1 gap-3 lg:h-full lg:min-w-[1380px] lg:grid-cols-[220px_1.1fr_0.95fr_1.3fr_0.95fr_1.45fr]">
-        <div className="surface-panel-strong flex flex-col justify-between p-4">
-          <div>
-            <div className="section-label">Selected track</div>
-            <div className="mt-4 flex items-center gap-3">
-              <div
-                className="h-11 w-11 border flex items-center justify-center"
-                style={{ borderColor: `${track.color}44`, background: `${track.color}14`, color: track.color, borderRadius: '2px' }}
-                title={getTrackPersonality(track.type).blurb}
-              >
-                <TrackIcon type={track.type} className="h-5 w-5" />
+
+      <div className="grid gap-3 2xl:h-full 2xl:min-h-0 2xl:grid-cols-[300px_minmax(0,1fr)]">
+        <DeviceRackSidebar
+          activeTrackSnapshot={null}
+          filterValue={filterLabel(track.params.filterMode)}
+          isRecording={isRecording}
+          isSoundRecallOpen={isSoundRecallOpen}
+          matchingTrackSnapshots={matchingTrackSnapshots}
+          motionSummary={motionSummary}
+          onApplyTrackSnapshot={(snapshotId) => applyTrackSnapshot(track.id, snapshotId)}
+          onDeleteTrackSnapshot={deleteTrackSnapshot}
+          onPreviewTrack={(note, sampleSliceIndex) => previewTrack(track.id, note ?? defaultNoteForTrack(track), sampleSliceIndex)}
+          onSaveTrackSnapshot={(snapshotId) => saveTrackSnapshot(track.id, snapshotId ?? null)}
+          onToggleRecording={toggleRecording}
+          onToggleSoundRecall={() => setSoundRecallOpen((current) => !current)}
+          onUpdateTrackPan={(pan) => updateTrackPan(track.id, pan)}
+          onUpdateTrackVolume={(volume) => updateTrackVolume(track.id, volume)}
+          patternNoteCount={patternNoteCount}
+          track={track}
+          voiceLabel={voiceLabel}
+        />
+
+        <div className="flex min-h-0 flex-col gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-soft)] pb-3 pr-10">
+            <div>
+              <div className="section-label">Sound workbench</div>
+              <div className="mt-1 text-sm text-[var(--text-secondary)]">
+                Source, tone, and space for the selected lane.
               </div>
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-base font-semibold tracking-tight text-[var(--text-primary)]">{track.name}</div>
-                <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.type}</div>
-              </div>
-              <button
-                aria-label="Save current sound as a snapshot"
-                className="control-chip flex h-8 items-center gap-1 px-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                data-active={justSaved ? 'true' : undefined}
-                onClick={() => {
-                  saveTrackSnapshot(track.id);
-                  setJustSaved(true);
-                }}
-                title="Capture the current synth and source settings as a personal preset"
-                type="button"
-              >
-                <Save className="h-3 w-3" />
-                {justSaved ? 'Saved' : 'Save sound'}
-              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <RackModeButton active={activeRackView === 'SOURCE'} icon={<Waves className="h-3.5 w-3.5" />} label="Source" onClick={() => setActiveRackView('SOURCE')} />
+              <RackModeButton active={activeRackView === 'SHAPE'} icon={<SlidersHorizontal className="h-3.5 w-3.5" />} label="Shape" onClick={() => setActiveRackView('SHAPE')} />
+              <RackModeButton active={activeRackView === 'SPACE'} icon={<Layers3 className="h-3.5 w-3.5" />} label="Space" onClick={() => setActiveRackView('SPACE')} />
             </div>
           </div>
 
-          <div className="space-y-4">
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="section-label">Channel level</span>
-                <span className="font-mono text-[10px] text-[var(--text-secondary)]">{track.volume.toFixed(1)} dB</span>
-              </div>
-              <input
-                className="mt-3"
-                max="6"
-                min="-60"
-                onChange={(event) => updateTrackVolume(track.id, Number(event.target.value))}
-                step="1"
-                type="range"
-                value={track.volume}
+          <div className="min-h-0 flex-1 overflow-visible 2xl:overflow-auto">
+            {activeRackView === 'SOURCE' ? (
+              <DeviceRackSourcePanel
+                activeSampleMeta={activeSampleMeta}
+                activeSourceSubView={activeSourceSubView}
+                fileInputRef={fileInputRef}
+                isSampleTrack={track.source.engine === 'sample'}
+                onApplyCurrentWindowAsSlice={applyCurrentWindowAsSlice}
+                onApplyEvenSplit={applyEvenSplit}
+                onApplyRegionTemplate={applyRegionTemplate}
+                onApplyTrackVoicePreset={(presetId) => applyTrackVoicePreset(track.id, presetId)}
+                onCreateSampleSlice={(slice) => createSampleSlice(track.id, slice)}
+                onDeleteSampleSlice={(sliceIndex) => deleteSampleSlice(track.id, sliceIndex)}
+                onPreviewTrack={(note, sampleSliceIndex) => previewTrack(track.id, note ?? defaultNoteForTrack(track), sampleSliceIndex)}
+                onSelectSampleSlice={(sliceIndex) => selectSampleSlice(track.id, sliceIndex)}
+                onSetActiveSourceSubView={setActiveSourceSubView}
+                onSetSampleStatus={setSampleStatus}
+                onSetTrackSource={(source) => setTrackSource(track.id, source)}
+                onUpdateSampleSlice={(sliceIndex, updates) => updateSampleSlice(track.id, sliceIndex, updates)}
+                sampleOptions={sampleOptions}
+                sampleStatus={sampleStatus}
+                sampleWindowWidth={sampleWindowWidth}
+                selectedSampleSlice={selectedSampleSlice}
+                track={track}
+                trackVoicePresets={trackVoicePresets}
               />
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="section-label">Pan</span>
-                <span className="font-mono text-[10px] text-[var(--text-secondary)]">{track.pan.toFixed(1)}</span>
-              </div>
-              <input
-                className="mt-3"
-                max="1"
-                min="-1"
-                onChange={(event) => updateTrackPan(track.id, Number(event.target.value))}
-                step="0.1"
-                type="range"
-                value={track.pan}
+            ) : null}
+            {activeRackView === 'SHAPE' ? (
+              <DeviceRackShapePanel
+                onSetTrackParams={(params) => setTrackParams(track.id, params)}
+                track={track}
               />
-            </div>
-          </div>
-        </div>
-
-        <RackSection icon={<SlidersHorizontal className="h-4 w-4 text-[var(--accent)]" />} title="Envelope">
-          <div className="grid grid-cols-2 gap-x-4 gap-y-5">
-            <Knob label="Attack" max={1} min={0.001} onChange={(value) => setTrackParams(track.id, { attack: value })} unit="s" value={track.params.attack} />
-            <Knob label="Decay" max={2} min={0.01} onChange={(value) => setTrackParams(track.id, { decay: value })} unit="s" value={track.params.decay} />
-            <Knob label="Sustain" max={1} min={0} onChange={(value) => setTrackParams(track.id, { sustain: value })} value={track.params.sustain} />
-            <Knob label="Release" max={4} min={0.01} onChange={(value) => setTrackParams(track.id, { release: value })} unit="s" value={track.params.release} />
-          </div>
-        </RackSection>
-
-        <RackSection icon={<Activity className="h-4 w-4 text-[var(--accent)]" />} title="Filter">
-          <div className="flex h-full items-center justify-around gap-3">
-            <Knob color="#e7a65f" label="Cutoff" max={15000} min={20} onChange={(value) => setTrackParams(track.id, { cutoff: value })} unit="Hz" value={track.params.cutoff} />
-            <Knob color="#e7a65f" label="Res" max={20} min={0.1} onChange={(value) => setTrackParams(track.id, { resonance: value })} value={track.params.resonance} />
-          </div>
-        </RackSection>
-
-        <RackSection icon={<Zap className="h-4 w-4 text-[var(--accent)]" />} title="Character">
-          <div className="grid grid-cols-2 gap-x-4 gap-y-5">
-            <Knob color="#f08f86" label="Saturate" max={1} min={0} onChange={(value) => setTrackParams(track.id, { distortion: value })} value={track.params.distortion} />
-            <Knob color="#f08f86" label="Bitcrush" max={1} min={0} onChange={(value) => setTrackParams(track.id, { bitCrush: value })} value={track.params.bitCrush} />
-            <Knob color="#f08f86" label="Vibrato" max={1} min={0} onChange={(value) => setTrackParams(track.id, { vibratoDepth: value })} value={track.params.vibratoDepth} />
-            <Knob color="#f08f86" label="Vib rate" max={10} min={0.5} onChange={(value) => setTrackParams(track.id, { vibratoRate: value })} unit="Hz" value={track.params.vibratoRate} />
-          </div>
-        </RackSection>
-
-        <RackSection icon={<Sparkles className="h-4 w-4 text-[var(--accent)]" />} title="Spatial">
-          <div className="flex h-full items-center justify-around gap-3">
-            <Knob color="#96b9f3" label="Chorus" max={1} min={0} onChange={(value) => setTrackParams(track.id, { chorusSend: value })} value={track.params.chorusSend} />
-            <Knob color="#96b9f3" label="Delay" max={1} min={0} onChange={(value) => setTrackParams(track.id, { delaySend: value })} value={track.params.delaySend} />
-            <Knob color="#96b9f3" label="Reverb" max={1} min={0} onChange={(value) => setTrackParams(track.id, { reverbSend: value })} value={track.params.reverbSend} />
-          </div>
-        </RackSection>
-
-        <div className="surface-panel-strong flex flex-col p-4 min-h-[180px]">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="section-label">Master output</div>
-              <div className="mt-2 flex items-center gap-2 text-sm text-[var(--text-secondary)]">
-                <Volume2 className="h-4 w-4 text-[var(--accent)]" />
-                Spectrum and waveform monitor
-              </div>
-            </div>
-            <button
-              className={`border px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.16em] transition-colors ${isRecording ? 'border-[rgba(240,143,134,0.28)] bg-[rgba(240,143,134,0.16)] text-[var(--danger)]' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] text-[var(--text-secondary)] hover:text-[var(--text-primary)]'}`}
-              onClick={toggleRecording}
-              title="Render the current scope to WAV"
-            >
-              {isRecording ? 'Stop export' : 'Export audio'}
-            </button>
-          </div>
-          <div className="mt-4 min-h-[80px] flex-1">
-            <Visualizer />
+            ) : null}
+            {activeRackView === 'SPACE' ? (
+              <DeviceRackSpacePanel
+                onSetTrackParams={(params) => setTrackParams(track.id, params)}
+                track={track}
+              />
+            ) : null}
           </div>
         </div>
       </div>
@@ -336,20 +437,25 @@ export const DeviceRack = () => {
   );
 };
 
-const RackSection = ({
-  children,
+const RackModeButton = ({
+  active,
   icon,
-  title,
+  label,
+  onClick,
 }: {
-  children: React.ReactNode;
+  active: boolean;
   icon: React.ReactNode;
-  title: string;
+  label: string;
+  onClick: () => void;
 }) => (
-  <div className="surface-panel-strong flex flex-col p-4">
-    <div className="flex items-center gap-2">
-      {icon}
-      <span className="section-label">{title}</span>
-    </div>
-    <div className="mt-5 flex-1">{children}</div>
-  </div>
+  <button
+    className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+    data-active={active}
+    data-ui-sound="tab"
+    onClick={onClick}
+    type="button"
+  >
+    {icon}
+    {label}
+  </button>
 );

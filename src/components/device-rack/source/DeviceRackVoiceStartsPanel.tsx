@@ -12,7 +12,7 @@ export const DeviceRackVoiceStartsPanel = ({
   <div className="rounded-[14px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
     <div className="section-label">Voice starts</div>
     <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
-      Apply a full sound starting point for this lane, then fine tune from there.
+      Sound starting points for this lane.
     </div>
     <div className="mt-3 grid gap-2">
       {trackVoicePresets.map((preset) => (
