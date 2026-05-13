@@ -1043,7 +1043,43 @@ input[type=range]:focus {
   .studio-shell-grid {
     gap: 0.7rem;
     padding-inline: 0.65rem;
-    padding-bottom: 0.8rem;
+    padding-bottom: 4.4rem;
+  }
+
+  .mobile-transport-dock {
+    position: sticky;
+    bottom: 0.5rem;
+    z-index: 45;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.4rem;
+    margin-inline: 0.65rem;
+    margin-top: 0.5rem;
+    padding: 0.4rem;
+    border: 1px solid var(--border-soft);
+    border-radius: 2px;
+    background: rgba(8, 12, 17, 0.8);
+    backdrop-filter: blur(14px);
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.22);
+  }
+
+  .mobile-transport-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    min-height: 2.1rem;
+    padding-inline: 0.35rem;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.13em;
+  }
+
+  .mobile-transport-btn[data-record="true"][data-active="true"] {
+    border-color: rgba(240, 143, 134, 0.45);
+    background: rgba(240, 143, 134, 0.16);
+    color: var(--danger);
   }
 
   .studio-rail {

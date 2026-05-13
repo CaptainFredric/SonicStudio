@@ -35,6 +35,7 @@ import {
 } from '../utils/noteEditing';
 import { TrackIcon, getTrackPersonality } from '../utils/trackPersonality';
 import { useMediaQuery } from '../utils/useMediaQuery';
+import { defaultNoteForTrack, type NoteEvent, type Track } from '../project/schema';
 
 const TRACK_BUTTONS = [
   { label: 'Kick', type: 'kick' as const },
@@ -58,8 +59,51 @@ const NOTE_OPTIONS = buildNoteOptions(6, 2);
 const STEP_OPTIONS = [16, 32, 64, 96, 128] as const;
 const STEP_ZOOM_MIN = 16;
 const STEP_ZOOM_STEP = 2;
+const SUPERSONIC_NOTE_OFFSETS = [3, 2, 1, 0, -1, -2, -3] as const;
 
 const clampNumber = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+const shiftPitch = (note: string, semitones: number): string | null => {
+  const match = note.match(/^([A-G]#?)(-?\d+)$/);
+  if (!match) return null;
+  const [, name, octaveStr] = match;
+  const semitoneIndex = NOTE_NAMES.indexOf(name);
+  if (semitoneIndex < 0) return null;
+  const totalSemitones = Number(octaveStr) * 12 + semitoneIndex + semitones;
+  const newOctave = Math.floor(totalSemitones / 12);
+  const newSemitone = ((totalSemitones % 12) + 12) % 12;
+  return `${NOTE_NAMES[newSemitone]}${newOctave}`;
+};
+
+const cloneStepEvents = (step: NoteEvent[]) => step.map((event) => ({ ...event }));
+
+const getTrackAnchorNote = (track: Track, patternSteps: NoteEvent[][], stepIndex: number) => {
+  const currentNote = patternSteps[stepIndex]?.[0]?.note;
+  if (currentNote) {
+    return currentNote;
+  }
+
+  for (let candidateIndex = stepIndex - 1; candidateIndex >= 0; candidateIndex -= 1) {
+    const candidateNote = patternSteps[candidateIndex]?.[0]?.note;
+    if (candidateNote) {
+      return candidateNote;
+    }
+  }
+
+  const firstPatternNote = patternSteps.find((step) => step.length > 0)?.[0]?.note;
+  return firstPatternNote ?? defaultNoteForTrack(track);
+};
+
+const segmentSpanSteps = (segment: PatternSegment) => {
+  let lastActiveStep = -1;
+  segment.steps.forEach((step, index) => {
+    if (step.length > 0) {
+      lastActiveStep = index;
+    }
+  });
+
+  return Math.max(1, Math.min(segment.stepsPerPattern, lastActiveStep >= 0 ? lastActiveStep + 1 : segment.stepsPerPattern));
+};
 
 type LaneGroupKey = 'RHYTHM' | 'MUSICAL' | 'TEXTURE';
 type LaneSectionKey = LaneGroupKey | 'PINNED';
@@ -113,6 +157,8 @@ export const MainWorkspace = () => {
   const [selectedStepIndex, setSelectedStepIndex] = useState(0);
   const [selectedStepNoteIndex, setSelectedStepNoteIndex] = useState(0);
   const [segmentDraftName, setSegmentDraftName] = useState('');
+  const [queuedSegmentId, setQueuedSegmentId] = useState<string | null>(null);
+  const [stitchHover, setStitchHover] = useState<{ trackId: string; stepIndex: number } | null>(null);
   const [laneScope, setLaneScope] = useState<'ALL' | 'ACTIVE' | 'FOCUSED' | 'PINNED' | 'DRUMS' | 'MUSICAL'>('ALL');
   const [compactLanes, setCompactLanes] = useState(() => (
     typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
@@ -211,6 +257,10 @@ export const MainWorkspace = () => {
     visibleTracks.slice(0, isMobileViewport ? 5 : 8)
   ), [isMobileViewport, visibleTracks]);
   const showTrackOverviewLimit = visibleTracks.length > overviewTracks.length;
+  const queuedSegment = queuedSegmentId
+    ? patternSegments.find((segment) => segment.id === queuedSegmentId) ?? null
+    : null;
+  const queuedSegmentSpan = queuedSegment ? segmentSpanSteps(queuedSegment) : 0;
 
   useEffect(() => {
     if (isMobileViewport) {
@@ -346,7 +396,7 @@ export const MainWorkspace = () => {
     setSelectedStepNoteIndex(noteIndex);
   };
 
-  const paintStateRef = useRef<{ trackId: string; mode: 'add' | 'remove'; visited: Set<string> } | null>(null);
+  const paintStateRef = useRef<{ trackId: string; mode: 'add' | 'remove'; visited: Set<string>; note?: string } | null>(null);
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
     const endPaint = () => { paintStateRef.current = null; };
@@ -358,23 +408,41 @@ export const MainWorkspace = () => {
     };
   }, []);
 
-  const handleSeqCellPointerDown = (trackId: string, stepIndex: number, hasNote: boolean, event: React.PointerEvent<HTMLButtonElement>) => {
+  const handleSeqCellPointerDown = (
+    trackId: string,
+    stepIndex: number,
+    stepEvents: NoteEvent[],
+    event: React.PointerEvent<HTMLElement>,
+    note?: string,
+  ) => {
     if (event.button !== 0) return;
     event.preventDefault();
     setSelectedTrackId(trackId);
     selectStep(stepIndex);
-    paintStateRef.current = { trackId, mode: hasNote ? 'remove' : 'add', visited: new Set([`${stepIndex}`]) };
-    toggleStep(trackId, stepIndex);
+
+    const hasTargetNote = note
+      ? stepEvents.some((entry) => entry.note === note)
+      : stepEvents.length > 0;
+    const mode: 'add' | 'remove' = hasTargetNote ? 'remove' : 'add';
+    paintStateRef.current = { trackId, mode, note, visited: new Set([`${stepIndex}`]) };
+    toggleStep(trackId, stepIndex, note);
   };
 
-  const handleSeqCellPointerEnter = (trackId: string, stepIndex: number, hasNote: boolean) => {
+  const handleSeqCellPointerEnter = (
+    trackId: string,
+    stepIndex: number,
+    stepEvents: NoteEvent[],
+  ) => {
     const state = paintStateRef.current;
     if (!state || state.trackId !== trackId) return;
     const key = `${stepIndex}`;
     if (state.visited.has(key)) return;
     state.visited.add(key);
-    if (state.mode === 'add' && !hasNote) toggleStep(trackId, stepIndex);
-    else if (state.mode === 'remove' && hasNote) toggleStep(trackId, stepIndex);
+    const hasTargetNote = state.note
+      ? stepEvents.some((entry) => entry.note === state.note)
+      : stepEvents.length > 0;
+    if (state.mode === 'add' && !hasTargetNote) toggleStep(trackId, stepIndex, state.note);
+    else if (state.mode === 'remove' && hasTargetNote) toggleStep(trackId, stepIndex, state.note);
   };
 
   const updateSelectedStepNote = (noteIndex: number, updates: Parameters<typeof updateStepEvent>[3]) => {
@@ -433,6 +501,57 @@ export const MainWorkspace = () => {
     }
 
     applyPatternSegment(selectedTrack.id, currentPattern, segment.steps, segment.automation);
+  };
+
+  const handleStitchPatternSegment = (trackId: string, segment: PatternSegment, startStep: number) => {
+    const targetTrack = tracks.find((entry) => entry.id === trackId);
+    if (!targetTrack) {
+      return;
+    }
+
+    if (segment.stepsPerPattern > stepsPerPattern) {
+      setStepsPerPattern(segment.stepsPerPattern);
+    }
+
+    const baseSteps = (targetTrack.patterns[currentPattern] ?? Array.from({ length: stepsPerPattern }, () => [])).map(cloneStepEvents);
+    const automationBase = targetTrack.automation?.[currentPattern] ?? {
+      level: Array.from({ length: stepsPerPattern }, () => 0.5),
+      tone: Array.from({ length: stepsPerPattern }, () => 0.5),
+    };
+    const nextAutomation = {
+      level: [...automationBase.level],
+      tone: [...automationBase.tone],
+    };
+
+    for (let segmentStep = 0; segmentStep < segment.steps.length; segmentStep += 1) {
+      const destinationStep = startStep + segmentStep;
+      if (destinationStep >= stepsPerPattern) {
+        break;
+      }
+
+      const sourceEvents = segment.steps[segmentStep] ?? [];
+      if (sourceEvents.length === 0) {
+        continue;
+      }
+
+      const mergedStep = [...baseSteps[destinationStep]];
+      sourceEvents.forEach((event) => {
+        const eventIndex = mergedStep.findIndex((entry) => entry.note === event.note);
+        if (eventIndex >= 0) {
+          mergedStep[eventIndex] = { ...event };
+        } else {
+          mergedStep.push({ ...event });
+        }
+      });
+      baseSteps[destinationStep] = mergedStep;
+
+      nextAutomation.level[destinationStep] = segment.automation.level[segmentStep] ?? nextAutomation.level[destinationStep] ?? 0.5;
+      nextAutomation.tone[destinationStep] = segment.automation.tone[segmentStep] ?? nextAutomation.tone[destinationStep] ?? 0.5;
+    }
+
+    applyPatternSegment(trackId, currentPattern, baseSteps, nextAutomation);
+    setSelectedTrackId(trackId);
+    selectStep(startStep);
   };
 
   const handleDeletePatternSegment = (segmentId: string) => {
@@ -601,14 +720,30 @@ export const MainWorkspace = () => {
                           <button
                             className={`relative h-full border-r border-[var(--border-soft)]/50 last:border-r-0 ${stepIndex % 4 === 0 ? 'bg-[rgba(255,255,255,0.02)]' : ''}`}
                             key={`${track.id}-overview-step-${stepIndex}`}
-                            onClick={() => jumpToStep(stepIndex, track.id)}
+                            onClick={() => {
+                              if (queuedSegment) {
+                                handleStitchPatternSegment(track.id, queuedSegment, stepIndex);
+                                return;
+                              }
+
+                              jumpToStep(stepIndex, track.id);
+                            }}
+                            onPointerEnter={() => {
+                              if (!queuedSegment) {
+                                return;
+                              }
+                              setStitchHover({ trackId: track.id, stepIndex });
+                            }}
+                            onPointerLeave={() => {
+                              setStitchHover((current) => (current?.trackId === track.id && current.stepIndex === stepIndex ? null : current));
+                            }}
                             style={{
                               background: step.length > 0
                                 ? `${track.color}${selectedTrackId === track.id ? 'bb' : '66'}`
                                 : undefined,
                               width: `${100 / stepsPerPattern}%`,
                             }}
-                            title={`Jump to step ${stepIndex + 1}`}
+                            title={queuedSegment ? `Stitch ${queuedSegment.name} at step ${stepIndex + 1}` : `Jump to step ${stepIndex + 1}`}
                             type="button"
                           >
                             {selectedTrackId === track.id && selectedStepIndex === stepIndex && (
@@ -616,6 +751,15 @@ export const MainWorkspace = () => {
                             )}
                           </button>
                         ))}
+                        {queuedSegment && stitchHover?.trackId === track.id && (
+                          <div
+                            className="pointer-events-none absolute inset-y-0 z-[3] border border-[rgba(114,217,255,0.64)] bg-[rgba(114,217,255,0.22)]"
+                            style={{
+                              left: `${(stitchHover.stepIndex / stepsPerPattern) * 100}%`,
+                              width: `${(Math.min(queuedSegmentSpan, stepsPerPattern - stitchHover.stepIndex) / stepsPerPattern) * 100}%`,
+                            }}
+                          />
+                        )}
                         <div
                           className="pointer-events-none absolute inset-y-0 border border-white/22 bg-white/6"
                           style={{
@@ -631,6 +775,22 @@ export const MainWorkspace = () => {
               {showTrackOverviewLimit && (
                 <div className="mt-2 text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
                   Showing the first {overviewTracks.length} visible lanes. Narrow the scope to focus the rest.
+                </div>
+              )}
+              {queuedSegment && (
+                <div className="mt-2 flex flex-wrap items-center gap-2 rounded-[3px] border border-[rgba(114,217,255,0.24)] bg-[rgba(114,217,255,0.09)] px-3 py-2 text-[11px] text-[var(--accent-strong)]">
+                  <Zap className="h-3.5 w-3.5 text-[var(--accent)]" />
+                  Stitch mode ready: click a lane step above to place {queuedSegment.name}.
+                  <button
+                    className="control-chip ml-auto px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                    onClick={() => {
+                      setQueuedSegmentId(null);
+                      setStitchHover(null);
+                    }}
+                    type="button"
+                  >
+                    Clear queue
+                  </button>
                 </div>
               )}
             </div>
@@ -828,13 +988,16 @@ export const MainWorkspace = () => {
                             const maxGate = value.reduce((gate, event) => Math.max(gate, event.gate), 0);
                             const showStepNoteLabel = stepCellWidth >= 36;
                             const showStepCount = stepCellWidth >= 26;
+                            const anchorNote = !['kick', 'snare', 'hihat'].includes(track.type)
+                              ? getTrackAnchorNote(track, patternSteps, stepIndex)
+                              : null;
 
                             return (
                               <button
-                                className={`relative shrink-0 touch-none border transition-colors ${compactLanes ? 'min-h-[38px]' : 'min-h-[48px]'} ${isActive ? 'border-transparent' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.05)]'} ${isCurrent ? 'ring-1 ring-inset ring-[rgba(255,255,255,0.08)]' : ''} ${isSelectedStep ? 'outline outline-1 outline-offset-0 outline-[rgba(125,211,252,0.26)]' : ''}`}
+                                className={`group relative shrink-0 touch-none border transition-colors ${compactLanes ? 'min-h-[38px]' : 'min-h-[48px]'} ${isActive ? 'border-transparent' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.05)]'} ${isCurrent ? 'ring-1 ring-inset ring-[rgba(255,255,255,0.08)]' : ''} ${isSelectedStep ? 'outline outline-1 outline-offset-0 outline-[rgba(125,211,252,0.26)]' : ''}`}
                                 key={`${track.id}-${stepIndex}`}
-                                onPointerDown={(event) => handleSeqCellPointerDown(track.id, stepIndex, isActive, event)}
-                                onPointerEnter={() => handleSeqCellPointerEnter(track.id, stepIndex, isActive)}
+                                onPointerDown={(event) => handleSeqCellPointerDown(track.id, stepIndex, value, event)}
+                                onPointerEnter={() => handleSeqCellPointerEnter(track.id, stepIndex, value)}
                                 style={isActive
                                   ? {
                                       background: isCurrent ? track.color : `${track.color}cc`,
@@ -863,6 +1026,43 @@ export const MainWorkspace = () => {
                                 {extraNotes > 0 && showStepCount && (
                                   <span className="absolute left-1 top-1 rounded-sm bg-black/20 px-1 font-mono text-[8px] text-white/80">
                                     {value.length}
+                                  </span>
+                                )}
+                                {superSonicMode && !isActive && anchorNote && !['kick', 'snare', 'hihat'].includes(track.type) && (
+                                  <span className="supersonic-ladder pointer-events-none absolute inset-y-[3px] left-[3px] right-[3px] z-[2] opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100">
+                                    {SUPERSONIC_NOTE_OFFSETS.map((offset) => {
+                                      const targetNote = shiftPitch(anchorNote, offset);
+                                      if (!targetNote) {
+                                        return (
+                                          <span
+                                            className="supersonic-ladder-step"
+                                            key={`${track.id}-${stepIndex}-seq-${offset}`}
+                                            style={{ opacity: 0.22, width: '44%' }}
+                                          />
+                                        );
+                                      }
+
+                                      return (
+                                        <span
+                                          className="supersonic-ladder-step"
+                                          data-center={offset === 0 ? 'true' : 'false'}
+                                          key={`${track.id}-${stepIndex}-seq-${offset}`}
+                                          onPointerDown={(event) => {
+                                            event.stopPropagation();
+                                            handleSeqCellPointerDown(track.id, stepIndex, value, event, targetNote);
+                                          }}
+                                          style={{
+                                            alignSelf: 'center',
+                                            background: offset === 0
+                                              ? `linear-gradient(90deg, ${track.color}, rgba(255,255,255,0.9))`
+                                              : `linear-gradient(90deg, ${track.color}cc, ${track.color}44)`,
+                                            height: offset === 0 ? '6px' : '4px',
+                                            width: `${Math.max(24, 100 - (Math.abs(offset) * 12))}%`,
+                                          }}
+                                          title={`Place ${targetNote}`}
+                                        />
+                                      );
+                                    })}
                                   </span>
                                 )}
                                 {isCurrent && <span className="absolute inset-y-1 left-1 w-[2px] rounded-full bg-white/50" />}
@@ -1057,6 +1257,17 @@ export const MainWorkspace = () => {
                               type="button"
                             >
                               Apply here
+                            </button>
+                            <button
+                              className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                              data-active={queuedSegmentId === segment.id ? 'true' : 'false'}
+                              onClick={() => {
+                                setQueuedSegmentId((current) => (current === segment.id ? null : segment.id));
+                                setStitchHover(null);
+                              }}
+                              type="button"
+                            >
+                              {queuedSegmentId === segment.id ? 'Queued for stitch' : 'Queue stitch'}
                             </button>
                             <span className="text-[11px] text-[var(--text-secondary)]">
                               From {segment.sourceTrackName}

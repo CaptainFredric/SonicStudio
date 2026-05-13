@@ -80,6 +80,7 @@ export const Arranger = () => {
     tracks,
     transformClipPattern,
     transportMode,
+    superSonicMode,
     updateArrangerClip,
     updateClipPatternAutomationStep,
     updateClipPatternStepEvent,
@@ -423,6 +424,7 @@ export const Arranger = () => {
         visibleRangeLabel={visibleRangeLabel}
         visibleStartStep={visibleStartStep}
         zoomPreset={zoomPreset}
+        superSonicMode={superSonicMode}
       />
 
       <div className={`arranger-layout grid min-h-0 flex-1 gap-4 p-5 ${isInspectorOpen ? 'xl:grid-cols-[320px_minmax(0,1fr)]' : 'grid-cols-1'}`}>

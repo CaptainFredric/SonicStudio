@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { GripHorizontal, GripVertical, PanelLeft, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Save } from 'lucide-react';
+import { GripHorizontal, GripVertical, PanelLeft, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, Save, Zap } from 'lucide-react';
 
 import { Arranger } from './Arranger';
 import { PianoRoll } from './PianoRoll';
@@ -25,6 +25,7 @@ import {
   type SidePlacement,
 } from './compose/composeLayout';
 import { useMediaQuery } from '../utils/useMediaQuery';
+import { useAudio } from '../context/AudioContext';
 
 const readPresets = (): LayoutPreset[] => {
   if (typeof window === 'undefined') return DEFAULT_PRESETS;
@@ -130,6 +131,7 @@ const PaneHeader = ({
 );
 
 export const ComposeView = () => {
+  const { superSonicMode } = useAudio();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mainColumnRef = useRef<HTMLDivElement | null>(null);
   const isMobileViewport = useMediaQuery('(max-width: 767px)');
@@ -355,6 +357,7 @@ export const ComposeView = () => {
         <PresetBar
           presets={presets}
           recentlyApplied={recentlyApplied}
+          superSonicMode={superSonicMode}
           onApply={applyPreset}
           onOverwrite={overwritePreset}
           onRename={(index, name) => {
@@ -418,6 +421,7 @@ export const ComposeView = () => {
         <PresetBar
           presets={presets}
           recentlyApplied={recentlyApplied}
+          superSonicMode={superSonicMode}
           onApply={applyPreset}
           onOverwrite={overwritePreset}
           onRename={(index, name) => {
@@ -493,12 +497,14 @@ export const ComposeView = () => {
 const PresetBar = ({
   presets,
   recentlyApplied,
+  superSonicMode,
   onApply,
   onOverwrite,
   onRename,
 }: {
   presets: LayoutPreset[];
   recentlyApplied: string | null;
+  superSonicMode: boolean;
   onApply: (preset: LayoutPreset) => void;
   onOverwrite: (index: number) => void;
   onRename: (index: number, name: string) => void;
@@ -553,6 +559,12 @@ const PresetBar = ({
       {recentlyApplied && (
         <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--accent-strong)]">
           {recentlyApplied}
+        </span>
+      )}
+      {superSonicMode && (
+        <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--accent-strong)]">
+          <Zap className="h-3.5 w-3.5 text-[var(--accent)]" />
+          SuperSonic
         </span>
       )}
     </div>

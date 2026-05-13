@@ -120,7 +120,7 @@ export const PreferencesPanel = ({
 
     <PanelCard icon={<Zap className="h-4 w-4 text-[var(--accent)]" />} title="SuperSonic mode">
       <p className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
-        Turns on the brighter advanced workspace: macro zoom, hover ladders in the note grid, and a more electric studio palette.
+        Turns on the brighter advanced workspace: macro zoom, precision hover ladders in Sequencer and Roll, and stitch-ready track map tools.
       </p>
       <div className="mt-3 flex gap-2">
         <StateButton active={superSonicMode} label="On" onClick={() => onSuperSonicModeChange(true)} />

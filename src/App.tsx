@@ -18,6 +18,7 @@ import { ToastStack, type ToastItem } from './components/ToastStack';
 import { resolveStudioRoute, type StudioRouteState } from './app/routeController';
 import type { SessionTemplateId } from './project/schema';
 import { Music, LayoutGrid, Volume2, Settings, Layers3, Sparkles, Rows2, Share2, Mic } from 'lucide-react';
+import { Circle, Play, Square } from 'lucide-react';
 
 const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchpad: () => void; onOpenShare: () => void; onOpenRecord: () => void }) => {
   const { activeView, isSettingsOpen, setActiveView, toggleSettings } = useAudio();
@@ -116,6 +117,51 @@ const ViewRouter = () => {
       {activeView === 'MIXER' && <Mixer />}
       {activeView === 'ARRANGER' && <Arranger />}
     </main>
+  );
+};
+
+const MobileTransportDock = () => {
+  const {
+    isPlaying,
+    isRecording,
+    togglePlay,
+    stop,
+    toggleRecording,
+  } = useAudio();
+
+  return (
+    <div className="mobile-transport-dock md:hidden" role="group" aria-label="Transport controls">
+      <button
+        aria-label={isPlaying ? 'Pause playback' : 'Play'}
+        className="control-chip mobile-transport-btn"
+        data-active={isPlaying ? 'true' : 'false'}
+        onClick={() => void togglePlay()}
+        type="button"
+      >
+        <Play className="h-4 w-4 fill-current" />
+        {isPlaying ? 'Pause' : 'Play'}
+      </button>
+      <button
+        aria-label="Stop"
+        className="control-chip mobile-transport-btn"
+        onClick={stop}
+        type="button"
+      >
+        <Square className="h-4 w-4 fill-current" />
+        Stop
+      </button>
+      <button
+        aria-label={isRecording ? 'Stop recording' : 'Record'}
+        className="control-chip mobile-transport-btn"
+        data-active={isRecording ? 'true' : 'false'}
+        data-record="true"
+        onClick={() => void toggleRecording()}
+        type="button"
+      >
+        <Circle className="h-4 w-4 fill-current" />
+        {isRecording ? 'Recording' : 'Record'}
+      </button>
+    </div>
   );
 };
 
@@ -306,6 +352,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
         <div className="px-3 pt-3">
           <TopBar firstImpression={isFirstImpression} />
         </div>
+        <MobileTransportDock />
         <div className="studio-shell-grid flex flex-col md:flex-row md:flex-1 md:min-h-0 gap-3 px-3 pb-3">
           <SideNav
             onOpenLaunchpad={() => setLaunchpadOpen(true)}
