@@ -43,6 +43,28 @@ const createBrightBurst = (durationSeconds: number, sampleRate = 44100) => {
   return samples;
 };
 
+const createSnapLikeBurst = (durationSeconds: number, sampleRate = 44100) => {
+  const sampleCount = Math.floor(durationSeconds * sampleRate);
+  const samples = new Float32Array(sampleCount);
+  let seed = 1234567;
+
+  for (let index = 0; index < sampleCount; index += 1) {
+    seed = (seed * 16807) % 2147483647;
+    const noise = ((seed / 2147483647) * 2) - 1;
+    const time = index / sampleRate;
+    const envelope = Math.exp(-time * 55);
+    const click = index < 14 ? (1 - (index / 14)) * 0.72 : 0;
+    const brightBody = (
+      Math.sin((2 * Math.PI * 2300 * index) / sampleRate) * 0.12
+      + Math.sin((2 * Math.PI * 4100 * index) / sampleRate) * 0.08
+    );
+
+    samples[index] = ((noise * 0.46) + brightBody + click) * envelope;
+  }
+
+  return samples;
+};
+
 describe('audioRecording insights', () => {
   it('ranks the nearest detected note ahead of neighboring semitones', () => {
     const notes = buildDetectedNoteCandidates(440, 0.86);
@@ -65,6 +87,8 @@ describe('audioRecording insights', () => {
     expect(suggestions[0]?.trackType).toBe('bass');
     expect(suggestions).toHaveLength(3);
     expect(suggestions[0]?.controls.cutoff).toBeLessThan(3000);
+    expect(suggestions[0]?.controls.release).toBeGreaterThan(0.4);
+    expect(suggestions[0]?.controls.waveform).toBe('sine');
   });
 
   it('keeps bright short captures in melodic or percussive upper voices', () => {
@@ -107,15 +131,31 @@ describe('audioRecording insights', () => {
     expect(frame.detectedNote).toBe('E4');
   });
 
-  it('keeps bright transient bursts in hihat-like territory', () => {
+  it('keeps bright transient bursts in upper percussive territory', () => {
     const frame = analyzeCaptureFrame({
       durationSeconds: 0.18,
       sampleRate: 44100,
       samples: createBrightBurst(0.18),
     });
 
-    expect(frame.suggestions[0]?.trackType).toBe('hihat');
+    expect(['snare', 'hihat']).toContain(frame.suggestions[0]?.trackType ?? '');
     expect(frame.transientDensity).toBeGreaterThan(0.45);
+    expect(frame.suggestions[0]?.controls.release).toBeLessThan(0.5);
+    expect(['bandpass', 'highpass']).toContain(frame.suggestions[0]?.controls.filterMode ?? '');
+  });
+
+  it('suppresses fake pitch on snap-like transients and avoids bass-heavy matches', () => {
+    const frame = analyzeCaptureFrame({
+      durationSeconds: 0.12,
+      sampleRate: 44100,
+      samples: createSnapLikeBurst(0.12),
+    });
+
+    expect(frame.detectedPitchHz).toBeNull();
+    expect(frame.noteCandidates).toHaveLength(0);
+    expect(['bass', 'kick', 'pad']).not.toContain(frame.suggestions[0]?.trackType ?? '');
+    expect(frame.suggestions[0]?.controls.release).toBeLessThan(0.18);
+    expect(frame.suggestions[0]?.controls.reverbSend).toBeLessThan(0.12);
   });
 
   it('keeps silent live frames low-confidence and low-level', () => {

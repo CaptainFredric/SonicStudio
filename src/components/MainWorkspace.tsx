@@ -59,7 +59,7 @@ const NOTE_OPTIONS = buildNoteOptions(6, 2);
 const STEP_OPTIONS = [16, 32, 64, 96, 128] as const;
 const STEP_ZOOM_MIN = 16;
 const STEP_ZOOM_STEP = 2;
-const SUPERSONIC_NOTE_OFFSETS = [3, 2, 1, 0, -1, -2, -3] as const;
+const SUPERSONIC_NOTE_OFFSETS = [4, 3, 2, 1, 0, -1, -2, -3, -4] as const;
 
 const clampNumber = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
@@ -159,6 +159,7 @@ export const MainWorkspace = () => {
   const [segmentDraftName, setSegmentDraftName] = useState('');
   const [queuedSegmentId, setQueuedSegmentId] = useState<string | null>(null);
   const [stitchHover, setStitchHover] = useState<{ trackId: string; stepIndex: number } | null>(null);
+  const [supersonicHoverCell, setSupersonicHoverCell] = useState<{ trackId: string; stepIndex: number } | null>(null);
   const [laneScope, setLaneScope] = useState<'ALL' | 'ACTIVE' | 'FOCUSED' | 'PINNED' | 'DRUMS' | 'MUSICAL'>('ALL');
   const [compactLanes, setCompactLanes] = useState(() => (
     typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
@@ -509,23 +510,25 @@ export const MainWorkspace = () => {
       return;
     }
 
-    if (segment.stepsPerPattern > stepsPerPattern) {
-      setStepsPerPattern(segment.stepsPerPattern);
+    const nextStepsPerPattern = Math.max(stepsPerPattern, segment.stepsPerPattern);
+
+    if (nextStepsPerPattern > stepsPerPattern) {
+      setStepsPerPattern(nextStepsPerPattern);
     }
 
-    const baseSteps = (targetTrack.patterns[currentPattern] ?? Array.from({ length: stepsPerPattern }, () => [])).map(cloneStepEvents);
+    const baseSteps = Array.from({ length: nextStepsPerPattern }, (_, stepIndex) => cloneStepEvents(targetTrack.patterns[currentPattern]?.[stepIndex] ?? []));
     const automationBase = targetTrack.automation?.[currentPattern] ?? {
-      level: Array.from({ length: stepsPerPattern }, () => 0.5),
-      tone: Array.from({ length: stepsPerPattern }, () => 0.5),
+      level: Array.from({ length: nextStepsPerPattern }, () => 0.5),
+      tone: Array.from({ length: nextStepsPerPattern }, () => 0.5),
     };
     const nextAutomation = {
-      level: [...automationBase.level],
-      tone: [...automationBase.tone],
+      level: Array.from({ length: nextStepsPerPattern }, (_, stepIndex) => automationBase.level[stepIndex] ?? 0.5),
+      tone: Array.from({ length: nextStepsPerPattern }, (_, stepIndex) => automationBase.tone[stepIndex] ?? 0.5),
     };
 
     for (let segmentStep = 0; segmentStep < segment.steps.length; segmentStep += 1) {
       const destinationStep = startStep + segmentStep;
-      if (destinationStep >= stepsPerPattern) {
+      if (destinationStep >= nextStepsPerPattern) {
         break;
       }
 
@@ -559,7 +562,7 @@ export const MainWorkspace = () => {
   };
 
   return (
-    <section className="surface-panel flex min-h-0 flex-1 flex-col overflow-auto xl:overflow-hidden">
+    <section className="surface-panel flex min-h-0 flex-1 flex-col overflow-visible">
       <div className="flex items-center justify-between gap-4 border-b border-[var(--border-soft)] px-5 py-4">
         <div>
           <div className="section-label">Sequencer</div>
@@ -580,8 +583,8 @@ export const MainWorkspace = () => {
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-visible p-4 xl:flex-row xl:overflow-hidden">
-        <div className="flex min-h-[520px] min-w-0 flex-1 flex-col overflow-hidden xl:min-h-0">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-visible p-4 xl:flex-row xl:items-start">
+        <div className="flex min-h-[520px] min-w-0 flex-1 flex-col overflow-visible xl:min-h-0">
           <div className="surface-panel-muted mb-3 px-4 py-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -597,7 +600,7 @@ export const MainWorkspace = () => {
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <div className="surface-panel-strong flex flex-wrap items-center gap-1 p-1">
-                  <span className="px-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Steps</span>
+                  <span className="px-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Steps 16-128</span>
                   {STEP_OPTIONS.map((option) => (
                     <button
                       className="control-chip px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
@@ -780,7 +783,7 @@ export const MainWorkspace = () => {
               {queuedSegment && (
                 <div className="mt-2 flex flex-wrap items-center gap-2 rounded-[3px] border border-[rgba(114,217,255,0.24)] bg-[rgba(114,217,255,0.09)] px-3 py-2 text-[11px] text-[var(--accent-strong)]">
                   <Zap className="h-3.5 w-3.5 text-[var(--accent)]" />
-                  Stitch mode ready: click a lane step above to place {queuedSegment.name}.
+                  Stitch mode ready: click any sequencer cell or track-map step to place {queuedSegment.name}.
                   <button
                     className="control-chip ml-auto px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
                     onClick={() => {
@@ -988,16 +991,39 @@ export const MainWorkspace = () => {
                             const maxGate = value.reduce((gate, event) => Math.max(gate, event.gate), 0);
                             const showStepNoteLabel = stepCellWidth >= 36;
                             const showStepCount = stepCellWidth >= 26;
-                            const anchorNote = !['kick', 'snare', 'hihat'].includes(track.type)
-                              ? getTrackAnchorNote(track, patternSteps, stepIndex)
-                              : null;
+                            const anchorNote = getTrackAnchorNote(track, patternSteps, stepIndex);
 
                             return (
                               <button
                                 className={`group relative shrink-0 touch-none border transition-colors ${compactLanes ? 'min-h-[38px]' : 'min-h-[48px]'} ${isActive ? 'border-transparent' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.05)]'} ${isCurrent ? 'ring-1 ring-inset ring-[rgba(255,255,255,0.08)]' : ''} ${isSelectedStep ? 'outline outline-1 outline-offset-0 outline-[rgba(125,211,252,0.26)]' : ''}`}
                                 key={`${track.id}-${stepIndex}`}
-                                onPointerDown={(event) => handleSeqCellPointerDown(track.id, stepIndex, value, event)}
-                                onPointerEnter={() => handleSeqCellPointerEnter(track.id, stepIndex, value)}
+                                onPointerDown={(event) => {
+                                  if (queuedSegment) {
+                                    if (event.button !== 0) {
+                                      return;
+                                    }
+                                    event.preventDefault();
+                                    handleStitchPatternSegment(track.id, queuedSegment, stepIndex);
+                                    return;
+                                  }
+
+                                  handleSeqCellPointerDown(track.id, stepIndex, value, event);
+                                }}
+                                onPointerEnter={() => {
+                                  setSupersonicHoverCell({ trackId: track.id, stepIndex });
+                                  if (queuedSegment) {
+                                    setStitchHover({ trackId: track.id, stepIndex });
+                                  }
+                                  handleSeqCellPointerEnter(track.id, stepIndex, value);
+                                }}
+                                onPointerLeave={() => {
+                                  setSupersonicHoverCell((current) => (
+                                    current?.trackId === track.id && current.stepIndex === stepIndex ? null : current
+                                  ));
+                                  setStitchHover((current) => (
+                                    current?.trackId === track.id && current.stepIndex === stepIndex ? null : current
+                                  ));
+                                }}
                                 style={isActive
                                   ? {
                                       background: isCurrent ? track.color : `${track.color}cc`,
@@ -1028,8 +1054,11 @@ export const MainWorkspace = () => {
                                     {value.length}
                                   </span>
                                 )}
-                                {superSonicMode && !isActive && anchorNote && !['kick', 'snare', 'hihat'].includes(track.type) && (
-                                  <span className="supersonic-ladder pointer-events-none absolute inset-y-[3px] left-[3px] right-[3px] z-[2] opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100">
+                                {superSonicMode && !queuedSegment && !isActive && anchorNote && supersonicHoverCell?.trackId === track.id && supersonicHoverCell.stepIndex === stepIndex && (
+                                  <span
+                                    className="supersonic-ladder absolute inset-y-[3px] left-[3px] right-[3px] z-[2]"
+                                    style={{ '--supersonic-ladder-count': String(SUPERSONIC_NOTE_OFFSETS.length) } as React.CSSProperties}
+                                  >
                                     {SUPERSONIC_NOTE_OFFSETS.map((offset) => {
                                       const targetNote = shiftPitch(anchorNote, offset);
                                       if (!targetNote) {
@@ -1037,7 +1066,7 @@ export const MainWorkspace = () => {
                                           <span
                                             className="supersonic-ladder-step"
                                             key={`${track.id}-${stepIndex}-seq-${offset}`}
-                                            style={{ opacity: 0.22, width: '44%' }}
+                                            style={{ '--ladder-fill': '0.44', '--ladder-glow': track.color } as React.CSSProperties}
                                           />
                                         );
                                       }
@@ -1052,13 +1081,10 @@ export const MainWorkspace = () => {
                                             handleSeqCellPointerDown(track.id, stepIndex, value, event, targetNote);
                                           }}
                                           style={{
-                                            alignSelf: 'center',
-                                            background: offset === 0
-                                              ? `linear-gradient(90deg, ${track.color}, rgba(255,255,255,0.9))`
-                                              : `linear-gradient(90deg, ${track.color}cc, ${track.color}44)`,
-                                            height: offset === 0 ? '6px' : '4px',
-                                            width: `${Math.max(24, 100 - (Math.abs(offset) * 12))}%`,
-                                          }}
+                                            '--ladder-color': track.color,
+                                            '--ladder-fill': `${Math.max(0.38, 0.94 - (Math.abs(offset) * 0.08))}`,
+                                            '--ladder-glow': offset === 0 ? 'rgba(255,255,255,0.88)' : `${track.color}88`,
+                                          } as React.CSSProperties}
                                           title={`Place ${targetNote}`}
                                         />
                                       );
@@ -1125,7 +1151,7 @@ export const MainWorkspace = () => {
         </div>
 
         {(!isMobileViewport || mobileInspectorOpen) && (
-        <aside className="surface-panel-strong sonic-sidebar w-full shrink-0 overflow-auto p-4 xl:w-[320px]">
+        <aside className="surface-panel-strong sonic-sidebar w-full shrink-0 overflow-auto p-4 xl:min-w-[320px] xl:w-[320px]">
           <div className="flex items-center gap-2">
             <SlidersHorizontal className="h-4 w-4 text-[var(--accent)]" />
             <span className="section-label">Compose inspector</span>
@@ -1206,7 +1232,7 @@ export const MainWorkspace = () => {
               <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
                 <div className="section-label">Pattern pieces</div>
                 <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
-                  Save this lane's current pattern as a reusable piece, then select another lane and drop it in here.
+                  Save this lane's current pattern as a reusable piece, then queue it and place it directly onto any sequencer lane step or track-map step.
                 </div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <input
@@ -1267,7 +1293,7 @@ export const MainWorkspace = () => {
                               }}
                               type="button"
                             >
-                              {queuedSegmentId === segment.id ? 'Queued for stitch' : 'Queue stitch'}
+                              {queuedSegmentId === segment.id ? 'Click grid to place' : 'Queue for grid stitch'}
                             </button>
                             <span className="text-[11px] text-[var(--text-secondary)]">
                               From {segment.sourceTrackName}

@@ -37,6 +37,8 @@ import {
   snapNoteGate,
 } from '../utils/noteEditing';
 import { useMediaQuery } from '../utils/useMediaQuery';
+import { loadRecordedNotePresets, subscribeRecordedNotePresets, type RecordedNotePreset } from '../services/recordedNoteLibrary';
+import { captureSuggestionControlsToTrackParams, captureSuggestionControlsToTrackSource } from '../services/audioRecording';
 
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
@@ -46,7 +48,7 @@ const STEP_ZOOM_MAX = 120;
 const STEP_ZOOM_MIN = 20;
 const STEP_ZOOM_STEP = 2;
 const STEP_OPTIONS = [16, 32, 64, 96, 128] as const;
-const SUPERSONIC_NOTE_OFFSETS = [3, 2, 1, 0, -1, -2, -3] as const;
+const SUPERSONIC_NOTE_OFFSETS = [4, 3, 2, 1, 0, -1, -2, -3, -4] as const;
 
 const shiftPitch = (note: string, semitones: number): string | null => {
   const match = note.match(/^([A-G]#?)(-?\d+)$/);
@@ -121,12 +123,15 @@ interface NoteResizeState {
 export const PianoRoll = () => {
   const isMobileViewport = useMediaQuery('(max-width: 767px)');
   const {
+    applyTrackVoicePreset,
     clearTrack,
     currentPattern,
     currentStep,
     humanizePattern,
     moveNoteToStep,
     selectedTrackId,
+    setTrackParams,
+    setTrackSource,
     setLoopRange,
     setStepsPerPattern,
     shiftPattern,
@@ -151,7 +156,9 @@ export const PianoRoll = () => {
     typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
   ));
   const [mobileInspectorOpen, setMobileInspectorOpen] = useState(false);
+  const [supersonicHoverCell, setSupersonicHoverCell] = useState<{ note: string; stepIndex: number } | null>(null);
   const [noteResizeState, setNoteResizeState] = useState<NoteResizeState | null>(null);
+  const [recordedNoteLibrary, setRecordedNoteLibrary] = useState<RecordedNotePreset[]>([]);
   const [chordKey, setChordKey] = useState<KeyName>('C');
   const [chordMode, setChordMode] = useState<'major' | 'minor'>('major');
   const [chordPaletteOpen, setChordPaletteOpen] = useState(false);
@@ -160,6 +167,11 @@ export const PianoRoll = () => {
   const gridOverviewDragRef = useRef(false);
   const [gridScrollLeft, setGridScrollLeft] = useState(0);
   const [gridViewportWidth, setGridViewportWidth] = useState(0);
+
+  useEffect(() => {
+    setRecordedNoteLibrary(loadRecordedNotePresets());
+    return subscribeRecordedNotePresets(setRecordedNoteLibrary);
+  }, []);
 
   useEffect(() => {
     if (!track) {
@@ -662,6 +674,22 @@ export const PianoRoll = () => {
 
   const closeContextMenu = () => setContextMenuState(null);
 
+  const applyRecordedNotePresetToContext = (preset: RecordedNotePreset) => {
+    if (!contextMenuState) {
+      return;
+    }
+
+    updateStepEvent(track.id, contextMenuState.stepIndex, contextMenuState.noteIndex, { note: preset.note });
+
+    if (preset.presetId) {
+      applyTrackVoicePreset(track.id, preset.presetId);
+    }
+
+    setTrackSource(track.id, captureSuggestionControlsToTrackSource(preset.controls));
+    setTrackParams(track.id, captureSuggestionControlsToTrackParams(preset.controls));
+    closeContextMenu();
+  };
+
   const handleNoteContextAction = (action: 'delete' | 'duplicate' | 'octave-up' | 'octave-down') => {
     if (!contextMenuState) return;
     const { stepIndex, noteIndex, note } = contextMenuState;
@@ -724,7 +752,7 @@ export const PianoRoll = () => {
         <div className="flex flex-wrap items-center gap-2">
 
           <div className="surface-panel-muted flex items-center gap-2 p-1">
-            <span className="px-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Steps</span>
+            <span className="px-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Steps 16-128</span>
             {STEP_OPTIONS.map((option) => (
               <React.Fragment key={`steps-${option}`}>
                 <WindowButton active={stepsPerPattern === option} label={`${option}`} onClick={() => setStepsPerPattern(option)} />
@@ -972,26 +1000,36 @@ export const PianoRoll = () => {
                         className={`group relative border-r border-[var(--border-soft)] transition-colors touch-none ${stepIndex % 4 === 0 ? 'bg-[rgba(255,255,255,0.02)]' : ''} ${isSelected ? 'ring-1 ring-inset ring-[rgba(124,211,252,0.22)]' : ''} hover:bg-[rgba(255,255,255,0.04)]`}
                         key={`${note}-${stepIndex}`}
                         onPointerDown={(event) => handleCellPointerDown(stepIndex, note, !!activeEvent, event)}
-                        onPointerEnter={() => handleCellPointerEnter(stepIndex, note, !!activeEvent)}
+                        onPointerEnter={() => {
+                          setSupersonicHoverCell({ note, stepIndex });
+                          handleCellPointerEnter(stepIndex, note, !!activeEvent);
+                        }}
+                        onPointerLeave={() => {
+                          setSupersonicHoverCell((current) => (
+                            current?.note === note && current.stepIndex === stepIndex ? null : current
+                          ));
+                        }}
                         style={{ width: `${stepCellWidth}px`, touchAction: 'none' }}
                         type="button"
                       >
                         {!activeEvent && (
                           <>
-                            <span
-                              aria-hidden
-                              className="pointer-events-none absolute inset-y-[3px] left-[3px] rounded-md opacity-0 transition-opacity group-hover:opacity-30"
-                              style={{
-                                background: track.color,
-                                width: `${Math.max(10, stepCellWidth - 6)}px`,
-                              }}
-                            />
-                            {superSonicMode && !isDrum && (
-                              <span className="supersonic-ladder pointer-events-none absolute inset-y-[3px] left-[3px] right-[3px] z-[2] opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100">
+                            {!superSonicMode && (
+                              <span
+                                aria-hidden
+                                className="pointer-events-none absolute inset-y-[3px] left-[3px] rounded-md opacity-0 transition-opacity group-hover:opacity-30"
+                                style={{
+                                  background: track.color,
+                                  width: `${Math.max(10, stepCellWidth - 6)}px`,
+                                }}
+                              />
+                            )}
+                            {superSonicMode && !isDrum && supersonicHoverCell?.note === note && supersonicHoverCell.stepIndex === stepIndex && (
+                              <span className="supersonic-ladder absolute inset-y-[3px] left-[3px] right-[3px] z-[2]" style={{ '--supersonic-ladder-count': String(SUPERSONIC_NOTE_OFFSETS.length) } as React.CSSProperties}>
                                 {SUPERSONIC_NOTE_OFFSETS.map((offset) => {
                                   const targetNote = shiftPitch(note, offset);
                                   if (!targetNote) {
-                                    return <span className="supersonic-ladder-step" key={`${note}-${stepIndex}-${offset}`} style={{ opacity: 0.2, width: '40%' }} />;
+                                    return <span className="supersonic-ladder-step" key={`${note}-${stepIndex}-${offset}`} style={{ '--ladder-color': track.color, '--ladder-fill': '0.24' } as React.CSSProperties} />;
                                   }
 
                                   return (
@@ -1001,12 +1039,9 @@ export const PianoRoll = () => {
                                       key={`${note}-${stepIndex}-${offset}`}
                                       onPointerDown={(event) => handleSuperSonicPointerDown(stepIndex, note, offset, event)}
                                       style={{
-                                        alignSelf: 'center',
-                                        background: offset === 0
-                                          ? `linear-gradient(90deg, ${track.color}, rgba(255,255,255,0.92))`
-                                          : `linear-gradient(90deg, ${track.color}dd, ${track.color}55)`,
-                                        height: offset === 0 ? '6px' : '4px',
-                                        width: `${Math.max(26, 100 - (Math.abs(offset) * 12))}%`,
+                                        '--ladder-color': track.color,
+                                        '--ladder-fill': `${Math.max(0.38, 0.94 - (Math.abs(offset) * 0.08))}`,
+                                        '--ladder-glow': offset === 0 ? 'rgba(255,255,255,0.88)' : `${track.color}88`,
                                       }}
                                       title={`Place ${targetNote}`}
                                     />
@@ -1531,6 +1566,22 @@ export const PianoRoll = () => {
             <ContextMenuItem onClick={() => handleNoteContextAction('octave-up')}>Octave up</ContextMenuItem>
             <ContextMenuItem onClick={() => handleNoteContextAction('octave-down')}>Octave down</ContextMenuItem>
             <ContextMenuItem onClick={() => handleNoteContextAction('duplicate')}>Duplicate</ContextMenuItem>
+            {recordedNoteLibrary.length > 0 && (
+              <>
+                <div className="my-1 border-t border-[var(--border-soft)]" />
+                <div className="px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+                  Saved captures
+                </div>
+                {recordedNoteLibrary.slice(0, 5).map((preset) => (
+                  <React.Fragment key={preset.id}>
+                    <ContextMenuItem onClick={() => applyRecordedNotePresetToContext(preset)}>
+                      <span>{preset.name}</span>
+                      <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">{preset.note}</span>
+                    </ContextMenuItem>
+                  </React.Fragment>
+                ))}
+              </>
+            )}
             <div className="my-1 border-t border-[var(--border-soft)]" />
             <ContextMenuItem danger onClick={() => handleNoteContextAction('delete')}>Delete note</ContextMenuItem>
           </div>

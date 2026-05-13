@@ -11,6 +11,20 @@ const GROUPS: Array<{ title: string; entries: ShortcutEntry[] }> = [
     title: 'Transport',
     entries: [
       { keys: 'Space', label: 'Play or pause' },
+      { keys: '⌥ R', label: 'Start or stop recording' },
+      { keys: 'M', label: 'Toggle metronome' },
+      { keys: '1-8', label: 'Jump to pattern A-H' },
+    ],
+  },
+  {
+    title: 'Views and modes',
+    entries: [
+      { keys: '⌥ 1', label: 'Open Sequencer' },
+      { keys: '⌥ 2', label: 'Open Piano Roll' },
+      { keys: '⌥ 3', label: 'Open Mixer' },
+      { keys: '⌥ 4', label: 'Open Arranger' },
+      { keys: '⌥ 5', label: 'Open Compose view' },
+      { keys: '⌥ S', label: 'Toggle SuperSonic mode' },
     ],
   },
   {

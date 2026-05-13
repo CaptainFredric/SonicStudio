@@ -8,7 +8,10 @@ interface CreateKeyboardShortcutHandlerOptions {
   isSettingsOpen: boolean;
   project: Project;
   saveProject: () => void;
+  setSuperSonicMode: (enabled: boolean) => void;
+  superSonicMode: boolean;
   togglePlay: () => Promise<void>;
+  toggleRecording: () => Promise<void>;
 }
 
 export const createKeyboardShortcutHandler = ({
@@ -16,7 +19,10 @@ export const createKeyboardShortcutHandler = ({
   isSettingsOpen,
   project,
   saveProject,
+  setSuperSonicMode,
+  superSonicMode,
   togglePlay,
+  toggleRecording,
 }: CreateKeyboardShortcutHandlerOptions) => async (event: KeyboardEvent) => {
   const target = event.target as HTMLElement | null;
   if (target && (
@@ -30,6 +36,26 @@ export const createKeyboardShortcutHandler = ({
 
   const isModifierPressed = event.metaKey || event.ctrlKey;
   const normalizedKey = event.key.toLowerCase();
+
+  if (event.altKey && event.code === 'KeyS') {
+    event.preventDefault();
+    setSuperSonicMode(!superSonicMode);
+    return;
+  }
+
+  if (event.altKey && event.code === 'KeyR') {
+    event.preventDefault();
+    await toggleRecording();
+    return;
+  }
+
+  if (event.altKey && /^Digit[1-5]$/.test(event.code)) {
+    event.preventDefault();
+    const views = ['SEQUENCER', 'PIANO_ROLL', 'MIXER', 'ARRANGER', 'COMPOSE'] as const;
+    const nextView = views[Math.max(0, Math.min(views.length - 1, Number(event.code.slice(-1)) - 1))];
+    dispatch({ type: 'SET_ACTIVE_VIEW', view: nextView });
+    return;
+  }
 
   if (isModifierPressed && normalizedKey === 's') {
     event.preventDefault();

@@ -3,6 +3,7 @@ import {
   Circle,
   Compass,
   Layers3,
+  Mic,
   Play,
   Radio,
   Redo2,
@@ -16,6 +17,7 @@ import {
 
 import { useAudio } from '../context/AudioContext';
 import { MASTER_PRESET_DEFINITIONS, type MasterSettings } from '../project/schema';
+import { getSupersonicTransitionOrigin, runSupersonicTransition } from '../utils/supersonicTransition';
 import { BrandMark } from './BrandMark';
 
 const MASTER_MATCH_EPSILON = 0.015;
@@ -30,7 +32,15 @@ const isMasterPresetMatch = (current: MasterSettings, target: MasterSettings) =>
   && Math.abs(current.limiterCeiling - target.limiterCeiling) <= 0.06
 );
 
-export const TopBar = ({ firstImpression = false }: { firstImpression?: boolean }) => {
+export const TopBar = ({
+  firstImpression = false,
+  isCaptureOpen = false,
+  onOpenCapture,
+}: {
+  firstImpression?: boolean;
+  isCaptureOpen?: boolean;
+  onOpenCapture?: () => void;
+}) => {
   const {
     activeView,
     bpm,
@@ -233,11 +243,34 @@ export const TopBar = ({ firstImpression = false }: { firstImpression?: boolean 
             </div>
 
             <div className="flex items-center gap-2">
+              {onOpenCapture && (
+                <button
+                  className="control-chip capture-action flex h-9 items-center gap-2 px-3.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                  data-active={isCaptureOpen ? 'true' : 'false'}
+                  data-capture="true"
+                  data-tour-target="record"
+                  data-ui-sound="record"
+                  onClick={onOpenCapture}
+                  style={{
+                    opacity: compactStart ? 0.42 : 1,
+                    transition: 'opacity 230ms cubic-bezier(0.22,1,0.36,1)',
+                  }}
+                  type="button"
+                >
+                  <Mic className="h-3.5 w-3.5" />
+                  {isCaptureOpen ? 'Capture open' : 'Capture sound'}
+                </button>
+              )}
               <button
                 className="control-chip supersonic-toggle flex h-9 items-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
                 data-active={superSonicMode}
                 data-super="true"
-                onClick={() => setSuperSonicMode(!superSonicMode)}
+                data-tour-target="supersonic"
+                onClick={(event) => {
+                  const enabled = !superSonicMode;
+                  runSupersonicTransition(enabled, getSupersonicTransitionOrigin(event.currentTarget));
+                  setSuperSonicMode(enabled);
+                }}
                 style={{
                   opacity: compactStart ? 0.42 : 1,
                   transition: 'opacity 230ms cubic-bezier(0.22,1,0.36,1)',
@@ -262,32 +295,44 @@ export const TopBar = ({ firstImpression = false }: { firstImpression?: boolean 
                 <Settings2 className="h-3.5 w-3.5" />
                 Options
               </button>
-              <TransportBtn
-                active={isRecording}
-                label="Record"
-                onClick={toggleRecording}
-                style={{
-                  opacity: compactStart ? 0.42 : 1,
-                  transition: 'opacity 230ms cubic-bezier(0.22,1,0.36,1)',
-                }}
-                tone="record"
-              >
-                <Circle className="h-4 w-4 fill-current" />
-              </TransportBtn>
-              <TransportBtn
-                active={isPlaying}
-                data-tour-target="play"
-                emphasize={showPlayPulse}
-                label={isPlaying ? 'Pause' : 'Play'}
-                onClick={togglePlay}
-                shortcut="Space"
-                tone="play"
-              >
-                <Play className="h-4 w-4 fill-current" />
-              </TransportBtn>
-              <TransportBtn label="Stop" onClick={stop} tone="neutral">
-                <Square className="h-4 w-4 fill-current" />
-              </TransportBtn>
+              <div className="hidden md:flex items-center gap-2">
+                <TransportBtn
+                  active={isRecording}
+                  label="Record"
+                  onClick={toggleRecording}
+                  onPointerDown={() => {
+                    if (!isInitialized) {
+                      void initAudio();
+                    }
+                  }}
+                  style={{
+                    opacity: compactStart ? 0.42 : 1,
+                    transition: 'opacity 230ms cubic-bezier(0.22,1,0.36,1)',
+                  }}
+                  tone="record"
+                >
+                  <Circle className="h-4 w-4 fill-current" />
+                </TransportBtn>
+                <TransportBtn
+                  active={isPlaying}
+                  data-tour-target="play"
+                  emphasize={showPlayPulse}
+                  label={isPlaying ? 'Pause' : 'Play'}
+                  onClick={togglePlay}
+                  onPointerDown={() => {
+                    if (!isInitialized) {
+                      void initAudio();
+                    }
+                  }}
+                  shortcut="Space"
+                  tone="play"
+                >
+                  <Play className="h-4 w-4 fill-current" />
+                </TransportBtn>
+                <TransportBtn label="Stop" onClick={stop} tone="neutral">
+                  <Square className="h-4 w-4 fill-current" />
+                </TransportBtn>
+              </div>
             </div>
           </div>
 
@@ -437,9 +482,10 @@ const PatternButton = ({
     onClick={onClick}
     style={active
       ? {
-          background: 'rgba(255,255,255,0.04)',
-          border: '1px solid rgba(130, 201, 187, 0.18)',
-          color: 'var(--text-primary)',
+          background: 'color-mix(in srgb, var(--accent) 14%, transparent)',
+          border: '1px solid color-mix(in srgb, var(--accent) 34%, transparent)',
+          boxShadow: '0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent)',
+          color: 'var(--accent-strong)',
         }
       : {
           background: 'transparent',
@@ -466,9 +512,10 @@ const ModeButton = ({
     onClick={onClick}
     style={active
       ? {
-          background: 'rgba(255,255,255,0.04)',
-          borderColor: 'rgba(124, 211, 252, 0.18)',
-          color: 'var(--text-primary)',
+          background: 'color-mix(in srgb, var(--accent) 14%, transparent)',
+          borderColor: 'color-mix(in srgb, var(--accent) 34%, transparent)',
+          boxShadow: '0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent)',
+          color: 'var(--accent-strong)',
         }
       : {
           background: 'transparent',
@@ -498,8 +545,8 @@ const WorkflowButton = ({
     onClick={onClick}
     style={active
       ? {
-          borderBottomColor: 'rgba(124, 211, 252, 0.4)',
-          color: 'var(--text-primary)',
+          borderBottomColor: 'color-mix(in srgb, var(--accent) 56%, transparent)',
+          color: 'var(--accent-strong)',
         }
       : undefined}
   >
@@ -527,6 +574,7 @@ const TransportBtn = ({
   emphasize = false,
   label,
   onClick,
+  onPointerDown,
   shortcut,
   style,
   tone,
@@ -537,6 +585,7 @@ const TransportBtn = ({
   emphasize?: boolean;
   label: string;
   onClick: () => void;
+  onPointerDown?: React.PointerEventHandler<HTMLButtonElement>;
   shortcut?: string;
   style?: React.CSSProperties;
   tone: 'neutral' | 'play' | 'record';
@@ -545,18 +594,18 @@ const TransportBtn = ({
   const activeStyles = tone === 'record'
     ? 'bg-[rgba(240,143,134,0.16)] border-[rgba(240,143,134,0.28)] text-[var(--danger)]'
     : tone === 'play'
-      ? 'bg-[var(--accent-muted)] border-[rgba(130,201,187,0.26)] text-[var(--accent-strong)]'
+      ? 'bg-[var(--accent-muted)] border-[var(--accent)] text-[var(--accent-strong)]'
       : 'bg-[rgba(255,255,255,0.04)] border-[var(--border-soft)] text-[var(--text-primary)]';
   const restingStyles = emphasize && tone === 'play'
-    ? 'border-[rgba(255,255,255,0.18)] text-[#04141d] bg-[var(--accent)]'
+    ? 'border-[var(--accent)] text-[var(--bg-app)] bg-[var(--accent)]'
     : tone === 'play'
-      ? 'border-[rgba(114,217,255,0.18)] text-[var(--accent-strong)] hover:bg-[rgba(114,217,255,0.08)] hover:border-[rgba(114,217,255,0.32)]'
+      ? 'border-[color-mix(in_srgb,var(--accent)_28%,transparent)] text-[var(--accent-strong)] hover:bg-[var(--accent-muted)] hover:border-[var(--accent)]'
       : 'border-transparent text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.03)] hover:border-[var(--border-soft)] hover:text-[var(--text-primary)]';
 
   const playStyle: React.CSSProperties | undefined = emphasize && tone === 'play'
     ? {
         boxShadow:
-          '0 0 0 1px rgba(114,217,255,0.5), 0 8px 30px rgba(114,217,255,0.32), inset 0 1px 0 rgba(255,255,255,0.35)',
+          '0 0 0 1px color-mix(in srgb, var(--accent) 52%, transparent), 0 8px 30px color-mix(in srgb, var(--accent) 34%, transparent), inset 0 1px 0 rgba(255,255,255,0.35)',
         transform: 'scale(1.05)',
         transition: 'all 230ms cubic-bezier(0.22,1,0.36,1)',
       }
@@ -569,6 +618,7 @@ const TransportBtn = ({
         className={`flex h-11 w-11 sm:h-9 sm:w-9 items-center justify-center border transition-colors ${active ? activeStyles : restingStyles}`}
         data-ui-sound={tone === 'record' ? 'record' : 'transport'}
         onClick={onClick}
+        onPointerDown={onPointerDown}
         style={{ ...playStyle, ...style }}
         title={shortcut ? `${label} (${shortcut})` : label}
         {...rest}
@@ -583,7 +633,7 @@ const TransportBtn = ({
             position: 'absolute',
             inset: -6,
             borderRadius: 'inherit',
-            border: '1px solid rgba(114,217,255,0.45)',
+            border: '1px solid color-mix(in srgb, var(--accent) 46%, transparent)',
             animation: 'ss-pulse 1.6s ease-out infinite',
             pointerEvents: 'none',
           }}

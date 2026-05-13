@@ -17,6 +17,7 @@ import { OnboardingGuide } from './components/OnboardingGuide';
 import { ToastStack, type ToastItem } from './components/ToastStack';
 import { resolveStudioRoute, type StudioRouteState } from './app/routeController';
 import type { SessionTemplateId } from './project/schema';
+import { markOnboardingCompleted, markOnboardingSkipped, shouldAutoOpenOnboarding } from './services/onboardingState';
 import { Music, LayoutGrid, Volume2, Settings, Layers3, Sparkles, Rows2, Share2, Mic } from 'lucide-react';
 import { Circle, Play, Square } from 'lucide-react';
 
@@ -32,7 +33,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchp
   ];
 
   return (
-    <aside className="studio-rail md:w-[88px] w-full shrink-0 px-2 py-2 md:py-3 flex md:flex-col flex-row items-center justify-start gap-2 overflow-x-auto md:overflow-x-visible [-webkit-overflow-scrolling:touch]">
+    <aside className="studio-rail md:w-[88px] w-full shrink-0 px-2 py-2 md:py-3 flex md:flex-col flex-row items-center justify-start gap-2 overflow-x-auto md:overflow-x-visible [-webkit-overflow-scrolling:touch]" data-tour-target="views">
       <div className="section-label hidden md:block">Views</div>
       <button
         className="studio-nav-button shrink-0 md:w-full"
@@ -44,6 +45,19 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchp
         <div className="flex md:flex-col flex-row items-center gap-2">
           <Sparkles size={20} className="text-[var(--accent)]" />
           <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Library</span>
+        </div>
+      </button>
+      <button
+        className="studio-nav-button studio-nav-button-capture shrink-0 md:w-full"
+        data-capture="true"
+        data-tour-target="record"
+        onClick={onOpenRecord}
+        title="Record a sound and match it to a lane"
+        type="button"
+      >
+        <div className="flex md:flex-col flex-row items-center gap-2">
+          <Mic size={20} className="text-[var(--danger)]" />
+          <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Capture</span>
         </div>
       </button>
       <div className="flex md:flex-col flex-row gap-2 w-full md:w-auto">
@@ -64,17 +78,6 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchp
         ))}
       </div>
       <div className="ml-auto md:mt-auto md:w-full md:border-t border-[var(--border-soft)] pt-3 flex md:flex-col flex-row gap-2 md:gap-0">
-        <button
-          className="studio-nav-button shrink-0 md:w-full"
-          onClick={onOpenRecord}
-          title="Record audio and match it to a track type"
-          type="button"
-        >
-          <div className="flex md:flex-col flex-row items-center gap-2">
-            <Mic size={20} className="text-[var(--danger)]" />
-            <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Record</span>
-          </div>
-        </button>
         <button
           className="studio-nav-button shrink-0 md:w-full"
           data-tour-target="share"
@@ -111,7 +114,7 @@ const ViewRouter = () => {
     return <ComposeView />;
   }
   return (
-    <main className="relative flex flex-col min-h-[60vh] md:min-h-0 md:flex-1 md:overflow-hidden">
+    <main className="relative flex flex-col min-h-[60vh] md:min-h-0 md:min-w-0 md:flex-1">
       {activeView === 'SEQUENCER' && <Sequencer />}
       {activeView === 'PIANO_ROLL' && <PianoRoll />}
       {activeView === 'MIXER' && <Mixer />}
@@ -120,8 +123,10 @@ const ViewRouter = () => {
   );
 };
 
-const MobileTransportDock = () => {
+const MobileTransportStrip = () => {
   const {
+    initAudio,
+    isInitialized,
     isPlaying,
     isRecording,
     togglePlay,
@@ -129,12 +134,19 @@ const MobileTransportDock = () => {
     toggleRecording,
   } = useAudio();
 
+  const armAudio = () => {
+    if (!isInitialized) {
+      void initAudio();
+    }
+  };
+
   return (
-    <div className="mobile-transport-dock md:hidden" role="group" aria-label="Transport controls">
+    <div className="mobile-transport-strip md:hidden" role="group" aria-label="Transport controls">
       <button
         aria-label={isPlaying ? 'Pause playback' : 'Play'}
         className="control-chip mobile-transport-btn"
         data-active={isPlaying ? 'true' : 'false'}
+        onPointerDown={armAudio}
         onClick={() => void togglePlay()}
         type="button"
       >
@@ -155,6 +167,7 @@ const MobileTransportDock = () => {
         className="control-chip mobile-transport-btn"
         data-active={isRecording ? 'true' : 'false'}
         data-record="true"
+        onPointerDown={armAudio}
         onClick={() => void toggleRecording()}
         type="button"
       >
@@ -231,6 +244,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
   const [isRecordOpen, setRecordOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const autoGuidePendingRef = useRef(!routeState.showGuide && shouldAutoOpenOnboarding());
   const toastIdRef = useRef(0);
   const toastTimersRef = useRef<Record<number, number>>({});
 
@@ -294,15 +308,16 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
   }, [importSession]);
 
   const handleSelectTemplate = (templateId: SessionTemplateId) => {
-    setGuideOpen(false);
     loadSessionTemplate(templateId);
+    setActiveView('SEQUENCER');
     setLaunchpadOpen(false);
+    setGuideOpen(autoGuidePendingRef.current);
     void initAudio();
   };
 
   const handleStartGuide = () => {
     loadSessionTemplate('night-transit');
-    setActiveView('ARRANGER');
+    setActiveView('SEQUENCER');
     setLaunchpadOpen(false);
     setGuideOpen(true);
     void initAudio();
@@ -311,19 +326,39 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
   const handleImportMidi = () => {
     fileInputRef.current?.click();
   };
+  const openCapture = useCallback(() => {
+    setGuideOpen(false);
+    setRecordOpen(true);
+  }, []);
+
   const handleFileChosen = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       const ok = await importMidiSession(file);
-      if (ok) setLaunchpadOpen(false);
+      if (ok) {
+        setLaunchpadOpen(false);
+        setGuideOpen(autoGuidePendingRef.current);
+      }
     }
     event.target.value = '';
   };
 
   return (
-    <div className="app-shell min-h-screen w-full md:h-screen md:w-screen md:overflow-hidden antialiased text-[var(--text-primary)]">
+    <div className="app-shell min-h-screen w-full antialiased text-[var(--text-primary)]">
       <ToastStack toasts={toasts} onDismiss={dismissToast} />
-      <OnboardingGuide open={isGuideOpen && !isLaunchpadOpen && !isShareOpen && !isRecordOpen} onClose={() => setGuideOpen(false)} />
+      <OnboardingGuide
+        onComplete={() => {
+          autoGuidePendingRef.current = false;
+          markOnboardingCompleted();
+          setGuideOpen(false);
+        }}
+        onSkip={() => {
+          autoGuidePendingRef.current = false;
+          markOnboardingSkipped();
+          setGuideOpen(false);
+        }}
+        open={isGuideOpen && !isLaunchpadOpen && !isShareOpen && !isRecordOpen}
+      />
       <ShortcutOverlay />
       <ShareDialog open={isShareOpen} onClose={() => setShareOpen(false)} onNotify={pushToast} />
       <AudioCapture open={isRecordOpen} onClose={() => setRecordOpen(false)} />
@@ -348,18 +383,15 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
           />
         </div>
       ) : null}
-      <div className="flex flex-col md:h-full md:overflow-hidden">
+      <div className="flex min-h-screen flex-col">
         <div className="px-3 pt-3">
-          <TopBar firstImpression={isFirstImpression} />
+          <TopBar firstImpression={isFirstImpression} isCaptureOpen={isRecordOpen} onOpenCapture={openCapture} />
         </div>
-        <MobileTransportDock />
+        <MobileTransportStrip />
         <div className="studio-shell-grid flex flex-col md:flex-row md:flex-1 md:min-h-0 gap-3 px-3 pb-3">
           <SideNav
             onOpenLaunchpad={() => setLaunchpadOpen(true)}
-            onOpenRecord={() => {
-              setGuideOpen(false);
-              setRecordOpen(true);
-            }}
+            onOpenRecord={openCapture}
             onOpenShare={() => {
               setGuideOpen(false);
               setShareOpen(true);

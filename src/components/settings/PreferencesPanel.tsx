@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { HardDrive, Keyboard, Palette, Rows2, Trash2, Type, Volume2, Waves, Zap } from 'lucide-react';
 
 import { ACCENT_PRESETS, type AccentColor, type DefaultWorkspace, type Density, type MotionMode } from '../../project/preferences';
+import { getSupersonicTransitionOrigin, runSupersonicTransition } from '../../utils/supersonicTransition';
 import { SegmentButton, StateButton } from './SettingsPrimitives';
 
 interface PreferencesPanelProps {
@@ -123,8 +124,30 @@ export const PreferencesPanel = ({
         Turns on the brighter advanced workspace: macro zoom, precision hover ladders in Sequencer and Roll, and stitch-ready track map tools.
       </p>
       <div className="mt-3 flex gap-2">
-        <StateButton active={superSonicMode} label="On" onClick={() => onSuperSonicModeChange(true)} />
-        <StateButton active={!superSonicMode} label="Off" onClick={() => onSuperSonicModeChange(false)} />
+        <button
+          className="control-chip px-3 py-2 text-xs font-medium uppercase tracking-[0.14em] transition-colors"
+          data-active={superSonicMode}
+          data-ui-sound="action"
+          onClick={(event) => {
+            runSupersonicTransition(true, getSupersonicTransitionOrigin(event.currentTarget));
+            onSuperSonicModeChange(true);
+          }}
+          type="button"
+        >
+          On
+        </button>
+        <button
+          className="control-chip px-3 py-2 text-xs font-medium uppercase tracking-[0.14em] transition-colors"
+          data-active={!superSonicMode}
+          data-ui-sound="action"
+          onClick={(event) => {
+            runSupersonicTransition(false, getSupersonicTransitionOrigin(event.currentTarget));
+            onSuperSonicModeChange(false);
+          }}
+          type="button"
+        >
+          Off
+        </button>
       </div>
     </PanelCard>
 

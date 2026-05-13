@@ -487,7 +487,10 @@ export const AudioProvider = ({
     isSettingsOpen: editorState.ui.isSettingsOpen,
     project,
     saveProject,
+    setSuperSonicMode: (superSonicMode) => setPreferences((current) => ({ ...current, superSonicMode })),
+    superSonicMode: preferences.superSonicMode,
     togglePlay,
+    toggleRecording,
   }));
 
   useEffect(() => {

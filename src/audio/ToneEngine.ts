@@ -41,6 +41,7 @@ interface TrackGraph {
 export class ToneEngine {
   private activeSamplePlayers = new Set<Tone.Player>();
   private arrangerClips: ArrangementClip[] = [];
+  private initPromise: Promise<void> | null = null;
   private isInitialized = false;
   private loopRange: { endBeat: number; startBeat: number } | null = null;
   private masterCompressor: Tone.Compressor | null = null;
@@ -67,6 +68,7 @@ export class ToneEngine {
   private stepsPerPattern = 16;
   private trackGraphs: Record<string, TrackGraph> = {};
   private tracksState: Track[] = [];
+  private transportEventId: number | null = null;
   private transportLoopEnabled = true;
   private transportMode: TransportMode = 'PATTERN';
 
@@ -76,52 +78,75 @@ export class ToneEngine {
   public recorder: Tone.Recorder | null = null;
 
   async init(options: { offline?: boolean } = {}) {
-    this.offlineMode = Boolean(options.offline);
-
-    if (!this.offlineMode) {
-      await Tone.start();
-    }
+    const offlineMode = Boolean(options.offline);
+    this.offlineMode = offlineMode;
 
     if (this.isInitialized) {
+      if (!offlineMode) {
+        await Tone.start();
+      }
       return;
     }
 
-    this.masterCompressor = new Tone.Compressor({ ratio: 4, threshold: -24 }).toDestination();
-    this.masterLimiter = new Tone.Limiter(-0.1);
-    this.masterHighpass = new Tone.Filter({ frequency: 28, rolloff: -24, type: 'highpass' });
-    this.masterLowpass = new Tone.Filter({ frequency: 18000, rolloff: -24, type: 'lowpass' });
-    this.masterEq = new Tone.EQ3({ high: 0, low: 0, mid: 0 });
-    this.masterWidener = new Tone.StereoWidener(0.5);
-    this.masterGain = new Tone.Gain(1);
-    this.masterMeter = new Tone.Meter();
-    this.metronomeSynth = new Tone.Synth({
-      envelope: { attack: 0.001, decay: 0.06, release: 0.03, sustain: 0 },
-      oscillator: { type: 'square' },
-      volume: -12,
-    });
-    this.analyzer = this.offlineMode ? null : new Tone.Analyser('fft', 256);
-    this.recorder = this.offlineMode ? null : new Tone.Recorder();
-    this.masterLimiter.connect(this.masterHighpass);
-    this.masterHighpass.connect(this.masterLowpass);
-    this.masterLowpass.connect(this.masterEq);
-    this.masterEq.connect(this.masterWidener);
-    this.masterWidener.connect(this.masterGain);
-    this.masterGain.connect(this.masterCompressor);
-    this.masterGain.connect(this.masterMeter);
-    this.metronomeSynth.connect(this.masterLimiter);
-    if (this.analyzer) {
-      this.masterCompressor.connect(this.analyzer);
-    }
-    if (this.recorder) {
-      this.masterCompressor.connect(this.recorder);
+    if (this.initPromise) {
+      await this.initPromise;
+      return;
     }
 
-    Tone.Transport.scheduleRepeat((time) => {
-      this.playStep(time);
-    }, '16n');
+    this.initPromise = (async () => {
+      if (!offlineMode) {
+        await Tone.start();
+      }
 
-    this.isInitialized = true;
-    this.syncTrackGraphs();
+      if (this.isInitialized) {
+        return;
+      }
+
+      this.masterCompressor = new Tone.Compressor({ ratio: 4, threshold: -24 }).toDestination();
+      this.masterLimiter = new Tone.Limiter(-0.1);
+      this.masterHighpass = new Tone.Filter({ frequency: 28, rolloff: -24, type: 'highpass' });
+      this.masterLowpass = new Tone.Filter({ frequency: 18000, rolloff: -24, type: 'lowpass' });
+      this.masterEq = new Tone.EQ3({ high: 0, low: 0, mid: 0 });
+      this.masterWidener = new Tone.StereoWidener(0.5);
+      this.masterGain = new Tone.Gain(1);
+      this.masterMeter = new Tone.Meter();
+      this.metronomeSynth = new Tone.Synth({
+        envelope: { attack: 0.001, decay: 0.06, release: 0.03, sustain: 0 },
+        oscillator: { type: 'square' },
+        volume: -12,
+      });
+      this.analyzer = this.offlineMode ? null : new Tone.Analyser('fft', 256);
+      this.recorder = this.offlineMode ? null : new Tone.Recorder();
+      this.masterLimiter.connect(this.masterHighpass);
+      this.masterHighpass.connect(this.masterLowpass);
+      this.masterLowpass.connect(this.masterEq);
+      this.masterEq.connect(this.masterWidener);
+      this.masterWidener.connect(this.masterGain);
+      this.masterGain.connect(this.masterCompressor);
+      this.masterGain.connect(this.masterMeter);
+      this.metronomeSynth.connect(this.masterLimiter);
+      if (this.analyzer) {
+        this.masterCompressor.connect(this.analyzer);
+      }
+      if (this.recorder) {
+        this.masterCompressor.connect(this.recorder);
+      }
+
+      if (this.transportEventId === null) {
+        this.transportEventId = Tone.Transport.scheduleRepeat((time) => {
+          this.playStep(time);
+        }, '16n');
+      }
+
+      this.isInitialized = true;
+      this.syncTrackGraphs();
+    })();
+
+    try {
+      await this.initPromise;
+    } finally {
+      this.initPromise = null;
+    }
   }
 
   public getMeterValue(id: string): number {
@@ -422,6 +447,7 @@ export class ToneEngine {
     }
 
     const graph = this.ensureTrackGraph(track);
+    this.applyTrackGraphState(graph, track);
     const previewNote: NoteEvent = {
       gate: track.source.engine === 'sample' ? 2 : track.type === 'pad' ? 2.5 : 1.25,
       note,
@@ -605,9 +631,18 @@ export class ToneEngine {
       case 'kick':
         return new Tone.MembraneSynth();
       case 'snare':
-        return new Tone.NoiseSynth({ envelope: { decay: 0.18, sustain: 0 } });
+        return new Tone.NoiseSynth({
+          envelope: { attack: 0.001, decay: 0.14, sustain: 0 },
+          noise: { type: 'pink' },
+        });
       case 'hihat':
-        return new Tone.MetalSynth();
+        return new Tone.MetalSynth({
+          envelope: { attack: 0.001, decay: 0.08, release: 0.01, sustain: 0 },
+          harmonicity: 4.1,
+          modulationIndex: 12,
+          octaves: 1.45,
+          resonance: 210,
+        });
       case 'bass':
         return new Tone.MonoSynth();
       case 'pad':
@@ -737,6 +772,37 @@ export class ToneEngine {
     }
   }
 
+  private applyTrackGraphState(graph: TrackGraph, track: Track) {
+    graph.channel.mute = track.muted;
+    graph.channel.pan.rampTo(track.pan, 0.05);
+    graph.channel.solo = track.solo;
+    graph.channel.volume.rampTo(track.volume, 0.05);
+
+    graph.chorus.wet.rampTo(track.params.chorusSend, 0.1);
+    graph.delay.wet.rampTo(track.params.delaySend, 0.1);
+    graph.crusher.bits.value = Math.max(2, Math.round(16 - track.params.bitCrush * 14));
+    graph.dist.distortion = track.params.distortion;
+    graph.filter.frequency.rampTo(track.params.cutoff, 0.1);
+    graph.filter.Q.rampTo(track.params.resonance, 0.1);
+    graph.filter.type = track.params.filterMode;
+    graph.reverb.wet.rampTo(track.params.reverbSend, 0.1);
+    graph.vibrato.frequency.value = track.params.vibratoRate;
+    graph.vibrato.depth.value = track.params.vibratoDepth;
+
+    this.applySourceShape(graph, track);
+
+    if (track.source.engine !== 'sample') {
+      graph.instrument.set({
+        envelope: {
+          attack: track.params.attack,
+          decay: track.params.decay,
+          release: track.params.release,
+          sustain: track.params.sustain,
+        },
+      });
+    }
+  }
+
   private syncTrackGraphs() {
     if (!this.isInitialized) {
       return;
@@ -746,35 +812,7 @@ export class ToneEngine {
 
     this.tracksState.forEach((track) => {
       const graph = this.ensureTrackGraph(track);
-
-      graph.channel.mute = track.muted;
-      graph.channel.pan.rampTo(track.pan, 0.05);
-      graph.channel.solo = track.solo;
-      graph.channel.volume.rampTo(track.volume, 0.05);
-
-      graph.chorus.wet.rampTo(track.params.chorusSend, 0.1);
-      graph.delay.wet.rampTo(track.params.delaySend, 0.1);
-      graph.crusher.bits.value = Math.max(2, Math.round(16 - track.params.bitCrush * 14));
-      graph.dist.distortion = track.params.distortion;
-      graph.filter.frequency.rampTo(track.params.cutoff, 0.1);
-      graph.filter.Q.rampTo(track.params.resonance, 0.1);
-      graph.filter.type = track.params.filterMode;
-      graph.reverb.wet.rampTo(track.params.reverbSend, 0.1);
-      graph.vibrato.frequency.value = track.params.vibratoRate;
-      graph.vibrato.depth.value = track.params.vibratoDepth;
-
-      this.applySourceShape(graph, track);
-
-      if (track.source.engine !== 'sample') {
-        graph.instrument.set({
-          envelope: {
-            attack: track.params.attack,
-            decay: track.params.decay,
-            release: track.params.release,
-            sustain: track.params.sustain,
-          },
-        });
-      }
+      this.applyTrackGraphState(graph, track);
     });
 
     Object.keys(this.trackGraphs).forEach((trackId) => {

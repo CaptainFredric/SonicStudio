@@ -3,7 +3,8 @@ import { useEffect, useMemo, useState } from 'react';
 
 interface OnboardingGuideProps {
   open: boolean;
-  onClose: () => void;
+  onComplete: () => void;
+  onSkip: () => void;
 }
 
 interface GuideStep {
@@ -21,6 +22,12 @@ const GUIDE_STEPS: GuideStep[] = [
     title: 'Starter sessions are always close by.',
   },
   {
+    body: 'The left rail is your fast route between Compose, Sequencer, Roll, Mix, and Arrange. If you get lost, come back here first.',
+    eyebrow: 'Views',
+    target: 'views',
+    title: 'Move around the studio from the left rail.',
+  },
+  {
     body: 'Press Space or click Play. The first gesture wakes audio, so starting playback is the easiest first move.',
     eyebrow: 'Transport',
     target: 'play',
@@ -33,13 +40,25 @@ const GUIDE_STEPS: GuideStep[] = [
     title: 'Try notes from the lower strip.',
   },
   {
+    body: 'Record listens for live pitch, suggests matching lanes, and now lets you save captured notes into a small reusable shelf. Those saved notes can be recalled later from the Roll menu.',
+    eyebrow: 'Capture',
+    target: 'record',
+    title: 'Capture sounds and turn them into reusable note presets.',
+  },
+  {
+    body: 'SuperSonic flips the studio into the advanced workflow. In Sequencer and Roll you get precision hover ladders, macro lane navigation, and faster note targeting without leaving the grid.',
+    eyebrow: 'SuperSonic',
+    target: 'supersonic',
+    title: 'SuperSonic unlocks the more precise editing layer.',
+  },
+  {
     body: 'Share the exact session with a link, copied JSON, or a session file when you want feedback or need to pick it back up somewhere else.',
     eyebrow: 'Share',
     target: 'share',
     title: 'Share the session without bouncing stems.',
   },
   {
-    body: 'Options is where you will find MIDI import, exports, checkpoints, and workspace defaults when you need them.',
+    body: 'Options is where you will find MIDI import, exports, checkpoints, workspace defaults, and the SuperSonic preference if you want that mode available by default.',
     eyebrow: 'Options',
     target: 'options',
     title: 'Settings is where the practical stuff lives.',
@@ -48,7 +67,7 @@ const GUIDE_STEPS: GuideStep[] = [
 
 const GUIDE_HIGHLIGHT_PAD = 10;
 
-export const OnboardingGuide = ({ open, onClose }: OnboardingGuideProps) => {
+export const OnboardingGuide = ({ open, onComplete, onSkip }: OnboardingGuideProps) => {
   const [stepIndex, setStepIndex] = useState(0);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
 
@@ -117,7 +136,7 @@ export const OnboardingGuide = ({ open, onClose }: OnboardingGuideProps) => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
-        onClose();
+          onSkip();
         return;
       }
 
@@ -134,7 +153,7 @@ export const OnboardingGuide = ({ open, onClose }: OnboardingGuideProps) => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose, open]);
+  }, [onSkip, open]);
 
   if (!open) {
     return null;
@@ -170,7 +189,7 @@ export const OnboardingGuide = ({ open, onClose }: OnboardingGuideProps) => {
           <button
             aria-label="Close guide"
             className="ghost-icon-button flex h-8 w-8 items-center justify-center"
-            onClick={onClose}
+            onClick={onSkip}
             type="button"
           >
             <X className="h-4 w-4" />
@@ -181,26 +200,35 @@ export const OnboardingGuide = ({ open, onClose }: OnboardingGuideProps) => {
         <p className="mt-3 text-[13px] leading-6 text-[var(--text-secondary)]">{step.body}</p>
 
         <div className="mt-4 border-t border-[var(--border-soft)] pt-4 text-[11px] leading-5 text-[var(--text-tertiary)]">
-          Use the arrow keys to move between steps. Press Esc to close.
+          Use the arrow keys to move between steps. Press Esc to skip.
         </div>
 
         <div className="mt-4 flex items-center justify-between gap-3">
-          <button
-            className="control-chip flex items-center gap-2 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em]"
-            disabled={stepIndex === 0}
-            onClick={() => setStepIndex((current) => Math.max(current - 1, 0))}
-            type="button"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            Back
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              className="control-chip flex items-center gap-2 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em]"
+              disabled={stepIndex === 0}
+              onClick={() => setStepIndex((current) => Math.max(current - 1, 0))}
+              type="button"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" />
+              Back
+            </button>
+            <button
+              className="control-chip px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em]"
+              onClick={onSkip}
+              type="button"
+            >
+              Skip
+            </button>
+          </div>
 
           <button
             className="control-chip flex items-center gap-2 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em]"
             data-active="true"
             onClick={() => {
               if (isLastStep) {
-                onClose();
+                onComplete();
                 return;
               }
 

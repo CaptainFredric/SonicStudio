@@ -8,6 +8,8 @@
 
 import {
   getTrackVoicePresetDefinitions,
+  INITIAL_PARAMS,
+  INITIAL_SOURCE,
   type InstrumentType,
   type SynthParams,
   type TrackSource,
@@ -26,12 +28,21 @@ export interface DetectedNoteCandidate {
 }
 
 export interface CaptureSuggestionControls {
+  attack: number;
+  bitCrush: number;
   cutoff: number;
+  decay: number;
+  delaySend: number;
   detune: number;
+  distortion: number;
+  filterMode: SynthParams['filterMode'];
   octaveShift: number;
   portamento: number;
+  release: number;
   resonance: number;
   reverbSend: number;
+  sustain: number;
+  waveform: TrackSource['waveform'];
 }
 
 export interface CaptureSuggestion {
@@ -83,6 +94,7 @@ interface RecordingInsightInput {
   durationSeconds: number;
   pitchHz: number | null;
   rmsDb: number;
+  snapLikelihood?: number;
   transientDensity: number;
 }
 
@@ -245,6 +257,153 @@ const linearToDb = (linear: number): number => {
   return 20 * Math.log10(linear);
 };
 
+const tailEnergyRatioOf = (samples: Float32Array): number => {
+  if (samples.length < 128) {
+    return 1;
+  }
+
+  const attackLength = Math.max(32, Math.floor(samples.length * 0.16));
+  const tailLength = Math.max(64, Math.floor(samples.length * 0.24));
+  const attackEnergy = rmsOf(samples.subarray(0, attackLength));
+  const tailEnergy = rmsOf(samples.subarray(Math.max(0, samples.length - tailLength)));
+
+  return clamp(tailEnergy / Math.max(attackEnergy, 0.0001), 0, 1.6);
+};
+
+const estimateSnapLikelihood = ({
+  brightness,
+  clarity,
+  durationSeconds,
+  tailEnergyRatio,
+  transientDensity,
+}: {
+  brightness: number;
+  clarity: number;
+  durationSeconds: number;
+  tailEnergyRatio: number;
+  transientDensity: number;
+}) => {
+  const shortness = 1 - clamp(durationSeconds / 0.42, 0, 1);
+  const dryTail = 1 - clamp(tailEnergyRatio / 0.24, 0, 1);
+  const brightnessFit = 1 - Math.min(1, Math.abs(brightness - 0.58) / 0.58);
+  const transientFit = clamp((transientDensity - 0.42) / 0.48, 0, 1);
+  const atonalBias = 1 - clamp(clarity / 0.78, 0, 1);
+
+  return clamp(
+    (shortness * 0.3)
+    + (dryTail * 0.24)
+    + (brightnessFit * 0.14)
+    + (transientFit * 0.22)
+    + (atonalBias * 0.1),
+    0,
+    1,
+  );
+};
+
+const shouldSuppressPitchEstimate = ({
+  brightness,
+  clarity,
+  durationSeconds,
+  pitchHz,
+  snapLikelihood,
+  tailEnergyRatio,
+}: {
+  brightness: number;
+  clarity: number;
+  durationSeconds: number;
+  pitchHz: number | null;
+  snapLikelihood: number;
+  tailEnergyRatio: number;
+}) => Boolean(
+  pitchHz
+  && snapLikelihood > 0.56
+  && clarity < 0.82
+  && durationSeconds < 0.36
+  && tailEnergyRatio < 0.2
+  && brightness > 0.28
+);
+
+const clampEnvelope = (value: number, min: number, max: number, precision: number = 3) => Number(clamp(value, min, max).toFixed(precision));
+
+const isWaveform = (value: unknown): value is TrackSource['waveform'] => (
+  value === 'sine' || value === 'triangle' || value === 'sawtooth' || value === 'square'
+);
+
+const isFilterMode = (value: unknown): value is SynthParams['filterMode'] => (
+  value === 'lowpass' || value === 'bandpass' || value === 'highpass'
+);
+
+export const DEFAULT_CAPTURE_SUGGESTION_CONTROLS: CaptureSuggestionControls = {
+  attack: INITIAL_PARAMS.attack,
+  bitCrush: INITIAL_PARAMS.bitCrush,
+  cutoff: INITIAL_PARAMS.cutoff,
+  decay: INITIAL_PARAMS.decay,
+  delaySend: INITIAL_PARAMS.delaySend,
+  detune: INITIAL_SOURCE.detune,
+  distortion: INITIAL_PARAMS.distortion,
+  filterMode: INITIAL_PARAMS.filterMode,
+  octaveShift: INITIAL_SOURCE.octaveShift,
+  portamento: INITIAL_SOURCE.portamento,
+  release: INITIAL_PARAMS.release,
+  resonance: INITIAL_PARAMS.resonance,
+  reverbSend: INITIAL_PARAMS.reverbSend,
+  sustain: INITIAL_PARAMS.sustain,
+  waveform: INITIAL_SOURCE.waveform,
+};
+
+export const normalizeCaptureSuggestionControls = (value: unknown): CaptureSuggestionControls => {
+  const candidate = (typeof value === 'object' && value !== null)
+    ? value as Partial<CaptureSuggestionControls>
+    : {};
+
+  return {
+    attack: typeof candidate.attack === 'number' ? candidate.attack : DEFAULT_CAPTURE_SUGGESTION_CONTROLS.attack,
+    bitCrush: typeof candidate.bitCrush === 'number' ? candidate.bitCrush : DEFAULT_CAPTURE_SUGGESTION_CONTROLS.bitCrush,
+    cutoff: typeof candidate.cutoff === 'number' ? candidate.cutoff : DEFAULT_CAPTURE_SUGGESTION_CONTROLS.cutoff,
+    decay: typeof candidate.decay === 'number' ? candidate.decay : DEFAULT_CAPTURE_SUGGESTION_CONTROLS.decay,
+    delaySend: typeof candidate.delaySend === 'number' ? candidate.delaySend : DEFAULT_CAPTURE_SUGGESTION_CONTROLS.delaySend,
+    detune: typeof candidate.detune === 'number' ? candidate.detune : DEFAULT_CAPTURE_SUGGESTION_CONTROLS.detune,
+    distortion: typeof candidate.distortion === 'number' ? candidate.distortion : DEFAULT_CAPTURE_SUGGESTION_CONTROLS.distortion,
+    filterMode: isFilterMode(candidate.filterMode) ? candidate.filterMode : DEFAULT_CAPTURE_SUGGESTION_CONTROLS.filterMode,
+    octaveShift: typeof candidate.octaveShift === 'number' ? candidate.octaveShift : DEFAULT_CAPTURE_SUGGESTION_CONTROLS.octaveShift,
+    portamento: typeof candidate.portamento === 'number' ? candidate.portamento : DEFAULT_CAPTURE_SUGGESTION_CONTROLS.portamento,
+    release: typeof candidate.release === 'number' ? candidate.release : DEFAULT_CAPTURE_SUGGESTION_CONTROLS.release,
+    resonance: typeof candidate.resonance === 'number' ? candidate.resonance : DEFAULT_CAPTURE_SUGGESTION_CONTROLS.resonance,
+    reverbSend: typeof candidate.reverbSend === 'number' ? candidate.reverbSend : DEFAULT_CAPTURE_SUGGESTION_CONTROLS.reverbSend,
+    sustain: typeof candidate.sustain === 'number' ? candidate.sustain : DEFAULT_CAPTURE_SUGGESTION_CONTROLS.sustain,
+    waveform: isWaveform(candidate.waveform) ? candidate.waveform : DEFAULT_CAPTURE_SUGGESTION_CONTROLS.waveform,
+  };
+};
+
+export const captureSuggestionControlsToTrackSource = (controls: CaptureSuggestionControls): Partial<TrackSource> => {
+  const normalized = normalizeCaptureSuggestionControls(controls);
+
+  return {
+    detune: normalized.detune,
+    octaveShift: normalized.octaveShift,
+    portamento: normalized.portamento,
+    waveform: normalized.waveform,
+  };
+};
+
+export const captureSuggestionControlsToTrackParams = (controls: CaptureSuggestionControls): Partial<SynthParams> => {
+  const normalized = normalizeCaptureSuggestionControls(controls);
+
+  return {
+    attack: normalized.attack,
+    bitCrush: normalized.bitCrush,
+    cutoff: normalized.cutoff,
+    decay: normalized.decay,
+    delaySend: normalized.delaySend,
+    distortion: normalized.distortion,
+    filterMode: normalized.filterMode,
+    release: normalized.release,
+    resonance: normalized.resonance,
+    reverbSend: normalized.reverbSend,
+    sustain: normalized.sustain,
+  };
+};
+
 const rmsDbToSignalLevel = (rmsDb: number) => {
   if (!Number.isFinite(rmsDb)) {
     return 0;
@@ -372,6 +531,7 @@ const choosePresetForTrack = (
   brightness: number,
   durationNorm: number,
   transientDensity: number,
+  snapLikelihood: number = 0,
 ): { presetId: string | null; presetLabel: string } => {
   const presets = getTrackVoicePresetDefinitions(trackType);
   if (presets.length === 0) {
@@ -383,15 +543,15 @@ const choosePresetForTrack = (
     if (preset.id === 'tight-impact') {
       score += (1 - brightness) * 0.26 + transientDensity * 0.28 + (1 - durationNorm) * 0.18;
     } else if (preset.id === 'bright-snap') {
-      score += brightness * 0.3 + transientDensity * 0.28 + (1 - durationNorm) * 0.14;
+      score += brightness * 0.3 + transientDensity * 0.28 + (1 - durationNorm) * 0.14 + (snapLikelihood * 0.24);
     } else if (preset.id === 'glide-current') {
-      score += 0.16 + (1 - Math.abs(durationNorm - 0.45)) * 0.22 + (1 - Math.abs(brightness - 0.34)) * 0.16 + (1 - transientDensity) * 0.08;
+      score += 0.16 + (1 - Math.abs(durationNorm - 0.45)) * 0.22 + (1 - Math.abs(brightness - 0.34)) * 0.16 + (1 - transientDensity) * 0.08 - (snapLikelihood * 0.12);
     } else if (preset.id === 'air-canopy') {
-      score += (1 - Math.abs(durationNorm - 0.8)) * 0.28 + (1 - brightness) * 0.14 + (1 - transientDensity) * 0.2;
+      score += (1 - Math.abs(durationNorm - 0.8)) * 0.28 + (1 - brightness) * 0.14 + (1 - transientDensity) * 0.2 - (snapLikelihood * 0.22);
     } else if (preset.id === 'needle-pluck') {
-      score += brightness * 0.18 + transientDensity * 0.24 + (1 - Math.abs(durationNorm - 0.2)) * 0.24;
+      score += brightness * 0.18 + transientDensity * 0.24 + (1 - Math.abs(durationNorm - 0.2)) * 0.24 + (snapLikelihood * 0.3);
     } else if (preset.id === 'drift-bloom') {
-      score += (1 - Math.abs(durationNorm - 0.72)) * 0.24 + brightness * 0.16 + (1 - transientDensity) * 0.14;
+      score += (1 - Math.abs(durationNorm - 0.72)) * 0.24 + brightness * 0.16 + (1 - transientDensity) * 0.14 - (snapLikelihood * 0.2);
     }
 
     return { preset, score };
@@ -423,20 +583,57 @@ const buildSuggestionControls = (
   pitchCandidate: DetectedNoteCandidate | null,
   brightness: number,
   durationNorm: number,
+  snapLikelihood: number,
   transientDensity: number,
 ): CaptureSuggestionControls => {
   const targetMidi = pitchCandidate?.midi ?? 60;
   const centerMidi = Math.round(exactMidiFromHz(profile.pitchCenter));
   const octaveShift = clamp(Math.round((targetMidi - centerMidi) / 12), -3, 3);
   const detune = clamp(pitchCandidate?.centsOff ?? 0, -180, 180);
+  const pitchBias = clamp(profile.pitchedAffinity, 0, 1);
+  const snapBias = clamp(snapLikelihood * (pitchCandidate ? 0.7 : 1), 0, 1);
+  const transientBias = clamp(transientDensity, 0, 1);
+  const sustainedBias = clamp((durationNorm * 0.72) + ((1 - transientBias) * 0.28), 0, 1);
+  const waveform: TrackSource['waveform'] = brightness > 0.76
+    ? 'square'
+    : brightness > 0.58
+      ? 'sawtooth'
+      : brightness < 0.24
+        ? 'sine'
+        : 'triangle';
+  const filterMode: SynthParams['filterMode'] = snapBias > 0.58
+    ? 'bandpass'
+    : brightness > 0.82 && transientDensity > 0.55
+      ? 'highpass'
+      : brightness > 0.54
+        ? 'bandpass'
+        : 'lowpass';
+
+  const attack = clampEnvelope(0.002 + ((1 - transientBias) * 0.11) + (durationNorm * 0.04) - (snapBias * 0.026), 0.001, 0.42);
+  const decay = clampEnvelope(0.05 + (transientBias * 0.18) + (durationNorm * 0.48) - (snapBias * 0.16), 0.02, 1.8);
+  const delaySend = Number(clamp((pitchBias * 0.12) + (durationNorm * 0.22) - (transientBias * 0.1) - (snapBias * 0.12), 0, 0.72).toFixed(2));
+  const bitCrush = Number(clamp((transientBias * 0.16) + ((1 - durationNorm) * 0.08) + (brightness * 0.06) - (snapBias * 0.08), 0, 0.58).toFixed(2));
+  const distortion = Number(clamp((transientBias * 0.18) + ((1 - brightness) * 0.06) - (snapBias * 0.06), 0, 0.7).toFixed(2));
+  const release = clampEnvelope(0.04 + (sustainedBias * 1.4) - (transientBias * 0.36) - (snapBias * 0.52), 0.03, 3.2);
+  const reverbSend = Number(clamp(profile.baseReverb + (durationNorm * 0.18) - (transientDensity * 0.16) - (snapBias * 0.22), 0, 1).toFixed(2));
+  const sustain = Number(clamp((pitchBias * 0.46) + (durationNorm * 0.34) - (transientBias * 0.28) - (snapBias * 0.18), 0, 0.96).toFixed(2));
 
   return {
+    attack,
+    bitCrush,
     cutoff: clamp(profile.baseCutoff * (0.68 + (brightness * 0.9)), 120, 15000),
+    decay,
+    delaySend,
     detune: Number(detune.toFixed(1)),
+    distortion,
+    filterMode,
     octaveShift,
     portamento: Number(clamp(profile.basePortamento + (durationNorm * 0.05) - (transientDensity * 0.05), 0, 0.2).toFixed(3)),
+    release,
     resonance: Number(clamp(profile.baseResonance + ((brightness - 0.5) * 0.8) + (transientDensity * 0.32), 0.2, 12).toFixed(2)),
-    reverbSend: Number(clamp(profile.baseReverb + (durationNorm * 0.18) - (transientDensity * 0.16), 0, 1).toFixed(2)),
+    reverbSend,
+    sustain,
+    waveform,
   };
 };
 
@@ -446,11 +643,13 @@ export const buildCaptureSuggestions = ({
   durationSeconds,
   pitchHz,
   rmsDb,
+  snapLikelihood = 0,
   transientDensity,
 }: RecordingInsightInput): CaptureSuggestion[] => {
   const durationNorm = clamp(durationSeconds / 3.2, 0, 1);
   const loudnessNorm = clamp((rmsDb + 42) / 30, 0, 1);
   const pitchCandidate = buildDetectedNoteCandidates(pitchHz, clarity)[0] ?? null;
+  const snapBias = clamp(snapLikelihood * (pitchCandidate ? 0.58 : 1), 0, 1);
 
   return TRACK_CAPTURE_PROFILES
     .map((profile) => {
@@ -465,9 +664,30 @@ export const buildCaptureSuggestions = ({
       const articulationBias = clamp((transientDensity * 0.72) + ((1 - durationNorm) * 0.28), 0, 1);
       const articulationScore = (articulationBias * (1 - profile.pitchedAffinity)) + ((1 - articulationBias) * profile.pitchedAffinity);
       const pitchWeight = 0.18 + ((1 - articulationBias) * 0.2);
-      const score = (pitchScore * pitchWeight) + (brightnessScore * 0.16) + (transientScore * 0.18) + (durationScore * 0.14) + (loudnessScore * 0.08) + (clarity * 0.06) + (articulationScore * 0.18);
-      const preset = choosePresetForTrack(profile.type, brightness, durationNorm, transientDensity);
-      const controls = buildSuggestionControls(profile, pitchCandidate, brightness, durationNorm, transientDensity);
+      let score = (pitchScore * pitchWeight) + (brightnessScore * 0.16) + (transientScore * 0.18) + (durationScore * 0.14) + (loudnessScore * 0.08) + (clarity * 0.06) + (articulationScore * 0.18);
+
+      if (snapBias > 0) {
+        const snapMidBrightness = clamp((0.84 - brightness) / 0.36, 0, 1);
+        const brightBurstBias = clamp((brightness - 0.76) / 0.2, 0, 1);
+
+        if (profile.type === 'pluck') {
+          score += snapBias * 0.16;
+        } else if (profile.type === 'snare') {
+          score += snapBias * 0.13 * snapMidBrightness;
+        } else if (profile.type === 'fx') {
+          score += snapBias * 0.11;
+        } else if (profile.type === 'lead') {
+          score += snapBias * 0.08;
+        } else if (profile.type === 'hihat') {
+          score += brightBurstBias * 0.12;
+          score -= snapBias * 0.04 * (1 - brightBurstBias);
+        } else if (profile.type === 'kick' || profile.type === 'bass' || profile.type === 'pad') {
+          score -= snapBias * 0.18;
+        }
+      }
+
+      const preset = choosePresetForTrack(profile.type, brightness, durationNorm, transientDensity, snapLikelihood);
+      const controls = buildSuggestionControls(profile, pitchCandidate, brightness, durationNorm, snapLikelihood, transientDensity);
 
       return {
         confidence: buildConfidence(score, clarity, pitchCandidate?.centsOff ?? 0),
@@ -491,10 +711,11 @@ export const buildRecordingInsights = ({
   durationSeconds,
   pitchHz,
   rmsDb,
+  snapLikelihood = 0,
   transientDensity,
 }: RecordingInsightInput) => {
   const noteCandidates = buildDetectedNoteCandidates(pitchHz, clarity);
-  const suggestions = buildCaptureSuggestions({ brightness, clarity, durationSeconds, pitchHz, rmsDb, transientDensity });
+  const suggestions = buildCaptureSuggestions({ brightness, clarity, durationSeconds, pitchHz, rmsDb, snapLikelihood, transientDensity });
   const primarySuggestion = suggestions[0] ?? null;
 
   return {
@@ -518,20 +739,39 @@ export const analyzeCaptureFrame = ({
   const brightness = brightnessOf(samples);
   const transientDensity = transientDensityOf(samples);
   const pitchDetection = detectFundamentalHz(samples, sampleRate);
-  const insights = buildRecordingInsights({
+  const tailEnergyRatio = tailEnergyRatioOf(samples);
+  const snapLikelihood = estimateSnapLikelihood({
+    brightness,
+    clarity: pitchDetection.clarity,
+    durationSeconds,
+    tailEnergyRatio,
+    transientDensity,
+  });
+  const pitchSuppressed = shouldSuppressPitchEstimate({
     brightness,
     clarity: pitchDetection.clarity,
     durationSeconds,
     pitchHz: pitchDetection.pitchHz,
+    snapLikelihood,
+    tailEnergyRatio,
+  });
+  const effectivePitchHz = pitchSuppressed ? null : pitchDetection.pitchHz;
+  const effectiveClarity = pitchSuppressed ? Math.min(pitchDetection.clarity, 0.28) : pitchDetection.clarity;
+  const insights = buildRecordingInsights({
+    brightness,
+    clarity: effectiveClarity,
+    durationSeconds,
+    pitchHz: effectivePitchHz,
     rmsDb,
+    snapLikelihood,
     transientDensity,
   });
 
   return {
     brightness,
-    clarity: pitchDetection.clarity,
+    clarity: effectiveClarity,
     detectedNote: insights.noteCandidates[0]?.note ?? null,
-    detectedPitchHz: pitchDetection.pitchHz,
+    detectedPitchHz: effectivePitchHz,
     durationSeconds,
     noteCandidates: insights.noteCandidates,
     rmsDb,
@@ -861,12 +1101,21 @@ export class AudioRecorder {
     })[0] ?? {
       confidence: 0.2,
       controls: {
+        attack: DEFAULT_CAPTURE_SUGGESTION_CONTROLS.attack,
+        bitCrush: DEFAULT_CAPTURE_SUGGESTION_CONTROLS.bitCrush,
         cutoff: 2400,
+        decay: DEFAULT_CAPTURE_SUGGESTION_CONTROLS.decay,
+        delaySend: DEFAULT_CAPTURE_SUGGESTION_CONTROLS.delaySend,
         detune: 0,
+        distortion: DEFAULT_CAPTURE_SUGGESTION_CONTROLS.distortion,
+        filterMode: DEFAULT_CAPTURE_SUGGESTION_CONTROLS.filterMode,
         octaveShift: 0,
         portamento: 0.04,
+        release: DEFAULT_CAPTURE_SUGGESTION_CONTROLS.release,
         resonance: 1.2,
         reverbSend: 0.18,
+        sustain: DEFAULT_CAPTURE_SUGGESTION_CONTROLS.sustain,
+        waveform: DEFAULT_CAPTURE_SUGGESTION_CONTROLS.waveform,
       },
       note: detectedNote,
       presetId: null,
