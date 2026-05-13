@@ -564,6 +564,10 @@ input[type=range]:focus {
   scrollbar-gutter: stable;
 }
 
+.compose-workspace {
+  gap: 0.75rem;
+}
+
 .compose-pane-body::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -825,6 +829,25 @@ input[type=range]:focus {
 
   .studio-workbench {
     gap: 0.7rem;
+  }
+
+  .compose-workspace {
+    min-height: auto;
+    overflow: visible;
+  }
+
+  .compose-main-pane {
+    max-height: 72vh;
+    min-height: min(72vh, 540px);
+  }
+
+  .compose-side-pane {
+    max-height: 68vh;
+    min-height: min(68vh, 500px);
+  }
+
+  .compose-pane-body {
+    scrollbar-gutter: auto;
   }
 
   .arranger-surface {

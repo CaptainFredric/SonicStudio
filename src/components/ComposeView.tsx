@@ -5,46 +5,25 @@ import { Arranger } from './Arranger';
 import { PianoRoll } from './PianoRoll';
 import { Mixer } from './Mixer';
 import { MainWorkspace as Sequencer } from './MainWorkspace';
-
-type PaneTarget = 'ARRANGER' | 'PIANO_ROLL' | 'MIXER' | 'SEQUENCER';
-
-const TARGET_LABELS: Record<PaneTarget, string> = {
-  ARRANGER: 'Arranger',
-  PIANO_ROLL: 'Piano roll',
-  MIXER: 'Mixer',
-  SEQUENCER: 'Sequencer',
-};
-
-const STORAGE = {
-  topRatio: 'sonicstudio:compose:topRatio:v1',
-  topView: 'sonicstudio:compose:topView:v1',
-  bottomView: 'sonicstudio:compose:bottomView:v1',
-  sideOpen: 'sonicstudio:compose:sideOpen:v1',
-  sideView: 'sonicstudio:compose:sideView:v1',
-  sideWidth: 'sonicstudio:compose:sideWidth:v1',
-  sidePlacement: 'sonicstudio:compose:sidePlacement:v1',
-  presets: 'sonicstudio:compose:presets:v1',
-};
-
-type SidePlacement = 'right' | 'left';
-const isSidePlacement = (value: unknown): value is SidePlacement => value === 'left' || value === 'right';
-
-interface LayoutPreset {
-  name: string;
-  topView: PaneTarget;
-  bottomView: PaneTarget;
-  sideOpen: boolean;
-  sideView: PaneTarget;
-  sidePlacement: SidePlacement;
-  topRatio: number;
-  sideWidth: number;
-}
-
-const DEFAULT_PRESETS: LayoutPreset[] = [
-  { name: 'Writing', topView: 'ARRANGER', bottomView: 'PIANO_ROLL', sideOpen: false, sideView: 'MIXER', sidePlacement: 'right', topRatio: 0.5, sideWidth: 380 },
-  { name: 'Mixing', topView: 'MIXER', bottomView: 'PIANO_ROLL', sideOpen: true, sideView: 'ARRANGER', sidePlacement: 'right', topRatio: 0.55, sideWidth: 420 },
-  { name: 'Beat-making', topView: 'SEQUENCER', bottomView: 'PIANO_ROLL', sideOpen: false, sideView: 'MIXER', sidePlacement: 'right', topRatio: 0.45, sideWidth: 380 },
-];
+import {
+  DEFAULT_PRESETS,
+  DEFAULT_SIDE_WIDTH,
+  DEFAULT_TOP_RATIO,
+  MAX_SIDE_WIDTH,
+  MAX_TOP_RATIO,
+  MIN_SIDE_WIDTH,
+  MIN_TOP_RATIO,
+  STORAGE,
+  TARGET_LABELS,
+  clampSideWidth,
+  clampTopRatio,
+  isPaneTarget,
+  isSidePlacement,
+  normalizeLayoutPresets,
+  type LayoutPreset,
+  type PaneTarget,
+  type SidePlacement,
+} from './compose/composeLayout';
 
 const readPresets = (): LayoutPreset[] => {
   if (typeof window === 'undefined') return DEFAULT_PRESETS;
@@ -52,21 +31,7 @@ const readPresets = (): LayoutPreset[] => {
     const raw = window.localStorage.getItem(STORAGE.presets);
     if (!raw) return DEFAULT_PRESETS;
     const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return DEFAULT_PRESETS;
-    return parsed
-      .map((entry) => {
-        if (!entry || typeof entry !== 'object') return null;
-        const e = entry as Record<string, unknown>;
-        if (!isPaneTarget(e.topView) || !isPaneTarget(e.bottomView) || !isPaneTarget(e.sideView)) return null;
-        if (!isSidePlacement(e.sidePlacement)) return null;
-        const name = typeof e.name === 'string' && e.name.trim() ? e.name.trim().slice(0, 24) : 'Preset';
-        const sideOpen = e.sideOpen === true;
-        const topRatio = typeof e.topRatio === 'number' ? Math.min(MAX_TOP_RATIO, Math.max(MIN_TOP_RATIO, e.topRatio)) : DEFAULT_TOP_RATIO;
-        const sideWidth = typeof e.sideWidth === 'number' ? Math.min(MAX_SIDE_WIDTH, Math.max(MIN_SIDE_WIDTH, e.sideWidth)) : DEFAULT_SIDE_WIDTH;
-        return { name, topView: e.topView, bottomView: e.bottomView, sideOpen, sideView: e.sideView, sidePlacement: e.sidePlacement, topRatio, sideWidth };
-      })
-      .filter((entry): entry is LayoutPreset => entry !== null)
-      .slice(0, 6);
+    return normalizeLayoutPresets(parsed);
   } catch {
     return DEFAULT_PRESETS;
   }
@@ -81,14 +46,6 @@ const writePresets = (presets: LayoutPreset[]) => {
   }
 };
 
-const MIN_TOP_RATIO = 0.12;
-const MAX_TOP_RATIO = 0.88;
-const DEFAULT_TOP_RATIO = 0.5;
-
-const MIN_SIDE_WIDTH = 220;
-const MAX_SIDE_WIDTH = 880;
-const DEFAULT_SIDE_WIDTH = 380;
-
 const readNumberSetting = (key: string, fallback: number, min: number, max: number) => {
   if (typeof window === 'undefined') return fallback;
   try {
@@ -96,15 +53,13 @@ const readNumberSetting = (key: string, fallback: number, min: number, max: numb
     if (!raw) return fallback;
     const parsed = Number(raw);
     if (!Number.isFinite(parsed)) return fallback;
+    if (key === STORAGE.topRatio) return clampTopRatio(parsed);
+    if (key === STORAGE.sideWidth) return clampSideWidth(parsed);
     return Math.min(max, Math.max(min, parsed));
   } catch {
     return fallback;
   }
 };
-
-const isPaneTarget = (value: unknown): value is PaneTarget => (
-  value === 'ARRANGER' || value === 'PIANO_ROLL' || value === 'MIXER' || value === 'SEQUENCER'
-);
 
 const readPaneTarget = (key: string, fallback: PaneTarget): PaneTarget => {
   if (typeof window === 'undefined') return fallback;
@@ -338,7 +293,7 @@ export const ComposeView = () => {
 
   const sidePane = sideOpen && (
     <section
-      className="surface-panel flex min-h-[420px] flex-col overflow-hidden md:min-h-0"
+      className="compose-side-pane surface-panel flex min-h-[420px] flex-col overflow-hidden md:min-h-0"
       style={{ width: typeof window !== 'undefined' && window.innerWidth >= 768 ? `${sideWidth}px` : undefined, flexShrink: 0 }}
     >
       <div className="flex items-center justify-between gap-2 border-b border-[var(--border-soft)] bg-[rgba(255,255,255,0.014)] px-3 py-1.5">
@@ -385,7 +340,7 @@ export const ComposeView = () => {
   return (
     <main
       ref={containerRef}
-      className="relative flex min-h-[60vh] flex-col md:min-h-0 md:flex-1 md:flex-row md:overflow-hidden"
+      className="compose-workspace relative flex min-h-[60vh] flex-col md:min-h-0 md:flex-1 md:flex-row md:overflow-hidden"
     >
       {sidePlacement === 'left' && sidePane}
       {sidePlacement === 'left' && sideSeparator}
@@ -403,16 +358,11 @@ export const ComposeView = () => {
           }}
         />
         <section
-          className="surface-panel flex min-h-[420px] flex-col overflow-hidden md:min-h-0"
+          className="compose-main-pane surface-panel flex min-h-[420px] flex-col overflow-hidden md:min-h-0"
           style={{ flexBasis: `${topRatio * 100}%`, flexShrink: 0, flexGrow: 0 }}
         >
-<<<<<<< HEAD
-          <PaneHeader label="Top pane" value={topView} onChange={handleTopChange} exclude={bottomView} />
-          <div className="compose-pane-body flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden">
-=======
           <PaneHeader label="Song desk" value={topView} onChange={handleTopChange} exclude={bottomView} />
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
->>>>>>> f4b8226 (Revamp main studio shell)
+          <div className="compose-pane-body flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden">
             {renderTarget(topView)}
           </div>
         </section>
@@ -435,16 +385,11 @@ export const ComposeView = () => {
           <GripHorizontal className="h-3 w-3 text-[var(--text-tertiary)] opacity-50 transition-opacity group-hover:opacity-100" />
         </div>
         <section
-          className="surface-panel flex min-h-[420px] flex-col overflow-hidden md:min-h-0"
+          className="compose-main-pane surface-panel flex min-h-[420px] flex-col overflow-hidden md:min-h-0"
           style={{ flexBasis: `${(1 - topRatio) * 100}%`, flexShrink: 0, flexGrow: 0 }}
         >
-<<<<<<< HEAD
-          <PaneHeader label="Bottom pane" value={bottomView} onChange={handleBottomChange} exclude={topView} />
-          <div className="compose-pane-body flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden">
-=======
           <PaneHeader label="Note desk" value={bottomView} onChange={handleBottomChange} exclude={topView} />
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
->>>>>>> f4b8226 (Revamp main studio shell)
+          <div className="compose-pane-body flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden">
             {renderTarget(bottomView)}
           </div>
         </section>
@@ -460,7 +405,6 @@ export const ComposeView = () => {
         </div>
       </div>
 
-<<<<<<< HEAD
       {sidePlacement === 'right' && sideSeparator}
       {sidePlacement === 'right' && sidePane}
 
@@ -468,64 +412,6 @@ export const ComposeView = () => {
         <button
           aria-label="Open side pane"
           className={`ghost-icon-button absolute top-2 z-20 hidden md:flex h-8 w-8 items-center justify-center ${sidePlacement === 'right' ? 'right-2' : 'left-2'}`}
-=======
-      {sideOpen && (
-        <div
-          aria-label="Resize side pane"
-          aria-orientation="vertical"
-          className="hidden md:flex w-2 cursor-ew-resize items-center justify-center"
-          onPointerCancel={handleSideEnd}
-          onPointerDown={handleSideStart}
-          onPointerMove={handleSideMove}
-          onPointerUp={handleSideEnd}
-          role="separator"
-          tabIndex={0}
-          title="Resize the side rack"
-        >
-          <GripVertical className="h-3 w-3 text-[var(--text-tertiary)] opacity-50 hover:opacity-100" />
-        </div>
-      )}
-
-      {sideOpen && (
-        <section
-          className="surface-panel flex min-h-[420px] flex-col overflow-hidden md:min-h-0"
-          style={{ width: typeof window !== 'undefined' && window.innerWidth >= 768 ? `${sideWidth}px` : undefined, flexShrink: 0 }}
-        >
-          <div className="flex items-center justify-between gap-2 border-b border-[var(--border-soft)] bg-[rgba(255,255,255,0.014)] px-3 py-1.5">
-            <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--text-tertiary)]">Side rack</div>
-            <div className="flex items-center gap-2">
-              <select
-                aria-label="Side rack content"
-                className="control-field h-7 px-2 text-[11px] font-semibold uppercase tracking-[0.14em]"
-                onChange={(event) => setSideView(event.target.value as PaneTarget)}
-                value={sideView}
-              >
-                {(Object.keys(TARGET_LABELS) as PaneTarget[]).map((target) => (
-                  <option key={target} value={target}>{TARGET_LABELS[target]}</option>
-                ))}
-              </select>
-              <button
-                aria-label="Close side rack"
-                className="ghost-icon-button flex h-7 w-7 items-center justify-center"
-                onClick={() => setSideOpen(false)}
-                title="Close side rack"
-                type="button"
-              >
-                <PanelRightClose className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </div>
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            {renderTarget(sideView)}
-          </div>
-        </section>
-      )}
-
-      {!sideOpen && (
-        <button
-          aria-label="Open side rack"
-          className="ghost-icon-button absolute right-2 top-2 z-20 hidden md:flex h-8 w-8 items-center justify-center"
->>>>>>> f4b8226 (Revamp main studio shell)
           onClick={() => setSideOpen(true)}
           title="Open side rack"
           type="button"

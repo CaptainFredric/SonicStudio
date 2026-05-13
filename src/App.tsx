@@ -13,7 +13,7 @@ import { ShortcutOverlay } from './components/ShortcutOverlay';
 import { ComposeView } from './components/ComposeView';
 import { ShareDialog } from './components/ShareDialog';
 import { AudioCapture } from './components/AudioCapture';
-import { resolveStudioRoute } from './app/routeController';
+import { resolveStudioRoute, type StudioRouteState } from './app/routeController';
 import type { SessionTemplateId } from './project/schema';
 import { Music, LayoutGrid, Volume2, Settings, Layers3, Sparkles, Rows2, Share2, Mic } from 'lucide-react';
 
@@ -146,21 +146,25 @@ const decodeShareHashOnce = (() => {
   };
 })();
 
-const StudioShell = () => {
+const readInitialRouteState = (): StudioRouteState => {
+  if (typeof window === 'undefined') {
+    return resolveStudioRoute('', false);
+  }
+  let hasPersistedSession = false;
+  try {
+    hasPersistedSession = !!window.localStorage.getItem('sonicstudio:session:v1');
+  } catch {
+    hasPersistedSession = false;
+  }
+  return resolveStudioRoute(window.location.search, hasPersistedSession);
+};
+
+const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
   const { initAudio, isInitialized, isSettingsOpen, importSession, importMidiSession, loadSessionTemplate } = useAudio();
   const isFirstImpression = useFirstImpression();
 
-  const hasPersistedRef = useRef<boolean | null>(null);
-  if (hasPersistedRef.current === null && typeof window !== 'undefined') {
-    try {
-      hasPersistedRef.current = !!window.localStorage.getItem('sonicstudio:session:v1');
-    } catch {
-      hasPersistedRef.current = false;
-    }
-  }
   const [isLaunchpadOpen, setLaunchpadOpen] = useState<boolean>(() => {
-    if (typeof window === 'undefined') return false;
-    return resolveStudioRoute(window.location.search, hasPersistedRef.current ?? false).showLaunchpad;
+    return routeState.showLaunchpad;
   });
   const [isShareOpen, setShareOpen] = useState(false);
   const [isRecordOpen, setRecordOpen] = useState(false);
@@ -249,9 +253,11 @@ const StudioShell = () => {
 };
 
 export default function App() {
+  const [routeState] = useState(readInitialRouteState);
+
   return (
-    <AudioProvider>
-      <StudioShell />
+    <AudioProvider routeState={routeState}>
+      <StudioShell routeState={routeState} />
     </AudioProvider>
   );
 }
