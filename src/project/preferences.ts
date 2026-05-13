@@ -9,6 +9,7 @@ export interface StudioPreferences {
   accentColor: AccentColor;
   density: Density;
   defaultWorkspace: DefaultWorkspace;
+  superSonicMode: boolean;
 }
 
 const STUDIO_PREFERENCES_KEY = 'sonicstudio:preferences:v1';
@@ -19,6 +20,7 @@ export const DEFAULT_STUDIO_PREFERENCES: StudioPreferences = {
   accentColor: 'aqua',
   density: 'comfortable',
   defaultWorkspace: 'piano-roll',
+  superSonicMode: false,
 };
 
 export interface AccentTokenSet {
@@ -100,6 +102,7 @@ export const normalizeStudioPreferences = (value: unknown): StudioPreferences =>
     accentColor: isAccentColor(candidate.accentColor) ? candidate.accentColor : 'aqua',
     density: isDensity(candidate.density) ? candidate.density : 'comfortable',
     defaultWorkspace: isDefaultWorkspace(candidate.defaultWorkspace) ? candidate.defaultWorkspace : 'piano-roll',
+    superSonicMode: typeof candidate.superSonicMode === 'boolean' ? candidate.superSonicMode : false,
   };
 };
 

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { HardDrive, Palette, Rows2, Trash2, Type, Volume2, Waves, Keyboard } from 'lucide-react';
+import { HardDrive, Keyboard, Palette, Rows2, Trash2, Type, Volume2, Waves, Zap } from 'lucide-react';
 
 import { ACCENT_PRESETS, type AccentColor, type DefaultWorkspace, type Density, type MotionMode } from '../../project/preferences';
 import { SegmentButton, StateButton } from './SettingsPrimitives';
@@ -8,11 +8,13 @@ interface PreferencesPanelProps {
   accentColor: AccentColor;
   density: Density;
   motionMode: MotionMode;
+  superSonicMode: boolean;
   uiSoundsEnabled: boolean;
   defaultWorkspace: DefaultWorkspace;
   onAccentChange: (color: AccentColor) => void;
   onDensityChange: (density: Density) => void;
   onMotionModeChange: (mode: MotionMode) => void;
+  onSuperSonicModeChange: (enabled: boolean) => void;
   onUiSoundsEnabledChange: (enabled: boolean) => void;
   onDefaultWorkspaceChange: (workspace: DefaultWorkspace) => void;
 }
@@ -32,11 +34,13 @@ export const PreferencesPanel = ({
   accentColor,
   density,
   motionMode,
+  superSonicMode,
   uiSoundsEnabled,
   defaultWorkspace,
   onAccentChange,
   onDensityChange,
   onMotionModeChange,
+  onSuperSonicModeChange,
   onUiSoundsEnabledChange,
   onDefaultWorkspaceChange,
 }: PreferencesPanelProps) => (
@@ -111,6 +115,16 @@ export const PreferencesPanel = ({
         <SegmentButton active={motionMode === 'fluid'} label="Fluid" onClick={() => onMotionModeChange('fluid')} />
         <SegmentButton active={motionMode === 'focus'} label="Focus" onClick={() => onMotionModeChange('focus')} />
         <SegmentButton active={motionMode === 'still'} label="Still" onClick={() => onMotionModeChange('still')} />
+      </div>
+    </PanelCard>
+
+    <PanelCard icon={<Zap className="h-4 w-4 text-[var(--accent)]" />} title="SuperSonic mode">
+      <p className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
+        Turns on the brighter advanced workspace: macro zoom, hover ladders in the note grid, and a more electric studio palette.
+      </p>
+      <div className="mt-3 flex gap-2">
+        <StateButton active={superSonicMode} label="On" onClick={() => onSuperSonicModeChange(true)} />
+        <StateButton active={!superSonicMode} label="Off" onClick={() => onSuperSonicModeChange(false)} />
       </div>
     </PanelCard>
 

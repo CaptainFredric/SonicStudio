@@ -11,6 +11,7 @@ import {
   SlidersHorizontal,
   Square,
   Undo2,
+  Zap,
 } from 'lucide-react';
 
 import { useAudio } from '../context/AudioContext';
@@ -62,10 +63,12 @@ export const TopBar = ({ firstImpression = false }: { firstImpression?: boolean 
     setCountInBars,
     setCurrentPattern,
     setSettingsOpen,
+    setSuperSonicMode,
     setMetronomeEnabled,
     setTransportMode,
     songLengthInBeats,
     stop,
+    superSonicMode,
     togglePlay,
     toggleRecording,
     transportMode,
@@ -95,10 +98,10 @@ export const TopBar = ({ firstImpression = false }: { firstImpression?: boolean 
       ? `${selectedTrack.name} · ${selectedTrack.type}${selectedArrangerClipId ? ' · clip' : ''}`
       : 'Workspace';
   const focusMeta = isFirstImpression
-    ? 'Arrangement workspace'
+    ? 'Song view'
     : selectedTrack
-      ? `${selectedTrack.source.engine === 'sample' ? 'Sample lane' : 'Synth lane'} · Pattern ${String.fromCharCode(65 + currentPattern)}${selectedArrangerClipId ? ' · selected clip' : ''} · ${transportMode === 'SONG' ? 'Song' : 'Pattern'} transport`
-      : 'Arrange, write notes, shape sound, and export from one session.';
+      ? `${selectedTrack.source.engine === 'sample' ? 'Sample lane' : 'Synth lane'} · Pattern ${String.fromCharCode(65 + currentPattern)}${selectedArrangerClipId ? ' · selected clip' : ''} · ${transportMode === 'SONG' ? 'Song' : 'Pattern'} playback${superSonicMode ? ' · SuperSonic tools on' : ''}`
+      : 'Switch between song view, notes, mix, and sound design without leaving the session.';
   const loopSummary = loopRangeStartBeat !== null && loopRangeEndBeat !== null
     ? `Loop ${loopRangeStartBeat + 1} to ${loopRangeEndBeat}`
     : transportMode === 'SONG'
@@ -120,7 +123,7 @@ export const TopBar = ({ firstImpression = false }: { firstImpression?: boolean 
             </div>
             <div className="min-w-0">
               <h1 className="text-[18px] font-semibold tracking-tight text-[var(--text-primary)]">SonicStudio</h1>
-              <p className="mt-1 text-xs text-[var(--text-secondary)]">Write, arrange, shape, and print audio locally.</p>
+              <p className="mt-1 text-xs text-[var(--text-secondary)]">Sketch, arrange, and mix without leaving the browser.</p>
             </div>
           </div>
 
@@ -230,6 +233,20 @@ export const TopBar = ({ firstImpression = false }: { firstImpression?: boolean 
             </div>
 
             <div className="flex items-center gap-2">
+              <button
+                className="control-chip supersonic-toggle flex h-9 items-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                data-active={superSonicMode}
+                data-super="true"
+                onClick={() => setSuperSonicMode(!superSonicMode)}
+                style={{
+                  opacity: compactStart ? 0.42 : 1,
+                  transition: 'opacity 230ms cubic-bezier(0.22,1,0.36,1)',
+                }}
+                type="button"
+              >
+                <Zap className="h-3.5 w-3.5" />
+                {superSonicMode ? 'SuperSonic on' : 'SuperSonic'}
+              </button>
               <button
                 className={`control-chip flex h-9 items-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] ${isSettingsOpen ? 'text-[var(--text-primary)]' : ''}`}
                 data-active={isSettingsOpen}

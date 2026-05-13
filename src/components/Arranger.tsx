@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { useAudio } from '../context/AudioContext';
 import { type ArrangementClip } from '../project/schema';
+import { useMediaQuery } from '../utils/useMediaQuery';
 import { ArrangerHeader } from './arranger/ArrangerHeader';
 import { ArrangerInspector } from './arranger/ArrangerInspector';
 import { buildLaneData, buildLaneSections, buildSectionRanges, isDrumTrack } from './arranger/arrangerSelectors';
@@ -41,6 +42,7 @@ const getVisibleRangeLabel = (startStep: number, endStep: number) => (
 );
 
 export const Arranger = () => {
+  const isMobileViewport = useMediaQuery('(max-width: 767px)');
   const {
     addArrangerClip,
     applySongForm,
@@ -95,10 +97,14 @@ export const Arranger = () => {
     RHYTHM: false,
     TEXTURE: false,
   });
-  const [compactLaneView, setCompactLaneView] = useState(false);
+  const [compactLaneView, setCompactLaneView] = useState(() => (
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
+  ));
   const [zoomPreset, setZoomPreset] = useState<ZoomPreset>('SECTION');
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('COMPOSE');
-  const [isInspectorOpen, setIsInspectorOpen] = useState(true);
+  const [isInspectorOpen, setIsInspectorOpen] = useState(() => !(
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
+  ));
   const [openLaneMenuTrackId, setOpenLaneMenuTrackId] = useState<string | null>(null);
   const timelineRef = useRef<HTMLDivElement | null>(null);
   const hasTrackedSelectedClipRef = useRef(false);
@@ -265,9 +271,24 @@ export const Arranger = () => {
     laneScope,
     pinnedTrackIds,
   }), [laneData, laneScope, pinnedTrackIds]);
-  const laneLabelWidth = compactLaneView ? 184 : 220;
-  const laneHeightClass = compactLaneView ? 'h-16' : 'h-20';
-  const clipHeightClass = compactLaneView ? 'h-12' : 'h-14';
+  const laneLabelWidth = isMobileViewport
+    ? (compactLaneView ? 152 : 176)
+    : compactLaneView ? 184 : 220;
+  const laneHeightClass = isMobileViewport
+    ? (compactLaneView ? 'h-14' : 'h-16')
+    : compactLaneView ? 'h-16' : 'h-20';
+  const clipHeightClass = isMobileViewport
+    ? (compactLaneView ? 'h-10' : 'h-12')
+    : compactLaneView ? 'h-12' : 'h-14';
+
+  useEffect(() => {
+    if (!isMobileViewport) {
+      return;
+    }
+
+    setCompactLaneView(true);
+    setIsInspectorOpen(false);
+  }, [isMobileViewport]);
 
   useEffect(() => {
     if (selectedArrangerClipId && arrangerClips.some((clip) => clip.id === selectedArrangerClipId)) {
@@ -356,7 +377,7 @@ export const Arranger = () => {
 
   const phraseSummary = selectedClip && selectedClipTrack
     ? `${selectedClipTrack.name} · Pattern ${String.fromCharCode(65 + selectedClip.patternIndex)} · ${selectedClip.beatLength} steps · ${selectedPhraseActiveSteps} active`
-    : 'Select a clip to compose directly in song view';
+    : 'Pick a clip to edit it here';
   const visibleRangeLabel = getVisibleRangeLabel(visibleStartStep, visibleEndStep);
   const splitBeat = selectedClip
     ? getSplitBeat(selectedClip, currentStep, snapSize, transportMode, MIN_CLIP_LENGTH)

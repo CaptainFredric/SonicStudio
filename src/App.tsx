@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AudioProvider, useAudio } from './context/AudioContext';
 import { TopBar } from './components/TopBar';
 import { MainWorkspace as Sequencer } from './components/MainWorkspace';
@@ -13,6 +13,8 @@ import { ShortcutOverlay } from './components/ShortcutOverlay';
 import { ComposeView } from './components/ComposeView';
 import { ShareDialog } from './components/ShareDialog';
 import { AudioCapture } from './components/AudioCapture';
+import { OnboardingGuide } from './components/OnboardingGuide';
+import { ToastStack, type ToastItem } from './components/ToastStack';
 import { resolveStudioRoute, type StudioRouteState } from './app/routeController';
 import type { SessionTemplateId } from './project/schema';
 import { Music, LayoutGrid, Volume2, Settings, Layers3, Sparkles, Rows2, Share2, Mic } from 'lucide-react';
@@ -74,6 +76,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchp
         </button>
         <button
           className="studio-nav-button shrink-0 md:w-full"
+          data-tour-target="share"
           onClick={onOpenShare}
           title="Share this session"
           type="button"
@@ -159,16 +162,60 @@ const readInitialRouteState = (): StudioRouteState => {
   return resolveStudioRoute(window.location.search, hasPersistedSession);
 };
 
+type ToastTone = ToastItem['tone'];
+
 const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
-  const { initAudio, isInitialized, isSettingsOpen, importSession, importMidiSession, loadSessionTemplate } = useAudio();
+  const {
+    importMidiSession,
+    importSession,
+    initAudio,
+    isInitialized,
+    isSettingsOpen,
+    latestNotice,
+    loadSessionTemplate,
+    setActiveView,
+  } = useAudio();
   const isFirstImpression = useFirstImpression();
 
   const [isLaunchpadOpen, setLaunchpadOpen] = useState<boolean>(() => {
     return routeState.showLaunchpad;
   });
+  const [isGuideOpen, setGuideOpen] = useState<boolean>(() => routeState.showGuide);
   const [isShareOpen, setShareOpen] = useState(false);
   const [isRecordOpen, setRecordOpen] = useState(false);
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const toastIdRef = useRef(0);
+  const toastTimersRef = useRef<Record<number, number>>({});
+
+  const dismissToast = useCallback((id: number) => {
+    const timer = toastTimersRef.current[id];
+    if (timer) {
+      window.clearTimeout(timer);
+      delete toastTimersRef.current[id];
+    }
+    setToasts((current) => current.filter((toast) => toast.id !== id));
+  }, []);
+
+  const pushToast = useCallback((tone: ToastTone, title: string, detail?: string) => {
+    toastIdRef.current += 1;
+    const id = toastIdRef.current;
+    setToasts((current) => [...current.slice(-2), { detail, id, title, tone }]);
+    toastTimersRef.current[id] = window.setTimeout(() => {
+      dismissToast(id);
+    }, 3600);
+  }, [dismissToast]);
+
+  useEffect(() => () => {
+    (Object.values(toastTimersRef.current) as number[]).forEach((timer) => window.clearTimeout(timer));
+  }, []);
+
+  useEffect(() => {
+    if (!latestNotice) {
+      return;
+    }
+    pushToast(latestNotice.tone, latestNotice.title, latestNotice.detail);
+  }, [latestNotice, pushToast]);
 
   useEffect(() => {
     if (!isLaunchpadOpen) return undefined;
@@ -185,16 +232,36 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
   useEffect(() => {
     const shared = decodeShareHashOnce();
     if (!shared) return;
-    setLaunchpadOpen(false);
-    const file = new File([shared], 'shared-session.sonicstudio.json', { type: 'application/json' });
-    void importSession(file);
+    let cancelled = false;
+    const loadSharedSession = async () => {
+      setLaunchpadOpen(false);
+      const file = new File([shared], 'shared-session.sonicstudio.json', { type: 'application/json' });
+      await importSession(file);
+      if (!cancelled) {
+        setGuideOpen(false);
+      }
+    };
+    void loadSharedSession();
+    return () => {
+      cancelled = true;
+    };
   }, [importSession]);
 
   const handleSelectTemplate = (templateId: SessionTemplateId) => {
+    setGuideOpen(false);
     loadSessionTemplate(templateId);
     setLaunchpadOpen(false);
     void initAudio();
   };
+
+  const handleStartGuide = () => {
+    loadSessionTemplate('night-transit');
+    setActiveView('ARRANGER');
+    setLaunchpadOpen(false);
+    setGuideOpen(true);
+    void initAudio();
+  };
+
   const handleImportMidi = () => {
     fileInputRef.current?.click();
   };
@@ -209,8 +276,10 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
 
   return (
     <div className="app-shell min-h-screen w-full md:h-screen md:w-screen md:overflow-hidden antialiased text-[var(--text-primary)]">
+      <ToastStack toasts={toasts} onDismiss={dismissToast} />
+      <OnboardingGuide open={isGuideOpen && !isLaunchpadOpen && !isShareOpen && !isRecordOpen} onClose={() => setGuideOpen(false)} />
       <ShortcutOverlay />
-      <ShareDialog open={isShareOpen} onClose={() => setShareOpen(false)} />
+      <ShareDialog open={isShareOpen} onClose={() => setShareOpen(false)} onNotify={pushToast} />
       <AudioCapture open={isRecordOpen} onClose={() => setRecordOpen(false)} />
       <input
         ref={fileInputRef}
@@ -228,6 +297,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
             onClose={() => setLaunchpadOpen(false)}
             onImportMidi={handleImportMidi}
             onSelectTemplate={handleSelectTemplate}
+            onStartGuide={handleStartGuide}
             onWakeAudio={() => void initAudio()}
           />
         </div>
@@ -237,7 +307,17 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
           <TopBar firstImpression={isFirstImpression} />
         </div>
         <div className="studio-shell-grid flex flex-col md:flex-row md:flex-1 md:min-h-0 gap-3 px-3 pb-3">
-          <SideNav onOpenLaunchpad={() => setLaunchpadOpen(true)} onOpenShare={() => setShareOpen(true)} onOpenRecord={() => setRecordOpen(true)} />
+          <SideNav
+            onOpenLaunchpad={() => setLaunchpadOpen(true)}
+            onOpenRecord={() => {
+              setGuideOpen(false);
+              setRecordOpen(true);
+            }}
+            onOpenShare={() => {
+              setGuideOpen(false);
+              setShareOpen(true);
+            }}
+          />
           <div className="studio-workbench flex md:min-h-0 md:flex-1 flex-col gap-3">
             <div className="flex flex-col md:flex-row md:min-h-0 md:flex-1 gap-3">
               <ViewRouter />

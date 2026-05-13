@@ -1,12 +1,31 @@
-import { createEmptyPattern } from '../../../project/schema';
+import { createEmptyPattern, type NoteEvent } from '../../../project/schema';
 import type { EditorAction, EditorState } from '../editorTypes';
 import {
   cloneStepEvents,
   commitProject,
   transposeNote,
   updatePatternSteps,
+  updateTrackAutomationPattern,
 } from './reducerUtils';
 import { updateTrack } from '../projectMutations';
+
+const normalizeSegmentSteps = (steps: NoteEvent[][], stepsPerPattern: number) => {
+  const next = createEmptyPattern(stepsPerPattern);
+
+  for (let stepIndex = 0; stepIndex < stepsPerPattern; stepIndex += 1) {
+    next[stepIndex] = cloneStepEvents(steps[stepIndex] ?? []);
+  }
+
+  return next;
+};
+
+const normalizeSegmentAutomation = (
+  automation: { level: number[]; tone: number[] } | undefined,
+  stepsPerPattern: number,
+) => ({
+  level: Array.from({ length: stepsPerPattern }, (_, index) => automation?.level[index] ?? 0.5),
+  tone: Array.from({ length: stepsPerPattern }, (_, index) => automation?.tone[index] ?? 0.5),
+});
 
 const shiftPattern = (
   state: EditorState,
@@ -64,6 +83,27 @@ const clearPattern = (
         : currentPattern
     ))
   )));
+};
+
+const applyPatternSegment = (
+  state: EditorState,
+  trackId: string,
+  patternIndex: number,
+  steps: NoteEvent[][],
+  automation?: { level: number[]; tone: number[] },
+) => {
+  const { present } = state.history;
+  const stepsPerPattern = present.transport.stepsPerPattern;
+
+  return commitProject(state, updateTrack(present, trackId, (track) => {
+    const withSteps = updatePatternSteps(track, patternIndex, stepsPerPattern, () => (
+      normalizeSegmentSteps(steps, stepsPerPattern)
+    ));
+
+    return updateTrackAutomationPattern(withSteps, patternIndex, stepsPerPattern, () => (
+      normalizeSegmentAutomation(automation, stepsPerPattern)
+    ));
+  }));
 };
 
 const humanizePattern = (
@@ -154,6 +194,9 @@ export const handleTrackNotePatternAction = (state: EditorState, action: EditorA
   const { present } = state.history;
 
   switch (action.type) {
+    case 'APPLY_PATTERN_SEGMENT':
+      return applyPatternSegment(state, action.trackId, action.patternIndex, action.steps, action.automation);
+
     case 'SHIFT_PATTERN':
       return shiftPattern(state, action.trackId, present.transport.currentPattern, action.direction);
 

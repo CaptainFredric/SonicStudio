@@ -62,15 +62,15 @@ export const ComposePanel = ({
     <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <div className="section-label">Phrase composer</div>
+          <div className="section-label">Phrase editor</div>
           <div className="mt-2 text-xs text-[var(--text-secondary)]">
             {isStepMappedSampleTrack
-              ? 'Map saved sample slices directly to song steps.'
+              ? 'Place saved sample slices right on the song steps.'
               : linkedPhraseCount >= 0 && DRUM_ROW_LABELS[selectedClipTrack.type]
                 ? selectedClipTrack.type === 'kick' || selectedClipTrack.type === 'snare' || selectedClipTrack.type === 'hihat'
-                  ? 'Paint or drag hits, then shape the selected step below.'
-                  : 'Paint notes directly in song view, then shape the selected step below.'
-                : 'Paint notes directly in song view, then use the step editor below.'}
+                  ? 'Tap or drag in hits, then tweak the selected step below.'
+                  : 'Draw notes right in song view, then tweak the selected step below.'
+                : 'Draw notes in song view, then use the step editor below.'}
           </div>
         </div>
         <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">

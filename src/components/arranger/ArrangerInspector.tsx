@@ -153,14 +153,14 @@ export const ArrangerInspector = ({
       <div className="sticky top-0 z-10 -mx-4 -mt-4 border-b border-[var(--border-soft)] bg-[rgba(8,12,17,0.96)] px-4 py-4 backdrop-blur">
         <div className="flex items-center gap-2">
           <Layers3 className="h-4 w-4 text-[var(--accent)]" />
-          <div className="section-label">Phrase desk</div>
+          <div className="section-label">Clip editor</div>
         </div>
         <div className="mt-2 text-sm text-[var(--text-secondary)]">
           {inspectorTab === 'COMPOSE'
-            ? selectedClip && selectedClipTrack ? phraseSummary : 'Select a clip to edit notes and steps here.'
+            ? selectedClip && selectedClipTrack ? phraseSummary : 'Pick a clip to edit notes and steps here.'
             : inspectorTab === 'SHAPE'
-              ? 'Transforms, automation, and clip cleanup.'
-              : 'Markers, lane groups, and section actions.'}
+              ? 'Tweak automation, variations, and clip cleanup.'
+              : 'Manage markers, lane groups, and song sections.'}
         </div>
         <div className="phrase-desk-tabs mt-4 grid grid-cols-3 gap-2">
           <TabButton active={inspectorTab === 'COMPOSE'} label="Compose" onClick={() => onSetInspectorTab('COMPOSE')} />
@@ -211,7 +211,7 @@ export const ArrangerInspector = ({
                   <span className="text-[var(--text-tertiary)]">•</span>
                   <span>{selectedClip.beatLength} beat clip</span>
                   <span className="text-[var(--text-tertiary)]">•</span>
-                  <span>{linkedPhraseCount > 1 ? `${linkedPhraseCount} linked clips` : 'one clip focus'}</span>
+                    <span>{linkedPhraseCount > 1 ? `${linkedPhraseCount} linked clips` : 'single clip view'}</span>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <OperationButton icon={<Copy className="h-3.5 w-3.5" />} label="Duplicate forward" onClick={() => duplicateArrangerClip(selectedClip.id)} />
@@ -281,7 +281,7 @@ export const ArrangerInspector = ({
         </div>
       ) : (
         <div className="pt-4 text-sm text-[var(--text-secondary)]">
-          Select a clip to edit it here.
+          Pick a clip to start editing.
         </div>
       )}
     </div>

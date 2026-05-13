@@ -60,7 +60,9 @@ export const SettingsSidebar = ({
     setDensity,
     setMotionMode,
     setSettingsOpen,
+    setSuperSonicMode,
     setUiSoundsEnabled,
+    superSonicMode,
     uiSoundsEnabled,
   } = useAudio();
   const [settingsTab, setSettingsTab] = useState<StudioTab>(requestedTab);
@@ -122,11 +124,13 @@ export const SettingsSidebar = ({
             defaultWorkspace={defaultWorkspace}
             density={density}
             motionMode={motionMode}
+            superSonicMode={superSonicMode}
             uiSoundsEnabled={uiSoundsEnabled}
             onAccentChange={setAccentColor}
             onDefaultWorkspaceChange={setDefaultWorkspace}
             onDensityChange={setDensity}
             onMotionModeChange={setMotionMode}
+            onSuperSonicModeChange={setSuperSonicMode}
             onUiSoundsEnabledChange={setUiSoundsEnabled}
           />
         ) : null}

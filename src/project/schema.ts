@@ -350,8 +350,8 @@ const TRACK_PRESETS: Record<
   hihat: {
     color: '#fbbf24',
     name: 'Neon Hat',
-    source: { detune: 12, samplePlayback: 'oneshot', samplePreset: 'hat-air', sampleTriggerMode: 'step-mapped', waveform: 'square' },
-    volume: -15,
+    source: { detune: 12, engine: 'sample', sampleGain: 1.08, samplePlayback: 'oneshot', samplePreset: 'hat-air', sampleTriggerMode: 'full-source', waveform: 'square' },
+    volume: -13,
   },
   bass: {
     color: '#60a5fa',
@@ -371,7 +371,7 @@ const TRACK_PRESETS: Record<
     color: '#67e8f9',
     name: 'Glass Pad',
     params: { attack: 0.18, chorusSend: 0.24, decay: 0.4, delaySend: 0.24, reverbSend: 0.48, release: 2.2, sustain: 0.72, vibratoDepth: 0.05, vibratoRate: 3.6 },
-    source: { octaveShift: 0, portamento: 0.02, samplePreset: 'pad-haze', waveform: 'triangle' },
+    source: { engine: 'sample', octaveShift: 0, portamento: 0.01, sampleGain: 1.04, samplePlayback: 'pitched', samplePreset: 'pad-haze', sampleTriggerMode: 'full-source', waveform: 'triangle' },
     volume: -16,
   },
   pluck: {

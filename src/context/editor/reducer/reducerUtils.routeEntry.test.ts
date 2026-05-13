@@ -46,4 +46,15 @@ describe('createInitialEditorState route entry', () => {
     expect(state.ui.isSettingsOpen).toBe(true);
     expect(state.history.present.tracks.some((track) => track.id === state.ui.selectedTrackId)).toBe(true);
   });
+
+  it('lets an explicit demo link override persisted state so shared URLs open the intended scene', () => {
+    const persistedSession = createSessionFromTemplate('blank-grid');
+    storageMocks.loadPersistedSession.mockReturnValue(persistedSession);
+
+    const state = createInitialEditorState(resolveStudioRoute('?demo=night-transit&view=song', true));
+
+    expect(state.history.present.metadata.name).toBe('Night Transit');
+    expect(state.ui.activeView).toBe('ARRANGER');
+    expect(state.ui.isSettingsOpen).toBe(false);
+  });
 });

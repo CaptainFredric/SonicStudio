@@ -5,6 +5,7 @@ import type {
   InstrumentType,
   MasterSettings,
   NoteEvent,
+  PatternAutomation,
   Project,
   SampleSliceMemory,
   SongMarker,
@@ -34,6 +35,7 @@ export type EditorAction =
   | { type: 'APPLY_TRACK_SNAPSHOT'; snapshotId: string; trackId: string }
   | { type: 'APPEND_BOUNCE_HISTORY'; entry: BounceHistoryEntry }
   | { type: 'APPLY_MASTER_SNAPSHOT'; snapshotId: string }
+  | { type: 'APPLY_PATTERN_SEGMENT'; automation?: PatternAutomation; patternIndex: number; steps: NoteEvent[][]; trackId: string }
   | { type: 'CLEAR_TRACK'; trackId: string }
   | { type: 'CLEAR_PATTERN_AT'; trackId: string; patternIndex: number }
   | { type: 'CREATE_SONG_MARKER'; beat: number; name?: string }

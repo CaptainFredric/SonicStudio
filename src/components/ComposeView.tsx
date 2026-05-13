@@ -24,6 +24,7 @@ import {
   type PaneTarget,
   type SidePlacement,
 } from './compose/composeLayout';
+import { useMediaQuery } from '../utils/useMediaQuery';
 
 const readPresets = (): LayoutPreset[] => {
   if (typeof window === 'undefined') return DEFAULT_PRESETS;
@@ -131,6 +132,7 @@ const PaneHeader = ({
 export const ComposeView = () => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mainColumnRef = useRef<HTMLDivElement | null>(null);
+  const isMobileViewport = useMediaQuery('(max-width: 767px)');
   const [topRatio, setTopRatio] = useState<number>(() => readNumberSetting(STORAGE.topRatio, DEFAULT_TOP_RATIO, MIN_TOP_RATIO, MAX_TOP_RATIO));
   const [topView, setTopView] = useState<PaneTarget>(() => readPaneTarget(STORAGE.topView, 'ARRANGER'));
   const [bottomView, setBottomView] = useState<PaneTarget>(() => readPaneTarget(STORAGE.bottomView, 'PIANO_ROLL'));
@@ -148,6 +150,7 @@ export const ComposeView = () => {
   });
   const [presets, setPresets] = useState<LayoutPreset[]>(readPresets);
   const [recentlyApplied, setRecentlyApplied] = useState<string | null>(null);
+  const [mobileDesk, setMobileDesk] = useState<'SONG' | 'NOTE' | 'SIDE'>('SONG');
   const splitDragRef = useRef<{ startY: number; startRatio: number; containerHeight: number } | null>(null);
   const sideDragRef = useRef<{ startX: number; startWidth: number; placement: SidePlacement } | null>(null);
 
@@ -337,6 +340,70 @@ export const ComposeView = () => {
     </section>
   );
 
+  const mobilePaneTarget = mobileDesk === 'SONG'
+    ? topView
+    : mobileDesk === 'NOTE'
+      ? bottomView
+      : sideView;
+
+  if (isMobileViewport) {
+    return (
+      <main
+        ref={containerRef}
+        className="compose-workspace relative flex min-h-[60vh] flex-col gap-3"
+      >
+        <PresetBar
+          presets={presets}
+          recentlyApplied={recentlyApplied}
+          onApply={applyPreset}
+          onOverwrite={overwritePreset}
+          onRename={(index, name) => {
+            setPresets((current) => current.map((preset, i) => (i === index ? { ...preset, name: name.trim().slice(0, 24) || preset.name } : preset)));
+          }}
+        />
+
+        <div className="surface-panel-muted flex items-center gap-2 overflow-x-auto px-2.5 py-2">
+          <MobileDeskButton active={mobileDesk === 'SONG'} label="Song desk" onClick={() => setMobileDesk('SONG')} />
+          <MobileDeskButton active={mobileDesk === 'NOTE'} label="Note desk" onClick={() => setMobileDesk('NOTE')} />
+          <MobileDeskButton active={mobileDesk === 'SIDE'} label="Side rack" onClick={() => setMobileDesk('SIDE')} />
+          <span className="ml-auto shrink-0 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+            One desk at a time
+          </span>
+        </div>
+
+        <section
+          className="compose-main-pane surface-panel flex min-h-0 flex-1 flex-col overflow-hidden"
+          style={{ minHeight: 'min(76vh, 680px)' }}
+        >
+          {mobileDesk === 'SONG' ? (
+            <PaneHeader label="Song desk" value={topView} onChange={handleTopChange} exclude={bottomView} />
+          ) : mobileDesk === 'NOTE' ? (
+            <PaneHeader label="Note desk" value={bottomView} onChange={handleBottomChange} exclude={topView} />
+          ) : (
+            <div className="flex items-center justify-between gap-2 border-b border-[var(--border-soft)] bg-[rgba(255,255,255,0.014)] px-3 py-1.5">
+              <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--text-tertiary)]">
+                <span>Side rack</span>
+              </div>
+              <select
+                aria-label="Side pane content"
+                className="control-field h-7 px-2 text-[11px] font-semibold uppercase tracking-[0.14em]"
+                onChange={(event) => setSideView(event.target.value as PaneTarget)}
+                value={sideView}
+              >
+                {(Object.keys(TARGET_LABELS) as PaneTarget[]).map((target) => (
+                  <option key={target} value={target}>{TARGET_LABELS[target]}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div className="compose-pane-body flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden">
+            {renderTarget(mobilePaneTarget)}
+          </div>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main
       ref={containerRef}
@@ -491,3 +558,21 @@ const PresetBar = ({
     </div>
   );
 };
+
+const MobileDeskButton = ({
+  active,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}) => (
+  <button
+    className={`control-chip shrink-0 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] ${active ? 'text-[var(--accent-strong)]' : ''}`}
+    onClick={onClick}
+    type="button"
+  >
+    {label}
+  </button>
+);

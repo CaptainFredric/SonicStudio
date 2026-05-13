@@ -6,18 +6,16 @@ import type { EditorAction } from './editorTypes';
 interface CreateKeyboardShortcutHandlerOptions {
   dispatch: Dispatch<EditorAction>;
   isSettingsOpen: boolean;
-  persistCurrentSession: () => void;
   project: Project;
-  setSaveStatus: (status: 'saving') => void;
+  saveProject: () => void;
   togglePlay: () => Promise<void>;
 }
 
 export const createKeyboardShortcutHandler = ({
   dispatch,
   isSettingsOpen,
-  persistCurrentSession,
   project,
-  setSaveStatus,
+  saveProject,
   togglePlay,
 }: CreateKeyboardShortcutHandlerOptions) => async (event: KeyboardEvent) => {
   const target = event.target as HTMLElement | null;
@@ -35,8 +33,7 @@ export const createKeyboardShortcutHandler = ({
 
   if (isModifierPressed && normalizedKey === 's') {
     event.preventDefault();
-    setSaveStatus('saving');
-    persistCurrentSession();
+    saveProject();
     return;
   }
 

@@ -93,9 +93,9 @@ export const ArrangerHeader = ({
     <div className="flex flex-wrap items-start justify-between gap-4">
       <div>
         <div className="section-label">Arranger</div>
-        <h2 className="mt-2 text-lg font-semibold tracking-tight text-[var(--text-primary)]">Song composer</h2>
+        <h2 className="mt-2 text-lg font-semibold tracking-tight text-[var(--text-primary)]">Song view</h2>
         <p className="mt-2 max-w-3xl text-sm text-[var(--text-secondary)]">
-          Build the song directly on the timeline.
+          Lay out clips and shape the song on the timeline.
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
@@ -143,7 +143,7 @@ export const ArrangerHeader = ({
         </div>
         <div className="mt-2 flex items-center justify-between gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
           <span>Song minimap</span>
-          <span className="hidden sm:inline">Click anywhere below to jump there</span>
+          <span className="hidden sm:inline">Tap or click below to jump</span>
         </div>
         <div
           aria-label="Song minimap — each colored block is a clip; click to jump"
@@ -240,7 +240,7 @@ export const ArrangerHeader = ({
               }}
               value=""
             >
-              <option value="">Build form</option>
+              <option value="">Apply form</option>
               {SONG_FORM_DEFINITIONS.map((definition) => (
                 <option key={definition.id} value={definition.id}>
                   {definition.label}

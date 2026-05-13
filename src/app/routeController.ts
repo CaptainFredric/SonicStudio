@@ -1,10 +1,12 @@
-import type { AppView, StudioSession } from '../project/schema';
+import type { AppView, SessionTemplateId, StudioSession } from '../project/schema';
 
 export type SettingsTab = 'WORKSPACE' | 'TRACK' | 'OUTPUT';
 
 export interface StudioRouteState {
   requestedSettingsTab: SettingsTab;
+  requestedTemplate: SessionTemplateId | null;
   requestedView: AppView | null;
+  showGuide: boolean;
   showLaunchpad: boolean;
   shouldOpenSettings: boolean;
 }
@@ -26,6 +28,24 @@ const VIEW_ALIASES: Record<string, AppView> = {
   song: 'ARRANGER',
 };
 
+const TEMPLATE_ALIASES: Record<string, SessionTemplateId> = {
+  ambient: 'ambient-drift',
+  'ambient-drift': 'ambient-drift',
+  beat: 'beat-lab',
+  'beat-lab': 'beat-lab',
+  beatlab: 'beat-lab',
+  blank: 'blank-grid',
+  'blank-grid': 'blank-grid',
+  blankgrid: 'blank-grid',
+  'lo-fi': 'lofi-sunday',
+  lofi: 'lofi-sunday',
+  'lofi-sunday': 'lofi-sunday',
+  night: 'night-transit',
+  'night-transit': 'night-transit',
+  synthwave: 'synthwave-drive',
+  'synthwave-drive': 'synthwave-drive',
+};
+
 const normalizeSettingsTab = (value: string | null): SettingsTab => {
   const candidate = value?.toUpperCase();
   return SETTINGS_TABS.includes(candidate as SettingsTab) ? candidate as SettingsTab : 'WORKSPACE';
@@ -43,19 +63,33 @@ const normalizeView = (value: string | null): AppView | null => {
   return VIEW_ALIASES[value.toLowerCase()] ?? null;
 };
 
+const normalizeTemplate = (params: URLSearchParams): SessionTemplateId | null => {
+  const rawValue = params.get('demo') ?? params.get('template');
+  if (!rawValue) {
+    return null;
+  }
+
+  return TEMPLATE_ALIASES[rawValue.toLowerCase()] ?? null;
+};
+
 export const resolveStudioRoute = (
   search: string,
   hasPersistedSession: boolean,
 ): StudioRouteState => {
   const params = new URLSearchParams(search);
   const rawSetup = params.get('setup');
+  const requestedTemplate = normalizeTemplate(params);
   const requestedSettingsTab = normalizeSettingsTab(rawSetup);
   const requestedView = normalizeView(params.get('view'));
+  const showGuide = params.get('guide') === '1' || params.get('guide') === 'true';
+  const hasExplicitEntry = requestedTemplate !== null || requestedView !== null || isSettingsTab(rawSetup);
 
   return {
     requestedSettingsTab,
+    requestedTemplate,
     requestedView,
-    showLaunchpad: params.get('launch') === '1' || (!hasPersistedSession && !requestedView && !isSettingsTab(rawSetup)),
+    showGuide,
+    showLaunchpad: params.get('launch') === '1' || (!hasPersistedSession && !hasExplicitEntry),
     shouldOpenSettings: isSettingsTab(rawSetup),
   };
 };

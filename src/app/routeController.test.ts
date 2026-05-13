@@ -6,8 +6,10 @@ import { applyStudioRouteToSession, resolveStudioRoute } from './routeController
 describe('routeController', () => {
   it('opens the launchpad on first run and preserves default workspace tab', () => {
     expect(resolveStudioRoute('', false)).toEqual({
+      requestedTemplate: null,
       requestedSettingsTab: 'WORKSPACE',
       requestedView: null,
+      showGuide: false,
       showLaunchpad: true,
       shouldOpenSettings: false,
     });
@@ -15,8 +17,10 @@ describe('routeController', () => {
 
   it('resolves deep-link setup and view directives explicitly', () => {
     expect(resolveStudioRoute('?setup=output&view=notes', true)).toEqual({
+      requestedTemplate: null,
       requestedSettingsTab: 'OUTPUT',
       requestedView: 'PIANO_ROLL',
+      showGuide: false,
       showLaunchpad: false,
       shouldOpenSettings: true,
     });
@@ -24,10 +28,34 @@ describe('routeController', () => {
 
   it('treats workspace setup as an explicit settings route', () => {
     expect(resolveStudioRoute('?setup=workspace&view=song', true)).toEqual({
+      requestedTemplate: null,
       requestedSettingsTab: 'WORKSPACE',
       requestedView: 'ARRANGER',
+      showGuide: false,
       showLaunchpad: false,
       shouldOpenSettings: true,
+    });
+  });
+
+  it('treats demo links as explicit entry routes that load a starter session directly', () => {
+    expect(resolveStudioRoute('?demo=night-transit&view=song', false)).toEqual({
+      requestedTemplate: 'night-transit',
+      requestedSettingsTab: 'WORKSPACE',
+      requestedView: 'ARRANGER',
+      showGuide: false,
+      showLaunchpad: false,
+      shouldOpenSettings: false,
+    });
+  });
+
+  it('recognizes guide links without reopening the launchpad for explicit demos', () => {
+    expect(resolveStudioRoute('?demo=night-transit&view=song&guide=1', false)).toEqual({
+      requestedTemplate: 'night-transit',
+      requestedSettingsTab: 'WORKSPACE',
+      requestedView: 'ARRANGER',
+      showGuide: true,
+      showLaunchpad: false,
+      shouldOpenSettings: false,
     });
   });
 
@@ -39,8 +67,10 @@ describe('routeController', () => {
     const session = createSessionFromTemplate('night-transit');
 
     const routed = applyStudioRouteToSession(session, {
+      requestedTemplate: null,
       requestedSettingsTab: 'TRACK',
       requestedView: 'MIXER',
+      showGuide: false,
       showLaunchpad: false,
       shouldOpenSettings: true,
     });

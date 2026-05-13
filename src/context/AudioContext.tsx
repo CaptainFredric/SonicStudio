@@ -20,6 +20,7 @@ import {
   type MasterSnapshot,
   type MasterSettings,
   type NoteEvent,
+  type PatternAutomation,
   type SampleSliceMemory,
   type SessionTemplateId,
   type SongMarker,
@@ -28,6 +29,7 @@ import {
   type TrackSnapshot,
   type TrackSource,
   type TransportMode,
+  type StudioSession,
 } from '../project/schema';
 import type { SongFormId } from './editor/songFormDefinitions';
 import {
@@ -68,6 +70,13 @@ import { createTransportController } from './editor/transportController';
 
 export type { BounceNormalizationMode, BounceTailMode, ExportScope } from '../services/workflowTypes';
 
+export interface StudioNotice {
+  detail?: string;
+  id: number;
+  title: string;
+  tone: 'info' | 'success' | 'error';
+}
+
 interface AudioContextType {
   activeView: AppView;
   addArrangerClip: (trackId?: string) => void;
@@ -75,6 +84,7 @@ interface AudioContextType {
   applyTrackVoicePreset: (trackId: string, presetId: string) => void;
   applyTrackSnapshot: (trackId: string, snapshotId: string) => void;
   applyMasterSnapshot: (snapshotId: string) => void;
+  applyPatternSegment: (trackId: string, patternIndex: number, steps: NoteEvent[][], automation?: PatternAutomation) => void;
   arrangerClips: ArrangementClip[];
   bounceHistory: BounceHistoryEntry[];
   bpm: number;
@@ -83,6 +93,7 @@ interface AudioContextType {
   countInActive: boolean;
   countInBars: number;
   countInBeatsRemaining: number;
+  currentSession: StudioSession;
   clearPatternAt: (trackId: string, patternIndex: number) => void;
   clearTrack: (trackId: string) => void;
   createTrack: (trackType: InstrumentType) => void;
@@ -101,9 +112,11 @@ interface AudioContextType {
   accentColor: AccentColor;
   density: Density;
   defaultWorkspace: DefaultWorkspace;
+  superSonicMode: boolean;
   setAccentColor: (color: AccentColor) => void;
   setDensity: (density: Density) => void;
   setDefaultWorkspace: (workspace: DefaultWorkspace) => void;
+  setSuperSonicMode: (enabled: boolean) => void;
   duplicateTrack: (trackId: string) => void;
   exportSession: () => void;
   importSession: (file: File) => Promise<boolean>;
@@ -114,6 +127,7 @@ interface AudioContextType {
   isRecording: boolean;
   isSettingsOpen: boolean;
   lastSavedAt: string | null;
+  latestNotice: StudioNotice | null;
   loopRangeEndBeat: number | null;
   loopRangeStartBeat: number | null;
   loadSessionTemplate: (templateId: SessionTemplateId) => void;
@@ -241,7 +255,11 @@ export const AudioProvider = ({
   const [scoresheets, setScoresheets] = useState<Scoresheet[]>(() => listScoresheets());
   const [renderState, setRenderState] = useState<RenderState>(IDLE_RENDER_STATE);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+  const [latestNotice, setLatestNotice] = useState<StudioNotice | null>(null);
   const countInTokenRef = useRef(0);
+  const manualSavePendingRef = useRef(false);
+  const noticeIdRef = useRef(0);
+  const saveErrorNoticeActiveRef = useRef(false);
 
   const project = editorState.history.present;
   const {
@@ -256,6 +274,15 @@ export const AudioProvider = ({
   const songMarkers = project.markers ?? [];
   const songLengthInBeats = songLengthFromProject(project);
   const dispatchers = useMemo(() => createEditorDispatchers(dispatch), [dispatch]);
+  const currentSession = useMemo<StudioSession>(() => ({
+    project,
+    ui: editorState.ui,
+  }), [project, editorState.ui]);
+
+  const publishNotice = (tone: StudioNotice['tone'], title: string, detail?: string) => {
+    noticeIdRef.current += 1;
+    setLatestNotice({ detail, id: noticeIdRef.current, title, tone });
+  };
 
   useEffect(() => {
     persistStudioPreferences(preferences);
@@ -289,6 +316,14 @@ export const AudioProvider = ({
   }, [preferences.density]);
 
   useEffect(() => {
+    if (typeof document === 'undefined') {
+      return;
+    }
+
+    document.documentElement.dataset.supersonic = preferences.superSonicMode ? 'true' : 'false';
+  }, [preferences.superSonicMode]);
+
+  useEffect(() => {
     engine.syncProject(project);
   }, [project]);
 
@@ -314,19 +349,26 @@ export const AudioProvider = ({
 
   const hasPersistedOnceRef = useRef(false);
   const persistCurrentSession = useEffectEvent(() => {
-    const envelope = persistStudioSession({
-      project: editorState.history.present,
-      ui: editorState.ui,
-    });
+    const envelope = persistStudioSession(currentSession);
 
     if (envelope) {
       setLastSavedAt(envelope.savedAt);
       setSaveStatus('saved');
       hasPersistedOnceRef.current = true;
+      saveErrorNoticeActiveRef.current = false;
+      if (manualSavePendingRef.current) {
+        publishNotice('success', 'Session saved', 'Stored locally in this browser.');
+      }
+      manualSavePendingRef.current = false;
       return;
     }
 
     setSaveStatus('error');
+    if (manualSavePendingRef.current || !saveErrorNoticeActiveRef.current) {
+      publishNotice('error', 'Could not save session', 'Browser storage rejected the latest save.');
+      saveErrorNoticeActiveRef.current = true;
+    }
+    manualSavePendingRef.current = false;
   });
 
   useEffect(() => {
@@ -394,33 +436,16 @@ export const AudioProvider = ({
     tracks: project.tracks,
   });
 
-  const keyboardShortcutHandler = useEffectEvent(createKeyboardShortcutHandler({
-    dispatch,
-    isSettingsOpen: editorState.ui.isSettingsOpen,
-    persistCurrentSession,
-    project,
-    setSaveStatus,
-    togglePlay,
-  }));
-
-  useEffect(() => {
-    window.addEventListener('keydown', keyboardShortcutHandler);
-
-    return () => {
-      window.removeEventListener('keydown', keyboardShortcutHandler);
-    };
-  }, [keyboardShortcutHandler]);
-
   const {
     deleteCheckpoint,
-    exportSession,
-    importMidiSession,
-    importSession,
+    exportSession: exportSessionToFile,
+    importMidiSession: importMidiSessionFromController,
+    importSession: importSessionFromController,
     loadSessionTemplate,
     newSession,
     restoreCheckpoint,
     saveCheckpoint,
-    saveProject,
+    saveProject: persistSessionNow,
   } = createSessionController({
     currentProject: project,
     currentUi: editorState.ui,
@@ -431,6 +456,47 @@ export const AudioProvider = ({
     setProjectCheckpoints,
     setSaveStatus,
   });
+
+  const saveProject = () => {
+    manualSavePendingRef.current = true;
+    persistSessionNow();
+  };
+
+  const importSession = async (file: File) => {
+    const ok = await importSessionFromController(file);
+    publishNotice(
+      ok ? 'success' : 'error',
+      ok ? 'Session imported' : 'Could not import session',
+      ok ? `Loaded ${file.name}.` : 'That file does not match the SonicStudio session format.',
+    );
+    return ok;
+  };
+
+  const importMidiSession = async (file: File) => {
+    const ok = await importMidiSessionFromController(file);
+    publishNotice(
+      ok ? 'success' : 'error',
+      ok ? 'MIDI imported' : 'Could not import MIDI',
+      ok ? `Loaded ${file.name}.` : 'Try a standard .mid file and import it again.',
+    );
+    return ok;
+  };
+
+  const keyboardShortcutHandler = useEffectEvent(createKeyboardShortcutHandler({
+    dispatch,
+    isSettingsOpen: editorState.ui.isSettingsOpen,
+    project,
+    saveProject,
+    togglePlay,
+  }));
+
+  useEffect(() => {
+    window.addEventListener('keydown', keyboardShortcutHandler);
+
+    return () => {
+      window.removeEventListener('keydown', keyboardShortcutHandler);
+    };
+  }, [keyboardShortcutHandler]);
 
   const handleSaveScoresheet = (name: string, options?: { replaceId?: string }) => {
     const next = saveScoresheetService(name, { project, ui: editorState.ui }, options ?? {});
@@ -476,11 +542,12 @@ export const AudioProvider = ({
       countInBars: project.transport.countInBars,
       countInBeatsRemaining,
       currentPattern: project.transport.currentPattern,
+      currentSession,
       currentStep,
       exportAudioMix,
       exportMidi,
       exportTrackStems,
-      exportSession,
+      exportSession: exportSessionToFile,
       importMidiSession,
       importSession,
       initAudio,
@@ -489,6 +556,7 @@ export const AudioProvider = ({
       isRecording,
       isSettingsOpen: editorState.ui.isSettingsOpen,
       lastSavedAt,
+      latestNotice,
       loadSessionTemplate,
       loopRangeEndBeat,
       loopRangeStartBeat,
@@ -499,6 +567,7 @@ export const AudioProvider = ({
       accentColor: preferences.accentColor,
       density: preferences.density,
       defaultWorkspace: preferences.defaultWorkspace,
+      superSonicMode: preferences.superSonicMode,
       newSession,
       patternCount: project.transport.patternCount,
       pinnedTrackIds,
@@ -536,6 +605,7 @@ export const AudioProvider = ({
       setAccentColor: (accentColor) => setPreferences((current) => ({ ...current, accentColor })),
       setDensity: (density) => setPreferences((current) => ({ ...current, density })),
       setDefaultWorkspace: (defaultWorkspace) => setPreferences((current) => ({ ...current, defaultWorkspace })),
+      setSuperSonicMode: (superSonicMode) => setPreferences((current) => ({ ...current, superSonicMode })),
     }}>
       {children}
     </AudioContext.Provider>

@@ -6,16 +6,25 @@ import {
   Copy,
   Eraser,
   Focus,
+  Minus,
   Music2,
   Pin,
   Play,
+  Plus,
   SlidersHorizontal,
   Trash2,
   VolumeX,
+  Zap,
 } from 'lucide-react';
 
 import { getSamplePresetMeta } from '../audio/sampleLibrary';
 import { useAudio } from '../context/AudioContext';
+import {
+  createPatternSegment,
+  loadPatternSegments,
+  persistPatternSegments,
+  type PatternSegment,
+} from '../services/patternSegments';
 import { shiftNote } from './arranger/noteUtils';
 import {
   NOTE_GATE_FINE_STEP,
@@ -25,6 +34,7 @@ import {
   clampNoteGate,
 } from '../utils/noteEditing';
 import { TrackIcon, getTrackPersonality } from '../utils/trackPersonality';
+import { useMediaQuery } from '../utils/useMediaQuery';
 
 const TRACK_BUTTONS = [
   { label: 'Kick', type: 'kick' as const },
@@ -45,6 +55,11 @@ const QUICK_INTERVALS = [
   { label: '+8va', semitones: 12 },
 ] as const;
 const NOTE_OPTIONS = buildNoteOptions(6, 2);
+const STEP_OPTIONS = [16, 32, 64, 96, 128] as const;
+const STEP_ZOOM_MIN = 16;
+const STEP_ZOOM_STEP = 2;
+
+const clampNumber = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
 type LaneGroupKey = 'RHYTHM' | 'MUSICAL' | 'TEXTURE';
 type LaneSectionKey = LaneGroupKey | 'PINNED';
@@ -68,7 +83,9 @@ const getLaneGroup = (trackType: typeof TRACK_BUTTONS[number]['type']): LaneGrou
 };
 
 export const MainWorkspace = () => {
+  const isMobileViewport = useMediaQuery('(max-width: 767px)');
   const {
+    applyPatternSegment,
     clearTrack,
     createTrack,
     currentStep,
@@ -81,8 +98,10 @@ export const MainWorkspace = () => {
     selectedTrackId,
     setActiveView,
     setSelectedTrackId,
+    setStepsPerPattern,
     shiftPattern,
     stepsPerPattern,
+    superSonicMode,
     toggleStep,
     toggleMute,
     togglePinnedTrack,
@@ -93,8 +112,16 @@ export const MainWorkspace = () => {
   } = useAudio();
   const [selectedStepIndex, setSelectedStepIndex] = useState(0);
   const [selectedStepNoteIndex, setSelectedStepNoteIndex] = useState(0);
+  const [segmentDraftName, setSegmentDraftName] = useState('');
   const [laneScope, setLaneScope] = useState<'ALL' | 'ACTIVE' | 'FOCUSED' | 'PINNED' | 'DRUMS' | 'MUSICAL'>('ALL');
-  const [compactLanes, setCompactLanes] = useState(false);
+  const [compactLanes, setCompactLanes] = useState(() => (
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
+  ));
+  const [patternSegments, setPatternSegments] = useState<PatternSegment[]>(() => loadPatternSegments());
+  const [stepZoom, setStepZoom] = useState(() => (
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches ? 40 : 54
+  ));
+  const [mobileInspectorOpen, setMobileInspectorOpen] = useState(false);
   const [collapsedGroups, setCollapsedGroups] = useState<Record<LaneSectionKey, boolean>>({
     MUSICAL: false,
     PINNED: false,
@@ -134,13 +161,21 @@ export const MainWorkspace = () => {
         return true;
     }
   }), [currentPattern, laneScope, pinnedTrackIds, selectedTrackId, tracks]);
-  const laneHeaderWidthClass = compactLanes ? 'w-[300px]' : 'w-[340px]';
-  const laneHeaderPaddingClass = compactLanes ? 'px-4 py-3' : 'px-5 py-4';
-  const laneGridPaddingClass = compactLanes ? 'px-2 py-1.5' : 'px-2 py-2';
-  const laneHeaderWidth = compactLanes ? 300 : 340;
-  const stepCellWidth = compactLanes ? 54 : 64;
+  const laneHeaderPaddingClass = isMobileViewport
+    ? (compactLanes ? 'px-3 py-2.5' : 'px-3.5 py-3')
+    : compactLanes ? 'px-4 py-3' : 'px-5 py-4';
+  const laneGridPaddingClass = isMobileViewport
+    ? (compactLanes ? 'px-1.5 py-1.5' : 'px-2 py-1.5')
+    : compactLanes ? 'px-2 py-1.5' : 'px-2 py-2';
+  const stepZoomMax = isMobileViewport ? 52 : 82;
+  const laneHeaderWidth = isMobileViewport
+    ? (compactLanes ? 188 : 212)
+    : compactLanes ? 300 : 340;
+  const stepCellWidth = clampNumber(stepZoom, STEP_ZOOM_MIN, stepZoomMax);
   const stepGridWidth = stepsPerPattern * stepCellWidth;
-  const maxGridScrollLeft = Math.max(0, stepGridWidth - gridViewportWidth);
+  const maxGridScrollLeft = Math.max(0, (laneHeaderWidth + stepGridWidth) - gridViewportWidth);
+  const visibleStepStart = Math.max(0, Math.floor(Math.max(0, gridScrollLeft - laneHeaderWidth) / stepCellWidth));
+  const visibleStepEnd = Math.min(stepsPerPattern, Math.ceil(Math.max(0, (gridScrollLeft + gridViewportWidth - laneHeaderWidth)) / stepCellWidth));
   const pinnedVisibleTracks = useMemo(() => (
     laneScope === 'PINNED'
       ? []
@@ -172,6 +207,23 @@ export const MainWorkspace = () => {
 
     return sections;
   }, [groupedVisibleTracks, pinnedVisibleTracks]);
+  const overviewTracks = useMemo(() => (
+    visibleTracks.slice(0, isMobileViewport ? 5 : 8)
+  ), [isMobileViewport, visibleTracks]);
+  const showTrackOverviewLimit = visibleTracks.length > overviewTracks.length;
+
+  useEffect(() => {
+    if (isMobileViewport) {
+      setCompactLanes(true);
+      return;
+    }
+
+    setMobileInspectorOpen(false);
+  }, [isMobileViewport]);
+
+  useEffect(() => {
+    setStepZoom((current) => clampNumber(current, STEP_ZOOM_MIN, stepZoomMax));
+  }, [stepZoomMax]);
 
   useEffect(() => {
     if (!selectedTrack) {
@@ -214,7 +266,48 @@ export const MainWorkspace = () => {
       node.removeEventListener('scroll', syncGridViewport);
       window.removeEventListener('resize', syncGridViewport);
     };
-  }, [compactLanes, laneScope, stepsPerPattern, visibleTrackSections.length]);
+  }, [compactLanes, laneScope, laneHeaderWidth, stepCellWidth, stepsPerPattern, visibleTrackSections.length]);
+
+  const updateStepZoom = (nextWidth: number, anchorClientX?: number) => {
+    setStepZoom((currentWidth) => {
+      const clampedWidth = clampNumber(
+        Math.round(nextWidth / STEP_ZOOM_STEP) * STEP_ZOOM_STEP,
+        STEP_ZOOM_MIN,
+        stepZoomMax,
+      );
+
+      if (clampedWidth === currentWidth) {
+        return currentWidth;
+      }
+
+      const node = gridViewportRef.current;
+      if (node) {
+        const rect = node.getBoundingClientRect();
+        const anchorOffset = clampNumber(
+          anchorClientX !== undefined ? anchorClientX - rect.left : node.clientWidth * 0.5,
+          0,
+          node.clientWidth,
+        );
+        const anchorStep = Math.max(0, ((node.scrollLeft + anchorOffset) - laneHeaderWidth) / currentWidth);
+
+        window.requestAnimationFrame(() => {
+          const activeNode = gridViewportRef.current;
+          if (!activeNode) {
+            return;
+          }
+
+          const nextLeft = clampNumber(
+            (laneHeaderWidth + (anchorStep * clampedWidth)) - anchorOffset,
+            0,
+            Math.max(0, activeNode.scrollWidth - activeNode.clientWidth),
+          );
+          activeNode.scrollLeft = nextLeft;
+        });
+      }
+
+      return clampedWidth;
+    });
+  };
 
   const scrollGridByViewport = (direction: -1 | 1) => {
     const node = gridViewportRef.current;
@@ -226,6 +319,26 @@ export const MainWorkspace = () => {
       behavior: 'smooth',
       left: Math.max(0, Math.min(maxGridScrollLeft, node.scrollLeft + direction * Math.max(180, node.clientWidth * 0.72))),
     });
+  };
+
+  const jumpToStep = (stepIndex: number, trackId?: string) => {
+    if (trackId) {
+      setSelectedTrackId(trackId);
+    }
+
+    selectStep(stepIndex);
+
+    const node = gridViewportRef.current;
+    if (!node) {
+      return;
+    }
+
+    const nextLeft = clampNumber(
+      (laneHeaderWidth + (stepIndex * stepCellWidth)) - Math.max(stepCellWidth, node.clientWidth * 0.42),
+      0,
+      maxGridScrollLeft,
+    );
+    node.scrollTo({ behavior: 'smooth', left: nextLeft });
   };
 
   const selectStep = (stepIndex: number, noteIndex = 0) => {
@@ -294,13 +407,45 @@ export const MainWorkspace = () => {
     setSelectedStepNoteIndex(selectedStep.length);
   };
 
+  const handleSavePatternSegment = () => {
+    if (!selectedTrack) {
+      return;
+    }
+
+    const nextSegment = createPatternSegment(
+      selectedTrack,
+      currentPattern,
+      stepsPerPattern,
+      segmentDraftName || undefined,
+    );
+
+    setPatternSegments((current) => persistPatternSegments([nextSegment, ...current]));
+    setSegmentDraftName('');
+  };
+
+  const handleApplyPatternSegment = (segment: PatternSegment) => {
+    if (!selectedTrack) {
+      return;
+    }
+
+    if (segment.stepsPerPattern > stepsPerPattern) {
+      setStepsPerPattern(segment.stepsPerPattern);
+    }
+
+    applyPatternSegment(selectedTrack.id, currentPattern, segment.steps, segment.automation);
+  };
+
+  const handleDeletePatternSegment = (segmentId: string) => {
+    setPatternSegments((current) => persistPatternSegments(current.filter((segment) => segment.id !== segmentId)));
+  };
+
   return (
     <section className="surface-panel flex min-h-0 flex-1 flex-col overflow-auto xl:overflow-hidden">
       <div className="flex items-center justify-between gap-4 border-b border-[var(--border-soft)] px-5 py-4">
         <div>
           <div className="section-label">Sequencer</div>
           <h2 className="mt-2 text-lg font-semibold tracking-tight text-[var(--text-primary)]">Pattern grid</h2>
-          <p className="mt-2 text-sm text-[var(--text-secondary)]">Write lanes, stack notes, and shape the current pattern before arranging clips.</p>
+          <p className="mt-2 text-sm text-[var(--text-secondary)]">Build the current pattern here before you move it into Song view.</p>
         </div>
         <div className="flex items-center gap-2 overflow-x-auto pb-1">
           <span className="section-label shrink-0">Add lane</span>
@@ -323,7 +468,7 @@ export const MainWorkspace = () => {
               <div>
                 <div className="section-label">Compose</div>
                 <div className="mt-1 text-sm font-medium text-[var(--text-primary)]">
-                  {selectedTrack ? `${selectedTrack.name} in Pattern ${String.fromCharCode(65 + currentPattern)}` : 'Pick a lane to start composing'}
+                  {selectedTrack ? `${selectedTrack.name} in Pattern ${String.fromCharCode(65 + currentPattern)}` : 'Pick a lane to start writing'}
                 </div>
                 <div className="mt-1 text-[11px] text-[var(--text-secondary)]">
                   {selectedTrack
@@ -331,7 +476,54 @@ export const MainWorkspace = () => {
                     : `${tracks.length} total tracks · ${melodicTrackCount} melodic lanes`}
                 </div>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="surface-panel-strong flex flex-wrap items-center gap-1 p-1">
+                  <span className="px-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Steps</span>
+                  {STEP_OPTIONS.map((option) => (
+                    <button
+                      className="control-chip px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                      data-active={stepsPerPattern === option}
+                      key={option}
+                      onClick={() => setStepsPerPattern(option)}
+                      type="button"
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+                <div className="surface-panel-strong flex items-center gap-2 p-1">
+                  <span className="px-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Zoom</span>
+                  <button
+                    className="control-chip flex h-8 w-8 items-center justify-center"
+                    onClick={() => updateStepZoom(stepCellWidth - 6)}
+                    type="button"
+                  >
+                    <Minus className="h-3.5 w-3.5" />
+                  </button>
+                  <input
+                    className="sonic-scroll-strip w-24"
+                    max={stepZoomMax}
+                    min={STEP_ZOOM_MIN}
+                    onChange={(event) => updateStepZoom(Number(event.target.value))}
+                    step={STEP_ZOOM_STEP}
+                    type="range"
+                    value={stepCellWidth}
+                  />
+                  <button
+                    className="control-chip flex h-8 w-8 items-center justify-center"
+                    onClick={() => updateStepZoom(stepCellWidth + 6)}
+                    type="button"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                  <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">{stepCellWidth}px</span>
+                </div>
+                {superSonicMode && (
+                  <div className="surface-panel-strong flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--accent-strong)]">
+                    <Zap className="h-3.5 w-3.5 text-[var(--accent)]" />
+                    Macro lane view ready
+                  </div>
+                )}
                 {(['ALL', 'ACTIVE', 'FOCUSED', 'PINNED', 'DRUMS', 'MUSICAL'] as const).map((scope) => (
                   <div key={scope}>
                     <ScopeChip
@@ -362,18 +554,105 @@ export const MainWorkspace = () => {
                       <SlidersHorizontal className="h-3.5 w-3.5" />
                       {isSelectedTrackDrum ? 'Song tools' : 'Deep edit'}
                     </button>
+                    {isMobileViewport && (
+                      <button
+                        className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                        onClick={() => setMobileInspectorOpen((current) => !current)}
+                        type="button"
+                      >
+                        <SlidersHorizontal className="h-3.5 w-3.5" />
+                        {mobileInspectorOpen ? 'Hide inspector' : 'Show inspector'}
+                      </button>
+                    )}
                   </>
                 )}
               </div>
             </div>
           </div>
 
+          {visibleTracks.length > 0 && (
+            <div className="surface-panel-muted mb-3 px-4 py-3">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="section-label">Track map</div>
+                  <div className="mt-1 text-[12px] text-[var(--text-secondary)]">Jump across the full pattern while keeping the connected lanes in view.</div>
+                </div>
+                <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+                  View {visibleStepStart + 1}-{Math.max(visibleStepStart + 1, visibleStepEnd)} of {stepsPerPattern}
+                </div>
+              </div>
+              <div className="mt-3 grid gap-2">
+                {overviewTracks.map((track) => {
+                  const patternSteps = track.patterns[currentPattern] ?? Array.from({ length: stepsPerPattern }, () => []);
+                  const activeSteps = patternSteps.filter((step) => step.length > 0).length;
+
+                  return (
+                    <div className="grid grid-cols-[minmax(0,120px)_1fr] items-center gap-3" key={`overview-${track.id}`}>
+                      <button
+                        className="min-w-0 text-left"
+                        onClick={() => setSelectedTrackId(track.id)}
+                        type="button"
+                      >
+                        <div className="truncate text-[12px] font-medium text-[var(--text-primary)]">{track.name}</div>
+                        <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">{activeSteps} active</div>
+                      </button>
+                      <div className="relative flex h-7 overflow-hidden rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]">
+                        {patternSteps.map((step, stepIndex) => (
+                          <button
+                            className={`relative h-full border-r border-[var(--border-soft)]/50 last:border-r-0 ${stepIndex % 4 === 0 ? 'bg-[rgba(255,255,255,0.02)]' : ''}`}
+                            key={`${track.id}-overview-step-${stepIndex}`}
+                            onClick={() => jumpToStep(stepIndex, track.id)}
+                            style={{
+                              background: step.length > 0
+                                ? `${track.color}${selectedTrackId === track.id ? 'bb' : '66'}`
+                                : undefined,
+                              width: `${100 / stepsPerPattern}%`,
+                            }}
+                            title={`Jump to step ${stepIndex + 1}`}
+                            type="button"
+                          >
+                            {selectedTrackId === track.id && selectedStepIndex === stepIndex && (
+                              <span className="absolute inset-y-0 left-0 w-[2px] bg-white/75" />
+                            )}
+                          </button>
+                        ))}
+                        <div
+                          className="pointer-events-none absolute inset-y-0 border border-white/22 bg-white/6"
+                          style={{
+                            left: `${(visibleStepStart / stepsPerPattern) * 100}%`,
+                            width: `${(Math.max(1, visibleStepEnd - visibleStepStart) / stepsPerPattern) * 100}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {showTrackOverviewLimit && (
+                <div className="mt-2 text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+                  Showing the first {overviewTracks.length} visible lanes. Narrow the scope to focus the rest.
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <div
               className="sequencer-grid-scroll flex-1 overflow-auto rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]"
               onWheel={(event) => {
                 const node = gridViewportRef.current;
-                if (!node || !event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
+                if (!node) {
+                  return;
+                }
+
+                if (event.ctrlKey || event.altKey) {
+                  event.preventDefault();
+                  const dominantDelta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+                  updateStepZoom(stepCellWidth + (dominantDelta < 0 ? 6 : -6), event.clientX);
+                  return;
+                }
+
+                if (!event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
                   return;
                 }
 
@@ -388,7 +667,7 @@ export const MainWorkspace = () => {
             >
               <div style={{ minWidth: `${laneHeaderWidth + stepGridWidth}px` }}>
                 <div className="sticky top-0 z-10 flex h-12 border-b border-[var(--border-soft)] bg-[rgba(8,12,17,0.96)] backdrop-blur">
-                  <div className={`${laneHeaderWidthClass} shrink-0 border-r border-[var(--border-soft)] px-5 py-3`}>
+                  <div className="shrink-0 border-r border-[var(--border-soft)] px-5 py-3" style={{ width: `${laneHeaderWidth}px` }}>
                     <div className="flex items-center gap-2">
                       <Music2 className="h-4 w-4 text-[var(--accent)]" />
                       <span className="section-label">Tracks</span>
@@ -442,7 +721,7 @@ export const MainWorkspace = () => {
                         key={track.id}
                       >
                         <div
-                          className={`group relative ${laneHeaderWidthClass} shrink-0 overflow-hidden border-r border-[var(--border-soft)] ${laneHeaderPaddingClass} text-left cursor-pointer`}
+                          className={`group relative shrink-0 overflow-hidden border-r border-[var(--border-soft)] ${laneHeaderPaddingClass} text-left cursor-pointer`}
                           onClick={() => setSelectedTrackId(track.id)}
                           onKeyDown={(event) => {
                             if (event.key === 'Enter' || event.key === ' ') {
@@ -451,6 +730,7 @@ export const MainWorkspace = () => {
                             }
                           }}
                           role="button"
+                          style={{ width: `${laneHeaderWidth}px` }}
                           tabIndex={0}
                         >
                           {selected && <div className="absolute left-0 top-3 bottom-3 w-[2px] rounded-full" style={{ backgroundColor: track.color }} />}
@@ -467,9 +747,9 @@ export const MainWorkspace = () => {
                           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                             <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.type}</span>
                             {pinned && <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--accent-strong)]">Pinned</span>}
-                            <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.source.engine}</span>
-                            <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{sourceLabel}</span>
-                            <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.volume.toFixed(0)} dB</span>
+                            {!isMobileViewport && <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.source.engine}</span>}
+                            {!isMobileViewport && <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{sourceLabel}</span>}
+                            {!isMobileViewport && <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.volume.toFixed(0)} dB</span>}
                             <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
                               {patternSteps.reduce((sum, step) => sum + step.length, 0)} notes
                             </span>
@@ -505,24 +785,24 @@ export const MainWorkspace = () => {
                             >
                               <Pin className="h-3.5 w-3.5" />
                             </StateActionBtn>
-                            <RowActionBtn label="Move track up" onClick={(event) => {
+                            {!isMobileViewport && <RowActionBtn label="Move track up" onClick={(event) => {
                               event.stopPropagation();
                               moveTrack(track.id, 'up');
                             }}>
                               <ArrowUp className="h-3.5 w-3.5" />
-                            </RowActionBtn>
-                            <RowActionBtn label="Move track down" onClick={(event) => {
+                            </RowActionBtn>}
+                            {!isMobileViewport && <RowActionBtn label="Move track down" onClick={(event) => {
                               event.stopPropagation();
                               moveTrack(track.id, 'down');
                             }}>
                               <ArrowDown className="h-3.5 w-3.5" />
-                            </RowActionBtn>
-                            <RowActionBtn label="Duplicate track" onClick={(event) => {
+                            </RowActionBtn>}
+                            {!isMobileViewport && <RowActionBtn label="Duplicate track" onClick={(event) => {
                               event.stopPropagation();
                               duplicateTrack(track.id);
                             }}>
                               <Copy className="h-3.5 w-3.5" />
-                            </RowActionBtn>
+                            </RowActionBtn>}
                             <RowActionBtn label="Clear pattern" onClick={(event) => {
                               event.stopPropagation();
                               clearTrack(track.id);
@@ -546,6 +826,8 @@ export const MainWorkspace = () => {
                             const leadEvent = value[0];
                             const extraNotes = Math.max(0, value.length - 1);
                             const maxGate = value.reduce((gate, event) => Math.max(gate, event.gate), 0);
+                            const showStepNoteLabel = stepCellWidth >= 36;
+                            const showStepCount = stepCellWidth >= 26;
 
                             return (
                               <button
@@ -566,7 +848,7 @@ export const MainWorkspace = () => {
                                     }}
                                 type="button"
                               >
-                                {isActive && !['kick', 'snare', 'hihat'].includes(track.type) && leadEvent && (
+                                {isActive && showStepNoteLabel && !['kick', 'snare', 'hihat'].includes(track.type) && leadEvent && (
                                   <span className="absolute bottom-1 right-1 font-mono text-[9px] font-medium text-black/60">
                                     {leadEvent.note}
                                     {extraNotes > 0 ? ` +${extraNotes}` : ''}
@@ -578,7 +860,7 @@ export const MainWorkspace = () => {
                                     style={{ height: '3px', width: `${Math.max(8, Math.min(34, maxGate * 4.5))}px` }}
                                   />
                                 )}
-                                {extraNotes > 0 && (
+                                {extraNotes > 0 && showStepCount && (
                                   <span className="absolute left-1 top-1 rounded-sm bg-black/20 px-1 font-mono text-[8px] text-white/80">
                                     {value.length}
                                   </span>
@@ -609,7 +891,7 @@ export const MainWorkspace = () => {
                     Left
                   </button>
                   <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-                    {Math.floor(gridScrollLeft / stepCellWidth) + 1}
+                    {visibleStepStart + 1}
                   </span>
                   <input
                     className="sonic-scroll-strip"
@@ -622,12 +904,12 @@ export const MainWorkspace = () => {
 
                       gridViewportRef.current.scrollLeft = Number(event.target.value);
                     }}
-                    step={stepCellWidth}
+                    step={Math.max(STEP_ZOOM_STEP, stepCellWidth)}
                     type="range"
                     value={Math.min(gridScrollLeft, maxGridScrollLeft)}
                   />
                   <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-                    {Math.min(stepsPerPattern, Math.ceil((gridScrollLeft + gridViewportWidth) / stepCellWidth))}
+                    {Math.max(visibleStepStart + 1, visibleStepEnd)}
                   </span>
                   <button
                     className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
@@ -642,6 +924,7 @@ export const MainWorkspace = () => {
           </div>
         </div>
 
+        {(!isMobileViewport || mobileInspectorOpen) && (
         <aside className="surface-panel-strong sonic-sidebar w-full shrink-0 overflow-auto p-4 xl:w-[320px]">
           <div className="flex items-center gap-2">
             <SlidersHorizontal className="h-4 w-4 text-[var(--accent)]" />
@@ -718,6 +1001,74 @@ export const MainWorkspace = () => {
                     </>
                   )}
                 </div>
+              </div>
+
+              <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+                <div className="section-label">Pattern pieces</div>
+                <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
+                  Save this lane's current pattern as a reusable piece, then select another lane and drop it in here.
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <input
+                    className="control-field min-w-0 flex-1 px-3 py-2 text-sm"
+                    onChange={(event) => setSegmentDraftName(event.target.value)}
+                    placeholder={`${selectedTrack.name} ${String.fromCharCode(65 + currentPattern)}`}
+                    type="text"
+                    value={segmentDraftName}
+                  />
+                  <button
+                    className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                    onClick={handleSavePatternSegment}
+                    type="button"
+                  >
+                    Save piece
+                  </button>
+                </div>
+                {patternSegments.length > 0 ? (
+                  <div className="mt-3 grid gap-2">
+                    {patternSegments.slice(0, 6).map((segment) => {
+                      const activeSteps = segment.steps.filter((step) => step.length > 0).length;
+                      const isCrossLane = segment.sourceTrackType !== selectedTrack.type;
+
+                      return (
+                        <div
+                          className="rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)] px-3 py-2"
+                          key={segment.id}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="truncate text-sm font-medium text-[var(--text-primary)]">{segment.name}</div>
+                              <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+                                {segment.sourceTrackType} · {segment.stepsPerPattern} steps · {activeSteps} active{isCrossLane ? ' · cross-lane' : ''}
+                              </div>
+                            </div>
+                            <button
+                              className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--text-secondary)] transition-colors hover:text-[var(--danger)]"
+                              onClick={() => handleDeletePatternSegment(segment.id)}
+                              type="button"
+                            >
+                              Forget
+                            </button>
+                          </div>
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <button
+                              className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                              onClick={() => handleApplyPatternSegment(segment)}
+                              type="button"
+                            >
+                              Apply here
+                            </button>
+                            <span className="text-[11px] text-[var(--text-secondary)]">
+                              From {segment.sourceTrackName}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="mt-3 text-[11px] text-[var(--text-secondary)]">No saved pattern pieces yet.</div>
+                )}
               </div>
 
               <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
@@ -864,6 +1215,7 @@ export const MainWorkspace = () => {
             <p className="mt-4 text-sm text-[var(--text-secondary)]">Select a lane to edit notes, dynamics, and pattern movement.</p>
           )}
         </aside>
+        )}
       </div>
     </section>
   );
@@ -898,6 +1250,7 @@ const ScopeChip = ({
 }) => (
   <button
     className={`control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] ${active ? 'text-[var(--accent-strong)]' : ''}`}
+    data-active={active ? 'true' : 'false'}
     onClick={onClick}
   >
     {label}

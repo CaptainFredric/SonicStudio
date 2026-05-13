@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeftRight,
   Eraser,
@@ -10,6 +10,7 @@ import {
   Shuffle,
   SlidersHorizontal,
   Trash2,
+  Zap,
 } from 'lucide-react';
 
 import { useAudio } from '../context/AudioContext';
@@ -35,8 +36,17 @@ import {
   clampNoteGate,
   snapNoteGate,
 } from '../utils/noteEditing';
+import { useMediaQuery } from '../utils/useMediaQuery';
 
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+const GRID_LABEL_WIDTH = 88;
+const MOBILE_GRID_LABEL_WIDTH = 72;
+const STEP_ZOOM_MAX = 120;
+const STEP_ZOOM_MIN = 20;
+const STEP_ZOOM_STEP = 2;
+const STEP_OPTIONS = [16, 32, 64, 96, 128] as const;
+const SUPERSONIC_NOTE_OFFSETS = [3, 2, 1, 0, -1, -2, -3] as const;
 
 const shiftPitch = (note: string, semitones: number): string | null => {
   const match = note.match(/^([A-G]#?)(-?\d+)$/);
@@ -59,6 +69,7 @@ const STEP_ZOOM_PRESETS = {
   CLOSE: 78,
   DETAIL: 62,
   WIDE: 48,
+  FAR: 28,
 } as const;
 const ROW_ZOOM_PRESETS = {
   CLOSE: 44,
@@ -97,7 +108,6 @@ const GATE_ADJUSTMENT_GROUPS = [
 ] as const;
 
 type NoteWindowKey = keyof typeof NOTE_WINDOWS;
-type StepZoomKey = keyof typeof STEP_ZOOM_PRESETS;
 type RowZoomKey = keyof typeof ROW_ZOOM_PRESETS;
 
 interface NoteResizeState {
@@ -109,6 +119,7 @@ interface NoteResizeState {
 }
 
 export const PianoRoll = () => {
+  const isMobileViewport = useMediaQuery('(max-width: 767px)');
   const {
     clearTrack,
     currentPattern,
@@ -117,9 +128,11 @@ export const PianoRoll = () => {
     moveNoteToStep,
     selectedTrackId,
     setLoopRange,
+    setStepsPerPattern,
     shiftPattern,
     stampChord,
     stepsPerPattern,
+    superSonicMode,
     toggleStep,
     tracks,
     transposePattern,
@@ -130,14 +143,21 @@ export const PianoRoll = () => {
   const [noteWindow, setNoteWindow] = useState<NoteWindowKey>('MID');
   const [selectedStepIndex, setSelectedStepIndex] = useState<number | null>(null);
   const [selectedNoteIndex, setSelectedNoteIndex] = useState<number | null>(null);
-  const [stepZoom, setStepZoom] = useState<StepZoomKey>('DETAIL');
+  const [stepZoom, setStepZoom] = useState(() => (
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches ? 46 : STEP_ZOOM_PRESETS.DETAIL
+  ));
   const [rowZoom, setRowZoom] = useState<RowZoomKey>('DETAIL');
-  const [focusSelectedNote, setFocusSelectedNote] = useState(false);
+  const [focusSelectedNote, setFocusSelectedNote] = useState(() => (
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
+  ));
+  const [mobileInspectorOpen, setMobileInspectorOpen] = useState(false);
   const [noteResizeState, setNoteResizeState] = useState<NoteResizeState | null>(null);
   const [chordKey, setChordKey] = useState<KeyName>('C');
   const [chordMode, setChordMode] = useState<'major' | 'minor'>('major');
   const [chordPaletteOpen, setChordPaletteOpen] = useState(false);
   const gridViewportRef = useRef<HTMLDivElement | null>(null);
+  const gridOverviewRef = useRef<HTMLDivElement | null>(null);
+  const gridOverviewDragRef = useRef(false);
   const [gridScrollLeft, setGridScrollLeft] = useState(0);
   const [gridViewportWidth, setGridViewportWidth] = useState(0);
 
@@ -172,14 +192,14 @@ export const PianoRoll = () => {
 
     setSelectedStepIndex(nextStepIndex);
     setSelectedNoteIndex(steps[nextStepIndex]?.length ? 0 : null);
-  }, [currentPattern, track?.id]);
+  }, [currentPattern, stepsPerPattern, track?.id]);
 
   if (!track) {
     return (
       <section className="surface-panel flex flex-1 items-center justify-center">
         <div className="text-center">
           <div className="section-label">Piano roll</div>
-          <p className="mt-3 text-sm text-[var(--text-secondary)]">Select a track to open its note grid.</p>
+          <p className="mt-3 text-sm text-[var(--text-secondary)]">Pick a track to open the note grid.</p>
         </div>
       </section>
     );
@@ -195,9 +215,59 @@ export const PianoRoll = () => {
     ? selectedNoteIndex
     : selectedStep.length > 0 ? 0 : null;
   const selectedNote = normalizedSelectedNoteIndex !== null ? selectedStep[normalizedSelectedNoteIndex] : null;
-  const stepCellWidth = STEP_ZOOM_PRESETS[stepZoom];
+  const noteLabelWidth = isMobileViewport ? MOBILE_GRID_LABEL_WIDTH : GRID_LABEL_WIDTH;
+  const stepCellWidth = stepZoom;
   const rowHeight = ROW_ZOOM_PRESETS[rowZoom];
-  const maxGridScrollLeft = Math.max(0, (stepsPerPattern * stepCellWidth) - gridViewportWidth);
+  const maxGridScrollLeft = Math.max(0, (noteLabelWidth + (stepsPerPattern * stepCellWidth)) - gridViewportWidth);
+  const visibleStepStart = Math.max(0, Math.floor(Math.max(0, gridScrollLeft - noteLabelWidth) / stepCellWidth));
+  const visibleStepEnd = Math.min(stepsPerPattern, Math.ceil(Math.max(0, (gridScrollLeft + gridViewportWidth - noteLabelWidth)) / stepCellWidth));
+  const maxNotesPerStep = Math.max(1, ...patternSteps.map((step) => step.length));
+
+  const updateHorizontalZoom = useCallback((nextWidth: number, anchorClientX?: number) => {
+    setStepZoom((currentWidth) => {
+      const clampedWidth = clamp(Math.round(nextWidth / STEP_ZOOM_STEP) * STEP_ZOOM_STEP, STEP_ZOOM_MIN, STEP_ZOOM_MAX);
+      if (clampedWidth === currentWidth) {
+        return currentWidth;
+      }
+
+      const node = gridViewportRef.current;
+      if (node) {
+        const rect = node.getBoundingClientRect();
+        const anchorOffset = clamp(
+          anchorClientX !== undefined ? anchorClientX - rect.left : node.clientWidth * 0.5,
+          0,
+          node.clientWidth,
+        );
+        const anchorStep = Math.max(0, ((node.scrollLeft + anchorOffset) - noteLabelWidth) / currentWidth);
+
+        window.requestAnimationFrame(() => {
+          const activeNode = gridViewportRef.current;
+          if (!activeNode) {
+            return;
+          }
+
+          const nextMaxScroll = Math.max(0, noteLabelWidth + (stepsPerPattern * clampedWidth) - activeNode.clientWidth);
+          activeNode.scrollLeft = clamp(
+            (noteLabelWidth + (anchorStep * clampedWidth)) - anchorOffset,
+            0,
+            nextMaxScroll,
+          );
+        });
+      }
+
+      return clampedWidth;
+    });
+  }, [noteLabelWidth, stepsPerPattern]);
+
+  useEffect(() => {
+    if (!isMobileViewport) {
+      setMobileInspectorOpen(false);
+      return;
+    }
+
+    setFocusSelectedNote(true);
+    setStepZoom((current) => (current >= STEP_ZOOM_PRESETS.DETAIL ? 46 : current));
+  }, [isMobileViewport]);
   const renderNotes = useMemo(() => {
     if (track.type === 'kick' || track.type === 'snare' || track.type === 'hihat') {
       return ['C3'];
@@ -295,6 +365,26 @@ export const PianoRoll = () => {
     state.visited.add(key);
     if (state.mode === 'add' && !hasNote) handleGridToggle(stepIndex, note);
     else if (state.mode === 'remove' && hasNote) handleGridToggle(stepIndex, note);
+  };
+
+  const handleSuperSonicPointerDown = (
+    stepIndex: number,
+    originNote: string,
+    semitoneOffset: number,
+    event: React.PointerEvent<HTMLSpanElement>,
+  ) => {
+    if (event.button !== 0) {
+      return;
+    }
+
+    event.preventDefault();
+    event.stopPropagation();
+    const targetNote = shiftPitch(originNote, semitoneOffset);
+    if (!targetNote) {
+      return;
+    }
+
+    handleGridToggle(stepIndex, targetNote);
   };
 
   // --- Note gesture system (drag-to-pitch, velocity drag, click-to-erase, drag-to-erase) ---
@@ -432,9 +522,9 @@ export const PianoRoll = () => {
     }
 
     const node = gridViewportRef.current;
-    const targetLeft = Math.max(0, (selectedStepIndex * stepCellWidth) - Math.max(0, node.clientWidth * 0.35));
+    const targetLeft = Math.max(0, (noteLabelWidth + (selectedStepIndex * stepCellWidth)) - Math.max(0, node.clientWidth * 0.35));
     node.scrollTo({ left: targetLeft });
-  }, [selectedStepIndex, stepCellWidth]);
+  }, [noteLabelWidth, selectedStepIndex, stepCellWidth]);
 
   const scrollGridByViewport = (direction: -1 | 1) => {
     const node = gridViewportRef.current;
@@ -447,6 +537,23 @@ export const PianoRoll = () => {
       left: Math.max(0, Math.min(maxGridScrollLeft, node.scrollLeft + direction * Math.max(180, node.clientWidth * 0.72))),
     });
   };
+
+  const scrubGridOverview = useCallback((clientX: number) => {
+    const node = gridViewportRef.current;
+    const overview = gridOverviewRef.current;
+    if (!node || !overview) {
+      return;
+    }
+
+    const rect = overview.getBoundingClientRect();
+    if (rect.width <= 0) {
+      return;
+    }
+
+    const ratio = clamp((clientX - rect.left) / rect.width, 0, 1);
+    const centeredStep = ratio * stepsPerPattern;
+    node.scrollLeft = clamp((noteLabelWidth + (centeredStep * stepCellWidth)) - (node.clientWidth * 0.5), 0, maxGridScrollLeft);
+  }, [maxGridScrollLeft, noteLabelWidth, stepCellWidth, stepsPerPattern]);
 
   const bumpSelectedNote = (updates: Partial<NoteEvent>) => {
     if (!selectedNote || normalizedSelectedNoteIndex === null || selectedStepIndex === null) {
@@ -616,6 +723,15 @@ export const PianoRoll = () => {
 
         <div className="flex flex-wrap items-center gap-2">
 
+          <div className="surface-panel-muted flex items-center gap-2 p-1">
+            <span className="px-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Steps</span>
+            {STEP_OPTIONS.map((option) => (
+              <React.Fragment key={`steps-${option}`}>
+                <WindowButton active={stepsPerPattern === option} label={`${option}`} onClick={() => setStepsPerPattern(option)} />
+              </React.Fragment>
+            ))}
+          </div>
+
           {!isDrum && (
             <div className="surface-panel-muted flex items-center gap-2 p-1">
               {(Object.keys(NOTE_WINDOWS) as NoteWindowKey[]).map((windowKey) => (
@@ -627,11 +743,38 @@ export const PianoRoll = () => {
           )}
 
           <div className="surface-panel-muted flex items-center gap-2 p-1">
-            {(Object.keys(STEP_ZOOM_PRESETS) as StepZoomKey[]).map((zoomKey) => (
+            {(Object.keys(STEP_ZOOM_PRESETS) as Array<keyof typeof STEP_ZOOM_PRESETS>).filter((zoomKey) => superSonicMode || zoomKey !== 'FAR').map((zoomKey) => (
               <React.Fragment key={`step-${zoomKey}`}>
-                <WindowButton active={stepZoom === zoomKey} label={`X ${zoomKey}`} onClick={() => setStepZoom(zoomKey)} />
+                <WindowButton active={stepZoom === STEP_ZOOM_PRESETS[zoomKey]} label={`X ${zoomKey}`} onClick={() => updateHorizontalZoom(STEP_ZOOM_PRESETS[zoomKey])} />
               </React.Fragment>
             ))}
+            <div className="ml-1 flex items-center gap-2 border-l border-[var(--border-soft)]/80 pl-2">
+              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Stretch</span>
+              <button
+                className="control-chip px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                onClick={() => updateHorizontalZoom(stepCellWidth - 8)}
+                type="button"
+              >
+                -
+              </button>
+              <input
+                className="sonic-scroll-strip w-24"
+                max={STEP_ZOOM_MAX}
+                min={STEP_ZOOM_MIN}
+                onChange={(event) => updateHorizontalZoom(Number(event.target.value))}
+                step={STEP_ZOOM_STEP}
+                type="range"
+                value={stepCellWidth}
+              />
+              <button
+                className="control-chip px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                onClick={() => updateHorizontalZoom(stepCellWidth + 8)}
+                type="button"
+              >
+                +
+              </button>
+              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">{stepCellWidth}px</span>
+            </div>
             {!isDrum && (
               <>
                 {(Object.keys(ROW_ZOOM_PRESETS) as RowZoomKey[]).map((zoomKey) => (
@@ -644,9 +787,23 @@ export const PianoRoll = () => {
                   label="Focus note"
                   onClick={() => setFocusSelectedNote((current) => !current)}
                 />
+                {isMobileViewport && (
+                  <WindowButton
+                    active={mobileInspectorOpen}
+                    label={mobileInspectorOpen ? 'Hide inspector' : 'Show inspector'}
+                    onClick={() => setMobileInspectorOpen((current) => !current)}
+                  />
+                )}
               </>
             )}
           </div>
+
+          {superSonicMode && !isDrum && (
+            <div className="surface-panel-muted flex items-center gap-2 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--accent-strong)]">
+              <Zap className="h-3.5 w-3.5 text-[var(--accent)]" />
+              Hover ladders on
+            </div>
+          )}
 
           <div className="surface-panel-muted flex items-center gap-1 p-1">
             <ToolButton label="Shift left" onClick={() => shiftPattern(track.id, 'left')}>
@@ -742,7 +899,18 @@ export const PianoRoll = () => {
             className="sequencer-grid-scroll h-full overflow-auto"
             onWheel={(event) => {
               const node = gridViewportRef.current;
-              if (!node || !event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
+              if (!node) {
+                return;
+              }
+
+              if (event.ctrlKey || event.altKey) {
+                event.preventDefault();
+                const dominantDelta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+                updateHorizontalZoom(stepCellWidth + (dominantDelta < 0 ? 8 : -8), event.clientX);
+                return;
+              }
+
+              if (!event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
                 return;
               }
 
@@ -757,7 +925,7 @@ export const PianoRoll = () => {
           >
           <div className="inline-flex min-w-max flex-col overflow-hidden rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
             <div className="flex h-10 border-b border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)]">
-              <div className="w-[88px] shrink-0 border-r border-[var(--border-soft)]" />
+              <div className="shrink-0 border-r border-[var(--border-soft)]" style={{ width: `${noteLabelWidth}px` }} />
               {Array.from({ length: stepsPerPattern }, (_, stepIndex) => {
                 const noteCount = patternSteps[stepIndex]?.length ?? 0;
 
@@ -785,7 +953,7 @@ export const PianoRoll = () => {
 
               return (
                 <div className="flex border-b border-[var(--border-soft)]/80 last:border-b-0" key={note} style={{ height: `${rowHeight}px` }}>
-                  <div className={`flex w-[88px] shrink-0 items-center justify-between border-r border-[var(--border-soft)] px-3 font-mono text-[10px] ${isBlackKey ? 'bg-[rgba(255,255,255,0.02)] text-[var(--text-tertiary)]' : 'bg-[rgba(255,255,255,0.05)] text-[var(--text-primary)]'}`}>
+                  <div className={`flex shrink-0 items-center justify-between border-r border-[var(--border-soft)] px-3 font-mono text-[10px] ${isBlackKey ? 'bg-[rgba(255,255,255,0.02)] text-[var(--text-tertiary)]' : 'bg-[rgba(255,255,255,0.05)] text-[var(--text-primary)]'}`} style={{ width: `${noteLabelWidth}px` }}>
                     <span>{isDrum ? 'HIT' : note}</span>
                     {!isDrum && note.startsWith('C') && (
                       <span className="text-[9px] text-[var(--text-tertiary)]">oct</span>
@@ -809,14 +977,44 @@ export const PianoRoll = () => {
                         type="button"
                       >
                         {!activeEvent && (
-                          <span
-                            aria-hidden
-                            className="pointer-events-none absolute inset-y-[3px] left-[3px] rounded-md opacity-0 transition-opacity group-hover:opacity-30"
-                            style={{
-                              background: track.color,
-                              width: `${Math.max(10, stepCellWidth - 6)}px`,
-                            }}
-                          />
+                          <>
+                            <span
+                              aria-hidden
+                              className="pointer-events-none absolute inset-y-[3px] left-[3px] rounded-md opacity-0 transition-opacity group-hover:opacity-30"
+                              style={{
+                                background: track.color,
+                                width: `${Math.max(10, stepCellWidth - 6)}px`,
+                              }}
+                            />
+                            {superSonicMode && !isDrum && (
+                              <span className="supersonic-ladder pointer-events-none absolute inset-y-[3px] left-[3px] right-[3px] z-[2] opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100">
+                                {SUPERSONIC_NOTE_OFFSETS.map((offset) => {
+                                  const targetNote = shiftPitch(note, offset);
+                                  if (!targetNote) {
+                                    return <span className="supersonic-ladder-step" key={`${note}-${stepIndex}-${offset}`} style={{ opacity: 0.2, width: '40%' }} />;
+                                  }
+
+                                  return (
+                                    <span
+                                      className="supersonic-ladder-step"
+                                      data-center={offset === 0 ? 'true' : 'false'}
+                                      key={`${note}-${stepIndex}-${offset}`}
+                                      onPointerDown={(event) => handleSuperSonicPointerDown(stepIndex, note, offset, event)}
+                                      style={{
+                                        alignSelf: 'center',
+                                        background: offset === 0
+                                          ? `linear-gradient(90deg, ${track.color}, rgba(255,255,255,0.92))`
+                                          : `linear-gradient(90deg, ${track.color}dd, ${track.color}55)`,
+                                        height: offset === 0 ? '6px' : '4px',
+                                        width: `${Math.max(26, 100 - (Math.abs(offset) * 12))}%`,
+                                      }}
+                                      title={`Place ${targetNote}`}
+                                    />
+                                  );
+                                })}
+                              </span>
+                            )}
+                          </>
                         )}
                         {activeEvent && (
                           <>
@@ -909,6 +1107,82 @@ export const PianoRoll = () => {
           </div>
           </div>
           <div className="mt-3 rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)] px-4 py-3">
+            <div>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+                  Step overview
+                </div>
+                <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+                  View {visibleStepStart + 1}–{Math.max(visibleStepStart + 1, visibleStepEnd)} of {stepsPerPattern}
+                </div>
+              </div>
+              <div
+                className="mt-3 relative h-16 overflow-hidden rounded-[3px] border border-[var(--border-soft)] bg-[rgba(6,9,13,0.34)] touch-none"
+                onPointerCancel={(event) => {
+                  try {
+                    event.currentTarget.releasePointerCapture?.(event.pointerId);
+                  } catch {
+                    /* ignore */
+                  }
+                  gridOverviewDragRef.current = false;
+                }}
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  gridOverviewDragRef.current = true;
+                  event.currentTarget.setPointerCapture?.(event.pointerId);
+                  scrubGridOverview(event.clientX);
+                }}
+                onPointerMove={(event) => {
+                  if (!gridOverviewDragRef.current) {
+                    return;
+                  }
+                  scrubGridOverview(event.clientX);
+                }}
+                onPointerUp={(event) => {
+                  try {
+                    event.currentTarget.releasePointerCapture?.(event.pointerId);
+                  } catch {
+                    /* ignore */
+                  }
+                  gridOverviewDragRef.current = false;
+                }}
+                ref={gridOverviewRef}
+              >
+                <div className="absolute inset-0 flex items-end gap-px px-1 py-1">
+                  {patternSteps.map((step, stepIndex) => {
+                    const density = step.length / maxNotesPerStep;
+                    const hasNotes = step.length > 0;
+                    return (
+                      <div className="relative flex-1 self-stretch" key={`overview-${stepIndex}`}>
+                        <div
+                          className={`absolute inset-x-0 bottom-0 rounded-[1px] ${hasNotes ? '' : 'opacity-30'}`}
+                          style={{
+                            background: hasNotes ? track.color : 'rgba(255,255,255,0.08)',
+                            height: `${Math.max(12, density * 100)}%`,
+                            opacity: hasNotes ? 0.75 : 1,
+                          }}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+                <div
+                  className="pointer-events-none absolute bottom-1 top-1 rounded-[3px] border border-[rgba(114,217,255,0.34)] bg-[rgba(114,217,255,0.1)]"
+                  style={{
+                    left: `${(visibleStepStart / stepsPerPattern) * 100}%`,
+                    width: `${Math.max(6, ((visibleStepEnd - visibleStepStart) / stepsPerPattern) * 100)}%`,
+                  }}
+                />
+                <div
+                  className="pointer-events-none absolute bottom-0 top-0 w-[2px] bg-[rgba(255,255,255,0.42)]"
+                  style={{ left: `${(currentStep / stepsPerPattern) * 100}%` }}
+                />
+              </div>
+              <div className="mt-2 text-[11px] leading-5 text-[var(--text-tertiary)]">
+                Drag the overview to move around the pattern without changing your zoom.
+              </div>
+            </div>
+
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
               <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
                 Detailed timing window
@@ -922,7 +1196,7 @@ export const PianoRoll = () => {
                   Left
                 </button>
                 <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-                  {Math.floor(gridScrollLeft / stepCellWidth) + 1}
+                  {visibleStepStart + 1}
                 </span>
                 <input
                   className="sonic-scroll-strip"
@@ -940,7 +1214,7 @@ export const PianoRoll = () => {
                   value={Math.min(gridScrollLeft, maxGridScrollLeft)}
                 />
                 <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-                  {Math.min(stepsPerPattern, Math.ceil((gridScrollLeft + gridViewportWidth) / stepCellWidth))}
+                  {Math.max(visibleStepStart + 1, visibleStepEnd)}
                 </span>
                 <button
                   className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
@@ -951,9 +1225,13 @@ export const PianoRoll = () => {
                 </button>
               </div>
             </div>
+            <div className="mt-3 text-[11px] leading-5 text-[var(--text-tertiary)]">
+              Hold <span className="font-mono">Alt</span> while scrolling, or pinch on a trackpad, to zoom the grid around where you are working.
+            </div>
           </div>
         </div>
 
+        {(!isMobileViewport || mobileInspectorOpen) && (
         <aside className="surface-panel-strong sonic-sidebar w-full shrink-0 overflow-auto p-4 xl:w-[320px]">
           <div className="flex items-center gap-2">
             <SlidersHorizontal className="h-4 w-4 text-[var(--accent)]" />
@@ -1237,6 +1515,7 @@ export const PianoRoll = () => {
             <p className="mt-4 text-sm text-[var(--text-secondary)]">Choose a step to edit its performance details.</p>
           )}
         </aside>
+        )}
       </div>
       {contextMenuState && (
         <>

@@ -372,10 +372,21 @@ export const ArrangerTimeline = ({
                         {clips.map((clip) => {
                           const isSelectedClip = selectedArrangerClipId === clip.id;
                           const frame = getRenderedClipFrame(clip);
+                          const clipWidth = frame.beatLength * pixelsPerStep;
+                          const isTightClip = clipWidth < 132;
+                          const isMicroClip = clipWidth < 84;
+                          const compactPatternLabel = `P${String.fromCharCode(65 + clip.patternIndex)}`;
+                          const shortTrackName = track.name
+                            .split(/\s+/)
+                            .filter(Boolean)
+                            .map((part) => part[0])
+                            .join('')
+                            .slice(0, 3)
+                            .toUpperCase();
 
                           return (
                             <div
-                              className={`group absolute top-1/2 flex ${clipHeightClass} -translate-y-1/2 overflow-hidden border px-3 py-2 shadow-[0_12px_24px_rgba(0,0,0,0.24)] transition-all ${isSelectedClip ? 'ring-1 ring-[rgba(255,255,255,0.28)]' : ''}`}
+                              className={`group absolute top-1/2 flex ${clipHeightClass} -translate-y-1/2 overflow-hidden border shadow-[0_12px_24px_rgba(0,0,0,0.24)] transition-all ${isTightClip ? 'px-2 py-1.5' : 'px-3 py-2'} ${isSelectedClip ? 'ring-1 ring-[rgba(255,255,255,0.28)]' : ''}`}
                               key={clip.id}
                               onClick={() => onSelectClip(clip.id)}
                               onKeyDown={(event) => {
@@ -394,20 +405,35 @@ export const ArrangerTimeline = ({
                                 width: `${frame.beatLength * pixelsPerStep}px`,
                               }}
                               tabIndex={0}
+                              title={`${track.name} · Pattern ${String.fromCharCode(65 + clip.patternIndex)} · ${frame.beatLength} steps`}
                             >
                               <div
                                 className="absolute inset-y-0 left-0 z-[3] cursor-ew-resize bg-[rgba(255,255,255,0.08)] opacity-0 transition-opacity group-hover:opacity-100"
                                 onPointerDown={(event) => onBeginClipDrag(clip, event, 'trim-start')}
                                 style={{ width: `${DRAG_HANDLE_WIDTH}px` }}
                               />
-                              <div className="min-w-0 flex-1">
-                                <div className="truncate text-xs font-semibold text-[var(--text-primary)]">
-                                  {track.name}
-                                </div>
-                                <div className="mt-1 flex items-center justify-between gap-3 text-[10px] text-[var(--text-secondary)]">
-                                  <span>Pattern {String.fromCharCode(65 + clip.patternIndex)}</span>
-                                  <span>{frame.beatLength} steps</span>
-                                </div>
+                              <div className={`min-w-0 flex-1 ${isMicroClip ? 'flex items-center justify-center' : ''}`}>
+                                {isMicroClip ? (
+                                  <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-primary)]">
+                                    {compactPatternLabel}
+                                  </div>
+                                ) : (
+                                  <>
+                                    <div className="truncate text-xs font-semibold text-[var(--text-primary)]">
+                                      {isTightClip ? shortTrackName || track.name.slice(0, 3).toUpperCase() : track.name}
+                                    </div>
+                                    {isTightClip ? (
+                                      <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                                        {compactPatternLabel} · {frame.beatLength} st
+                                      </div>
+                                    ) : (
+                                      <div className="mt-1 flex items-center justify-between gap-3 text-[10px] text-[var(--text-secondary)]">
+                                        <span>Pattern {String.fromCharCode(65 + clip.patternIndex)}</span>
+                                        <span>{frame.beatLength} steps</span>
+                                      </div>
+                                    )}
+                                  </>
+                                )}
                               </div>
                               <div
                                 className="absolute inset-y-0 right-0 z-[3] cursor-ew-resize bg-[rgba(255,255,255,0.08)] opacity-0 transition-opacity group-hover:opacity-100"

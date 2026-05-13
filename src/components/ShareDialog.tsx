@@ -6,6 +6,7 @@ import { useAudio } from '../context/AudioContext';
 interface ShareDialogProps {
   open: boolean;
   onClose: () => void;
+  onNotify?: (tone: 'info' | 'success' | 'error', title: string, detail?: string) => void;
 }
 
 type Tab = 'link' | 'clipboard' | 'file';
@@ -25,65 +26,19 @@ const formatBytes = (bytes: number): string => {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 };
 
-export const ShareDialog = ({ open, onClose }: ShareDialogProps) => {
-  const { exportSession } = useAudio();
-  // Access raw project + UI via the audio context indirectly through exportSession isn't enough.
-  // We piggy-back on exportSession for the file flow, and build a payload for the other modes here.
-  const audio = useAudio();
+export const ShareDialog = ({ open, onClose, onNotify }: ShareDialogProps) => {
+  const { currentSession, exportSession } = useAudio();
   const [tab, setTab] = useState<Tab>('link');
   const [copied, setCopied] = useState<Tab | null>(null);
 
-  const payload = useMemo(() => {
-    if (!open) return '';
-    try {
-      return JSON.stringify({
-        project: {
-          // We only need the project + ui state — pulled from audio context
-          // The full project lives under audio.tracks etc. but we don't have a direct getter, so build minimal info
-        },
-      });
-    } catch {
-      return '';
-    }
-  }, [open]);
-
-  // Build the full session payload manually from the audio context
   const sessionJson = useMemo(() => {
     if (!open) return '';
     try {
-      // Build a minimal export that maps to the same shape exportSession uses
-      const exportable = {
-        project: {
-          arrangerClips: audio.arrangerClips,
-          tracks: audio.tracks,
-          transport: {
-            bpm: audio.bpm,
-            patternCount: audio.patternCount,
-            stepsPerPattern: audio.stepsPerPattern,
-            mode: audio.transportMode,
-            metronomeEnabled: audio.metronomeEnabled,
-            currentPattern: audio.currentPattern,
-            countInBars: audio.countInBars,
-          },
-          markers: audio.songMarkers,
-          master: audio.master,
-          masterSnapshots: audio.masterSnapshots,
-          trackSnapshots: audio.trackSnapshots,
-          bounceHistory: audio.bounceHistory,
-          metadata: {
-            name: audio.projectName,
-            id: 'project',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            version: 1,
-          },
-        },
-      };
-      return JSON.stringify(exportable, null, 2);
+      return JSON.stringify(currentSession, null, 2);
     } catch {
       return '';
     }
-  }, [open, audio]);
+  }, [currentSession, open]);
 
   const shareLink = useMemo(() => {
     if (!sessionJson || typeof window === 'undefined') return '';
@@ -114,11 +69,33 @@ export const ShareDialog = ({ open, onClose }: ShareDialogProps) => {
 
   if (!open) return null;
 
+  const notifyCopied = (source: Tab) => {
+    if (!onNotify) {
+      return;
+    }
+
+    if (source === 'link') {
+      onNotify('success', 'Share link copied', 'Send it or open it in another tab.');
+      return;
+    }
+
+    if (source === 'clipboard') {
+      onNotify('success', 'Session JSON copied', 'Paste it into a note or save it as a .json file.');
+      return;
+    }
+
+    onNotify('success', 'Session file export started', 'A .sonicstudio.json download has started.');
+  };
+
   const copyText = async (text: string, source: Tab) => {
-    if (!text) return;
+    if (!text) {
+      onNotify?.('error', 'Share payload unavailable', 'Try reopening the Share panel.');
+      return;
+    }
     try {
       await navigator.clipboard.writeText(text);
       setCopied(source);
+      notifyCopied(source);
     } catch {
       // Fallback for older browsers
       const textarea = document.createElement('textarea');
@@ -130,8 +107,9 @@ export const ShareDialog = ({ open, onClose }: ShareDialogProps) => {
       try {
         document.execCommand('copy');
         setCopied(source);
+        notifyCopied(source);
       } catch {
-        /* ignore */
+        onNotify?.('error', 'Clipboard copy failed', 'Your browser blocked copy access for this action.');
       }
       document.body.removeChild(textarea);
     }
@@ -155,10 +133,10 @@ export const ShareDialog = ({ open, onClose }: ShareDialogProps) => {
               <span className="section-label text-[var(--accent)]">Share</span>
             </div>
             <h2 className="mt-1.5 text-lg font-semibold tracking-tight text-[var(--text-primary)]">
-              Send this session to anyone.
+              Share this session.
             </h2>
             <p className="mt-1 text-[12px] leading-5 text-[var(--text-secondary)]">
-              Three ways to hand off the current state. Everything runs in your browser. Nothing is uploaded.
+              Pick a link, raw JSON, or a file download. Everything stays in your browser.
             </p>
           </div>
           <button
@@ -186,10 +164,10 @@ export const ShareDialog = ({ open, onClose }: ShareDialogProps) => {
         <div className="mt-4">
           {tab === 'link' && (
             <ModeCard
-              title="Self-contained share link"
-              description="The whole session is encoded into the URL. Anyone who opens it lands in SonicStudio with this exact state."
+              title="Share link"
+              description="The whole session is packed into the URL. Opening it brings SonicStudio back in this exact state."
               meta={shareLink ? `${(linkLength / 1024).toFixed(1)} KB link` : null}
-              footnote="Long-state links can exceed browser address bar limits. If the link looks truncated, fall back to Save file."
+              footnote="Long sessions can push past browser URL limits. If the link looks cut off, use Save file instead."
             >
               <div className="flex flex-col gap-2 sm:flex-row">
                 <input
@@ -214,7 +192,7 @@ export const ShareDialog = ({ open, onClose }: ShareDialogProps) => {
           {tab === 'clipboard' && (
             <ModeCard
               title="Copy the session JSON"
-              description="Drop the JSON into a message, gist, or note. Recipient can open SonicStudio, hit Options → Workspace → Load JSON, and paste a file made from it."
+              description="Paste the JSON into a message or note. The other person can save it as a .sonicstudio.json file and load it from Options -> Workspace -> Load JSON."
               meta={`${formatBytes(payloadBytes)} payload`}
             >
               <textarea
@@ -239,7 +217,7 @@ export const ShareDialog = ({ open, onClose }: ShareDialogProps) => {
           {tab === 'file' && (
             <ModeCard
               title="Download the session file"
-              description="Saves a .sonicstudio.json file you can email, drop in cloud storage, or commit to a project repo. Recipient opens it via Options → Workspace → Load JSON."
+              description="Download a .sonicstudio.json file you can email, store in the cloud, or commit to a repo. Open it later from Options -> Workspace -> Load JSON."
               meta={`${formatBytes(payloadBytes)} .sonicstudio.json`}
             >
               <button
@@ -248,6 +226,7 @@ export const ShareDialog = ({ open, onClose }: ShareDialogProps) => {
                 onClick={() => {
                   exportSession();
                   setCopied('file');
+                  notifyCopied('file');
                 }}
                 type="button"
               >

@@ -194,4 +194,32 @@ describe('editorReducer', () => {
     expect(nextState.ui.selectedArrangerClipId).toBe(nextState.history.present.arrangerClips[0]?.id ?? null);
     expect(nextState.ui.selectedTrackId).toBe(nextState.history.present.arrangerClips[0]?.trackId ?? null);
   });
+
+  it('applies a saved pattern segment onto a target pattern', () => {
+    const state = createEditorState('blank-grid');
+    const leadTrackId = state.history.present.tracks.find((track) => track.type === 'lead')?.id;
+    if (!leadTrackId) {
+      throw new Error('Expected lead track');
+    }
+
+    const nextState = editorReducer(state, {
+      type: 'APPLY_PATTERN_SEGMENT',
+      automation: {
+        level: Array.from({ length: state.history.present.transport.stepsPerPattern }, (_, index) => (index === 0 ? 0.82 : 0.5)),
+        tone: Array.from({ length: state.history.present.transport.stepsPerPattern }, (_, index) => (index === 1 ? 0.22 : 0.5)),
+      },
+      patternIndex: 0,
+      steps: [
+        [{ gate: 1.5, note: 'E4', velocity: 0.66 }],
+        [{ gate: 0.75, note: 'G4', velocity: 0.58 }],
+      ],
+      trackId: leadTrackId,
+    });
+
+    const targetTrack = nextState.history.present.tracks.find((track) => track.id === leadTrackId);
+    expect(targetTrack?.patterns[0]?.[0]?.[0]).toMatchObject({ gate: 1.5, note: 'E4', velocity: 0.66 });
+    expect(targetTrack?.patterns[0]?.[1]?.[0]).toMatchObject({ gate: 0.75, note: 'G4', velocity: 0.58 });
+    expect(targetTrack?.automation?.[0]?.level[0]).toBe(0.82);
+    expect(targetTrack?.automation?.[0]?.tone[1]).toBe(0.22);
+  });
 });

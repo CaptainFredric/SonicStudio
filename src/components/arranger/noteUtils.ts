@@ -39,14 +39,10 @@ export const buildComposerRows = (track: Track, focusNote: string | null) => {
 
 export const getComposerStepCount = (clip: ArrangementClip | null, stepsPerPattern: number) => {
   if (!clip) {
-    return Math.min(stepsPerPattern, 16);
+    return stepsPerPattern;
   }
 
-  if (clip.beatLength > 16 || stepsPerPattern > 16) {
-    return Math.min(stepsPerPattern, 32);
-  }
-
-  return Math.min(stepsPerPattern, 16);
+  return Math.min(stepsPerPattern, Math.max(clip.beatLength, 8));
 };
 
 export const phraseRowsForNote = (currentNote: string) => {
