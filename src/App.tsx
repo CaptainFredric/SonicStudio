@@ -40,6 +40,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchp
       <button
         className="studio-nav-button shrink-0 md:w-full"
         data-tour-target="sessions"
+        data-ui-sound="nav"
         onClick={onOpenLaunchpad}
         title="Open session library"
         type="button"
@@ -53,6 +54,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchp
         className="studio-nav-button studio-nav-button-capture shrink-0 md:w-full"
         data-capture="true"
         data-tour-target="record"
+        data-ui-sound="record"
         onClick={onOpenRecord}
         title="Record a sound and match it to a lane"
         type="button"
@@ -69,6 +71,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchp
             onClick={() => setActiveView(item.id as any)}
             className="studio-nav-button"
             data-active={activeView === item.id}
+            data-ui-sound="nav"
             title={item.label}
             type="button"
           >
@@ -83,6 +86,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchp
         <button
           className="studio-nav-button shrink-0 md:w-full"
           data-tour-target="share"
+          data-ui-sound="action"
           onClick={onOpenShare}
           title="Share this session"
           type="button"
@@ -96,6 +100,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchp
           className="studio-nav-button shrink-0 md:w-full"
           data-active={isSettingsOpen}
           data-tour-target="options"
+          data-ui-sound="settings"
           onClick={toggleSettings}
           title="Options"
           type="button"
@@ -108,6 +113,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchp
         <a
           className="studio-nav-button flex shrink-0 items-center justify-center md:w-full"
           data-tour-target="support"
+          data-ui-sound="action"
           href={SUPPORT_URL}
           rel="noreferrer noopener"
           target="_blank"

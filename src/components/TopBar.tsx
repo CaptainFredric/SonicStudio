@@ -266,6 +266,7 @@ export const TopBar = ({
                 data-active={superSonicMode}
                 data-super="true"
                 data-tour-target="supersonic"
+                data-ui-sound="settings"
                 onClick={(event) => {
                   const enabled = !superSonicMode;
                   runSupersonicTransition(enabled, getSupersonicTransitionOrigin(event.currentTarget));
@@ -274,7 +275,7 @@ export const TopBar = ({
                 type="button"
               >
                 <Zap className="h-3.5 w-3.5" />
-                {superSonicMode ? 'SuperSonic on' : 'SuperSonic'}
+                <span>{superSonicMode ? 'SuperSonic on' : 'SuperSonic'}</span>
               </button>
               <div className="hidden md:flex items-center gap-2">
                 <TransportBtn

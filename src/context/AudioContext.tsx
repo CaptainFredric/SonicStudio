@@ -12,6 +12,7 @@ import React, {
 import { type StudioRouteState } from '../app/routeController';
 
 import { engine } from '../audio/ToneEngine';
+import { isUiSoundVariant, playUiSound } from '../audio/uiSounds';
 import {
   type ArrangementClip,
   type AppView,
@@ -348,6 +349,44 @@ export const AudioProvider = ({
     document.documentElement.dataset.supersonicWaveIntensity = preferences.superSonic.waveIntensity;
     document.documentElement.dataset.supersonicGuidance = preferences.superSonic.guidanceBadges ? 'true' : 'false';
   }, [preferences.superSonic.guidanceBadges, preferences.superSonic.waveIntensity]);
+
+  const playInterfaceSound = useEffectEvent((variant: string) => {
+    if (!preferences.uiSoundsEnabled || !isUiSoundVariant(variant)) {
+      return;
+    }
+
+    playUiSound(variant, preferences.superSonicMode ? 'supersonic' : 'classic');
+  });
+
+  useEffect(() => {
+    if (typeof document === 'undefined') {
+      return;
+    }
+
+    const handleClick = (event: MouseEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        return;
+      }
+
+      const trigger = target.closest<HTMLElement>('[data-ui-sound]');
+      if (!trigger || trigger.hasAttribute('disabled') || trigger.getAttribute('aria-disabled') === 'true') {
+        return;
+      }
+
+      const variant = trigger.dataset.uiSound;
+      if (!variant) {
+        return;
+      }
+
+      playInterfaceSound(variant);
+    };
+
+    document.addEventListener('click', handleClick, true);
+    return () => {
+      document.removeEventListener('click', handleClick, true);
+    };
+  }, [playInterfaceSound]);
 
   useEffect(() => {
     engine.syncProject(project);

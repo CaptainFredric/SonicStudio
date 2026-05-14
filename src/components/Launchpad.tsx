@@ -1,9 +1,10 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ArrowRight,
   Coffee,
   Disc3,
   FileInput,
+  Search,
   Shuffle,
   Sparkles,
   X,
@@ -12,6 +13,7 @@ import {
 import type { SessionTemplateId } from '../project/schema';
 
 const SUPPORT_URL = 'https://buymeacoffee.com/captainarm1';
+type LibraryFilterId = 'featured' | 'all' | 'club' | 'hooks' | 'drift' | 'clean';
 
 interface LaunchpadProps {
   isInitialized: boolean;
@@ -119,6 +121,42 @@ const START_OPTIONS: StartOption[] = [
 
 const FEATURED_IDS: SessionTemplateId[] = ['night-transit', 'club-horizon', 'starlight-parade', 'lofi-sunday'];
 
+const LIBRARY_FILTERS: Array<{ id: LibraryFilterId; label: string }> = [
+  { id: 'featured', label: 'Featured' },
+  { id: 'all', label: 'All scenes' },
+  { id: 'club', label: 'Club' },
+  { id: 'hooks', label: 'Hooks' },
+  { id: 'drift', label: 'Drift' },
+  { id: 'clean', label: 'Clean start' },
+];
+
+const matchesLibraryFilter = (option: StartOption, filterId: LibraryFilterId) => {
+  switch (filterId) {
+    case 'featured':
+      return FEATURED_IDS.includes(option.id);
+    case 'club':
+      return option.id === 'club-horizon' || option.id === 'beat-lab';
+    case 'hooks':
+      return option.id === 'night-transit' || option.id === 'starlight-parade' || option.id === 'synthwave-drive';
+    case 'drift':
+      return option.id === 'lofi-sunday' || option.id === 'ambient-drift';
+    case 'clean':
+      return option.id === 'blank-grid';
+    case 'all':
+    default:
+      return true;
+  }
+};
+
+const matchesLibraryQuery = (option: StartOption, query: string) => {
+  if (!query) {
+    return true;
+  }
+
+  const haystack = `${option.label} ${option.genre} ${option.focus} ${option.body} ${option.bpm}`.toLowerCase();
+  return haystack.includes(query.trim().toLowerCase());
+};
+
 export const Launchpad = ({
   isInitialized,
   isOpen,
@@ -128,6 +166,8 @@ export const Launchpad = ({
   onStartGuide,
   onWakeAudio,
 }: LaunchpadProps) => {
+  const [libraryFilter, setLibraryFilter] = useState<LibraryFilterId>('featured');
+  const [libraryQuery, setLibraryQuery] = useState('');
   const recommended = useMemo(
     () => START_OPTIONS.find((option) => option.id === 'night-transit') ?? START_OPTIONS[0],
     [],
@@ -136,13 +176,9 @@ export const Launchpad = ({
     () => START_OPTIONS.find((option) => option.id === 'blank-grid') ?? START_OPTIONS.at(-1) ?? START_OPTIONS[0],
     [],
   );
-  const more = useMemo(
-    () => START_OPTIONS.filter((option) => option.id !== recommended.id && option.id !== blankGrid.id),
-    [blankGrid.id, recommended.id],
-  );
-  const featured = useMemo(
-    () => START_OPTIONS.filter((option) => FEATURED_IDS.includes(option.id)),
-    [],
+  const visibleOptions = useMemo(
+    () => START_OPTIONS.filter((option) => matchesLibraryFilter(option, libraryFilter) && matchesLibraryQuery(option, libraryQuery)),
+    [libraryFilter, libraryQuery],
   );
 
   const surpriseMe = () => {
@@ -225,13 +261,14 @@ export const Launchpad = ({
           <section className="surface-panel-strong launch-session-stack px-4 py-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <div className="section-label">More starting points</div>
+                <div className="section-label">Scene browser</div>
                 <div className="mt-2 text-sm font-medium text-[var(--text-primary)]">
-                  Jump to a different starting point any time.
+                  Search by mood, name, or BPM and jump straight into a stronger starting point.
                 </div>
               </div>
               <button
                 className="control-chip flex items-center gap-2 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em]"
+                data-ui-sound="tab"
                 onClick={surpriseMe}
                 title="Pick a random starter scene"
                 type="button"
@@ -241,13 +278,60 @@ export const Launchpad = ({
               </button>
             </div>
 
+            <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
+              <label className="grid gap-2">
+                <span className="section-label">Search scenes</span>
+                <div className="launchpad-search-row">
+                  <Search className="h-4 w-4 text-[var(--text-tertiary)]" />
+                  <input
+                    className="control-field h-10 w-full border-0 bg-transparent px-0 text-[13px] text-[var(--text-primary)] focus:outline-none"
+                    onChange={(event) => setLibraryQuery(event.target.value)}
+                    placeholder="Search name, feel, or BPM"
+                    value={libraryQuery}
+                  />
+                </div>
+              </label>
+
+              <div className="flex flex-wrap gap-2 xl:justify-end">
+                {LIBRARY_FILTERS.map((filter) => (
+                  <button
+                    className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                    data-active={libraryFilter === filter.id}
+                    data-ui-sound="tab"
+                    key={filter.id}
+                    onClick={() => setLibraryFilter(filter.id)}
+                    type="button"
+                  >
+                    {filter.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-soft)] pb-3 text-[11px] leading-5 text-[var(--text-secondary)]">
+              <span>
+                {visibleOptions.length} {visibleOptions.length === 1 ? 'scene' : 'scenes'} match the current browser.
+              </span>
+              {libraryQuery ? (
+                <button
+                  className="control-chip px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                  data-ui-sound="tab"
+                  onClick={() => setLibraryQuery('')}
+                  type="button"
+                >
+                  Clear search
+                </button>
+              ) : null}
+            </div>
+
             <div className="mt-4 grid gap-2">
-              {featured.map((option) => (
+              {visibleOptions.length > 0 ? visibleOptions.map((option) => (
                 <TemplateCard key={option.id} option={option} onSelect={onSelectTemplate} highlight={option.id === recommended.id} />
-              ))}
-              {more.filter((option) => !FEATURED_IDS.includes(option.id)).map((option) => (
-                <TemplateCard key={option.id} option={option} onSelect={onSelectTemplate} />
-              ))}
+              )) : (
+                <div className="rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-4 py-4 text-[12px] leading-6 text-[var(--text-secondary)]">
+                  No scenes match that search yet. Try a broader term like house, ambient, pop, or a BPM value such as 110.
+                </div>
+              )}
             </div>
           </section>
         </div>
@@ -289,6 +373,7 @@ export const Launchpad = ({
             ) : (
               <button
                 className="control-chip px-4 py-2 text-sm font-medium text-[var(--text-primary)]"
+                data-ui-sound="transport"
                 onClick={onWakeAudio}
                 type="button"
               >
@@ -297,6 +382,7 @@ export const Launchpad = ({
             )}
             <button
               className="control-chip px-4 py-2 text-sm font-medium text-[var(--text-primary)]"
+              data-ui-sound="nav"
               onClick={onClose}
               type="button"
             >
@@ -304,6 +390,7 @@ export const Launchpad = ({
             </button>
             <a
               className="control-chip inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-[var(--text-primary)]"
+              data-ui-sound="action"
               href={SUPPORT_URL}
               rel="noreferrer noopener"
               target="_blank"
@@ -424,7 +511,9 @@ const TemplateCard: React.FC<TemplateCardProps> = ({
   highlight = false,
 }) => (
   <button
-    className="session-card group relative grid gap-2 overflow-hidden border border-[var(--border-soft)] bg-[rgba(255,255,255,0.018)] px-4 py-3 text-left transition-colors hover:border-[rgba(114,217,255,0.3)] hover:bg-[rgba(114,217,255,0.05)]"
+    className="launchpad-template-card session-card group relative grid gap-2 overflow-hidden px-4 py-3 text-left transition-colors"
+    data-highlight={highlight ? 'true' : 'false'}
+    data-ui-sound="nav"
     onClick={() => onSelect(option.id)}
     type="button"
   >
