@@ -46,7 +46,7 @@ const VUChannel: React.FC<{ selected: boolean; track: Track }> = ({ selected, tr
 
   return (
     <div
-      className={`surface-panel-strong w-[148px] shrink-0 p-4 flex flex-col cursor-pointer transition-colors ${selected ? 'bg-[rgba(124,211,252,0.08)] ring-1 ring-[rgba(124,211,252,0.24)]' : ''}`}
+      className={`surface-panel-strong flex w-[132px] shrink-0 cursor-pointer flex-col p-3 transition-colors md:w-[148px] md:p-4 ${selected ? 'bg-[rgba(124,211,252,0.08)] ring-1 ring-[rgba(124,211,252,0.24)]' : ''}`}
       onClick={() => setSelectedTrackId(track.id)}
       onKeyDown={(event) => {
         if (event.key === 'Enter' || event.key === ' ') {
@@ -278,9 +278,9 @@ export const Mixer = () => {
         }}
         ref={mixerViewportRef}
       >
-        <div className="flex h-full min-h-[440px] sm:min-h-[560px] gap-6 scroll-snap-x-mandatory">
+        <div className="flex h-full min-h-[360px] gap-4 scroll-snap-x-mandatory md:min-h-[560px] md:gap-6">
           <div className="scroll-snap-align-start">
-            <div className="surface-panel-strong flex h-full min-h-[440px] sm:min-h-[560px] w-[184px] shrink-0 flex-col p-4">
+            <div className="surface-panel-strong flex h-full min-h-[360px] w-[156px] shrink-0 flex-col p-3 md:min-h-[560px] md:w-[184px] md:p-4">
               <div className="flex items-center gap-3">
                 <div className="h-2.5 w-2.5 rounded-full bg-[var(--accent)]" />
                 <div className="min-w-0">
@@ -423,14 +423,14 @@ export const Mixer = () => {
             </div>
           </div>
           {mixerSections.length === 0 ? (
-            <div className="flex min-h-[440px] sm:min-h-[560px] min-w-[240px] items-center justify-center rounded-[6px] border border-dashed border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-6 py-8 text-center text-sm text-[var(--text-secondary)]">
+            <div className="flex min-h-[360px] min-w-[220px] items-center justify-center rounded-[6px] border border-dashed border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-5 py-7 text-center text-sm text-[var(--text-secondary)] md:min-h-[560px] md:min-w-[240px] md:px-6 md:py-8">
               No mixer strips match the current scope.
             </div>
           ) : mixerSections.map(({ key, label, tracks: sectionTracks }) => (
             <div key={key} className="scroll-snap-align-start">
-              <div className="flex h-full min-h-[440px] sm:min-h-[560px] flex-col rounded-[6px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.015)] p-3">
+              <div className="flex h-full min-h-[360px] flex-col rounded-[6px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.015)] p-2.5 md:min-h-[560px] md:p-3">
                 <button
-                  className="flex items-center justify-between gap-3 rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-4 py-3 text-left"
+                  className="flex items-center justify-between gap-3 rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-2.5 text-left md:px-4 md:py-3"
                   onClick={() => setCollapsedGroups((current) => ({ ...current, [key]: !current[key] }))}
                 >
                   <div>
@@ -443,7 +443,7 @@ export const Mixer = () => {
                 </button>
 
                 {!collapsedGroups[key] && (
-                  <div className="mt-3 flex h-full min-h-[500px] gap-4">
+                  <div className="mt-3 flex h-full min-h-[360px] gap-3 md:min-h-[500px] md:gap-4">
                     {sectionTracks.map((track) => (
                       <div key={track.id} className="scroll-snap-align-start">
                         <VUChannel selected={selectedTrackId === track.id} track={track} />

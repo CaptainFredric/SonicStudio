@@ -2,6 +2,7 @@ import React from 'react';
 import { SlidersHorizontal, Sparkles, Waves } from 'lucide-react';
 
 import { type SampleSliceMemory, type Track, type TrackSource, type TrackVoicePresetDefinition } from '../../project/schema';
+import { captureSuggestionControlsToTrackParams, captureSuggestionControlsToTrackSource } from '../../services/audioRecording';
 import { DeviceRackPitchResponsePanel } from './source/DeviceRackPitchResponsePanel';
 import { DeviceRackSampleCorePanel } from './source/DeviceRackSampleCorePanel';
 import { DeviceRackSampleSlicesPanel } from './source/DeviceRackSampleSlicesPanel';
@@ -27,6 +28,7 @@ interface DeviceRackSourcePanelProps {
   onSelectSampleSlice: (sliceIndex: number | null) => void;
   onSetActiveSourceSubView: (view: SourceSubView) => void;
   onSetSampleStatus: (status: string | null) => void;
+  onSetTrackParams: (params: Record<string, number | string>) => void;
   onSetTrackSource: (source: Partial<TrackSource>) => void;
   onUpdateSampleSlice: (sliceIndex: number, updates: Partial<SampleSliceMemory>) => void;
   sampleOptions: Array<{ label: string; preset: TrackSource['samplePreset'] }>;
@@ -52,6 +54,7 @@ export const DeviceRackSourcePanel = ({
   onSelectSampleSlice,
   onSetActiveSourceSubView,
   onSetSampleStatus,
+  onSetTrackParams,
   onSetTrackSource,
   onUpdateSampleSlice,
   sampleOptions,
@@ -82,7 +85,15 @@ export const DeviceRackSourcePanel = ({
         ) : null}
 
         <DeviceRackVoiceStartsPanel
+          onApplyRecordedNotePreset={(preset) => {
+            if (preset.presetId) {
+              onApplyTrackVoicePreset(preset.presetId);
+            }
+            onSetTrackSource(captureSuggestionControlsToTrackSource(preset.controls));
+            onSetTrackParams(captureSuggestionControlsToTrackParams(preset.controls));
+          }}
           onApplyTrackVoicePreset={onApplyTrackVoicePreset}
+          trackType={track.type}
           trackVoicePresets={trackVoicePresets}
         />
 

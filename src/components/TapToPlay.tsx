@@ -108,6 +108,13 @@ const DRUM_PADS = [
   { label: 'Accent', velocity: 1, qwerty: 'f' },
 ];
 
+const DRUM_PAD_TONES: Record<string, { backgroundAlpha: string; borderAlpha: string; glowAlpha: string }> = {
+  Soft: { backgroundAlpha: '12', borderAlpha: '42', glowAlpha: '16' },
+  Mid: { backgroundAlpha: '1f', borderAlpha: '58', glowAlpha: '22' },
+  Hard: { backgroundAlpha: '33', borderAlpha: '72', glowAlpha: '2e' },
+  Accent: { backgroundAlpha: '4d', borderAlpha: '9c', glowAlpha: '44' },
+};
+
 export const TapToPlay = () => {
   const {
     initAudio,
@@ -174,7 +181,7 @@ export const TapToPlay = () => {
       if (!isInitialized) {
         void initAudio();
       }
-      void previewTrack(track.id);
+      void previewTrack(track.id, undefined, undefined, velocity);
       setActiveKey(`pad-${velocity}`);
       const id = window.setTimeout(() => setActiveKey(null), 170);
       lastFlashRef.current = id;
@@ -519,6 +526,7 @@ const DrumPadStrip = ({
       {DRUM_PADS.map((pad) => {
         const id = `pad-${pad.velocity}`;
         const isActive = active === id;
+        const tone = DRUM_PAD_TONES[pad.label];
         return (
           <button
             key={pad.label}
@@ -532,14 +540,23 @@ const DrumPadStrip = ({
               onPad(pad.velocity);
             }}
             style={{
-              background: isActive ? accent : undefined,
-              color: isActive ? '#0a0f15' : 'var(--text-secondary)',
+              background: isActive
+                ? `linear-gradient(180deg, ${accent}, ${accent}cc)`
+                : `linear-gradient(180deg, ${accent}${tone.backgroundAlpha}, rgba(255,255,255,0.03))`,
+              borderColor: isActive ? `${accent}cc` : `${accent}${tone.borderAlpha}`,
+              boxShadow: isActive
+                ? `inset 0 1px 0 rgba(255,255,255,0.22), 0 0 0 1px ${accent}${tone.glowAlpha}, 0 8px 18px rgba(0,0,0,0.14)`
+                : `inset 0 1px 0 rgba(255,255,255,0.08), 0 0 0 1px ${accent}12`,
+              color: isActive ? '#0a0f15' : 'var(--text-primary)',
               height: padHeight,
             }}
             type="button"
             title={`${pad.label} (${pad.qwerty.toUpperCase()})`}
           >
-            {pad.label}
+            <span className="flex flex-col items-center gap-1">
+              <span>{pad.label}</span>
+              <span className="font-mono text-[10px] opacity-75">Vel {Math.round(pad.velocity * 100)}</span>
+            </span>
             <span className="font-mono text-[10px] opacity-70">{pad.qwerty.toUpperCase()}</span>
           </button>
         );

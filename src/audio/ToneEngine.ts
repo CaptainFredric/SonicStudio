@@ -441,7 +441,7 @@ export class ToneEngine {
     };
   }
 
-  public previewTrack(track: Track, note: string, sampleSliceIndex?: number) {
+  public previewTrack(track: Track, note: string, sampleSliceIndex?: number, velocity: number = 0.88) {
     if (!this.isInitialized) {
       return;
     }
@@ -452,7 +452,7 @@ export class ToneEngine {
       gate: track.source.engine === 'sample' ? 2 : track.type === 'pad' ? 2.5 : 1.25,
       note,
       sampleSliceIndex,
-      velocity: 0.88,
+      velocity,
     };
 
     this.triggerTrack(graph, track, previewNote, Tone.now() + 0.02);

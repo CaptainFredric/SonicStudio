@@ -153,6 +153,53 @@ describe('transportController', () => {
       previewTrackTarget,
       defaultNoteForTrack(previewTrackTarget),
       undefined,
+      undefined,
+    );
+  });
+
+  it('passes preview velocity through to the engine', async () => {
+    const project = createProjectFromTemplate('blank-grid');
+    const previewTrackTarget = project.tracks.find((track) => track.type === 'hihat') ?? project.tracks[0];
+    if (!previewTrackTarget) {
+      throw new Error('Expected preview target');
+    }
+
+    const engine = {
+      init: vi.fn(),
+      previewMetronomeTick: vi.fn(),
+      previewTrack: vi.fn(),
+      startRecording: vi.fn(),
+      stop: vi.fn(),
+      stopRecording: vi.fn(),
+      syncProject: vi.fn(),
+      togglePlayback: vi.fn(() => true),
+    };
+    const initAudio = vi.fn();
+
+    const controller = createTransportController({
+      countInActive: false,
+      countInTokenRef: { current: 0 },
+      currentProject: project,
+      engine,
+      initAudio,
+      isInitialized: true,
+      isPlaying: false,
+      isRecording: false,
+      setCountInActive: vi.fn(),
+      setCountInBeatsRemaining: vi.fn(),
+      setCurrentStep: vi.fn(),
+      setIsPlaying: vi.fn(),
+      setIsRecording: vi.fn(),
+      tracks: project.tracks,
+    });
+
+    await controller.previewTrack(previewTrackTarget.id, undefined, undefined, 0.55);
+
+    expect(engine.previewTrack).toHaveBeenCalledWith(
+      previewTrackTarget,
+      defaultNoteForTrack(previewTrackTarget),
+      undefined,
+      0.55,
     );
   });
 });

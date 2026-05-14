@@ -1433,76 +1433,135 @@ export const createNightTransitProject = (projectName: string = 'Night Transit')
   putStep(kickTrack, 2, 10, 'C1', { velocity: 0.84 });
   putStep(kickTrack, 2, 12, 'C1', { velocity: 0.96 });
 
-  putStep(snareTrack, 0, 4, 'C1', { velocity: 0.78 });
-  putStep(snareTrack, 0, 12, 'C1', { velocity: 0.86 });
+  putStep(snareTrack, 0, 4, 'C1', { velocity: 0.76 });
+  putStep(snareTrack, 0, 10, 'C1', { velocity: 0.38 });
+  putStep(snareTrack, 0, 12, 'C1', { velocity: 0.88 });
   putStep(snareTrack, 1, 4, 'C1', { velocity: 0.78 });
-  putStep(snareTrack, 1, 10, 'C1', { velocity: 0.64 });
+  putStep(snareTrack, 1, 10, 'C1', { velocity: 0.52 });
   putStep(snareTrack, 1, 12, 'C1', { velocity: 0.9 });
   putStep(snareTrack, 2, 4, 'C1', { velocity: 0.8 });
-  putStep(snareTrack, 2, 12, 'C1', { velocity: 0.88 });
+  putStep(snareTrack, 2, 11, 'C1', { velocity: 0.44 });
+  putStep(snareTrack, 2, 12, 'C1', { velocity: 0.9 });
 
   for (const step of [2, 6, 10, 14]) {
-    putStep(hihatTrack, 0, step, 'C1', { gate: 0.5, velocity: 0.56 });
+    putStep(hihatTrack, 0, step, 'C1', { gate: 0.42, velocity: step === 14 ? 0.62 : 0.54 });
   }
-  for (const step of [1, 3, 5, 7, 9, 11, 13, 15]) {
-    putStep(hihatTrack, 1, step, 'C1', { gate: 0.5, velocity: 0.5 });
-  }
-  for (const step of [0, 3, 6, 9, 12, 15]) {
-    putStep(hihatTrack, 2, step, 'C1', { gate: 0.5, velocity: 0.54 });
+  putStep(hihatTrack, 0, 15, 'C1', { gate: 0.78, velocity: 0.48 });
+  [1, 3, 5, 7, 9, 11, 13, 15].forEach((step, index) => {
+    putStep(hihatTrack, 1, step, 'C1', { gate: step === 15 ? 0.72 : 0.46, velocity: index % 2 === 0 ? 0.46 : 0.58 });
+  });
+  for (const step of [0, 2, 3, 6, 8, 9, 11, 12, 14, 15]) {
+    putStep(hihatTrack, 2, step, 'C1', {
+      gate: step === 15 ? 0.8 : 0.38,
+      velocity: [3, 9, 15].includes(step) ? 0.6 : [0, 8, 12].includes(step) ? 0.5 : 0.42,
+    });
   }
 
-  putStep(bassTrack, 0, 0, 'C2', { gate: 1.5, velocity: 0.78 });
-  putStep(bassTrack, 0, 8, 'G1', { gate: 1.5, velocity: 0.72 });
-  putStep(bassTrack, 1, 0, 'A1', { gate: 1.5, velocity: 0.78 });
-  putStep(bassTrack, 1, 4, 'C2', { gate: 1.25, velocity: 0.7 });
-  putStep(bassTrack, 1, 8, 'E2', { gate: 1.5, velocity: 0.76 });
-  putStep(bassTrack, 1, 12, 'G1', { gate: 1.25, velocity: 0.72 });
-  putStep(bassTrack, 2, 0, 'F1', { gate: 1.75, velocity: 0.8 });
-  putStep(bassTrack, 2, 8, 'G1', { gate: 1.5, velocity: 0.76 });
+  putStep(bassTrack, 0, 0, 'C2', { gate: 1.5, velocity: 0.8 });
+  putStep(bassTrack, 0, 4, 'G1', { gate: 1.1, velocity: 0.66 });
+  putStep(bassTrack, 0, 8, 'D#2', { gate: 1.25, velocity: 0.76 });
+  putStep(bassTrack, 0, 12, 'G1', { gate: 1.1, velocity: 0.68 });
+  putStep(bassTrack, 1, 0, 'A#1', { gate: 1.5, velocity: 0.78 });
+  putStep(bassTrack, 1, 4, 'F2', { gate: 1.25, velocity: 0.72 });
+  putStep(bassTrack, 1, 8, 'D2', { gate: 1.25, velocity: 0.74 });
+  putStep(bassTrack, 1, 12, 'G1', { gate: 1.4, velocity: 0.7 });
+  putStep(bassTrack, 2, 0, 'F1', { gate: 1.75, velocity: 0.82 });
+  putStep(bassTrack, 2, 4, 'C2', { gate: 1.2, velocity: 0.72 });
+  putStep(bassTrack, 2, 8, 'G1', { gate: 1.5, velocity: 0.78 });
+  putStep(bassTrack, 2, 12, 'D2', { gate: 1.25, velocity: 0.74 });
 
-  putStep(leadTrack, 0, 0, 'C4', { gate: 1.25, velocity: 0.82 });
-  putStep(leadTrack, 0, 3, 'D#4', { gate: 1, velocity: 0.76 });
-  putStep(leadTrack, 0, 8, 'G4', { gate: 1.25, velocity: 0.88 });
-  putStep(leadTrack, 0, 14, 'F4', { gate: 1, velocity: 0.72 });
-  putStep(leadTrack, 1, 0, 'A4', { gate: 1.25, velocity: 0.86 });
-  putStep(leadTrack, 1, 4, 'C5', { gate: 1.25, velocity: 0.8 });
-  putStep(leadTrack, 1, 8, 'E5', { gate: 1.25, velocity: 0.92 });
-  putStep(leadTrack, 1, 12, 'G4', { gate: 1, velocity: 0.74 });
+  putStep(leadTrack, 0, 0, 'C5', { gate: 1, velocity: 0.84 });
+  putStep(leadTrack, 0, 3, 'D#5', { gate: 0.9, velocity: 0.76 });
+  putStep(leadTrack, 0, 8, 'G4', { gate: 1.25, velocity: 0.86 });
+  putStep(leadTrack, 0, 11, 'A#4', { gate: 1, velocity: 0.78 });
+  putStep(leadTrack, 0, 14, 'G4', { gate: 1, velocity: 0.74 });
+  putStep(leadTrack, 1, 0, 'D#5', { gate: 1, velocity: 0.84 });
+  putStep(leadTrack, 1, 4, 'F5', { gate: 1.1, velocity: 0.8 });
+  putStep(leadTrack, 1, 8, 'G5', { gate: 1.1, velocity: 0.88 });
+  putStep(leadTrack, 1, 12, 'D5', { gate: 1, velocity: 0.74 });
+  putStep(leadTrack, 1, 15, 'A#4', { gate: 0.85, velocity: 0.72 });
   putStep(leadTrack, 2, 2, 'F4', { gate: 1, velocity: 0.74 });
   putStep(leadTrack, 2, 6, 'G4', { gate: 1, velocity: 0.78 });
-  putStep(leadTrack, 2, 10, 'A4', { gate: 1, velocity: 0.84 });
-  putStep(leadTrack, 2, 14, 'C5', { gate: 1.25, velocity: 0.9 });
+  putStep(leadTrack, 2, 10, 'A#4', { gate: 1, velocity: 0.84 });
+  putStep(leadTrack, 2, 12, 'C5', { gate: 1, velocity: 0.86 });
+  putStep(leadTrack, 2, 15, 'D5', { gate: 0.9, velocity: 0.8 });
 
   stackStep(padTrack, 0, 0, [
     { note: 'C4', options: { gate: 2.5, velocity: 0.62 } },
-    { note: 'E4', options: { gate: 2.5, velocity: 0.56 } },
+    { note: 'D#4', options: { gate: 2.5, velocity: 0.56 } },
     { note: 'G4', options: { gate: 2.5, velocity: 0.58 } },
   ]);
+  stackStep(padTrack, 0, 4, [
+    { note: 'G3', options: { gate: 2.25, velocity: 0.54 } },
+    { note: 'A#3', options: { gate: 2.25, velocity: 0.5 } },
+    { note: 'D4', options: { gate: 2.25, velocity: 0.52 } },
+  ]);
   stackStep(padTrack, 0, 8, [
-    { note: 'A3', options: { gate: 2.25, velocity: 0.56 } },
-    { note: 'C4', options: { gate: 2.25, velocity: 0.54 } },
-    { note: 'E4', options: { gate: 2.25, velocity: 0.52 } },
+    { note: 'A#3', options: { gate: 2.25, velocity: 0.56 } },
+    { note: 'D4', options: { gate: 2.25, velocity: 0.54 } },
+    { note: 'F4', options: { gate: 2.25, velocity: 0.52 } },
+  ]);
+  stackStep(padTrack, 0, 12, [
+    { note: 'G3', options: { gate: 2.25, velocity: 0.54 } },
+    { note: 'A#3', options: { gate: 2.25, velocity: 0.5 } },
+    { note: 'D4', options: { gate: 2.25, velocity: 0.52 } },
   ]);
   stackStep(padTrack, 1, 0, [
-    { note: 'A3', options: { gate: 2.5, velocity: 0.6 } },
-    { note: 'C4', options: { gate: 2.5, velocity: 0.54 } },
-    { note: 'E4', options: { gate: 2.5, velocity: 0.56 } },
+    { note: 'A#3', options: { gate: 2.5, velocity: 0.6 } },
+    { note: 'D4', options: { gate: 2.5, velocity: 0.54 } },
+    { note: 'F4', options: { gate: 2.5, velocity: 0.56 } },
+  ]);
+  stackStep(padTrack, 1, 4, [
+    { note: 'F3', options: { gate: 2.25, velocity: 0.56 } },
+    { note: 'A3', options: { gate: 2.25, velocity: 0.5 } },
+    { note: 'C4', options: { gate: 2.25, velocity: 0.52 } },
   ]);
   stackStep(padTrack, 1, 8, [
-    { note: 'G3', options: { gate: 2.25, velocity: 0.58 } },
-    { note: 'B3', options: { gate: 2.25, velocity: 0.52 } },
-    { note: 'D4', options: { gate: 2.25, velocity: 0.54 } },
+    { note: 'D#4', options: { gate: 2.25, velocity: 0.58 } },
+    { note: 'G4', options: { gate: 2.25, velocity: 0.52 } },
+    { note: 'A#4', options: { gate: 2.25, velocity: 0.54 } },
+  ]);
+  stackStep(padTrack, 1, 12, [
+    { note: 'G3', options: { gate: 2.25, velocity: 0.54 } },
+    { note: 'A#3', options: { gate: 2.25, velocity: 0.5 } },
+    { note: 'D4', options: { gate: 2.25, velocity: 0.52 } },
   ]);
   stackStep(padTrack, 2, 0, [
     { note: 'F3', options: { gate: 3, velocity: 0.62 } },
-    { note: 'A3', options: { gate: 3, velocity: 0.56 } },
+    { note: 'G#3', options: { gate: 3, velocity: 0.56 } },
     { note: 'C4', options: { gate: 3, velocity: 0.58 } },
+  ]);
+  stackStep(padTrack, 2, 4, [
+    { note: 'C4', options: { gate: 2.5, velocity: 0.58 } },
+    { note: 'D#4', options: { gate: 2.5, velocity: 0.54 } },
+    { note: 'G4', options: { gate: 2.5, velocity: 0.56 } },
   ]);
   stackStep(padTrack, 2, 8, [
     { note: 'G3', options: { gate: 3, velocity: 0.58 } },
-    { note: 'B3', options: { gate: 3, velocity: 0.54 } },
+    { note: 'A#3', options: { gate: 3, velocity: 0.54 } },
     { note: 'D4', options: { gate: 3, velocity: 0.56 } },
   ]);
+  stackStep(padTrack, 2, 12, [
+    { note: 'A#3', options: { gate: 2.5, velocity: 0.56 } },
+    { note: 'D4', options: { gate: 2.5, velocity: 0.52 } },
+    { note: 'F4', options: { gate: 2.5, velocity: 0.54 } },
+  ]);
+
+  kickTrack.source.samplePlayback = 'oneshot';
+  snareTrack.source.samplePlayback = 'oneshot';
+  hihatTrack.source.samplePlayback = 'oneshot';
+  bassTrack.params.cutoff = 1840;
+  bassTrack.params.distortion = 0.1;
+  bassTrack.params.release = 0.42;
+  bassTrack.source.portamento = 0.04;
+  leadTrack.params.delaySend = 0.34;
+  leadTrack.params.reverbSend = 0.28;
+  leadTrack.params.chorusSend = 0.16;
+  leadTrack.source.portamento = 0.07;
+  leadTrack.source.waveform = 'sawtooth';
+  padTrack.params.reverbSend = 0.58;
+  padTrack.params.delaySend = 0.22;
+  padTrack.params.chorusSend = 0.28;
 
   return buildProject([
       createArrangerClip(kickTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),

@@ -4,6 +4,7 @@ import {
   Compass,
   Layers3,
   Mic,
+  Pause,
   Play,
   Radio,
   Redo2,
@@ -327,7 +328,7 @@ export const TopBar = ({
                   shortcut="Space"
                   tone="play"
                 >
-                  <Play className="h-4 w-4 fill-current" />
+                  {isPlaying ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
                 </TransportBtn>
                 <TransportBtn label="Stop" onClick={stop} tone="neutral">
                   <Square className="h-4 w-4 fill-current" />
@@ -417,21 +418,36 @@ export const TopBar = ({
                   : isInitialized
                     ? 'Audio on.'
                     : 'Audio off.'}
-                <button
-                  aria-label={isInitialized ? 'Audio engine enabled' : 'Enable audio engine'}
-                  className="control-chip mt-1 inline-flex h-9 items-center justify-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                  data-active={isInitialized ? 'true' : 'false'}
-                  data-needs-attention={!isInitialized}
-                  data-ui-sound="settings"
-                  onClick={() => void initAudio()}
-                >
+                {isInitialized ? (
                   <span
-                    aria-hidden="true"
-                    className="status-dot"
-                    data-tone={isInitialized ? 'ready' : 'attention'}
-                  />
-                  {isInitialized ? 'Audio on' : 'Enable audio'}
-                </button>
+                    aria-label="Audio engine enabled"
+                    className="status-chip mt-1 inline-flex h-9 items-center justify-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                    data-tone="ready"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="status-dot"
+                      data-tone="ready"
+                    />
+                    Audio on
+                  </span>
+                ) : (
+                  <button
+                    aria-label="Enable audio engine"
+                    className="control-chip mt-1 inline-flex h-9 items-center justify-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                    data-needs-attention="true"
+                    data-ui-sound="settings"
+                    onClick={() => void initAudio()}
+                    type="button"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="status-dot"
+                      data-tone="attention"
+                    />
+                    Enable audio
+                  </button>
+                )}
               </div>
             </div>
           </div>

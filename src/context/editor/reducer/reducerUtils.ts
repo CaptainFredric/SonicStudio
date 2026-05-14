@@ -127,6 +127,50 @@ export const songLengthFromProject = (project: Project) => (
   )
 );
 
+export const getLoopBoundsForProject = (
+  project: Project,
+  loopRangeStartBeat: number | null,
+  loopRangeEndBeat: number | null,
+) => {
+  if (project.transport.mode === 'PATTERN') {
+    return {
+      endBeat: project.transport.stepsPerPattern,
+      startBeat: 0,
+    };
+  }
+
+  if (
+    loopRangeStartBeat !== null
+    && loopRangeEndBeat !== null
+    && loopRangeEndBeat > loopRangeStartBeat
+  ) {
+    return {
+      endBeat: loopRangeEndBeat,
+      startBeat: loopRangeStartBeat,
+    };
+  }
+
+  return {
+    endBeat: songLengthFromProject(project),
+    startBeat: 0,
+  };
+};
+
+export const clampCurrentStepToLoopBounds = (
+  project: Project,
+  currentStep: number,
+  loopRangeStartBeat: number | null,
+  loopRangeEndBeat: number | null,
+) => {
+  const loopBounds = getLoopBoundsForProject(project, loopRangeStartBeat, loopRangeEndBeat);
+
+  if (currentStep < loopBounds.startBeat || currentStep >= loopBounds.endBeat) {
+    return loopBounds.startBeat;
+  }
+
+  return currentStep;
+};
+
 export const buildSongRangeDuplicate = (
   project: Project,
   startBeat: number,

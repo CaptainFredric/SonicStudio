@@ -19,7 +19,7 @@ import { resolveStudioRoute, type StudioRouteState } from './app/routeController
 import type { SessionTemplateId } from './project/schema';
 import { markOnboardingCompleted, markOnboardingSkipped, shouldAutoOpenOnboarding } from './services/onboardingState';
 import { Music, LayoutGrid, Volume2, Settings, Layers3, Sparkles, Rows2, Share2, Mic } from 'lucide-react';
-import { Circle, Play, Square } from 'lucide-react';
+import { Circle, Pause, Play, Square } from 'lucide-react';
 
 const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchpad: () => void; onOpenShare: () => void; onOpenRecord: () => void }) => {
   const { activeView, isSettingsOpen, setActiveView, toggleSettings } = useAudio();
@@ -33,7 +33,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchp
   ];
 
   return (
-    <aside className="studio-rail md:w-[88px] w-full shrink-0 px-2 py-2 md:py-3 flex md:flex-col flex-row items-center justify-start gap-2 overflow-x-auto md:overflow-x-visible [-webkit-overflow-scrolling:touch]" data-tour-target="views">
+    <aside className="studio-rail md:w-[88px] w-full shrink-0 px-2 py-2 md:py-3 flex flex-wrap md:flex-nowrap md:flex-col items-stretch md:items-center justify-start gap-2" data-tour-target="views">
       <div className="section-label hidden md:block">Views</div>
       <button
         className="studio-nav-button shrink-0 md:w-full"
@@ -60,7 +60,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchp
           <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Capture</span>
         </div>
       </button>
-      <div className="flex md:flex-col flex-row gap-2 w-full md:w-auto">
+      <div className="flex flex-row gap-2 min-w-0 md:flex-col">
         {navItems.map(item => (
           <button
             key={item.id}
@@ -77,7 +77,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchp
           </button>
         ))}
       </div>
-      <div className="ml-auto md:mt-auto md:w-full md:border-t border-[var(--border-soft)] pt-3 flex md:flex-col flex-row gap-2 md:gap-0">
+      <div className="flex w-full flex-row gap-2 pt-3 md:mt-auto md:w-full md:flex-col md:gap-0 md:border-t border-[var(--border-soft)]">
         <button
           className="studio-nav-button shrink-0 md:w-full"
           data-tour-target="share"
@@ -146,11 +146,12 @@ const MobileTransportStrip = () => {
         aria-label={isPlaying ? 'Pause playback' : 'Play'}
         className="control-chip mobile-transport-btn"
         data-active={isPlaying ? 'true' : 'false'}
+        data-primary="true"
         onPointerDown={armAudio}
         onClick={() => void togglePlay()}
         type="button"
       >
-        <Play className="h-4 w-4 fill-current" />
+        {isPlaying ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
         {isPlaying ? 'Pause' : 'Play'}
       </button>
       <button
@@ -371,7 +372,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
         aria-hidden
       />
       {isLaunchpadOpen ? (
-        <div className="fixed inset-0 z-40 overflow-auto bg-[var(--bg-app)] p-3">
+        <div className="fixed inset-0 z-[60] overflow-auto bg-[var(--bg-app)] p-3">
           <Launchpad
             isInitialized={isInitialized}
             isOpen={isLaunchpadOpen}
@@ -383,12 +384,30 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
           />
         </div>
       ) : null}
-      <div className="flex min-h-screen flex-col">
+      {isSettingsOpen ? (
+        <>
+          <button
+            aria-hidden="true"
+            className="fixed inset-0 z-[64] bg-[rgba(5,8,12,0.62)] backdrop-blur-[2px] md:hidden"
+            onClick={() => {
+              if (isSettingsOpen) {
+                setActiveView((current) => current);
+              }
+            }}
+            tabIndex={-1}
+            type="button"
+          />
+          <div className="fixed inset-x-3 bottom-3 top-3 z-[65] md:static md:inset-auto md:z-auto md:flex md:min-h-0 md:w-[380px] md:max-w-[380px] md:flex-col">
+            <SettingsSidebar />
+          </div>
+        </>
+      ) : null}
+      <div className="flex min-h-screen min-w-0 flex-col">
         <div className="px-3 pt-3">
           <TopBar firstImpression={isFirstImpression} isCaptureOpen={isRecordOpen} onOpenCapture={openCapture} />
         </div>
         <MobileTransportStrip />
-        <div className="studio-shell-grid flex flex-col md:flex-row md:flex-1 md:min-h-0 gap-3 px-3 pb-3">
+        <div className="studio-shell-grid flex min-w-0 flex-col gap-3 px-3 pb-3 md:min-h-0 md:flex-1 md:flex-row">
           <SideNav
             onOpenLaunchpad={() => setLaunchpadOpen(true)}
             onOpenRecord={openCapture}
@@ -397,10 +416,9 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
               setShareOpen(true);
             }}
           />
-          <div className="studio-workbench flex md:min-h-0 md:flex-1 flex-col gap-3">
+          <div className="studio-workbench flex min-w-0 flex-col gap-3 md:min-h-0 md:flex-1">
             <div className="flex flex-col md:flex-row md:min-h-0 md:flex-1 gap-3">
               <ViewRouter />
-              {isSettingsOpen && <SettingsSidebar />}
             </div>
             <TapToPlay />
             <DeviceRack />

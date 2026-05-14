@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { analyzeCaptureFrame, buildCaptureSuggestions, buildDetectedNoteCandidates, buildRecordingInsights } from './audioRecording';
+import {
+  analyzeCaptureFrame,
+  buildCaptureSuggestions,
+  buildDetectedNoteCandidates,
+  buildRecordingInsights,
+  captureSuggestionControlsToTrackSource,
+} from './audioRecording';
 
 const createSineWave = (hz: number, durationSeconds: number, sampleRate = 44100, amplitude = 0.62) => {
   const sampleCount = Math.floor(durationSeconds * sampleRate);
@@ -65,6 +71,50 @@ const createSnapLikeBurst = (durationSeconds: number, sampleRate = 44100) => {
   return samples;
 };
 
+const createResonantSnapBurst = (durationSeconds: number, sampleRate = 44100) => {
+  const sampleCount = Math.floor(durationSeconds * sampleRate);
+  const samples = new Float32Array(sampleCount);
+  let seed = 987654;
+
+  for (let index = 0; index < sampleCount; index += 1) {
+    seed = (seed * 48271) % 2147483647;
+    const noise = ((seed / 2147483647) * 2) - 1;
+    const time = index / sampleRate;
+    const click = index < 10 ? (1 - (index / 10)) * 0.86 : 0;
+    const ringEnvelope = Math.exp(-time * 24);
+    const noiseEnvelope = Math.exp(-time * 78);
+    const ring = (
+      Math.sin((2 * Math.PI * 1110 * index) / sampleRate) * 0.32
+      + Math.sin((2 * Math.PI * 1175 * index) / sampleRate) * 0.21
+      + Math.sin((2 * Math.PI * 2220 * index) / sampleRate) * 0.05
+    );
+
+    samples[index] = click + (ring * ringEnvelope) + ((noise * 0.17) * noiseEnvelope);
+  }
+
+  return samples;
+};
+
+const createRepeatedResonantSnapSequence = (durationSeconds: number, sampleRate = 44100) => {
+  const sampleCount = Math.floor(durationSeconds * sampleRate);
+  const samples = new Float32Array(sampleCount);
+  const burst = createResonantSnapBurst(0.14, sampleRate);
+  const starts = [0.35, 0.9, 1.46, 2.08, 2.76, 3.22]
+    .map((seconds) => Math.floor(seconds * sampleRate))
+    .filter((start) => start < sampleCount);
+
+  starts.forEach((start) => {
+    burst.forEach((value, index) => {
+      const target = start + index;
+      if (target < sampleCount) {
+        samples[target] += value;
+      }
+    });
+  });
+
+  return samples;
+};
+
 describe('audioRecording insights', () => {
   it('ranks the nearest detected note ahead of neighboring semitones', () => {
     const notes = buildDetectedNoteCandidates(440, 0.86);
@@ -89,6 +139,22 @@ describe('audioRecording insights', () => {
     expect(suggestions[0]?.controls.cutoff).toBeLessThan(3000);
     expect(suggestions[0]?.controls.release).toBeGreaterThan(0.4);
     expect(suggestions[0]?.controls.waveform).toBe('sine');
+  });
+
+  it('maps capture suggestions back to a synth instrument source', () => {
+    const suggestion = buildCaptureSuggestions({
+      brightness: 0.22,
+      clarity: 0.74,
+      durationSeconds: 0.68,
+      pitchHz: 392,
+      rmsDb: -18,
+      transientDensity: 0.28,
+    })[0];
+
+    const source = captureSuggestionControlsToTrackSource(suggestion.controls);
+
+    expect(source.engine).toBe('synth');
+    expect(source.waveform).toBe(suggestion.controls.waveform);
   });
 
   it('keeps bright short captures in melodic or percussive upper voices', () => {
@@ -156,6 +222,35 @@ describe('audioRecording insights', () => {
     expect(['bass', 'kick', 'pad']).not.toContain(frame.suggestions[0]?.trackType ?? '');
     expect(frame.suggestions[0]?.controls.release).toBeLessThan(0.18);
     expect(frame.suggestions[0]?.controls.reverbSend).toBeLessThan(0.12);
+  });
+
+  it('keeps note candidates for resonant snap-like transients', () => {
+    const frame = analyzeCaptureFrame({
+      durationSeconds: 0.14,
+      sampleRate: 44100,
+      samples: createResonantSnapBurst(0.14),
+    });
+
+    expect(frame.detectedPitchHz).not.toBeNull();
+    expect(frame.detectedPitchHz ?? 0).toBeGreaterThan(1000);
+    expect(frame.detectedPitchHz ?? 0).toBeLessThan(1300);
+    expect(['C#6', 'D6']).toContain(frame.noteCandidates[0]?.note ?? '');
+    expect(frame.noteCandidates[0]?.confidence ?? 0).toBeGreaterThan(0.4);
+    expect(['bass', 'kick', 'pad']).not.toContain(frame.suggestions[0]?.trackType ?? '');
+  });
+
+  it('focuses long repeated snap recordings on the strongest transient slice', () => {
+    const frame = analyzeCaptureFrame({
+      durationSeconds: 3.6,
+      sampleRate: 44100,
+      samples: createRepeatedResonantSnapSequence(3.6),
+    });
+
+    expect(frame.detectedPitchHz).not.toBeNull();
+    expect(frame.detectedPitchHz ?? 0).toBeGreaterThan(1000);
+    expect(frame.detectedPitchHz ?? 0).toBeLessThan(1300);
+    expect(['C#6', 'D6']).toContain(frame.noteCandidates[0]?.note ?? '');
+    expect(frame.durationSeconds).toBe(3.6);
   });
 
   it('keeps silent live frames low-confidence and low-level', () => {

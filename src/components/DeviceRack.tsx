@@ -408,6 +408,7 @@ export const DeviceRack = () => {
                 onSelectSampleSlice={(sliceIndex) => selectSampleSlice(track.id, sliceIndex)}
                 onSetActiveSourceSubView={setActiveSourceSubView}
                 onSetSampleStatus={setSampleStatus}
+                onSetTrackParams={(params) => setTrackParams(track.id, params)}
                 onSetTrackSource={(source) => setTrackSource(track.id, source)}
                 onUpdateSampleSlice={(sliceIndex, updates) => updateSampleSlice(track.id, sliceIndex, updates)}
                 sampleOptions={sampleOptions}
@@ -421,6 +422,7 @@ export const DeviceRack = () => {
             {activeRackView === 'SHAPE' ? (
               <DeviceRackShapePanel
                 onSetTrackParams={(params) => setTrackParams(track.id, params)}
+                onSetTrackSource={(source) => setTrackSource(track.id, source)}
                 track={track}
               />
             ) : null}

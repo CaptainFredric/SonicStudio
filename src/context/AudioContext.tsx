@@ -64,7 +64,11 @@ import { createEditorDispatchers } from './editor/editorDispatchers';
 import { createKeyboardShortcutHandler } from './editor/keyboardShortcuts';
 import { createRenderController } from './editor/renderController';
 import { editorReducer } from './editor/reducer/editorReducer';
-import { createInitialEditorState, songLengthFromProject } from './editor/reducer/reducerUtils';
+import {
+  clampCurrentStepToLoopBounds,
+  createInitialEditorState,
+  songLengthFromProject,
+} from './editor/reducer/reducerUtils';
 import { createSessionController } from './editor/sessionController';
 import { createTransportController } from './editor/transportController';
 
@@ -134,7 +138,7 @@ interface AudioContextType {
   newSession: () => void;
   metronomeEnabled: boolean;
   patternCount: number;
-  previewTrack: (trackId: string, note?: string, sampleSliceIndex?: number) => Promise<void>;
+  previewTrack: (trackId: string, note?: string, sampleSliceIndex?: number, velocity?: number) => Promise<void>;
   projectName: string;
   projectCheckpoints: PersistedCheckpoint[];
   scoresheets: Scoresheet[];
@@ -325,6 +329,7 @@ export const AudioProvider = ({
 
   useEffect(() => {
     engine.syncProject(project);
+    setCurrentStep((current) => clampCurrentStepToLoopBounds(project, current, loopRangeStartBeat, loopRangeEndBeat));
   }, [project]);
 
   useEffect(() => {
@@ -333,6 +338,7 @@ export const AudioProvider = ({
         ? { endBeat: loopRangeEndBeat, startBeat: loopRangeStartBeat }
         : null,
     );
+    setCurrentStep((current) => clampCurrentStepToLoopBounds(project, current, loopRangeStartBeat, loopRangeEndBeat));
   }, [loopRangeEndBeat, loopRangeStartBeat]);
 
   useEffect(() => engine.onStep((step) => {

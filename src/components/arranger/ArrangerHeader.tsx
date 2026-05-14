@@ -92,7 +92,7 @@ export const ArrangerHeader = ({
   superSonicMode,
 }: ArrangerHeaderProps) => (
   <div className="border-b border-[var(--border-soft)] px-5 py-4">
-    <div className="flex flex-wrap items-start justify-between gap-4">
+    <div className="flex flex-col gap-4 md:flex-row md:flex-wrap md:items-start md:justify-between">
       <div>
         <div className="section-label">Arranger</div>
         <h2 className="mt-2 text-lg font-semibold tracking-tight text-[var(--text-primary)]">Song view</h2>
@@ -106,9 +106,9 @@ export const ArrangerHeader = ({
           </div>
         )}
       </div>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 md:justify-end">
         <button
-          className="control-field flex items-center gap-2 px-3 py-2 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)]"
+          className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
           onClick={onAddMarkerAtPlayhead}
           title="Place a section marker at the playhead position"
           type="button"
@@ -117,7 +117,7 @@ export const ArrangerHeader = ({
           Mark here
         </button>
         <button
-          className="control-field flex items-center gap-2 px-4 py-2 text-sm font-medium text-[var(--accent-strong)] hover:text-[var(--text-primary)]"
+          className="control-chip flex items-center gap-2 px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--accent-strong)]"
           onClick={addClip}
           type="button"
         >
@@ -232,7 +232,7 @@ export const ArrangerHeader = ({
 
       <div className="min-w-0 xl:pl-5">
         <div className="section-label">View controls</div>
-        <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <div className="mt-3 grid gap-3 lg:grid-cols-2 2xl:grid-cols-5">
           <label className="grid gap-2 text-xs text-[var(--text-secondary)]">
             <span className="section-label">Form</span>
             <select
@@ -304,7 +304,7 @@ export const ArrangerHeader = ({
 
           <div className="grid gap-2 text-xs text-[var(--text-secondary)]">
             <span className="section-label">Session view</span>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <ControlToggle
                 active={followPlayhead}
                 label="Follow"
@@ -337,7 +337,7 @@ export const ArrangerHeader = ({
           >
             {inspectorOpen ? 'Hide desk' : 'Show desk'}
           </button>
-          <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+          <div className="w-full font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)] sm:w-auto sm:ml-auto">
             {laneDataCount} visible lanes
           </div>
         </div>

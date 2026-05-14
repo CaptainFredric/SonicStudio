@@ -284,7 +284,7 @@ const estimateSnapLikelihood = ({
   transientDensity: number;
 }) => {
   const shortness = 1 - clamp(durationSeconds / 0.42, 0, 1);
-  const dryTail = 1 - clamp(tailEnergyRatio / 0.24, 0, 1);
+  const dryTail = 1 - clamp(tailEnergyRatio / 0.18, 0, 1);
   const brightnessFit = 1 - Math.min(1, Math.abs(brightness - 0.58) / 0.58);
   const transientFit = clamp((transientDensity - 0.42) / 0.48, 0, 1);
   const atonalBias = 1 - clamp(clarity / 0.78, 0, 1);
@@ -315,9 +315,11 @@ const shouldSuppressPitchEstimate = ({
   snapLikelihood: number;
   tailEnergyRatio: number;
 }) => Boolean(
+  // Only fully suppress note matching for very dry, very atonal snaps.
+  // Resonant finger snaps often carry enough pitch information to be useful.
   pitchHz
-  && snapLikelihood > 0.56
-  && clarity < 0.82
+  && snapLikelihood > 0.64
+  && clarity < 0.42
   && durationSeconds < 0.36
   && tailEnergyRatio < 0.2
   && brightness > 0.28
@@ -380,6 +382,7 @@ export const captureSuggestionControlsToTrackSource = (controls: CaptureSuggesti
 
   return {
     detune: normalized.detune,
+    engine: 'synth',
     octaveShift: normalized.octaveShift,
     portamento: normalized.portamento,
     waveform: normalized.waveform,
@@ -475,6 +478,78 @@ const transientDensityOf = (samples: Float32Array): number => {
   const averageVariation = variation / Math.max(1, envelope.length - 1);
   const crest = peak / Math.max(0.0001, envelope.reduce((sum, value) => sum + value, 0) / envelope.length);
   return clamp((density * 0.68) + (strongestRise * 4.6) + (averageVariation * 1.9) + (clamp((crest - 1.35) / 4.5, 0, 1) * 0.24), 0, 1);
+};
+
+const selectTransientAnalysisSegment = ({
+  durationSeconds,
+  sampleRate,
+  samples,
+  transientDensity,
+}: {
+  durationSeconds: number;
+  sampleRate: number;
+  samples: Float32Array;
+  transientDensity: number;
+}) => {
+  if (durationSeconds < 1.6 || transientDensity < 0.64 || samples.length < 4096) {
+    return samples;
+  }
+
+  const windowSize = Math.max(256, Math.floor(sampleRate * 0.012));
+  const hopSize = Math.max(128, Math.floor(windowSize / 2));
+  let bestStart = 0;
+  let bestScore = 0;
+  let previousRms = 0;
+  const candidates: Array<{ score: number; start: number }> = [];
+
+  for (let start = 0; start + windowSize <= samples.length; start += hopSize) {
+    const window = samples.subarray(start, start + windowSize);
+    const windowRms = rmsOf(window);
+    const rise = Math.max(0, windowRms - previousRms);
+    const score = windowRms + (rise * 1.4);
+
+    candidates.push({ score, start });
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestStart = start;
+    }
+
+    previousRms = windowRms;
+  }
+
+  if (bestScore < 0.04) {
+    return samples;
+  }
+
+  const leadIn = Math.floor(sampleRate * 0.01);
+  const sliceLength = Math.min(samples.length, Math.max(2048, Math.floor(sampleRate * 0.1)));
+  const topCandidates = candidates
+    .sort((left, right) => right.score - left.score)
+    .slice(0, 8);
+
+  let resolvedStart = bestStart;
+  let resolvedScore = 0;
+
+  topCandidates.forEach((candidate) => {
+    const start = Math.max(0, candidate.start - leadIn);
+    const end = Math.min(samples.length, start + sliceLength);
+    const segment = samples.subarray(start, end);
+    const pitch = detectFundamentalHz(segment, sampleRate);
+    const envelopeWeight = candidate.score / Math.max(bestScore, 0.0001);
+    const pitchWeight = pitch.pitchHz ? pitch.clarity : 0;
+    const combinedScore = (pitchWeight * 1.8) + (envelopeWeight * 0.2);
+
+    if (combinedScore > resolvedScore) {
+      resolvedScore = combinedScore;
+      resolvedStart = start;
+    }
+  });
+
+  const start = Math.max(0, resolvedStart);
+  const end = Math.min(samples.length, start + sliceLength);
+
+  return samples.subarray(start, end);
 };
 
 const exactMidiFromHz = (hz: number) => 69 + 12 * Math.log2(hz / 440);
@@ -734,23 +809,26 @@ export const analyzeCaptureFrame = ({
   sampleRate: number;
   samples: Float32Array;
 }): LiveCaptureFrame => {
-  const rms = rmsOf(samples);
-  const rmsDb = linearToDb(rms);
-  const brightness = brightnessOf(samples);
+  const fullRms = rmsOf(samples);
+  const rmsDb = linearToDb(fullRms);
   const transientDensity = transientDensityOf(samples);
-  const pitchDetection = detectFundamentalHz(samples, sampleRate);
-  const tailEnergyRatio = tailEnergyRatioOf(samples);
+  const analysisSamples = selectTransientAnalysisSegment({ durationSeconds, sampleRate, samples, transientDensity });
+  const analysisDurationSeconds = analysisSamples.length / sampleRate;
+  const analysisTransientDensity = transientDensityOf(analysisSamples);
+  const brightness = brightnessOf(analysisSamples);
+  const pitchDetection = detectFundamentalHz(analysisSamples, sampleRate);
+  const tailEnergyRatio = tailEnergyRatioOf(analysisSamples);
   const snapLikelihood = estimateSnapLikelihood({
     brightness,
     clarity: pitchDetection.clarity,
-    durationSeconds,
+    durationSeconds: analysisDurationSeconds,
     tailEnergyRatio,
-    transientDensity,
+    transientDensity: analysisTransientDensity,
   });
   const pitchSuppressed = shouldSuppressPitchEstimate({
     brightness,
     clarity: pitchDetection.clarity,
-    durationSeconds,
+    durationSeconds: analysisDurationSeconds,
     pitchHz: pitchDetection.pitchHz,
     snapLikelihood,
     tailEnergyRatio,
@@ -760,11 +838,11 @@ export const analyzeCaptureFrame = ({
   const insights = buildRecordingInsights({
     brightness,
     clarity: effectiveClarity,
-    durationSeconds,
+    durationSeconds: analysisDurationSeconds,
     pitchHz: effectivePitchHz,
     rmsDb,
     snapLikelihood,
-    transientDensity,
+    transientDensity: analysisTransientDensity,
   });
 
   return {
@@ -777,7 +855,7 @@ export const analyzeCaptureFrame = ({
     rmsDb,
     signalLevel: rmsDbToSignalLevel(rmsDb),
     suggestions: insights.suggestions,
-    transientDensity,
+    transientDensity: analysisTransientDensity,
   };
 };
 

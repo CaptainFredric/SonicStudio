@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { createTrack } from './schema';
+import { createProjectFromTemplate, createTrack } from './schema';
+
+const countPatternNotes = (patterns: Record<number, Array<Array<{ note: string }>>>) => (
+  Object.values(patterns).reduce((total, steps) => (
+    total + steps.reduce((stepTotal, step) => stepTotal + step.length, 0)
+  ), 0)
+);
 
 describe('track defaults', () => {
   it('boots the hat lane in the sample engine so the named hat source is actually used', () => {
@@ -17,5 +23,19 @@ describe('track defaults', () => {
     expect(track.source.engine).toBe('sample');
     expect(track.source.samplePreset).toBe('pad-haze');
     expect(track.source.samplePlayback).toBe('pitched');
+  });
+
+  it('ships Night Transit as a fuller default song sketch', () => {
+    const project = createProjectFromTemplate('night-transit');
+    const bassTrack = project.tracks.find((track) => track.type === 'bass');
+    const leadTrack = project.tracks.find((track) => track.type === 'lead');
+    const padTrack = project.tracks.find((track) => track.type === 'pad');
+
+    expect(bassTrack).toBeTruthy();
+    expect(leadTrack).toBeTruthy();
+    expect(padTrack).toBeTruthy();
+    expect(countPatternNotes(bassTrack!.patterns)).toBeGreaterThanOrEqual(12);
+    expect(countPatternNotes(leadTrack!.patterns)).toBeGreaterThanOrEqual(15);
+    expect(countPatternNotes(padTrack!.patterns)).toBeGreaterThanOrEqual(36);
   });
 });

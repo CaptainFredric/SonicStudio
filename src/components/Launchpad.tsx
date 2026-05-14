@@ -256,14 +256,22 @@ export const Launchpad = ({
           </div>
 
           <div className="mt-5 flex flex-wrap gap-2 border-t border-[var(--border-soft)] pt-4">
-            <button
-              className="control-chip px-4 py-2 text-sm font-medium text-[var(--text-primary)]"
-              data-active={isInitialized}
-              onClick={onWakeAudio}
-              type="button"
-            >
-              {isInitialized ? 'Audio on' : 'Turn on audio'}
-            </button>
+            {isInitialized ? (
+              <span
+                className="status-chip inline-flex items-center px-4 py-2 text-sm font-medium text-[var(--text-primary)]"
+                data-tone="ready"
+              >
+                Audio on
+              </span>
+            ) : (
+              <button
+                className="control-chip px-4 py-2 text-sm font-medium text-[var(--text-primary)]"
+                onClick={onWakeAudio}
+                type="button"
+              >
+                Turn on audio
+              </button>
+            )}
             <button
               className="control-chip px-4 py-2 text-sm font-medium text-[var(--text-primary)]"
               onClick={onClose}

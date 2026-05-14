@@ -749,34 +749,36 @@ export const PianoRoll = () => {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-
-          <div className="surface-panel-muted flex items-center gap-2 p-1">
+        <div className="flex w-full flex-col gap-2 xl:flex-row xl:flex-wrap xl:items-center">
+          <div className="flex max-w-full flex-wrap items-center gap-2">
+            <div className="surface-panel-muted flex max-w-full flex-wrap items-center gap-2 p-1">
             <span className="px-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Steps 16-128</span>
             {STEP_OPTIONS.map((option) => (
               <React.Fragment key={`steps-${option}`}>
                 <WindowButton active={stepsPerPattern === option} label={`${option}`} onClick={() => setStepsPerPattern(option)} />
               </React.Fragment>
             ))}
+            </div>
+
+            {!isDrum && (
+              <div className="surface-panel-muted flex max-w-full flex-wrap items-center gap-2 p-1">
+                {(Object.keys(NOTE_WINDOWS) as NoteWindowKey[]).map((windowKey) => (
+                  <React.Fragment key={windowKey}>
+                    <WindowButton active={noteWindow === windowKey} label={windowKey} onClick={() => setNoteWindow(windowKey)} />
+                  </React.Fragment>
+                ))}
+              </div>
+            )}
           </div>
 
-          {!isDrum && (
-            <div className="surface-panel-muted flex items-center gap-2 p-1">
-              {(Object.keys(NOTE_WINDOWS) as NoteWindowKey[]).map((windowKey) => (
-                <React.Fragment key={windowKey}>
-                  <WindowButton active={noteWindow === windowKey} label={windowKey} onClick={() => setNoteWindow(windowKey)} />
-                </React.Fragment>
-              ))}
-            </div>
-          )}
-
-          <div className="surface-panel-muted flex items-center gap-2 p-1">
+          <div className="flex max-w-full flex-wrap items-center gap-2">
+            <div className="surface-panel-muted flex max-w-full flex-wrap items-center gap-2 p-1">
             {(Object.keys(STEP_ZOOM_PRESETS) as Array<keyof typeof STEP_ZOOM_PRESETS>).filter((zoomKey) => superSonicMode || zoomKey !== 'FAR').map((zoomKey) => (
               <React.Fragment key={`step-${zoomKey}`}>
                 <WindowButton active={stepZoom === STEP_ZOOM_PRESETS[zoomKey]} label={`X ${zoomKey}`} onClick={() => updateHorizontalZoom(STEP_ZOOM_PRESETS[zoomKey])} />
               </React.Fragment>
             ))}
-            <div className="ml-1 flex items-center gap-2 border-l border-[var(--border-soft)]/80 pl-2">
+              <div className="flex basis-full flex-wrap items-center gap-2 border-t border-[var(--border-soft)]/80 pt-2 sm:ml-1 sm:basis-auto sm:border-l sm:border-t-0 sm:pl-2 sm:pt-0">
               <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Stretch</span>
               <button
                 className="control-chip px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
@@ -802,38 +804,38 @@ export const PianoRoll = () => {
                 +
               </button>
               <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">{stepCellWidth}px</span>
-            </div>
-            {!isDrum && (
-              <>
-                {(Object.keys(ROW_ZOOM_PRESETS) as RowZoomKey[]).map((zoomKey) => (
-                  <React.Fragment key={`row-${zoomKey}`}>
-                    <WindowButton active={rowZoom === zoomKey} label={`Y ${zoomKey}`} onClick={() => setRowZoom(zoomKey)} />
-                  </React.Fragment>
-                ))}
-                <WindowButton
-                  active={focusSelectedNote}
-                  label="Focus note"
-                  onClick={() => setFocusSelectedNote((current) => !current)}
-                />
-                {isMobileViewport && (
+              </div>
+              {!isDrum && (
+                <div className="flex max-w-full flex-wrap items-center gap-2">
+                  {(Object.keys(ROW_ZOOM_PRESETS) as RowZoomKey[]).map((zoomKey) => (
+                    <React.Fragment key={`row-${zoomKey}`}>
+                      <WindowButton active={rowZoom === zoomKey} label={`Y ${zoomKey}`} onClick={() => setRowZoom(zoomKey)} />
+                    </React.Fragment>
+                  ))}
                   <WindowButton
-                    active={mobileInspectorOpen}
-                    label={mobileInspectorOpen ? 'Hide inspector' : 'Show inspector'}
-                    onClick={() => setMobileInspectorOpen((current) => !current)}
+                    active={focusSelectedNote}
+                    label="Focus note"
+                    onClick={() => setFocusSelectedNote((current) => !current)}
                   />
-                )}
-              </>
-            )}
-          </div>
-
-          {superSonicMode && !isDrum && (
-            <div className="surface-panel-muted flex items-center gap-2 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--accent-strong)]">
-              <Zap className="h-3.5 w-3.5 text-[var(--accent)]" />
-              Hover ladders on
+                  {isMobileViewport && (
+                    <WindowButton
+                      active={mobileInspectorOpen}
+                      label={mobileInspectorOpen ? 'Hide inspector' : 'Show inspector'}
+                      onClick={() => setMobileInspectorOpen((current) => !current)}
+                    />
+                  )}
+                </div>
+              )}
             </div>
-          )}
 
-          <div className="surface-panel-muted flex items-center gap-1 p-1">
+            {superSonicMode && !isDrum && (
+              <div className="surface-panel-muted flex items-center gap-2 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--accent-strong)]">
+                <Zap className="h-3.5 w-3.5 text-[var(--accent)]" />
+                Hover ladders on
+              </div>
+            )}
+
+            <div className="surface-panel-muted flex max-w-full flex-wrap items-center gap-1 p-1">
             <ToolButton label="Shift left" onClick={() => shiftPattern(track.id, 'left')}>
               <ArrowLeftRight className="h-4 w-4 rotate-180" />
             </ToolButton>
@@ -867,6 +869,7 @@ export const PianoRoll = () => {
             <ToolButton label="Clear pattern" onClick={() => clearTrack(track.id)}>
               <Eraser className="h-4 w-4" />
             </ToolButton>
+            </div>
           </div>
         </div>
       </div>
@@ -1025,7 +1028,7 @@ export const PianoRoll = () => {
                               />
                             )}
                             {superSonicMode && !isDrum && supersonicHoverCell?.note === note && supersonicHoverCell.stepIndex === stepIndex && (
-                              <span className="supersonic-ladder absolute inset-y-[3px] left-[3px] right-[3px] z-[2]" style={{ '--supersonic-ladder-count': String(SUPERSONIC_NOTE_OFFSETS.length) } as React.CSSProperties}>
+                              <span className="supersonic-ladder absolute inset-0 z-[2]" style={{ '--supersonic-ladder-count': String(SUPERSONIC_NOTE_OFFSETS.length) } as React.CSSProperties}>
                                 {SUPERSONIC_NOTE_OFFSETS.map((offset) => {
                                   const targetNote = shiftPitch(note, offset);
                                   if (!targetNote) {

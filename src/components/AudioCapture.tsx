@@ -21,6 +21,7 @@ import {
   subscribeRecordedNotePresets,
   type RecordedNotePreset,
 } from '../services/recordedNoteLibrary';
+import { getPitchCoachFeedback } from '../services/pitchCoach';
 import { TrackIcon, getTrackPersonality } from '../utils/trackPersonality';
 import {
   createTrack as createPreviewTrackModel,
@@ -65,6 +66,7 @@ const FILTER_MODE_OPTIONS = [
   { label: 'Band', value: 'bandpass' },
   { label: 'High', value: 'highpass' },
 ] as const;
+const PITCH_COACH_NOTE_OPTIONS = buildPitchCoachNoteOptions(6, 2);
 
 const cloneCaptureSuggestion = (suggestion: CaptureSuggestion): CaptureSuggestion => ({
   ...suggestion,
@@ -78,6 +80,13 @@ const buildSuggestedRecordedNoteName = (note: string | null, suggestion: Capture
 
   return `${note} ${suggestion?.presetLabel ?? 'Captured note'}`.slice(0, 40);
 };
+
+const MIN_STABLE_CAPTURE_SIGNAL = 0.055;
+const MIN_STABLE_CAPTURE_CLARITY = 0.44;
+const MIN_STABLE_CAPTURE_CONFIDENCE = 0.5;
+const MIN_QUIET_STABLE_SIGNAL = 0.045;
+const MIN_QUIET_STABLE_CLARITY = 0.6;
+const MIN_QUIET_STABLE_CONFIDENCE = 0.72;
 
 const getStagedLiveSuggestions = (frame: LiveCaptureFrame | null) => {
   if (!frame || frame.signalLevel < 0.04) {
@@ -142,10 +151,16 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
   const [recordedNoteLibrary, setRecordedNoteLibrary] = useState<RecordedNotePreset[]>([]);
   const [sessionRecordedNotes, setSessionRecordedNotes] = useState<RecordedNotePreset[]>([]);
   const [suggestions, setSuggestions] = useState<CaptureSuggestion[]>([]);
+  const [pitchCoachTarget, setPitchCoachTarget] = useState('C4');
 
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
   const activeNoteCandidate = result?.noteCandidates[activeNoteIndex] ?? result?.noteCandidates[0] ?? null;
   const selectedDetectedNote = activeNoteCandidate?.note ?? result?.detectedNote ?? null;
+  const pitchCoachFeedback = getPitchCoachFeedback({
+    detectedNote: liveFrame?.detectedNote ?? selectedDetectedNote ?? pendingRecordedNote?.note ?? null,
+    detectedPitchHz: liveFrame?.detectedPitchHz ?? result?.detectedPitchHz ?? pendingRecordedNote?.pitchHz ?? null,
+    targetNote: pitchCoachTarget,
+  });
 
   useEffect(() => {
     if (!result) {
@@ -157,6 +172,14 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
     setSuggestions(result.suggestions.map(cloneCaptureSuggestion));
     setActiveNoteIndex(0);
   }, [result]);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    setPitchCoachTarget(selectedTrack ? defaultNoteForTrack(selectedTrack) : 'C4');
+  }, [open, selectedTrack?.id]);
 
   useEffect(() => {
     if (!open) {
@@ -223,6 +246,7 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
       setPendingRecordedNote(null);
       setCaptureNameDraft('');
       setSessionRecordedNotes([]);
+      setPitchCoachTarget(selectedTrack ? defaultNoteForTrack(selectedTrack) : 'C4');
       setSuggestions([]);
       setError(null);
       if (previewUrl) {
@@ -469,6 +493,12 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
     suggestions[0] ?? liveSuggestions[0] ?? pendingRecordedNote?.suggestion ?? null,
   );
   const rankedSuggestionCount = suggestions.length;
+  const liveCaptureHint = liveFrame
+    ? describeCaptureHint(liveFrame.durationSeconds, liveFrame.transientDensity, liveFrame.clarity)
+    : null;
+  const resultCaptureHint = result
+    ? describeCaptureHint(result.durationSeconds, result.transientDensity, result.clarity)
+    : null;
 
   return (
     <div
@@ -562,7 +592,7 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
             </div>
 
             {state === 'recording' && (
-              <div className="mt-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_280px]">
+              <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1fr)_280px]">
                 <section className="rounded-[2px] border border-[var(--border-soft)] bg-[rgba(6,9,13,0.34)] px-4 py-4">
                   <div className="flex items-center justify-between gap-3">
                     <div>
@@ -623,11 +653,23 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
                           ? describeTimingFit(liveFrame.durationSeconds, liveFrame.transientDensity)
                           : 'Hold the sound for a moment and the attack readout will settle in.'}
                       </div>
+                      {liveCaptureHint && (
+                        <div className="mt-3 rounded-[2px] border border-[rgba(245,158,11,0.28)] bg-[rgba(245,158,11,0.08)] px-3 py-3 text-[11px] leading-5 text-[var(--text-secondary)]">
+                          {liveCaptureHint}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </section>
 
                 <div className="grid gap-3">
+                  <PitchCoachCard
+                    feedback={pitchCoachFeedback}
+                    helperText={selectedTrack ? `Target defaults to ${selectedTrack.name}. Change it if you are practicing against a different note.` : 'Pick the note you want to match, then sing or play into the mic.'}
+                    onTargetChange={setPitchCoachTarget}
+                    targetNote={pitchCoachTarget}
+                  />
+
                   <section className="rounded-[2px] border border-[var(--border-soft)] bg-[rgba(6,9,13,0.34)] px-4 py-4">
                     <div className="flex items-center gap-2">
                       <Sparkles className="h-4 w-4 text-[var(--accent)]" />
@@ -726,6 +768,20 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
                     <div className="mt-3 rounded-[2px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3 text-[11px] leading-5 text-[var(--text-secondary)]">
                       <div className="section-label">Timing fit</div>
                       <div className="mt-2">{describeTimingFit(result.durationSeconds, result.transientDensity)}</div>
+                    </div>
+                    {resultCaptureHint && (
+                      <div className="mt-3 rounded-[2px] border border-[rgba(245,158,11,0.28)] bg-[rgba(245,158,11,0.08)] px-3 py-3 text-[11px] leading-5 text-[var(--text-secondary)]">
+                        <div className="section-label text-[var(--warning)]">Capture hint</div>
+                        <div className="mt-2">{resultCaptureHint}</div>
+                      </div>
+                    )}
+                    <div className="mt-3">
+                      <PitchCoachCard
+                        feedback={pitchCoachFeedback}
+                        helperText="Use the same target to compare your take after recording."
+                        onTargetChange={setPitchCoachTarget}
+                        targetNote={pitchCoachTarget}
+                      />
                     </div>
                   </div>
 
@@ -912,6 +968,91 @@ const Detail = ({ label, value }: { label: string; value: string }) => (
   </div>
 );
 
+const PitchCoachCard = ({
+  feedback,
+  helperText,
+  onTargetChange,
+  targetNote,
+}: {
+  feedback: ReturnType<typeof getPitchCoachFeedback>;
+  helperText: string;
+  onTargetChange: (value: string) => void;
+  targetNote: string;
+}) => {
+  const toneStyles = feedback.tone === 'locked'
+    ? {
+        background: 'rgba(34,197,94,0.08)',
+        borderColor: 'rgba(34,197,94,0.26)',
+        color: 'rgb(187,247,208)',
+      }
+    : feedback.tone === 'close'
+      ? {
+          background: 'rgba(250,204,21,0.08)',
+          borderColor: 'rgba(250,204,21,0.24)',
+          color: 'rgb(253,224,71)',
+        }
+      : feedback.tone === 'miss'
+        ? {
+            background: 'rgba(248,113,113,0.08)',
+            borderColor: 'rgba(248,113,113,0.22)',
+            color: 'rgb(252,165,165)',
+          }
+        : {
+            background: 'rgba(255,255,255,0.03)',
+            borderColor: 'rgba(149,169,189,0.12)',
+            color: 'var(--text-secondary)',
+          };
+
+  return (
+    <section className="rounded-[2px] border border-[var(--border-soft)] bg-[rgba(6,9,13,0.34)] px-4 py-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="section-label">Pitch coach</div>
+          <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">{helperText}</div>
+        </div>
+        <label className="grid gap-1 text-xs text-[var(--text-secondary)]">
+          <span className="section-label">Target</span>
+          <select
+            className="control-field h-10 min-w-[112px] px-3 text-sm"
+            onChange={(event) => onTargetChange(event.target.value)}
+            value={targetNote}
+          >
+            {PITCH_COACH_NOTE_OPTIONS.map((note) => (
+              <option key={note} value={note}>{note}</option>
+            ))}
+          </select>
+        </label>
+      </div>
+
+      <div className="mt-3 flex items-start justify-between gap-3 rounded-[3px] border px-3 py-3" style={toneStyles}>
+        <div>
+          <div className="text-lg font-semibold tracking-tight">{feedback.label}</div>
+          <div className="mt-1 text-[11px] leading-5">{feedback.detail}</div>
+        </div>
+        <div className="font-mono text-[10px] uppercase tracking-[0.14em]">
+          {feedback.centsOff === null ? '—' : `${Math.round(Math.abs(feedback.centsOff))} cents`}
+        </div>
+      </div>
+
+      <div className="mt-3 h-2 rounded-[2px] bg-[rgba(255,255,255,0.06)]">
+        <div className="relative h-full">
+          <div className="absolute inset-y-0 left-1/2 w-px -translate-x-1/2 bg-white/24" />
+          <div
+            className="absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-[3px] border border-[rgba(114,217,255,0.58)] bg-[linear-gradient(180deg,rgba(114,217,255,0.92),rgba(66,153,225,0.74))] shadow-[0_6px_14px_rgba(15,23,42,0.42)]"
+            style={{ left: `${feedback.indicator * 100}%` }}
+          />
+        </div>
+      </div>
+
+      <div className="mt-2 flex items-center justify-between font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+        <span>Flat</span>
+        <span>{Math.round(feedback.accuracy * 100)}% match</span>
+        <span>Sharp</span>
+      </div>
+    </section>
+  );
+};
+
 const describeAttack = (transientDensity: number) => {
   if (transientDensity > 0.72) {
     return 'Sharp attack';
@@ -938,6 +1079,22 @@ const describeTimingFit = (durationSeconds: number, transientDensity: number) =>
   }
 
   return 'Best for short melodic phrases and mid-length sustained parts.';
+};
+
+const describeCaptureHint = (durationSeconds: number, transientDensity: number, clarity: number) => {
+  if (transientDensity > 0.82 && durationSeconds > 1.6) {
+    return 'This sounds like a string of hits instead of one note. For cleaner note matching, record one snap or a very short cluster, then stop.';
+  }
+
+  if (transientDensity > 0.72 && clarity < 0.3) {
+    return 'Short percussive sounds can land on approximate notes rather than one exact pitch. A single cleaner hit usually matches better than a longer run.';
+  }
+
+  if (clarity < 0.22 && durationSeconds > 0.6) {
+    return 'Pitch is still loose in this take. Moving closer to the mic or making the sound a little cleaner will usually help.';
+  }
+
+  return null;
 };
 
 const SuggestionBadge = ({ type }: { type: InstrumentType }) => {
@@ -1045,23 +1202,44 @@ const SavedRecordedNoteCard = ({ savedNote }: { savedNote: RecordedNotePreset })
   </div>
 );
 
-const isStableCaptureFrame = (frame: LiveCaptureFrame) => {
+export const isStableCaptureFrame = (frame: LiveCaptureFrame) => {
   const candidate = frame.noteCandidates[0] ?? null;
+  const primaryGate = (
+    frame.signalLevel >= MIN_STABLE_CAPTURE_SIGNAL
+    && frame.clarity >= MIN_STABLE_CAPTURE_CLARITY
+    && (candidate?.confidence ?? 0) >= MIN_STABLE_CAPTURE_CONFIDENCE
+  );
+  const quietReliableGate = (
+    frame.signalLevel >= MIN_QUIET_STABLE_SIGNAL
+    && frame.clarity >= MIN_QUIET_STABLE_CLARITY
+    && (candidate?.confidence ?? 0) >= MIN_QUIET_STABLE_CONFIDENCE
+  );
 
   return Boolean(
     candidate
     && frame.detectedPitchHz
-    && frame.signalLevel >= 0.04
-    && frame.clarity >= 0.36
-    && candidate.confidence >= 0.42
-    && frame.suggestions[0],
+    && frame.suggestions[0]
+    && (primaryGate || quietReliableGate)
   );
 };
 
-const scoreStableCaptureFrame = (frame: LiveCaptureFrame) => {
+function buildPitchCoachNoteOptions(highOctave: number, lowOctave: number) {
+  const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+  const notes: string[] = [];
+
+  for (let octave = highOctave; octave >= lowOctave; octave -= 1) {
+    for (let noteIndex = noteNames.length - 1; noteIndex >= 0; noteIndex -= 1) {
+      notes.push(`${noteNames[noteIndex]}${octave}`);
+    }
+  }
+
+  return notes;
+}
+
+export const scoreStableCaptureFrame = (frame: LiveCaptureFrame) => {
   const candidate = frame.noteCandidates[0] ?? null;
 
-  return (frame.clarity * 0.68) + ((candidate?.confidence ?? 0) * 0.32);
+  return (frame.clarity * 0.56) + ((candidate?.confidence ?? 0) * 0.28) + (frame.signalLevel * 0.16);
 };
 
 const isPitchCompatible = (leftHz: number, rightHz: number) => {

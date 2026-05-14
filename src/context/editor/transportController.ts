@@ -5,7 +5,7 @@ import { defaultNoteForTrack, type Project, type Track } from '../../project/sch
 interface TransportEngine {
   init: () => Promise<void>;
   previewMetronomeTick: (isAccent: boolean) => void;
-  previewTrack: (track: Track, note: string, sampleSliceIndex?: number) => void;
+  previewTrack: (track: Track, note: string, sampleSliceIndex?: number, velocity?: number) => void;
   startRecording: () => Promise<void>;
   stop: () => void;
   stopRecording: () => Promise<unknown>;
@@ -142,14 +142,14 @@ export const createTransportController = ({
     }
   };
 
-  const previewTrack = async (trackId: string, note?: string, sampleSliceIndex?: number) => {
+  const previewTrack = async (trackId: string, note?: string, sampleSliceIndex?: number, velocity?: number) => {
     const track = tracks.find((candidate) => candidate.id === trackId);
     if (!track) {
       return;
     }
 
     await ensureAudioReady();
-    engine.previewTrack(track, note ?? defaultNoteForTrack(track), sampleSliceIndex);
+    engine.previewTrack(track, note ?? defaultNoteForTrack(track), sampleSliceIndex, velocity);
   };
 
   return {

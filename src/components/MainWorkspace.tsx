@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowDown,
   ArrowLeftRight,
@@ -19,12 +19,20 @@ import {
 
 import { getSamplePresetMeta } from '../audio/sampleLibrary';
 import { useAudio } from '../context/AudioContext';
+import { SONG_FORM_DEFINITIONS, type SongFormId } from '../context/editor/songFormDefinitions';
 import {
   createPatternSegment,
   loadPatternSegments,
   persistPatternSegments,
   type PatternSegment,
 } from '../services/patternSegments';
+import { FACTORY_LOOP_LIBRARY } from '../services/loopLibrary';
+import {
+  buildSessionPlayerPatternDecks,
+  buildSessionPlayerSegments,
+  getSessionPlayerTrackTypes,
+  SESSION_PLAYER_PROFILES,
+} from '../services/sessionPlayers';
 import { shiftNote } from './arranger/noteUtils';
 import {
   NOTE_GATE_FINE_STEP,
@@ -35,7 +43,7 @@ import {
 } from '../utils/noteEditing';
 import { TrackIcon, getTrackPersonality } from '../utils/trackPersonality';
 import { useMediaQuery } from '../utils/useMediaQuery';
-import { defaultNoteForTrack, type NoteEvent, type Track } from '../project/schema';
+import { defaultNoteForTrack, type InstrumentType, type NoteEvent, type Track } from '../project/schema';
 
 const TRACK_BUTTONS = [
   { label: 'Kick', type: 'kick' as const },
@@ -60,8 +68,45 @@ const STEP_OPTIONS = [16, 32, 64, 96, 128] as const;
 const STEP_ZOOM_MIN = 16;
 const STEP_ZOOM_STEP = 2;
 const SUPERSONIC_NOTE_OFFSETS = [4, 3, 2, 1, 0, -1, -2, -3, -4] as const;
+const SESSION_PLAYER_PATTERN_COUNT = 4;
+const LOOP_BROWSER_FILTERS = [
+  { label: 'Matching lane', value: 'MATCHING' as const },
+  { label: 'All loops', value: 'ALL' as const },
+  { label: 'Rhythm', value: 'RHYTHM' as const },
+  { label: 'Musical', value: 'MUSICAL' as const },
+] as const;
 
 const clampNumber = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+const isRhythmTrackType = (trackType: InstrumentType) => (
+  trackType === 'kick' || trackType === 'snare' || trackType === 'hihat'
+);
+const uniqueTrackTypes = (trackTypes: InstrumentType[]) => trackTypes.filter((trackType, index) => (
+  trackTypes.indexOf(trackType) === index
+));
+
+const formatTrackTypeLabel = (trackType: InstrumentType) => {
+  if (trackType === 'hihat') {
+    return 'hi-hat';
+  }
+
+  return trackType;
+};
+
+const formatTrackTypeList = (trackTypes: InstrumentType[]) => (
+  uniqueTrackTypes(trackTypes).map((trackType) => formatTrackTypeLabel(trackType)).join(', ')
+);
+
+type SessionPlayerApplyMode = 'groove' | 'song';
+
+interface PendingSessionPlayerRequest {
+  formId: SongFormId;
+  mode: SessionPlayerApplyMode;
+  profileId: string;
+}
+
+const getSongFormDefinition = (formId: SongFormId) => (
+  SONG_FORM_DEFINITIONS.find((definition) => definition.id === formId) ?? SONG_FORM_DEFINITIONS[0]
+);
 
 const shiftPitch = (note: string, semitones: number): string | null => {
   const match = note.match(/^([A-G]#?)(-?\d+)$/);
@@ -105,6 +150,63 @@ const segmentSpanSteps = (segment: PatternSegment) => {
   return Math.max(1, Math.min(segment.stepsPerPattern, lastActiveStep >= 0 ? lastActiveStep + 1 : segment.stepsPerPattern));
 };
 
+interface TrackOverviewStepActivity {
+  currentCount: number;
+  otherCount: number;
+}
+
+interface TrackOverviewRow {
+  currentPatternActiveSteps: number;
+  currentPatternSteps: NoteEvent[][];
+  otherPatternActiveSteps: number;
+  stepActivity: TrackOverviewStepActivity[];
+  totalActiveSteps: number;
+  track: Track;
+}
+
+const countPatternActiveSteps = (patternSteps?: NoteEvent[][]) => (
+  patternSteps?.reduce((count, step) => count + (step.length > 0 ? 1 : 0), 0) ?? 0
+);
+
+const getTrackPatternSteps = (track: Track, patternIndex: number, stepsPerPattern: number) => (
+  Array.from({ length: stepsPerPattern }, (_, stepIndex) => track.patterns[patternIndex]?.[stepIndex] ?? [])
+);
+
+const buildTrackOverviewRow = (track: Track, currentPattern: number, stepsPerPattern: number): TrackOverviewRow => {
+  const currentPatternSteps = getTrackPatternSteps(track, currentPattern, stepsPerPattern);
+  const currentPatternActiveSteps = countPatternActiveSteps(currentPatternSteps);
+  const stepActivity = Array.from({ length: stepsPerPattern }, (_, stepIndex) => ({
+    currentCount: currentPatternSteps[stepIndex]?.length ?? 0,
+    otherCount: 0,
+  }));
+  let otherPatternActiveSteps = 0;
+
+  Object.entries(track.patterns).forEach(([patternKey, patternSteps]) => {
+    const patternIndex = Number(patternKey);
+    if (patternIndex === currentPattern) {
+      return;
+    }
+
+    otherPatternActiveSteps += countPatternActiveSteps(patternSteps);
+
+    for (let stepIndex = 0; stepIndex < stepsPerPattern; stepIndex += 1) {
+      const noteCount = patternSteps?.[stepIndex]?.length ?? 0;
+      if (noteCount > stepActivity[stepIndex].otherCount) {
+        stepActivity[stepIndex].otherCount = noteCount;
+      }
+    }
+  });
+
+  return {
+    currentPatternActiveSteps,
+    currentPatternSteps,
+    otherPatternActiveSteps,
+    stepActivity,
+    totalActiveSteps: currentPatternActiveSteps + otherPatternActiveSteps,
+    track,
+  };
+};
+
 type LaneGroupKey = 'RHYTHM' | 'MUSICAL' | 'TEXTURE';
 type LaneSectionKey = LaneGroupKey | 'PINNED';
 
@@ -129,18 +231,23 @@ const getLaneGroup = (trackType: typeof TRACK_BUTTONS[number]['type']): LaneGrou
 export const MainWorkspace = () => {
   const isMobileViewport = useMediaQuery('(max-width: 767px)');
   const {
+    applySongForm,
     applyPatternSegment,
+    clearPatternAt,
     clearTrack,
     createTrack,
     currentStep,
     currentPattern,
     duplicateTrack,
     moveTrack,
+    patternCount,
     pinnedTrackIds,
     previewTrack,
     removeTrack,
     selectedTrackId,
     setActiveView,
+    setCurrentPattern,
+    setPatternCount,
     setSelectedTrackId,
     setStepsPerPattern,
     shiftPattern,
@@ -157,7 +264,12 @@ export const MainWorkspace = () => {
   const [selectedStepIndex, setSelectedStepIndex] = useState(0);
   const [selectedStepNoteIndex, setSelectedStepNoteIndex] = useState(0);
   const [segmentDraftName, setSegmentDraftName] = useState('');
+  const [loopBrowserFilter, setLoopBrowserFilter] = useState<typeof LOOP_BROWSER_FILTERS[number]['value']>('MATCHING');
+  const [loopSearchDraft, setLoopSearchDraft] = useState('');
   const [queuedSegmentId, setQueuedSegmentId] = useState<string | null>(null);
+  const [sessionPlayerFormId, setSessionPlayerFormId] = useState<SongFormId>('full-arc');
+  const [pendingSessionPlayerRequest, setPendingSessionPlayerRequest] = useState<PendingSessionPlayerRequest | null>(null);
+  const [sessionPlayerNotice, setSessionPlayerNotice] = useState<string | null>(null);
   const [stitchHover, setStitchHover] = useState<{ trackId: string; stepIndex: number } | null>(null);
   const [supersonicHoverCell, setSupersonicHoverCell] = useState<{ trackId: string; stepIndex: number } | null>(null);
   const [laneScope, setLaneScope] = useState<'ALL' | 'ACTIVE' | 'FOCUSED' | 'PINNED' | 'DRUMS' | 'MUSICAL'>('ALL');
@@ -186,9 +298,9 @@ export const MainWorkspace = () => {
   const normalizedSelectedStepNoteIndex = selectedStepNote
     ? Math.max(0, selectedStep.findIndex((event) => event === selectedStepNote))
     : null;
-  const isSelectedTrackDrum = selectedTrack ? ['kick', 'snare', 'hihat'].includes(selectedTrack.type) : false;
+  const isSelectedTrackDrum = selectedTrack ? isRhythmTrackType(selectedTrack.type) : false;
   const melodicTrackCount = useMemo(() => (
-    tracks.filter((track) => !['kick', 'snare', 'hihat'].includes(track.type)).length
+    tracks.filter((track) => !isRhythmTrackType(track.type)).length
   ), [tracks]);
   const visibleTracks = useMemo(() => tracks.filter((track) => {
     const hasActivePattern = (track.patterns[currentPattern] ?? []).some((step) => step.length > 0);
@@ -254,12 +366,79 @@ export const MainWorkspace = () => {
 
     return sections;
   }, [groupedVisibleTracks, pinnedVisibleTracks]);
-  const overviewTracks = useMemo(() => (
-    visibleTracks.slice(0, isMobileViewport ? 5 : 8)
-  ), [isMobileViewport, visibleTracks]);
+  const overviewTracks = useMemo(() => {
+    const trackLimit = isMobileViewport ? 6 : 10;
+
+    return visibleTracks
+      .map((track) => buildTrackOverviewRow(track, currentPattern, stepsPerPattern))
+      .sort((left, right) => {
+        const leftSelected = left.track.id === selectedTrackId ? 1 : 0;
+        const rightSelected = right.track.id === selectedTrackId ? 1 : 0;
+        if (leftSelected !== rightSelected) {
+          return rightSelected - leftSelected;
+        }
+
+        if (left.currentPatternActiveSteps !== right.currentPatternActiveSteps) {
+          return right.currentPatternActiveSteps - left.currentPatternActiveSteps;
+        }
+
+        if (left.otherPatternActiveSteps !== right.otherPatternActiveSteps) {
+          return right.otherPatternActiveSteps - left.otherPatternActiveSteps;
+        }
+
+        if (left.totalActiveSteps !== right.totalActiveSteps) {
+          return right.totalActiveSteps - left.totalActiveSteps;
+        }
+
+        return left.track.name.localeCompare(right.track.name);
+      })
+      .slice(0, trackLimit);
+  }, [currentPattern, isMobileViewport, selectedTrackId, stepsPerPattern, visibleTracks]);
   const showTrackOverviewLimit = visibleTracks.length > overviewTracks.length;
+  const activeSessionPlayerForm = useMemo(() => getSongFormDefinition(sessionPlayerFormId), [sessionPlayerFormId]);
+  const sessionPlayerSegments = useMemo(() => (
+    Object.fromEntries(SESSION_PLAYER_PROFILES.map((profile) => [profile.id, buildSessionPlayerSegments(profile.id)]))
+  ), []);
+  const sessionPlayerPatternDecks = useMemo(() => (
+    Object.fromEntries(SESSION_PLAYER_PROFILES.map((profile) => [profile.id, buildSessionPlayerPatternDecks(profile.id)]))
+  ), []);
+  const librarySegments = useMemo<PatternSegment[]>(() => [
+    ...FACTORY_LOOP_LIBRARY,
+    ...patternSegments,
+  ], [patternSegments]);
+  const loopSearchQuery = loopSearchDraft.trim().toLowerCase();
+  const filteredFactoryLoops = useMemo(() => FACTORY_LOOP_LIBRARY.filter((loop) => {
+    const matchesScope = loopBrowserFilter === 'ALL'
+      ? true
+      : loopBrowserFilter === 'MATCHING'
+        ? (selectedTrack ? loop.sourceTrackType === selectedTrack.type : true)
+        : loopBrowserFilter === 'RHYTHM'
+          ? isRhythmTrackType(loop.sourceTrackType)
+          : !isRhythmTrackType(loop.sourceTrackType);
+
+    if (!matchesScope) {
+      return false;
+    }
+
+    if (!loopSearchQuery) {
+      return true;
+    }
+
+    const haystack = [
+      loop.name,
+      loop.description,
+      loop.genre,
+      loop.energy,
+      loop.sourceTrackType,
+      ...loop.tags,
+    ].join(' ').toLowerCase();
+
+    return haystack.includes(loopSearchQuery);
+  }), [loopBrowserFilter, loopSearchQuery, selectedTrack]);
+  const displayedFactoryLoops = filteredFactoryLoops.slice(0, 6);
+  const showMoreFactoryLoops = filteredFactoryLoops.length > displayedFactoryLoops.length;
   const queuedSegment = queuedSegmentId
-    ? patternSegments.find((segment) => segment.id === queuedSegmentId) ?? null
+    ? librarySegments.find((segment) => segment.id === queuedSegmentId) ?? null
     : null;
   const queuedSegmentSpan = queuedSegment ? segmentSpanSteps(queuedSegment) : 0;
 
@@ -271,6 +450,15 @@ export const MainWorkspace = () => {
 
     setMobileInspectorOpen(false);
   }, [isMobileViewport]);
+
+  useEffect(() => {
+    if (!sessionPlayerNotice || typeof window === 'undefined') {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => setSessionPlayerNotice(null), 2400);
+    return () => window.clearTimeout(timeoutId);
+  }, [sessionPlayerNotice]);
 
   useEffect(() => {
     setStepZoom((current) => clampNumber(current, STEP_ZOOM_MIN, stepZoomMax));
@@ -492,16 +680,20 @@ export const MainWorkspace = () => {
     setSegmentDraftName('');
   };
 
+  const applySegmentToTrack = useCallback((trackId: string, segment: PatternSegment) => {
+    if (segment.stepsPerPattern > stepsPerPattern) {
+      setStepsPerPattern(segment.stepsPerPattern);
+    }
+
+    applyPatternSegment(trackId, currentPattern, segment.steps, segment.automation);
+  }, [applyPatternSegment, currentPattern, setStepsPerPattern, stepsPerPattern]);
+
   const handleApplyPatternSegment = (segment: PatternSegment) => {
     if (!selectedTrack) {
       return;
     }
 
-    if (segment.stepsPerPattern > stepsPerPattern) {
-      setStepsPerPattern(segment.stepsPerPattern);
-    }
-
-    applyPatternSegment(selectedTrack.id, currentPattern, segment.steps, segment.automation);
+    applySegmentToTrack(selectedTrack.id, segment);
   };
 
   const handleStitchPatternSegment = (trackId: string, segment: PatternSegment, startStep: number) => {
@@ -560,6 +752,133 @@ export const MainWorkspace = () => {
   const handleDeletePatternSegment = (segmentId: string) => {
     setPatternSegments((current) => persistPatternSegments(current.filter((segment) => segment.id !== segmentId)));
   };
+
+  const applySessionPlayerProfile = useCallback((profileId: string) => {
+    const profile = SESSION_PLAYER_PROFILES.find((entry) => entry.id === profileId);
+    if (!profile) {
+      return;
+    }
+
+    const segments = sessionPlayerSegments[profile.id] ?? [];
+    const requiredTrackTypes = uniqueTrackTypes(segments.map((segment) => segment.sourceTrackType));
+    const missingTrackTypes = requiredTrackTypes.filter((trackType) => !tracks.some((track) => track.type === trackType));
+
+    if (missingTrackTypes.length > 0) {
+      setPendingSessionPlayerRequest({ formId: sessionPlayerFormId, mode: 'groove', profileId: profile.id });
+      missingTrackTypes.forEach((trackType) => createTrack(trackType));
+      setSessionPlayerNotice(`Adding ${formatTrackTypeList(missingTrackTypes)} lanes for ${profile.label}...`);
+      return;
+    }
+
+    const nextStepsPerPattern = Math.max(
+      stepsPerPattern,
+      ...segments.map((segment) => segment.stepsPerPattern),
+    );
+    if (nextStepsPerPattern > stepsPerPattern) {
+      setStepsPerPattern(nextStepsPerPattern);
+    }
+
+    let firstTrackId: string | null = null;
+
+    segments.forEach((segment) => {
+      const targetTrack = tracks.find((track) => track.type === segment.sourceTrackType);
+      if (!targetTrack) {
+        return;
+      }
+
+      applyPatternSegment(targetTrack.id, currentPattern, segment.steps, segment.automation);
+      firstTrackId = firstTrackId ?? targetTrack.id;
+    });
+
+    if (firstTrackId) {
+      setSelectedTrackId(firstTrackId);
+    }
+
+    setSessionPlayerNotice(`${profile.label} loaded into the current pattern. Build a song form when you want sections.`);
+  }, [applyPatternSegment, createTrack, currentPattern, sessionPlayerFormId, sessionPlayerSegments, setSelectedTrackId, setStepsPerPattern, stepsPerPattern, tracks]);
+
+  const buildSessionPlayerSong = useCallback((profileId: string, formId: SongFormId) => {
+    const profile = SESSION_PLAYER_PROFILES.find((entry) => entry.id === profileId);
+    if (!profile) {
+      return;
+    }
+
+    const patternDecks = sessionPlayerPatternDecks[profile.id] ?? [];
+    const requiredTrackTypes = getSessionPlayerTrackTypes(profile.id);
+    const missingTrackTypes = requiredTrackTypes.filter((trackType) => !tracks.some((track) => track.type === trackType));
+
+    if (missingTrackTypes.length > 0) {
+      setPendingSessionPlayerRequest({ formId, mode: 'song', profileId: profile.id });
+      missingTrackTypes.forEach((trackType) => createTrack(trackType));
+      setSessionPlayerNotice(`Adding ${formatTrackTypeList(missingTrackTypes)} lanes for ${profile.label}...`);
+      return;
+    }
+
+    const nextStepsPerPattern = Math.max(
+      stepsPerPattern,
+      ...patternDecks.flatMap((deck) => deck.segments.map((segment) => segment.stepsPerPattern)),
+    );
+
+    if (nextStepsPerPattern > stepsPerPattern) {
+      setStepsPerPattern(nextStepsPerPattern);
+    }
+
+    if (patternCount < SESSION_PLAYER_PATTERN_COUNT) {
+      setPatternCount(SESSION_PLAYER_PATTERN_COUNT);
+    }
+
+    requiredTrackTypes.forEach((trackType) => {
+      const targetTrack = tracks.find((track) => track.type === trackType);
+      if (!targetTrack) {
+        return;
+      }
+
+      patternDecks.forEach((deck) => {
+        clearPatternAt(targetTrack.id, deck.patternIndex);
+      });
+    });
+
+    patternDecks.forEach((deck) => {
+      deck.segments.forEach((segment) => {
+        const targetTrack = tracks.find((track) => track.type === segment.sourceTrackType);
+        if (!targetTrack) {
+          return;
+        }
+
+        applyPatternSegment(targetTrack.id, deck.patternIndex, segment.steps, segment.automation);
+      });
+    });
+
+    setCurrentPattern(0);
+    applySongForm(formId);
+    setActiveView('ARRANGER');
+    setSessionPlayerNotice(`${profile.label} built as ${getSongFormDefinition(formId).label}. The arrangement is ready in Song view.`);
+  }, [applyPatternSegment, applySongForm, clearPatternAt, createTrack, patternCount, sessionPlayerPatternDecks, setActiveView, setCurrentPattern, setPatternCount, setStepsPerPattern, stepsPerPattern, tracks]);
+
+  useEffect(() => {
+    if (!pendingSessionPlayerRequest) {
+      return;
+    }
+
+    const requiredTrackTypes = pendingSessionPlayerRequest.mode === 'song'
+      ? getSessionPlayerTrackTypes(pendingSessionPlayerRequest.profileId)
+      : uniqueTrackTypes((sessionPlayerSegments[pendingSessionPlayerRequest.profileId] ?? []).map((segment) => segment.sourceTrackType));
+    const missingTrackTypes = requiredTrackTypes.filter((trackType) => !tracks.some((track) => track.type === trackType));
+
+    if (missingTrackTypes.length > 0) {
+      return;
+    }
+
+    const request = pendingSessionPlayerRequest;
+    setPendingSessionPlayerRequest(null);
+
+    if (request.mode === 'song') {
+      buildSessionPlayerSong(request.profileId, request.formId);
+      return;
+    }
+
+    applySessionPlayerProfile(request.profileId);
+  }, [applySessionPlayerProfile, buildSessionPlayerSong, pendingSessionPlayerRequest, sessionPlayerSegments, tracks]);
 
   return (
     <section className="surface-panel flex min-h-0 flex-1 flex-col overflow-visible">
@@ -704,9 +1023,21 @@ export const MainWorkspace = () => {
                 </div>
               </div>
               <div className="mt-3 grid gap-2">
-                {overviewTracks.map((track) => {
-                  const patternSteps = track.patterns[currentPattern] ?? Array.from({ length: stepsPerPattern }, () => []);
-                  const activeSteps = patternSteps.filter((step) => step.length > 0).length;
+                {overviewTracks.map((overview) => {
+                  const {
+                    currentPatternActiveSteps,
+                    currentPatternSteps,
+                    otherPatternActiveSteps,
+                    stepActivity,
+                    track,
+                  } = overview;
+                  const activityLabel = currentPatternActiveSteps > 0 && otherPatternActiveSteps > 0
+                    ? `${currentPatternActiveSteps} active · ${otherPatternActiveSteps} elsewhere`
+                    : currentPatternActiveSteps > 0
+                      ? `${currentPatternActiveSteps} active`
+                      : otherPatternActiveSteps > 0
+                        ? `${otherPatternActiveSteps} in other patterns`
+                        : '0 active';
 
                   return (
                     <div className="grid grid-cols-[minmax(0,120px)_1fr] items-center gap-3" key={`overview-${track.id}`}>
@@ -716,44 +1047,66 @@ export const MainWorkspace = () => {
                         type="button"
                       >
                         <div className="truncate text-[12px] font-medium text-[var(--text-primary)]">{track.name}</div>
-                        <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">{activeSteps} active</div>
+                        <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">{activityLabel}</div>
                       </button>
                       <div className="relative flex h-7 overflow-hidden rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]">
-                        {patternSteps.map((step, stepIndex) => (
-                          <button
-                            className={`relative h-full border-r border-[var(--border-soft)]/50 last:border-r-0 ${stepIndex % 4 === 0 ? 'bg-[rgba(255,255,255,0.02)]' : ''}`}
-                            key={`${track.id}-overview-step-${stepIndex}`}
-                            onClick={() => {
-                              if (queuedSegment) {
-                                handleStitchPatternSegment(track.id, queuedSegment, stepIndex);
-                                return;
-                              }
+                        {currentPatternSteps.map((step, stepIndex) => {
+                          const stepState = stepActivity[stepIndex];
+                          const hasCurrentActivity = stepState.currentCount > 0;
+                          const hasOtherPatternActivity = stepState.otherCount > 0;
 
-                              jumpToStep(stepIndex, track.id);
-                            }}
-                            onPointerEnter={() => {
-                              if (!queuedSegment) {
-                                return;
-                              }
-                              setStitchHover({ trackId: track.id, stepIndex });
-                            }}
-                            onPointerLeave={() => {
-                              setStitchHover((current) => (current?.trackId === track.id && current.stepIndex === stepIndex ? null : current));
-                            }}
-                            style={{
-                              background: step.length > 0
-                                ? `${track.color}${selectedTrackId === track.id ? 'bb' : '66'}`
-                                : undefined,
-                              width: `${100 / stepsPerPattern}%`,
-                            }}
-                            title={queuedSegment ? `Stitch ${queuedSegment.name} at step ${stepIndex + 1}` : `Jump to step ${stepIndex + 1}`}
-                            type="button"
-                          >
-                            {selectedTrackId === track.id && selectedStepIndex === stepIndex && (
-                              <span className="absolute inset-y-0 left-0 w-[2px] bg-white/75" />
-                            )}
-                          </button>
-                        ))}
+                          return (
+                            <button
+                              className={`relative h-full border-r border-[var(--border-soft)]/50 last:border-r-0 ${stepIndex % 4 === 0 ? 'bg-[rgba(255,255,255,0.02)]' : ''}`}
+                              key={`${track.id}-overview-step-${stepIndex}`}
+                              onClick={() => {
+                                if (queuedSegment) {
+                                  handleStitchPatternSegment(track.id, queuedSegment, stepIndex);
+                                  return;
+                                }
+
+                                jumpToStep(stepIndex, track.id);
+                              }}
+                              onPointerEnter={() => {
+                                if (!queuedSegment) {
+                                  return;
+                                }
+                                setStitchHover({ trackId: track.id, stepIndex });
+                              }}
+                              onPointerLeave={() => {
+                                setStitchHover((current) => (current?.trackId === track.id && current.stepIndex === stepIndex ? null : current));
+                              }}
+                              style={{
+                                background: hasCurrentActivity
+                                  ? `${track.color}${selectedTrackId === track.id ? 'f0' : 'bf'}`
+                                  : hasOtherPatternActivity
+                                    ? `${track.color}3a`
+                                    : undefined,
+                                boxShadow: hasCurrentActivity
+                                  ? 'inset 0 0 0 1px rgba(15, 23, 42, 0.12)'
+                                  : hasOtherPatternActivity
+                                    ? `inset 0 0 0 1px ${track.color}28`
+                                    : undefined,
+                                width: `${100 / stepsPerPattern}%`,
+                              }}
+                              title={queuedSegment
+                                ? `Stitch ${queuedSegment.name} at step ${stepIndex + 1}`
+                                : hasCurrentActivity
+                                  ? `Jump to step ${stepIndex + 1}`
+                                  : hasOtherPatternActivity
+                                    ? `Jump to step ${stepIndex + 1} · activity exists in other patterns`
+                                    : `Jump to step ${stepIndex + 1}`}
+                              type="button"
+                            >
+                              {!hasCurrentActivity && hasOtherPatternActivity && (
+                                <span className="pointer-events-none absolute inset-x-[16%] top-1/2 h-[1px] -translate-y-1/2 bg-black/35" />
+                              )}
+                              {selectedTrackId === track.id && selectedStepIndex === stepIndex && (
+                                <span className="absolute inset-y-0 left-0 w-[2px] bg-white/75" />
+                              )}
+                            </button>
+                          );
+                        })}
                         {queuedSegment && stitchHover?.trackId === track.id && (
                           <div
                             className="pointer-events-none absolute inset-y-0 z-[3] border border-[rgba(114,217,255,0.64)] bg-[rgba(114,217,255,0.22)]"
@@ -777,7 +1130,7 @@ export const MainWorkspace = () => {
               </div>
               {showTrackOverviewLimit && (
                 <div className="mt-2 text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
-                  Showing the first {overviewTracks.length} visible lanes. Narrow the scope to focus the rest.
+                  Showing the {overviewTracks.length} most relevant lanes. Narrow the scope to focus the rest.
                 </div>
               )}
               {queuedSegment && (
@@ -1056,7 +1409,7 @@ export const MainWorkspace = () => {
                                 )}
                                 {superSonicMode && !queuedSegment && !isActive && anchorNote && supersonicHoverCell?.trackId === track.id && supersonicHoverCell.stepIndex === stepIndex && (
                                   <span
-                                    className="supersonic-ladder absolute inset-y-[3px] left-[3px] right-[3px] z-[2]"
+                                    className="supersonic-ladder absolute inset-0 z-[2]"
                                     style={{ '--supersonic-ladder-count': String(SUPERSONIC_NOTE_OFFSETS.length) } as React.CSSProperties}
                                   >
                                     {SUPERSONIC_NOTE_OFFSETS.map((offset) => {
@@ -1151,7 +1504,7 @@ export const MainWorkspace = () => {
         </div>
 
         {(!isMobileViewport || mobileInspectorOpen) && (
-        <aside className="surface-panel-strong sonic-sidebar w-full shrink-0 overflow-auto p-4 xl:min-w-[320px] xl:w-[320px]">
+        <aside className="surface-panel-strong sonic-sidebar w-full shrink-0 overflow-auto p-4 xl:min-w-[280px] xl:w-[min(32vw,320px)] 2xl:w-[320px]">
           <div className="flex items-center gap-2">
             <SlidersHorizontal className="h-4 w-4 text-[var(--accent)]" />
             <span className="section-label">Compose inspector</span>
@@ -1159,7 +1512,7 @@ export const MainWorkspace = () => {
 
           {selectedTrack ? (
             <div className="mt-4 space-y-4">
-              <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+              <div className="loop-browser-panel rounded-[4px] border border-[var(--border-soft)] px-3 py-3">
                 <div className="section-label">Selected lane</div>
                 <div className="mt-2 flex items-center justify-between gap-3">
                   <div>
@@ -1230,10 +1583,18 @@ export const MainWorkspace = () => {
               </div>
 
               <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
-                <div className="section-label">Pattern pieces</div>
-                <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
-                  Save this lane's current pattern as a reusable piece, then queue it and place it directly onto any sequencer lane step or track-map step.
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="section-label">Loop browser</div>
+                    <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
+                      Save your own phrases, then pull from factory loops to fill a lane fast or queue them for stitch placement on the grid.
+                    </div>
+                  </div>
+                  <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+                    {patternSegments.length} saved · {filteredFactoryLoops.length} factory
+                  </div>
                 </div>
+
                 <div className="mt-3 flex flex-wrap gap-2">
                   <input
                     className="control-field min-w-0 flex-1 px-3 py-2 text-sm"
@@ -1250,62 +1611,309 @@ export const MainWorkspace = () => {
                     Save piece
                   </button>
                 </div>
-                {patternSegments.length > 0 ? (
-                  <div className="mt-3 grid gap-2">
-                    {patternSegments.slice(0, 6).map((segment) => {
-                      const activeSteps = segment.steps.filter((step) => step.length > 0).length;
-                      const isCrossLane = segment.sourceTrackType !== selectedTrack.type;
 
-                      return (
-                        <div
-                          className="rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)] px-3 py-2"
-                          key={segment.id}
-                        >
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <div className="truncate text-sm font-medium text-[var(--text-primary)]">{segment.name}</div>
-                              <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
-                                {segment.sourceTrackType} · {segment.stepsPerPattern} steps · {activeSteps} active{isCrossLane ? ' · cross-lane' : ''}
+                <div className="mt-3 grid gap-2">
+                  <div className="surface-panel-strong flex flex-wrap items-center gap-2 p-2">
+                    {LOOP_BROWSER_FILTERS.map((filterOption) => (
+                      <button
+                        className={`control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] ${loopBrowserFilter === filterOption.value ? 'text-[var(--accent-strong)]' : ''}`}
+                        data-active={loopBrowserFilter === filterOption.value ? 'true' : 'false'}
+                        key={filterOption.value}
+                        onClick={() => setLoopBrowserFilter(filterOption.value)}
+                        type="button"
+                      >
+                        {filterOption.label}
+                      </button>
+                    ))}
+                  </div>
+                  <input
+                    className="control-field w-full px-3 py-2 text-sm"
+                    onChange={(event) => setLoopSearchDraft(event.target.value)}
+                    placeholder={selectedTrack ? `Search ${formatTrackTypeLabel(selectedTrack.type)} loops` : 'Search factory loops'}
+                    type="text"
+                    value={loopSearchDraft}
+                  />
+                </div>
+
+                <div className="mt-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="section-label">My pieces</div>
+                    <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+                      Queue or apply
+                    </div>
+                  </div>
+                  {patternSegments.length > 0 ? (
+                    <div className="mt-3 grid gap-2">
+                      {patternSegments.slice(0, 6).map((segment) => {
+                        const activeSteps = segment.steps.filter((step) => step.length > 0).length;
+                        const isCrossLane = segment.sourceTrackType !== selectedTrack.type;
+                        const isQueued = queuedSegmentId === segment.id;
+
+                        return (
+                          <div
+                            className="loop-browser-card px-3 py-2"
+                            data-queued={isQueued ? 'true' : 'false'}
+                            data-tone="saved"
+                            key={segment.id}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="truncate text-sm font-medium text-[var(--text-primary)]">{segment.name}</div>
+                                <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+                                  {segment.sourceTrackType} · {segment.stepsPerPattern} steps · {activeSteps} active{isCrossLane ? ' · cross-lane' : ''}
+                                </div>
+                              </div>
+                              <button
+                                className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--text-secondary)] transition-colors hover:text-[var(--danger)]"
+                                onClick={() => handleDeletePatternSegment(segment.id)}
+                                type="button"
+                              >
+                                Forget
+                              </button>
+                            </div>
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                              <button
+                                className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                                onClick={() => handleApplyPatternSegment(segment)}
+                                type="button"
+                              >
+                                Apply here
+                              </button>
+                              <button
+                                className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                                data-active={isQueued ? 'true' : 'false'}
+                                onClick={() => {
+                                  setQueuedSegmentId((current) => (current === segment.id ? null : segment.id));
+                                  setStitchHover(null);
+                                }}
+                                type="button"
+                              >
+                                {isQueued ? 'Click grid to place' : 'Queue for grid stitch'}
+                              </button>
+                              <span className="text-[11px] text-[var(--text-secondary)]">
+                                From {segment.sourceTrackName}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="mt-3 text-[11px] text-[var(--text-secondary)]">No saved pattern pieces yet.</div>
+                  )}
+                </div>
+
+                <div className="mt-4 border-t border-[var(--border-soft)] pt-4">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="section-label">Factory loops</div>
+                    <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+                      {displayedFactoryLoops.length} showing
+                    </div>
+                  </div>
+                  <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
+                    {selectedTrack
+                      ? `Focused on ${selectedTrack.name}. Matching lane mode keeps the browser tied to ${formatTrackTypeLabel(selectedTrack.type)} material.`
+                      : 'Pick a lane to narrow the browser to the most relevant loop family.'}
+                  </div>
+                  {displayedFactoryLoops.length > 0 ? (
+                    <div className="mt-3 grid gap-2">
+                      {displayedFactoryLoops.map((loop) => {
+                        const activeSteps = loop.steps.filter((step) => step.length > 0).length;
+                        const isQueued = queuedSegmentId === loop.id;
+
+                        return (
+                          <div
+                            className="loop-browser-card px-3 py-3"
+                            data-queued={isQueued ? 'true' : 'false'}
+                            data-tone="factory"
+                            key={loop.id}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="truncate text-sm font-medium text-[var(--text-primary)]">{loop.name}</div>
+                                <div className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">{loop.description}</div>
+                              </div>
+                              <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--accent-strong)]">
+                                {loop.genre}
                               </div>
                             </div>
-                            <button
-                              className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--text-secondary)] transition-colors hover:text-[var(--danger)]"
-                              onClick={() => handleDeletePatternSegment(segment.id)}
-                              type="button"
-                            >
-                              Forget
-                            </button>
+                            <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+                              <span>{formatTrackTypeLabel(loop.sourceTrackType)}</span>
+                              <span>{loop.energy}</span>
+                              <span>{loop.stepsPerPattern} steps</span>
+                              <span>{activeSteps} active</span>
+                            </div>
+                            <div className="mt-2 flex flex-wrap gap-1.5">
+                              {loop.tags.slice(0, 3).map((tag) => (
+                                <span
+                                  className="loop-browser-tag px-2 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--text-secondary)]"
+                                  key={`${loop.id}-${tag}`}
+                                >
+                                  {tag}
+                                </span>
+                              ))}
+                            </div>
+                            <div className="mt-3 flex flex-wrap items-center gap-2">
+                              <button
+                                className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                                onClick={() => handleApplyPatternSegment(loop)}
+                                type="button"
+                              >
+                                Apply here
+                              </button>
+                              <button
+                                className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                                data-active={isQueued ? 'true' : 'false'}
+                                onClick={() => {
+                                  setQueuedSegmentId((current) => (current === loop.id ? null : loop.id));
+                                  setStitchHover(null);
+                                }}
+                                type="button"
+                              >
+                                {isQueued ? 'Click grid to place' : 'Queue for stitch'}
+                              </button>
+                            </div>
                           </div>
-                          <div className="mt-2 flex flex-wrap items-center gap-2">
-                            <button
-                              className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                              onClick={() => handleApplyPatternSegment(segment)}
-                              type="button"
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="mt-3 text-[11px] text-[var(--text-secondary)]">No factory loops match the current filter. Try another lane family or a broader search.</div>
+                  )}
+                  {showMoreFactoryLoops && (
+                    <div className="mt-2 text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+                      Refine the search to see the rest of the browser.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="session-player-panel rounded-[4px] border border-[var(--border-soft)] px-3 py-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="section-label">Session player</div>
+                    <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
+                      Load a groove into the current pattern or build a full intro, verse, lift, and break scaffold directly into Song view. Missing lanes are created first.
+                    </div>
+                  </div>
+                  <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+                    {pendingSessionPlayerRequest ? 'building lanes' : `${SESSION_PLAYER_PROFILES.length} players`}
+                  </div>
+                </div>
+                <div className="session-player-form-strip mt-3">
+                  <div className="section-label">Song layout</div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {SONG_FORM_DEFINITIONS.map((definition) => (
+                      <button
+                        className={`control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] ${sessionPlayerFormId === definition.id ? 'text-[var(--accent-strong)]' : ''}`}
+                        data-active={sessionPlayerFormId === definition.id ? 'true' : 'false'}
+                        key={definition.id}
+                        onClick={() => setSessionPlayerFormId(definition.id)}
+                        type="button"
+                      >
+                        {definition.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="session-player-form-summary mt-2">
+                    {activeSessionPlayerForm.summary}
+                  </div>
+                </div>
+                {sessionPlayerNotice && (
+                  <div className="mt-3 rounded-[3px] border border-[rgba(114,217,255,0.22)] bg-[rgba(114,217,255,0.08)] px-3 py-2 text-[11px] leading-5 text-[var(--accent-strong)]">
+                    {sessionPlayerNotice}
+                  </div>
+                )}
+                <div className="mt-3 grid gap-2">
+                  {SESSION_PLAYER_PROFILES.map((profile) => {
+                    const profileSegments = sessionPlayerSegments[profile.id] ?? [];
+                    const profileDecks = sessionPlayerPatternDecks[profile.id] ?? [];
+                    const profileTrackTypes = getSessionPlayerTrackTypes(profile.id);
+                    const missingTrackTypes = profileTrackTypes.filter((trackType) => !tracks.some((track) => track.type === trackType));
+                    const isGroovePending = pendingSessionPlayerRequest?.profileId === profile.id && pendingSessionPlayerRequest.mode === 'groove';
+                    const isSongPending = pendingSessionPlayerRequest?.profileId === profile.id && pendingSessionPlayerRequest.mode === 'song';
+
+                    return (
+                      <div
+                        className="session-player-card px-3 py-3"
+                        data-pending={isGroovePending || isSongPending ? 'true' : 'false'}
+                        key={profile.id}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="text-sm font-medium text-[var(--text-primary)]">{profile.label}</div>
+                            <div className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">{profile.description}</div>
+                          </div>
+                          <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+                            {profile.focus}
+                          </div>
+                        </div>
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {profileTrackTypes.map((trackType) => (
+                            <span
+                              className="loop-browser-tag px-2 py-1 font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--text-secondary)]"
+                              key={`${profile.id}-${trackType}`}
                             >
-                              Apply here
-                            </button>
+                              {formatTrackTypeLabel(trackType)}
+                            </span>
+                          ))}
+                        </div>
+                        <div className="session-player-deck-grid mt-3">
+                          {profileDecks.map((deck) => (
+                            <div
+                              className="session-player-deck-chip"
+                              data-role={deck.role}
+                              key={`${profile.id}-${deck.patternIndex}`}
+                            >
+                              <span>{deck.label}</span>
+                              <span>{deck.segments.length} lanes</span>
+                            </div>
+                          ))}
+                        </div>
+                        {missingTrackTypes.length > 0 && (
+                          <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
+                            Will add {formatTrackTypeList(missingTrackTypes)} before loading the pattern bed.
+                          </div>
+                        )}
+                        <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
+                          Best with {getSongFormDefinition(profile.defaultFormId).label}. Current build target: {activeSessionPlayerForm.label}.
+                        </div>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <button
+                            className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                            onClick={() => applySessionPlayerProfile(profile.id)}
+                            type="button"
+                          >
+                            {isGroovePending ? 'Building lanes...' : 'Load groove'}
+                          </button>
+                          <button
+                            className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                            data-active={activeSessionPlayerForm.id === profile.defaultFormId ? 'true' : 'false'}
+                            onClick={() => buildSessionPlayerSong(profile.id, sessionPlayerFormId)}
+                            type="button"
+                          >
+                            {isSongPending ? 'Building lanes...' : `Build ${activeSessionPlayerForm.label}`}
+                          </button>
+                          {profileSegments[0] && (
                             <button
                               className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                              data-active={queuedSegmentId === segment.id ? 'true' : 'false'}
                               onClick={() => {
-                                setQueuedSegmentId((current) => (current === segment.id ? null : segment.id));
+                                setQueuedSegmentId((current) => (current === profileSegments[0].id ? null : profileSegments[0].id));
                                 setStitchHover(null);
                               }}
                               type="button"
                             >
-                              {queuedSegmentId === segment.id ? 'Click grid to place' : 'Queue for grid stitch'}
+                              Queue groove
                             </button>
-                            <span className="text-[11px] text-[var(--text-secondary)]">
-                              From {segment.sourceTrackName}
-                            </span>
-                          </div>
+                          )}
                         </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="mt-3 text-[11px] text-[var(--text-secondary)]">No saved pattern pieces yet.</div>
-                )}
+                        <div className="mt-2 text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+                          Groove pattern plus four section decks ready for song form generation.
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
               <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
