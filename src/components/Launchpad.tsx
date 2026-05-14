@@ -53,6 +53,26 @@ const START_OPTIONS: StartOption[] = [
     mark: 'SD',
   },
   {
+    body: 'Club kick, pluck stabs, a pumping bass lane, and a lift FX track already in motion.',
+    focus: 'Club lift and stabs',
+    genre: 'House pulse',
+    bpm: 122,
+    id: 'club-horizon',
+    label: 'Club Horizon',
+    swatch: ['#fb7185', '#ef4444', '#f59e0b'],
+    mark: 'CH',
+  },
+  {
+    body: 'Bright pop drums, glossy lead hooks, and a counter-pluck for fast topline writing.',
+    focus: 'Bright pop motion',
+    genre: 'Pop shimmer',
+    bpm: 110,
+    id: 'starlight-parade',
+    label: 'Starlight Parade',
+    swatch: ['#7dd3fc', '#f472b6', '#fbbf24'],
+    mark: 'SP',
+  },
+  {
     body: 'Loose drums, soft chords, and plenty of room for melody at 78 BPM.',
     focus: 'Lo-fi hip hop',
     genre: 'Lo-fi',
@@ -83,7 +103,7 @@ const START_OPTIONS: StartOption[] = [
     mark: 'AD',
   },
   {
-    body: 'A clean grid with the core lanes ready to go.',
+    body: 'A cleaner grid with drums, bass, lead, and pad lanes ready to sketch on immediately.',
     focus: 'Start blank',
     genre: 'Blank canvas',
     bpm: 120,
@@ -94,7 +114,7 @@ const START_OPTIONS: StartOption[] = [
   },
 ];
 
-const FEATURED_IDS: SessionTemplateId[] = ['night-transit', 'synthwave-drive', 'lofi-sunday'];
+const FEATURED_IDS: SessionTemplateId[] = ['night-transit', 'club-horizon', 'starlight-parade', 'lofi-sunday'];
 
 export const Launchpad = ({
   isInitialized,
@@ -232,7 +252,7 @@ export const Launchpad = ({
         <aside className="surface-panel-strong px-4 py-4">
           <div className="section-label">Quick start</div>
           <div className="mt-3 grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
-            <LaunchStat label="Scenes" value="6" />
+            <LaunchStat label="Scenes" value={String(START_OPTIONS.length)} />
             <LaunchStat label="Saved" value="Local" />
             <LaunchStat label="Export" value="WAV MIDI" />
           </div>

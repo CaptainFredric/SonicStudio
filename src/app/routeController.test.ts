@@ -59,6 +59,17 @@ describe('routeController', () => {
     });
   });
 
+  it('recognizes additional starter-scene aliases', () => {
+    expect(resolveStudioRoute('?demo=club&view=song', false)).toEqual({
+      requestedTemplate: 'club-horizon',
+      requestedSettingsTab: 'WORKSPACE',
+      requestedView: 'ARRANGER',
+      showGuide: false,
+      showLaunchpad: false,
+      shouldOpenSettings: false,
+    });
+  });
+
   it('lets explicit deep links bypass the default first-run launch surface', () => {
     expect(resolveStudioRoute('?setup=output&view=notes', false).showLaunchpad).toBe(false);
   });

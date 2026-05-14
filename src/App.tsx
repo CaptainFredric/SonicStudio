@@ -234,6 +234,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
     latestNotice,
     loadSessionTemplate,
     setActiveView,
+    setSettingsOpen,
   } = useAudio();
   const isFirstImpression = useFirstImpression();
 
@@ -389,16 +390,12 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
           <button
             aria-hidden="true"
             className="fixed inset-0 z-[64] bg-[rgba(5,8,12,0.62)] backdrop-blur-[2px] md:hidden"
-            onClick={() => {
-              if (isSettingsOpen) {
-                setActiveView((current) => current);
-              }
-            }}
+            onClick={() => setSettingsOpen(false)}
             tabIndex={-1}
             type="button"
           />
           <div className="fixed inset-x-3 bottom-3 top-3 z-[65] md:static md:inset-auto md:z-auto md:flex md:min-h-0 md:w-[380px] md:max-w-[380px] md:flex-col">
-            <SettingsSidebar />
+            <SettingsSidebar requestedTab={routeState.requestedSettingsTab} />
           </div>
         </>
       ) : null}

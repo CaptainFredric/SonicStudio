@@ -273,8 +273,8 @@ export const Arranger = () => {
     pinnedTrackIds,
   }), [laneData, laneScope, pinnedTrackIds]);
   const laneLabelWidth = isMobileViewport
-    ? (compactLaneView ? 152 : 176)
-    : compactLaneView ? 184 : 220;
+    ? (compactLaneView ? 176 : 200)
+    : compactLaneView ? 196 : 232;
   const laneHeightClass = isMobileViewport
     ? (compactLaneView ? 'h-14' : 'h-16')
     : compactLaneView ? 'h-16' : 'h-20';

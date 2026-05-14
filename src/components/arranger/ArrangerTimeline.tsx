@@ -187,7 +187,7 @@ export const ArrangerTimeline = ({
       <div className="flex min-w-0 items-center gap-3">
         <div className="section-label">Timeline</div>
         {!inspectorOpen && selectedClip && (
-          <div className="truncate text-[11px] text-[var(--text-secondary)]">{phraseSummary}</div>
+          <div className="min-w-0 whitespace-normal break-words text-[11px] leading-5 text-[var(--text-secondary)] sm:truncate">{phraseSummary}</div>
         )}
       </div>
       <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
@@ -335,7 +335,7 @@ export const ArrangerTimeline = ({
                       </button>
                       <span className="h-3 w-3 rounded-full" style={{ backgroundColor: track.color }} />
                       <div className="min-w-0">
-                        <div className="truncate text-sm font-semibold text-[var(--text-primary)]">{track.name}</div>
+                        <div className="text-sm font-semibold leading-5 text-[var(--text-primary)]">{track.name}</div>
                         <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
                           {track.type} · {clips.length} clip{clips.length === 1 ? '' : 's'}{pinned ? ' · pinned' : ''}
                         </div>

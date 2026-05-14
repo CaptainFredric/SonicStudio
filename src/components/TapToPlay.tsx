@@ -277,7 +277,7 @@ export const TapToPlay = () => {
 
   if (!open) {
     return (
-      <section data-tour-target="tap-to-play" className="surface-panel md:h-[40px] md:shrink-0 flex items-center gap-2 px-3 py-1.5">
+      <section data-tour-target="tap-to-play" className="surface-panel flex flex-wrap items-center gap-2 px-3 py-2 md:h-[40px] md:shrink-0 md:py-1.5">
         <button
           aria-expanded="false"
           aria-label="Open tap-to-play keyboard"
@@ -290,6 +290,7 @@ export const TapToPlay = () => {
         </button>
         <Hand className="h-3.5 w-3.5 text-[var(--accent)]" />
         <span className="section-label">Tap to play</span>
+        <span className="rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.025)] px-2 py-1 text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--text-secondary)]">{track.name}</span>
         <span className="hidden sm:inline text-[11px] text-[var(--text-secondary)]">Click a key or press A–L to play the selected track.</span>
       </section>
     );
@@ -324,11 +325,13 @@ export const TapToPlay = () => {
         </button>
         <Hand className="h-3.5 w-3.5 text-[var(--accent)]" />
         <span className="section-label">Tap to play</span>
-        <TrackPicker
-          activeId={track.id}
-          tracks={tracks}
-          onPick={(id) => setSelectedTrackId(id)}
-        />
+        <div className="min-w-0 flex-1">
+          <TrackPicker
+            activeId={track.id}
+            tracks={tracks}
+            onPick={(id) => setSelectedTrackId(id)}
+          />
+        </div>
         {!isDrum && (
           <div className="flex items-center gap-0.5">
             <button
@@ -354,7 +357,7 @@ export const TapToPlay = () => {
             </button>
           </div>
         )}
-        <span className="hidden md:inline text-[11px] text-[var(--text-secondary)]">{getTrackPersonality(track.type).blurb}</span>
+        <span className="hidden min-w-0 md:inline text-[11px] text-[var(--text-secondary)]">{getTrackPersonality(track.type).blurb}</span>
         {!isInitialized && (
           <button
             className="control-chip ml-auto flex h-7 items-center gap-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
@@ -398,7 +401,7 @@ const TrackPicker = ({
   tracks: ReturnType<typeof useAudio>['tracks'];
   onPick: (id: string) => void;
 }) => (
-  <div className="flex flex-wrap items-center gap-0.5">
+  <div className="flex flex-wrap items-center gap-1">
     {tracks.map((t) => (
       <button
         key={t.id}
@@ -410,7 +413,7 @@ const TrackPicker = ({
           border: `1px solid ${activeId === t.id ? t.color : 'transparent'}`,
           borderRadius: '3px',
           color: t.color,
-          opacity: activeId === t.id ? 1 : 0.55,
+          opacity: activeId === t.id ? 1 : 0.74,
         }}
         title={`Play ${t.name}`}
         type="button"

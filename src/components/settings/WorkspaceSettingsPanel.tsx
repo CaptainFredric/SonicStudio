@@ -56,6 +56,7 @@ export const WorkspaceSettingsPanel = () => {
     setBpm,
     setPatternCount,
     setMotionMode,
+    setSuperSonicMode,
     setStepsPerPattern,
     setTransportMode,
     setUiSoundsEnabled,
@@ -65,6 +66,7 @@ export const WorkspaceSettingsPanel = () => {
     tracks,
     transportMode,
     motionMode,
+    superSonicMode,
     uiSoundsEnabled,
     deleteCheckpoint,
   } = useAudio();
@@ -190,7 +192,9 @@ export const WorkspaceSettingsPanel = () => {
       <WorkspaceOptionsPanel
         motionMode={motionMode}
         onMotionModeChange={setMotionMode}
+        onSuperSonicModeChange={setSuperSonicMode}
         onUiSoundsEnabledChange={setUiSoundsEnabled}
+        superSonicMode={superSonicMode}
         uiSoundsEnabled={uiSoundsEnabled}
       />
 

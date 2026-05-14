@@ -9,7 +9,6 @@ import {
   Radio,
   Redo2,
   Save,
-  Settings2,
   SlidersHorizontal,
   Square,
   Undo2,
@@ -103,6 +102,7 @@ export const TopBar = ({
   const compactStart = firstImpression && !isPlaying;
   const isFirstImpression = compactStart;
   const showPlayPulse = !isPlaying && !countInActive;
+  const brandName = superSonicMode ? 'SuperSonicStudio' : 'SonicStudio';
   const focusTitle = isFirstImpression
     ? projectName
     : selectedTrack
@@ -130,10 +130,13 @@ export const TopBar = ({
         <div className="grid min-w-0 content-start gap-4">
           <div className="flex min-w-0 items-center gap-3 border-b border-[var(--border-soft)] pb-3">
             <div className="surface-panel-strong flex h-11 w-11 items-center justify-center" style={{ borderRadius: '14px' }}>
-              <BrandMark className="h-5 w-5 text-[var(--accent)]" speed={isPlaying ? 1.4 : 1} />
+              <BrandMark
+                className={superSonicMode ? 'h-5 w-5 text-[rgb(176,31,55)]' : 'h-5 w-5 text-[var(--accent)]'}
+                speed={isPlaying ? 1.4 : 1}
+              />
             </div>
             <div className="min-w-0">
-              <h1 className="text-[18px] font-semibold tracking-tight text-[var(--text-primary)]">SonicStudio</h1>
+              <h1 className="text-[18px] font-semibold tracking-tight text-[var(--text-primary)]">{brandName}</h1>
               <p className="mt-1 text-xs text-[var(--text-secondary)]">Sketch, arrange, and mix without leaving the browser.</p>
             </div>
           </div>
@@ -263,7 +266,7 @@ export const TopBar = ({
                 </button>
               )}
               <button
-                className="control-chip supersonic-toggle flex h-9 items-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                className="control-chip supersonic-toggle flex h-10 items-center gap-2 px-4 text-[10px] font-semibold uppercase tracking-[0.16em]"
                 data-active={superSonicMode}
                 data-super="true"
                 data-tour-target="supersonic"
@@ -280,21 +283,6 @@ export const TopBar = ({
               >
                 <Zap className="h-3.5 w-3.5" />
                 {superSonicMode ? 'SuperSonic on' : 'SuperSonic'}
-              </button>
-              <button
-                className={`control-chip flex h-9 items-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] ${isSettingsOpen ? 'text-[var(--text-primary)]' : ''}`}
-                data-active={isSettingsOpen}
-                data-tour-target="options"
-                data-ui-sound="settings"
-                onClick={() => setSettingsOpen(!isSettingsOpen)}
-                style={{
-                  opacity: compactStart ? 0.42 : 1,
-                  transition: 'opacity 230ms cubic-bezier(0.22,1,0.36,1)',
-                }}
-                type="button"
-              >
-                <Settings2 className="h-3.5 w-3.5" />
-                Options
               </button>
               <div className="hidden md:flex items-center gap-2">
                 <TransportBtn

@@ -38,4 +38,28 @@ describe('track defaults', () => {
     expect(countPatternNotes(leadTrack!.patterns)).toBeGreaterThanOrEqual(15);
     expect(countPatternNotes(padTrack!.patterns)).toBeGreaterThanOrEqual(36);
   });
+
+  it('boots Blank Grid with a fuller lane set ready to sketch on immediately', () => {
+    const project = createProjectFromTemplate('blank-grid');
+    const padTrack = project.tracks.find((track) => track.type === 'pad');
+
+    expect(project.tracks.map((track) => track.type)).toEqual(['kick', 'snare', 'hihat', 'bass', 'lead', 'pad']);
+    expect(project.arrangerClips).toHaveLength(6);
+    expect(padTrack).toBeTruthy();
+    expect(countPatternNotes(padTrack!.patterns)).toBeGreaterThanOrEqual(3);
+  });
+
+  it('ships Club Horizon and Starlight Parade as additional ready-to-play starter scenes', () => {
+    const club = createProjectFromTemplate('club-horizon');
+    const starlight = createProjectFromTemplate('starlight-parade');
+    const clubPluck = club.tracks.find((track) => track.type === 'pluck');
+    const starlightLead = starlight.tracks.find((track) => track.type === 'lead');
+
+    expect(club.tracks).toHaveLength(7);
+    expect(starlight.tracks).toHaveLength(7);
+    expect(clubPluck).toBeTruthy();
+    expect(starlightLead).toBeTruthy();
+    expect(countPatternNotes(clubPluck!.patterns)).toBeGreaterThanOrEqual(8);
+    expect(countPatternNotes(starlightLead!.patterns)).toBeGreaterThanOrEqual(11);
+  });
 });
