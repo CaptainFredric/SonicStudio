@@ -47,10 +47,6 @@ export const createTransportController = ({
   tracks,
 }: CreateTransportControllerOptions) => {
   const ensureAudioReady = async () => {
-    if (isInitialized) {
-      return;
-    }
-
     await initAudio();
     engine.syncProject(currentProject);
   };

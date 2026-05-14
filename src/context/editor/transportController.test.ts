@@ -157,6 +157,46 @@ describe('transportController', () => {
     );
   });
 
+  it('re-arms audio before playback even after initialization so suspended contexts resume', async () => {
+    const project = createProjectFromTemplate('blank-grid');
+    const engine = {
+      init: vi.fn(),
+      previewMetronomeTick: vi.fn(),
+      previewTrack: vi.fn(),
+      startRecording: vi.fn(),
+      stop: vi.fn(),
+      stopRecording: vi.fn(),
+      syncProject: vi.fn(),
+      togglePlayback: vi.fn(() => true),
+    };
+    const initAudio = vi.fn();
+    const setIsPlaying = vi.fn();
+
+    const controller = createTransportController({
+      countInActive: false,
+      countInTokenRef: { current: 0 },
+      currentProject: project,
+      engine,
+      initAudio,
+      isInitialized: true,
+      isPlaying: false,
+      isRecording: false,
+      setCountInActive: vi.fn(),
+      setCountInBeatsRemaining: vi.fn(),
+      setCurrentStep: vi.fn(),
+      setIsPlaying,
+      setIsRecording: vi.fn(),
+      tracks: project.tracks,
+    });
+
+    await controller.togglePlay();
+
+    expect(initAudio).toHaveBeenCalledTimes(1);
+    expect(engine.syncProject).toHaveBeenCalledWith(project);
+    expect(engine.togglePlayback).toHaveBeenCalledTimes(1);
+    expect(setIsPlaying).toHaveBeenCalledWith(true);
+  });
+
   it('passes preview velocity through to the engine', async () => {
     const project = createProjectFromTemplate('blank-grid');
     const previewTrackTarget = project.tracks.find((track) => track.type === 'hihat') ?? project.tracks[0];
