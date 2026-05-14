@@ -234,8 +234,8 @@ export const ArrangerHeader = ({
 
       <div className="min-w-0 xl:pl-5">
         <div className="section-label">View controls</div>
-        <div className="mt-3 grid gap-3 lg:grid-cols-2 2xl:grid-cols-5">
-          <label className="grid gap-2 text-xs text-[var(--text-secondary)]">
+        <div className="mt-3 grid gap-3 xl:grid-cols-2 2xl:grid-cols-[minmax(0,1.15fr)_repeat(3,minmax(0,0.94fr))_minmax(0,1.02fr)]">
+          <label className="grid min-w-0 gap-2 text-xs text-[var(--text-secondary)]">
             <span className="section-label">Form</span>
             <select
               className="control-field h-10 px-3 text-xs font-semibold uppercase tracking-[0.14em]"
@@ -259,7 +259,7 @@ export const ArrangerHeader = ({
             </select>
           </label>
 
-          <label className="grid gap-2 text-xs text-[var(--text-secondary)]">
+          <label className="grid min-w-0 gap-2 text-xs text-[var(--text-secondary)]">
             <span className="section-label">Zoom</span>
             <select
               className="control-field h-10 px-3 text-xs font-semibold uppercase tracking-[0.14em]"
@@ -273,7 +273,7 @@ export const ArrangerHeader = ({
             </select>
           </label>
 
-          <label className="grid gap-2 text-xs text-[var(--text-secondary)]">
+          <label className="grid min-w-0 gap-2 text-xs text-[var(--text-secondary)]">
             <span className="section-label">Snap</span>
             <select
               className="control-field h-10 px-3 text-xs font-semibold uppercase tracking-[0.14em]"
@@ -288,7 +288,7 @@ export const ArrangerHeader = ({
             </select>
           </label>
 
-          <label className="grid gap-2 text-xs text-[var(--text-secondary)]">
+          <label className="grid min-w-0 gap-2 text-xs text-[var(--text-secondary)]">
             <span className="section-label">Lane scope</span>
             <select
               className="control-field h-10 px-3 text-xs font-semibold uppercase tracking-[0.14em]"
@@ -304,16 +304,18 @@ export const ArrangerHeader = ({
             </select>
           </label>
 
-          <div className="grid gap-2 text-xs text-[var(--text-secondary)]">
+          <div className="grid min-w-0 gap-2 text-xs text-[var(--text-secondary)]">
             <span className="section-label">Session view</span>
             <div className="flex flex-wrap gap-2">
               <ControlToggle
                 active={followPlayhead}
+                className="min-w-[112px] flex-1 justify-center px-2.5 text-[9px] tracking-[0.12em] sm:px-3 sm:text-[10px] sm:tracking-[0.14em]"
                 label="Follow"
                 onClick={() => onSetFollowPlayhead(!followPlayhead)}
               />
               <ControlToggle
                 active={compactLaneView}
+                className="min-w-[128px] flex-1 justify-center px-2.5 text-[9px] tracking-[0.12em] sm:px-3 sm:text-[10px] sm:tracking-[0.14em]"
                 label={compactLaneView ? 'Compact on' : 'Compact off'}
                 onClick={() => onSetCompactLaneView(!compactLaneView)}
               />
@@ -321,26 +323,32 @@ export const ArrangerHeader = ({
           </div>
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-[var(--border-soft)] pt-3">
-          <ControlToggle active={false} label="Reveal clip" onClick={onRevealSelectedClip} />
-          <ControlToggle active={false} label="Playhead" onClick={onJumpToPlayhead} />
-          <ControlToggle active={false} label="Start" onClick={() => onJumpToBoundary(0)} />
-          <ControlToggle active={false} label="End" onClick={() => onJumpToBoundary(timelineSteps)} />
-          <button
-            className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-            onClick={onSetInspectorTab}
-          >
-            Song tools
-          </button>
-          <button
-            className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-            data-active={inspectorOpen ? 'true' : 'false'}
-            onClick={() => onSetInspectorOpen(!inspectorOpen)}
-          >
-            {inspectorOpen ? 'Hide desk' : 'Show desk'}
-          </button>
-          <div className="w-full font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)] sm:w-auto sm:ml-auto">
-            {laneDataCount} visible lanes
+        <div className="mt-3 grid gap-2 border-t border-[var(--border-soft)] pt-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+          <div className="flex flex-wrap items-center gap-2">
+            <ControlToggle active={false} label="Reveal clip" onClick={onRevealSelectedClip} />
+            <ControlToggle active={false} label="Playhead" onClick={onJumpToPlayhead} />
+            <ControlToggle active={false} label="Start" onClick={() => onJumpToBoundary(0)} />
+            <ControlToggle active={false} label="End" onClick={() => onJumpToBoundary(timelineSteps)} />
+            <button
+              className="control-chip whitespace-nowrap px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+              onClick={onSetInspectorTab}
+              type="button"
+            >
+              Song tools
+            </button>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+            <button
+              className="control-chip whitespace-nowrap px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+              data-active={inspectorOpen ? 'true' : 'false'}
+              onClick={() => onSetInspectorOpen(!inspectorOpen)}
+              type="button"
+            >
+              {inspectorOpen ? 'Hide desk' : 'Show desk'}
+            </button>
+            <div className="whitespace-nowrap font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+              {laneDataCount} visible lanes
+            </div>
           </div>
         </div>
       </div>
@@ -350,17 +358,20 @@ export const ArrangerHeader = ({
 
 const ControlToggle = ({
   active,
+  className,
   label,
   onClick,
 }: {
   active: boolean;
+  className?: string;
   label: string;
   onClick: () => void;
 }) => (
   <button
-    className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+    className={`control-chip inline-flex min-w-0 items-center whitespace-nowrap px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] ${className ?? ''}`}
     data-active={active}
     onClick={onClick}
+    type="button"
   >
     {label}
   </button>

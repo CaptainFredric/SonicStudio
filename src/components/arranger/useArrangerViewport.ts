@@ -121,7 +121,7 @@ export const useArrangerViewport = ({
     });
   };
 
-  const handleTimelineWheel = (event: React.WheelEvent<HTMLDivElement>) => {
+  const handleTimelineWheel = (event: WheelEvent) => {
     const node = timelineRef.current;
     if (!node || !shouldHandleTimelineWheel(event.deltaX, event.deltaY, node.scrollWidth, node.clientWidth)) {
       return;

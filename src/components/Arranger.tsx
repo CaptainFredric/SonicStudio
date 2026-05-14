@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useAudio } from '../context/AudioContext';
+import { useAudio, usePlaybackStep } from '../context/AudioContext';
 import { type ArrangementClip } from '../project/schema';
 import { useMediaQuery } from '../utils/useMediaQuery';
 import { ArrangerHeader } from './arranger/ArrangerHeader';
@@ -43,13 +43,13 @@ const getVisibleRangeLabel = (startStep: number, endStep: number) => (
 
 export const Arranger = () => {
   const isMobileViewport = useMediaQuery('(max-width: 767px)');
+  const currentStep = usePlaybackStep();
   const {
     addArrangerClip,
     applySongForm,
     arrangerClips,
     bpm,
     createSongMarker,
-    currentStep,
     duplicateArrangerClip,
     duplicateSongRange,
     loopArrangerClip,

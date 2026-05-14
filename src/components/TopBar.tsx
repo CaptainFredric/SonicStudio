@@ -15,12 +15,14 @@ import {
   Zap,
 } from 'lucide-react';
 
+import { playSupersonicToggleSound } from '../audio/uiSounds';
 import { useAudio } from '../context/AudioContext';
 import { MASTER_PRESET_DEFINITIONS, type MasterSettings } from '../project/schema';
 import { getSupersonicTransitionOrigin, runSupersonicTransition } from '../utils/supersonicTransition';
 import { BrandMark } from './BrandMark';
 
 const MASTER_MATCH_EPSILON = 0.015;
+const SUPERSONIC_OFF_PREVIEW_DELAY_MS = 110;
 
 const isMasterPresetMatch = (current: MasterSettings, target: MasterSettings) => (
   Math.abs(current.glueCompression - target.glueCompression) <= MASTER_MATCH_EPSILON
@@ -83,9 +85,12 @@ export const TopBar = ({
     toggleRecording,
     transportMode,
     tracks,
+    uiSoundsEnabled,
     undo,
   } = useAudio();
   const [draftProjectName, setDraftProjectName] = useState(projectName);
+  const [isSupersonicHovered, setIsSupersonicHovered] = useState(false);
+  const [showSupersonicOffPreview, setShowSupersonicOffPreview] = useState(false);
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
   const activeMasterPreset = MASTER_PRESET_DEFINITIONS.find((preset) => (
     isMasterPresetMatch(master, preset.settings)
@@ -94,6 +99,21 @@ export const TopBar = ({
   useEffect(() => {
     setDraftProjectName(projectName);
   }, [projectName]);
+
+  useEffect(() => {
+    if (!superSonicMode || !isSupersonicHovered) {
+      setShowSupersonicOffPreview(false);
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setShowSupersonicOffPreview(true);
+    }, SUPERSONIC_OFF_PREVIEW_DELAY_MS);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [isSupersonicHovered, superSonicMode]);
 
   const commitProjectName = () => {
     renameProject(draftProjectName);
@@ -123,10 +143,26 @@ export const TopBar = ({
     : isInitialized
       ? loopSummary
       : 'Audio off';
+  const supersonicLabel = !superSonicMode
+    ? 'SuperSonic'
+    : showSupersonicOffPreview
+      ? 'SuperSonic off'
+      : 'SuperSonic on';
+
+  const toggleSupersonicMode = (button: HTMLButtonElement) => {
+    const enabled = !superSonicMode;
+    setIsSupersonicHovered(false);
+    setShowSupersonicOffPreview(false);
+    if (uiSoundsEnabled) {
+      playSupersonicToggleSound(enabled);
+    }
+    runSupersonicTransition(enabled, getSupersonicTransitionOrigin(button));
+    setSuperSonicMode(enabled);
+  };
 
   return (
     <header className="surface-panel px-3 py-3 sm:px-5 sm:py-4">
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_400px] xl:items-start" data-first-impression={isFirstImpression}>
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(340px,392px)] xl:items-start" data-first-impression={isFirstImpression}>
         <div className="grid min-w-0 content-start gap-4">
           <div className="flex min-w-0 items-center gap-3 border-b border-[var(--border-soft)] pb-3">
             <div className="surface-panel-strong flex h-11 w-11 items-center justify-center" style={{ borderRadius: '14px' }}>
@@ -227,93 +263,154 @@ export const TopBar = ({
         </div>
 
         <div className="grid gap-3 border-t border-[var(--border-soft)] pt-3 xl:self-stretch xl:border-l xl:border-t-0 xl:pl-4 xl:pt-0">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div
-              className="flex items-center gap-1"
-              style={{
-                opacity: compactStart ? 0.42 : 1,
-                transition: 'opacity 230ms cubic-bezier(0.22,1,0.36,1)',
-              }}
-            >
-              <IconBtn disabled={!canUndo} label="Undo" onClick={undo} shortcut="⌘Z">
-                <Undo2 className="h-4 w-4" />
-              </IconBtn>
-              <IconBtn disabled={!canRedo} label="Redo" onClick={redo} shortcut="⇧⌘Z">
-                <Redo2 className="h-4 w-4" />
-              </IconBtn>
-              <IconBtn label="Save" onClick={saveProject} shortcut="⌘S">
-                <Save className="h-4 w-4" />
-              </IconBtn>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {onOpenCapture && (
-                <button
-                  className="control-chip capture-action flex h-9 items-center gap-2 px-3.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                  data-active={isCaptureOpen ? 'true' : 'false'}
-                  data-capture="true"
-                  data-tour-target="record"
-                  data-ui-sound="record"
-                  onClick={onOpenCapture}
-                  type="button"
-                >
-                  <Mic className="h-3.5 w-3.5" />
-                  {isCaptureOpen ? 'Capture open' : 'Capture sound'}
-                </button>
-              )}
-              <button
-                className="control-chip supersonic-toggle flex h-10 items-center gap-2 px-4 text-[10px] font-semibold uppercase tracking-[0.16em]"
-                data-active={superSonicMode}
-                data-super="true"
-                data-tour-target="supersonic"
-                data-ui-sound="settings"
-                onClick={(event) => {
-                  const enabled = !superSonicMode;
-                  runSupersonicTransition(enabled, getSupersonicTransitionOrigin(event.currentTarget));
-                  setSuperSonicMode(enabled);
-                }}
-                type="button"
-              >
-                <Zap className="h-3.5 w-3.5" />
-                <span>{superSonicMode ? 'SuperSonic on' : 'SuperSonic'}</span>
-              </button>
-              <div className="hidden md:flex items-center gap-2">
-                <TransportBtn
-                  active={isRecording}
-                  label="Record"
-                  onClick={toggleRecording}
-                  onPointerDown={() => {
-                    if (!isInitialized) {
-                      void initAudio();
-                    }
-                  }}
+          <div className="grid gap-3 border-b border-[var(--border-soft)]/70 pb-3">
+            <div className="hidden md:grid md:justify-items-end">
+              <div className="grid w-full max-w-[372px] gap-2">
+                <div
+                  className="grid grid-cols-3 gap-2"
                   style={{
                     opacity: compactStart ? 0.42 : 1,
                     transition: 'opacity 230ms cubic-bezier(0.22,1,0.36,1)',
                   }}
-                  tone="record"
                 >
-                  <Circle className="h-4 w-4 fill-current" />
-                </TransportBtn>
-                <TransportBtn
-                  active={isPlaying}
-                  data-tour-target="play"
-                  emphasize={showPlayPulse}
-                  label={isPlaying ? 'Pause' : 'Play'}
-                  onClick={togglePlay}
-                  onPointerDown={() => {
-                    if (!isInitialized) {
-                      void initAudio();
-                    }
+                  <UtilityBtn label="Save" onClick={saveProject} shortcut="⌘S">
+                    <Save className="h-3.5 w-3.5" />
+                  </UtilityBtn>
+                  <UtilityBtn disabled={!canUndo} label="Undo" onClick={undo} shortcut="⌘Z">
+                    <Undo2 className="h-3.5 w-3.5" />
+                  </UtilityBtn>
+                  <UtilityBtn disabled={!canRedo} label="Redo" onClick={redo} shortcut="⇧⌘Z">
+                    <Redo2 className="h-3.5 w-3.5" />
+                  </UtilityBtn>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <TransportBtn
+                    active={isPlaying}
+                    className="w-full min-w-0 justify-center"
+                    data-tour-target="play"
+                    emphasize={showPlayPulse}
+                    label={isPlaying ? 'Pause' : 'Play'}
+                    onClick={togglePlay}
+                    onPointerDown={() => {
+                      if (!isInitialized) {
+                        void initAudio();
+                      }
+                    }}
+                    shortcut="Space"
+                    tone="play"
+                  >
+                    {isPlaying ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
+                  </TransportBtn>
+                  <TransportBtn className="w-full min-w-0 justify-center" label="Stop" onClick={stop} tone="neutral">
+                    <Square className="h-4 w-4 fill-current" />
+                  </TransportBtn>
+                  <TransportBtn
+                    active={isRecording}
+                    className="w-full min-w-0 justify-center"
+                    label={isRecording ? 'Armed' : 'Record'}
+                    onClick={toggleRecording}
+                    onPointerDown={() => {
+                      if (!isInitialized) {
+                        void initAudio();
+                      }
+                    }}
+                    style={{
+                      opacity: compactStart ? 0.42 : 1,
+                      transition: 'opacity 230ms cubic-bezier(0.22,1,0.36,1)',
+                    }}
+                    tone="record"
+                  >
+                    <Circle className="h-4 w-4 fill-current" />
+                  </TransportBtn>
+                </div>
+
+                <div className="grid gap-2">
+                  {onOpenCapture && (
+                    <button
+                      className="control-chip capture-action flex h-9 w-full items-center justify-center gap-2 px-3.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                      data-active={isCaptureOpen ? 'true' : 'false'}
+                      data-capture="true"
+                      data-tour-target="record"
+                      data-ui-sound="record"
+                      onClick={onOpenCapture}
+                      type="button"
+                    >
+                      <Mic className="h-3.5 w-3.5" />
+                      {isCaptureOpen ? 'Capture open' : 'Capture sound'}
+                    </button>
+                  )}
+                  <button
+                    className="control-chip supersonic-toggle flex h-10 w-full items-center justify-center gap-2 px-4 text-[10px] font-semibold uppercase tracking-[0.16em]"
+                    data-active={superSonicMode}
+                    data-preview={showSupersonicOffPreview ? 'off' : 'on'}
+                    data-super="true"
+                    data-tour-target="supersonic"
+                    onClick={(event) => toggleSupersonicMode(event.currentTarget)}
+                    onPointerEnter={() => setIsSupersonicHovered(true)}
+                    onPointerLeave={() => {
+                      setIsSupersonicHovered(false);
+                      setShowSupersonicOffPreview(false);
+                    }}
+                    type="button"
+                  >
+                    <Zap className="h-3.5 w-3.5" />
+                    <span>{supersonicLabel}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-2 md:hidden">
+              <div
+                className="surface-panel-muted flex items-center gap-1 p-1"
+                style={{
+                  opacity: compactStart ? 0.42 : 1,
+                  transition: 'opacity 230ms cubic-bezier(0.22,1,0.36,1)',
+                }}
+              >
+                <UtilityBtn label="Save" onClick={saveProject} shortcut="⌘S">
+                  <Save className="h-3.5 w-3.5" />
+                </UtilityBtn>
+                <UtilityBtn disabled={!canUndo} label="Undo" onClick={undo} shortcut="⌘Z">
+                  <Undo2 className="h-3.5 w-3.5" />
+                </UtilityBtn>
+                <UtilityBtn disabled={!canRedo} label="Redo" onClick={redo} shortcut="⇧⌘Z">
+                  <Redo2 className="h-3.5 w-3.5" />
+                </UtilityBtn>
+              </div>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                {onOpenCapture && (
+                  <button
+                    className="control-chip capture-action flex h-9 items-center gap-2 px-3.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                    data-active={isCaptureOpen ? 'true' : 'false'}
+                    data-capture="true"
+                    data-tour-target="record"
+                    data-ui-sound="record"
+                    onClick={onOpenCapture}
+                    type="button"
+                  >
+                    <Mic className="h-3.5 w-3.5" />
+                    {isCaptureOpen ? 'Capture open' : 'Capture sound'}
+                  </button>
+                )}
+                <button
+                  className="control-chip supersonic-toggle flex h-10 items-center gap-2 px-4 text-[10px] font-semibold uppercase tracking-[0.16em]"
+                  data-active={superSonicMode}
+                  data-preview={showSupersonicOffPreview ? 'off' : 'on'}
+                  data-super="true"
+                  data-tour-target="supersonic"
+                  onClick={(event) => toggleSupersonicMode(event.currentTarget)}
+                  onPointerEnter={() => setIsSupersonicHovered(true)}
+                  onPointerLeave={() => {
+                    setIsSupersonicHovered(false);
+                    setShowSupersonicOffPreview(false);
                   }}
-                  shortcut="Space"
-                  tone="play"
+                  type="button"
                 >
-                  {isPlaying ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
-                </TransportBtn>
-                <TransportBtn label="Stop" onClick={stop} tone="neutral">
-                  <Square className="h-4 w-4 fill-current" />
-                </TransportBtn>
+                  <Zap className="h-3.5 w-3.5" />
+                  <span>{supersonicLabel}</span>
+                </button>
               </div>
             </div>
           </div>
@@ -439,7 +536,7 @@ export const TopBar = ({
   );
 };
 
-const IconBtn = ({
+const UtilityBtn = ({
   children,
   disabled = false,
   label,
@@ -454,13 +551,15 @@ const IconBtn = ({
 }) => (
   <button
     aria-label={label}
-    className="ghost-icon-button flex h-11 w-11 sm:h-9 sm:w-9 items-center justify-center"
+    className="ghost-icon-button flex h-8 min-w-0 items-center justify-center gap-1.5 px-2.5"
     data-ui-sound="action"
     disabled={disabled}
     onClick={onClick}
     title={shortcut ? `${label} (${shortcut})` : label}
+    type="button"
   >
-    {children}
+    <span className="shrink-0">{children}</span>
+    <span className="truncate text-[9px] font-semibold uppercase tracking-[0.14em]">{label}</span>
   </button>
 );
 
@@ -474,21 +573,11 @@ const PatternButton = ({
   onClick: () => void;
 }) => (
   <button
-    className="h-11 min-w-11 sm:h-9 sm:min-w-9 border px-3 font-mono text-xs font-medium uppercase tracking-[0.16em] transition-colors"
+    className="pattern-toggle-chip h-11 min-w-11 px-3 font-mono text-xs font-medium uppercase tracking-[0.16em] sm:h-9 sm:min-w-9"
+    data-active={active ? 'true' : 'false'}
     data-ui-sound="tab"
     onClick={onClick}
-    style={active
-      ? {
-          background: 'color-mix(in srgb, var(--accent) 14%, transparent)',
-          border: '1px solid color-mix(in srgb, var(--accent) 34%, transparent)',
-          boxShadow: '0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent)',
-          color: 'var(--accent-strong)',
-        }
-      : {
-          background: 'transparent',
-          border: '1px solid var(--border-soft)',
-          color: 'var(--text-secondary)',
-        }}
+    type="button"
   >
     {children}
   </button>
@@ -504,21 +593,11 @@ const ModeButton = ({
   onClick: () => void;
 }) => (
   <button
-    className="border px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] transition-colors"
+    className="mode-toggle-chip px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em]"
+    data-active={active ? 'true' : 'false'}
     data-ui-sound="tab"
     onClick={onClick}
-    style={active
-      ? {
-          background: 'color-mix(in srgb, var(--accent) 14%, transparent)',
-          borderColor: 'color-mix(in srgb, var(--accent) 34%, transparent)',
-          boxShadow: '0 0 0 1px color-mix(in srgb, var(--accent) 10%, transparent)',
-          color: 'var(--accent-strong)',
-        }
-      : {
-          background: 'transparent',
-          borderColor: 'var(--border-soft)',
-          color: 'var(--text-secondary)',
-        }}
+    type="button"
   >
     {label}
   </button>
@@ -567,6 +646,7 @@ const MiniStat = ({
 
 const TransportBtn = ({
   active = false,
+  className,
   children,
   emphasize = false,
   label,
@@ -578,6 +658,7 @@ const TransportBtn = ({
   ...rest
 }: {
   active?: boolean;
+  className?: string;
   children: React.ReactNode;
   emphasize?: boolean;
   label: string;
@@ -603,7 +684,7 @@ const TransportBtn = ({
     ? {
         boxShadow:
           '0 0 0 1px color-mix(in srgb, var(--accent) 52%, transparent), 0 8px 30px color-mix(in srgb, var(--accent) 34%, transparent), inset 0 1px 0 rgba(255,255,255,0.35)',
-        transform: 'scale(1.05)',
+        transform: 'translateY(-1px) scale(1.03)',
         transition: 'all 230ms cubic-bezier(0.22,1,0.36,1)',
       }
     : { transition: 'all 230ms cubic-bezier(0.22,1,0.36,1)' };
@@ -612,7 +693,7 @@ const TransportBtn = ({
     <span style={{ position: 'relative', display: 'inline-flex' }}>
       <button
         aria-label={label}
-        className={`flex h-11 w-11 sm:h-9 sm:w-9 items-center justify-center border transition-colors ${active ? activeStyles : restingStyles}`}
+        className={`group flex h-10 min-w-[82px] items-center gap-1.5 rounded-[3px] border px-3 text-left transition-colors ${active ? activeStyles : restingStyles} ${className ?? ''}`}
         data-ui-sound={tone === 'record' ? 'record' : 'transport'}
         onClick={onClick}
         onPointerDown={onPointerDown}
@@ -620,7 +701,12 @@ const TransportBtn = ({
         title={shortcut ? `${label} (${shortcut})` : label}
         {...rest}
       >
-        {children}
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[2px] border border-current/12 bg-black/10 transition-colors group-hover:bg-black/15">
+          {children}
+        </span>
+        <span className="min-w-0 text-[10px] font-semibold uppercase tracking-[0.16em]">
+          {label}
+        </span>
       </button>
       {emphasize && tone === 'play' && !active && (
         <span
@@ -629,7 +715,7 @@ const TransportBtn = ({
           style={{
             position: 'absolute',
             inset: -6,
-            borderRadius: 'inherit',
+            borderRadius: 4,
             border: '1px solid color-mix(in srgb, var(--accent) 46%, transparent)',
             animation: 'ss-pulse 1.6s ease-out infinite',
             pointerEvents: 'none',

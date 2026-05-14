@@ -1,16 +1,22 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
+  BookOpen,
   Coffee,
   Disc3,
   FileInput,
+  FolderOpen,
+  HardDrive,
+  Plus,
   Search,
   Shuffle,
   Sparkles,
   X,
 } from 'lucide-react';
 
+import { useAudio } from '../context/AudioContext';
 import type { SessionTemplateId } from '../project/schema';
+import { loadRecordedNotePresets, subscribeRecordedNotePresets, type RecordedNotePreset } from '../services/recordedNoteLibrary';
 
 const SUPPORT_URL = 'https://buymeacoffee.com/captainarm1';
 type LibraryFilterId = 'featured' | 'all' | 'club' | 'hooks' | 'drift' | 'clean';
@@ -157,6 +163,34 @@ const matchesLibraryQuery = (option: StartOption, query: string) => {
   return haystack.includes(query.trim().toLowerCase());
 };
 
+const formatStoredRelative = (iso: string) => {
+  try {
+    const then = new Date(iso).getTime();
+    if (!Number.isFinite(then)) {
+      return iso;
+    }
+    const diff = Date.now() - then;
+    const minutes = Math.floor(diff / 60000);
+    if (minutes < 1) {
+      return 'just now';
+    }
+    if (minutes < 60) {
+      return `${minutes}m ago`;
+    }
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) {
+      return `${hours}h ago`;
+    }
+    const days = Math.floor(hours / 24);
+    if (days < 30) {
+      return `${days}d ago`;
+    }
+    return new Date(iso).toLocaleDateString();
+  } catch {
+    return iso;
+  }
+};
+
 export const Launchpad = ({
   isInitialized,
   isOpen,
@@ -166,8 +200,18 @@ export const Launchpad = ({
   onStartGuide,
   onWakeAudio,
 }: LaunchpadProps) => {
+  const {
+    loadScoresheet,
+    projectName,
+    saveScoresheet,
+    saveStatus,
+    scoresheets,
+  } = useAudio();
   const [libraryFilter, setLibraryFilter] = useState<LibraryFilterId>('featured');
   const [libraryQuery, setLibraryQuery] = useState('');
+  const [recordedNotes, setRecordedNotes] = useState<RecordedNotePreset[]>([]);
+  const [scoresheetDraft, setScoresheetDraft] = useState(projectName);
+  const [storageFlash, setStorageFlash] = useState<'saved' | null>(null);
   const recommended = useMemo(
     () => START_OPTIONS.find((option) => option.id === 'night-transit') ?? START_OPTIONS[0],
     [],
@@ -180,11 +224,55 @@ export const Launchpad = ({
     () => START_OPTIONS.filter((option) => matchesLibraryFilter(option, libraryFilter) && matchesLibraryQuery(option, libraryQuery)),
     [libraryFilter, libraryQuery],
   );
+  const recentScoresheets = useMemo(() => scoresheets.slice(0, 4), [scoresheets]);
+  const recentRecordedNotes = useMemo(() => recordedNotes.slice(0, 4), [recordedNotes]);
+  const autosaveLabel = saveStatus === 'saving'
+    ? 'Autosaving now'
+    : saveStatus === 'error'
+      ? 'Save attention'
+      : 'Autosave ready';
+
+  useEffect(() => {
+    setScoresheetDraft(projectName);
+  }, [projectName]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined;
+    }
+
+    setRecordedNotes(loadRecordedNotePresets());
+    return subscribeRecordedNotePresets(setRecordedNotes);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!storageFlash) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => setStorageFlash(null), 1600);
+    return () => window.clearTimeout(timeoutId);
+  }, [storageFlash]);
 
   const surpriseMe = () => {
     const eligible = START_OPTIONS.filter((option) => option.id !== 'blank-grid');
     const choice = eligible[Math.floor(Math.random() * eligible.length)];
     onSelectTemplate(choice.id);
+  };
+
+  const saveCurrentSnapshot = () => {
+    const nextName = scoresheetDraft.trim();
+    if (!nextName) {
+      return;
+    }
+
+    saveScoresheet(nextName);
+    setStorageFlash('saved');
+  };
+
+  const openScoresheetFromLibrary = (id: string) => {
+    loadScoresheet(id);
+    onClose();
   };
 
   if (!isOpen) {
@@ -217,13 +305,13 @@ export const Launchpad = ({
               Start with something you can hear right away.
             </h1>
             <p className="mt-5 max-w-[60ch] text-sm leading-6 text-[var(--text-secondary)] md:text-[15px]">
-              Night Transit opens with a full song, so you can hear how everything fits together. Blank Grid is there if you'd rather start from scratch.
+              Open a finished scene to hear the full room immediately, or jump into Blank Grid if you'd rather build each lane from scratch.
             </p>
           </div>
 
           <div className="grid gap-3 lg:grid-cols-[minmax(0,1.12fr)_minmax(0,0.88fr)]">
             <PrimaryStartCard
-              badge="Good place to start"
+              badge="Featured scene"
               body="Open a full demo with clips, lanes, and mix moves already set up."
               eyebrow={`${recommended.genre} · ${recommended.bpm} BPM`}
               mark={recommended.mark}
@@ -250,7 +338,7 @@ export const Launchpad = ({
               />
               <SecondaryStartCard
                 actionLabel="Start tour"
-                body="Open Night Transit in Song view and walk through the basics first."
+                body="Open the current scene in Song view and walk through the main controls first."
                 icon={<Sparkles className="h-4 w-4" />}
                 onClick={onStartGuide}
                 title="Take the tour"
@@ -338,15 +426,16 @@ export const Launchpad = ({
 
         <aside className="surface-panel-strong px-4 py-4">
           <div className="section-label">Quick start</div>
-          <div className="mt-3 grid gap-3 sm:grid-cols-3 xl:grid-cols-1">
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-2">
             <LaunchStat label="Scenes" value={String(START_OPTIONS.length)} />
-            <LaunchStat label="Saved" value="Local" />
+            <LaunchStat label="Scoresheets" value={String(scoresheets.length)} />
+            <LaunchStat label="Captured" value={String(recordedNotes.length)} />
             <LaunchStat label="Export" value="WAV MIDI" />
           </div>
 
           <div className="mt-5 grid gap-3 border-t border-[var(--border-soft)] pt-4">
             <LaunchPathStep
-              body="Start with Night Transit if you want to hear a full arrangement right away."
+              body="Open any full scene if you want to hear a complete arrangement right away."
               step="01"
               title="Open a scene"
             />
@@ -361,6 +450,124 @@ export const Launchpad = ({
               title="Change one part"
             />
           </div>
+
+          <section className="mt-5 grid gap-3 border-t border-[var(--border-soft)] pt-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2 text-[var(--text-primary)]">
+                  <BookOpen className="h-4 w-4 text-[var(--accent)]" />
+                  <span className="section-label">Library storage</span>
+                </div>
+                <p className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
+                  Scenes, saved scoresheets, and captured-note storage now live together here so you can restart, recall, and resume from one place.
+                </p>
+              </div>
+              <span className="rounded-[2px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                {autosaveLabel}
+              </span>
+            </div>
+
+            <div className="rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.025)] px-3 py-3">
+              <div className="flex items-center gap-2 text-[var(--text-primary)]">
+                <HardDrive className="h-4 w-4 text-[var(--accent)]" />
+                <span className="section-label">Store current session</span>
+              </div>
+              <p className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
+                Save a full local snapshot of the session, arrangement, mix, and sounds before you jump to a new scene.
+              </p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] xl:grid-cols-1">
+                <input
+                  aria-label="Scoresheet name"
+                  className="control-field h-10 px-3 text-sm"
+                  onChange={(event) => setScoresheetDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      saveCurrentSnapshot();
+                    }
+                  }}
+                  placeholder="Name this saved session"
+                  value={scoresheetDraft}
+                />
+                <button
+                  className="control-chip flex items-center justify-center gap-2 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em]"
+                  data-active={storageFlash === 'saved' ? 'true' : 'false'}
+                  data-ui-sound="action"
+                  disabled={!scoresheetDraft.trim()}
+                  onClick={saveCurrentSnapshot}
+                  type="button"
+                >
+                  {storageFlash === 'saved' ? <BookOpen className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+                  {storageFlash === 'saved' ? 'Stored' : 'Store current'}
+                </button>
+              </div>
+            </div>
+
+            <div className="rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.025)] px-3 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="section-label">Saved scoresheets</div>
+                  <div className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
+                    Full browser-local snapshots you can reopen directly from the Library.
+                  </div>
+                </div>
+                <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+                  {scoresheets.length} stored
+                </span>
+              </div>
+
+              {recentScoresheets.length > 0 ? (
+                <div className="mt-3 grid gap-2">
+                  {recentScoresheets.map((sheet) => (
+                    <button
+                      className="flex items-center justify-between gap-3 rounded-[2px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-2 text-left transition-colors hover:bg-[rgba(255,255,255,0.04)]"
+                      data-ui-sound="nav"
+                      key={sheet.id}
+                      onClick={() => openScoresheetFromLibrary(sheet.id)}
+                      type="button"
+                    >
+                      <div className="min-w-0">
+                        <div className="truncate text-[12px] font-semibold text-[var(--text-primary)]">{sheet.name}</div>
+                        <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+                          Saved {formatStoredRelative(sheet.savedAt)}
+                        </div>
+                      </div>
+                      <FolderOpen className="h-3.5 w-3.5 shrink-0 text-[var(--accent)]" />
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-3 rounded-[2px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3 text-[11px] leading-5 text-[var(--text-secondary)]">
+                  No scoresheets stored yet. Save the current session here once and it will stay in the Library for quick recall.
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.025)] px-3 py-3">
+              <div className="section-label">Captured note library</div>
+              <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
+                Capture saves land locally too. The newest saved notes appear here so the Library also reflects what you recorded, not just starter scenes.
+              </div>
+              {recentRecordedNotes.length > 0 ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {recentRecordedNotes.map((note) => (
+                    <div
+                      className="rounded-[2px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-2.5 py-2"
+                      key={note.id}
+                    >
+                      <div className="text-[11px] font-semibold text-[var(--text-primary)]">{note.name}</div>
+                      <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+                        {note.note} · {note.trackType}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-3 rounded-[2px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3 text-[11px] leading-5 text-[var(--text-secondary)]">
+                  No saved capture notes yet. Record a few notes from Capture and they will show up here the next time you open the Library.
+                </div>
+              )}
+            </div>
+          </section>
 
           <div className="mt-5 flex flex-wrap gap-2 border-t border-[var(--border-soft)] pt-4">
             {isInitialized ? (

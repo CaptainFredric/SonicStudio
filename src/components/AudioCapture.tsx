@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Check, Mic, MicOff, Play, SlidersHorizontal, Sparkles, Square, X } from 'lucide-react';
+import { Check, Download, Mic, MicOff, Play, SlidersHorizontal, Sparkles, Square, Trash2, X } from 'lucide-react';
 
 import { engine } from '../audio/ToneEngine';
 import { useAudio } from '../context/AudioContext';
@@ -21,8 +21,17 @@ import {
   subscribeRecordedNotePresets,
   type RecordedNotePreset,
 } from '../services/recordedNoteLibrary';
+import {
+  deleteVocalTake,
+  getVocalTakeBlob,
+  listVocalTakeSummaries,
+  saveVocalTake,
+  subscribeVocalTakeSummaries,
+  type VocalTakeSummary,
+} from '../services/vocalTakeLibrary';
 import { getPitchCoachFeedback } from '../services/pitchCoach';
 import { TrackIcon, getTrackPersonality } from '../utils/trackPersonality';
+import { convertRecordingBlobToWav } from '../utils/export';
 import {
   createTrack as createPreviewTrackModel,
   defaultNoteForTrack,
@@ -80,6 +89,30 @@ const buildSuggestedRecordedNoteName = (note: string | null, suggestion: Capture
   }
 
   return `${note} ${suggestion?.presetLabel ?? 'Captured note'}`.slice(0, 40);
+};
+
+const buildSuggestedVocalTakeName = (note: string | null) => (
+  note ? `Vocal ${note} take` : 'Vocal take'
+);
+
+const buildCaptureFileName = (name: string, extension: 'wav' | 'webm') => {
+  const stem = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48) || `capture-${new Date().toISOString().replace(/[:.]/g, '-')}`;
+
+  return `${stem}.${extension}`;
+};
+
+const downloadBlobFile = (blob: Blob, fileName: string) => {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = fileName;
+  anchor.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
 };
 
 const CAPTURE_ANALYSIS_CONFIGS: Record<CaptureAnalysisProfile, {
@@ -176,6 +209,12 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
   const [sessionRecordedNotes, setSessionRecordedNotes] = useState<RecordedNotePreset[]>([]);
   const [suggestions, setSuggestions] = useState<CaptureSuggestion[]>([]);
   const [pitchCoachTarget, setPitchCoachTarget] = useState('C4');
+  const [vocalTakeLibrary, setVocalTakeLibrary] = useState<VocalTakeSummary[]>([]);
+  const [vocalTakeNameDraft, setVocalTakeNameDraft] = useState('');
+  const [vocalTakeMessage, setVocalTakeMessage] = useState<string | null>(null);
+  const [isSavingVocalTake, setIsSavingVocalTake] = useState(false);
+  const [isExportingVocalTake, setIsExportingVocalTake] = useState(false);
+  const [activeVocalTakeId, setActiveVocalTakeId] = useState<string | null>(null);
   const autoPreviewKeyRef = useRef<string | null>(null);
 
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
@@ -191,11 +230,14 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
     if (!result) {
       setSuggestions([]);
       setActiveNoteIndex(0);
+      setVocalTakeNameDraft('');
       return;
     }
 
     setSuggestions(result.suggestions.map(cloneCaptureSuggestion));
     setActiveNoteIndex(0);
+    setVocalTakeNameDraft(buildSuggestedVocalTakeName(result.detectedNote));
+    setVocalTakeMessage(null);
   }, [result]);
 
   useEffect(() => {
@@ -213,6 +255,44 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
 
     setRecordedNoteLibrary(loadRecordedNotePresets());
     return subscribeRecordedNotePresets(setRecordedNoteLibrary);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      return undefined;
+    }
+
+    let cancelled = false;
+    const syncVocalTakes = async () => {
+      try {
+        const nextTakes = await listVocalTakeSummaries();
+        if (!cancelled) {
+          setVocalTakeLibrary(nextTakes);
+          setVocalTakeMessage((current) => (
+            current && current.startsWith('Vocal take storage is unavailable') ? null : current
+          ));
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setVocalTakeLibrary([]);
+          setVocalTakeMessage(
+            err instanceof Error
+              ? `Vocal take storage is unavailable here: ${err.message}`
+              : 'Vocal take storage is unavailable in this browser.',
+          );
+        }
+      }
+    };
+
+    void syncVocalTakes();
+    const unsubscribe = subscribeVocalTakeSummaries(() => {
+      void syncVocalTakes();
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, [open]);
 
   const applySuggestionToTrack = useCallback((trackId: string, suggestion: CaptureSuggestion, note: string | null) => {
@@ -271,6 +351,11 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
       setPendingRecordedNote(null);
       setCaptureNameDraft('');
       setSessionRecordedNotes([]);
+      setVocalTakeNameDraft('');
+      setVocalTakeMessage(null);
+      setIsSavingVocalTake(false);
+      setIsExportingVocalTake(false);
+      setActiveVocalTakeId(null);
       setPitchCoachTarget(selectedTrack ? defaultNoteForTrack(selectedTrack) : 'C4');
       setSuggestions([]);
       setError(null);
@@ -362,6 +447,8 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
     setLiveFrame(null);
     setPendingRecordedNote(null);
     setCaptureNameDraft('');
+    setVocalTakeNameDraft('');
+    setVocalTakeMessage(null);
     setSessionRecordedNotes((current) => (
       capturePreferences.keepShelfBetweenTakes ? current : []
     ));
@@ -422,6 +509,8 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
     setSuggestions([]);
     setPendingRecordedNote(null);
     setCaptureNameDraft('');
+    setVocalTakeNameDraft('');
+    setVocalTakeMessage(null);
     setSessionRecordedNotes((current) => (
       capturePreferences.keepShelfBetweenTakes ? current : []
     ));
@@ -523,11 +612,81 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
 
   const downloadRecording = useCallback(() => {
     if (!result) return;
-    const anchor = document.createElement('a');
-    anchor.href = previewUrl ?? URL.createObjectURL(result.blob);
-    anchor.download = `sonicstudio-capture-${new Date().toISOString().replace(/[:.]/g, '-')}.webm`;
-    anchor.click();
-  }, [previewUrl, result]);
+    setVocalTakeMessage(null);
+    downloadBlobFile(result.blob, buildCaptureFileName(vocalTakeNameDraft || buildSuggestedVocalTakeName(result.detectedNote), 'webm'));
+  }, [result, vocalTakeNameDraft]);
+
+  const exportRecordingAsWav = useCallback(async () => {
+    if (!result) {
+      return;
+    }
+
+    setVocalTakeMessage(null);
+    setIsExportingVocalTake(true);
+    try {
+      const wavBlob = await convertRecordingBlobToWav(result.blob);
+      downloadBlobFile(wavBlob, buildCaptureFileName(vocalTakeNameDraft || buildSuggestedVocalTakeName(result.detectedNote), 'wav'));
+    } catch (err) {
+      setVocalTakeMessage(err instanceof Error ? err.message : 'Could not export this take as WAV.');
+    } finally {
+      setIsExportingVocalTake(false);
+    }
+  }, [result, vocalTakeNameDraft]);
+
+  const saveCurrentVocalTake = useCallback(async () => {
+    if (!result) {
+      return;
+    }
+
+    setVocalTakeMessage(null);
+    setIsSavingVocalTake(true);
+    try {
+      const wavBlob = await convertRecordingBlobToWav(result.blob);
+      const savedTake = await saveVocalTake({
+        blob: wavBlob,
+        clarity: result.clarity,
+        durationSeconds: result.durationSeconds,
+        name: vocalTakeNameDraft || buildSuggestedVocalTakeName(result.detectedNote),
+        note: selectedDetectedNote,
+      });
+      setVocalTakeLibrary((current) => [savedTake, ...current.filter((entry) => entry.id !== savedTake.id)]);
+      setVocalTakeMessage(`${savedTake.name} saved locally as a WAV take.`);
+    } catch (err) {
+      setVocalTakeMessage(err instanceof Error ? err.message : 'Could not save this vocal take.');
+    } finally {
+      setIsSavingVocalTake(false);
+    }
+  }, [result, selectedDetectedNote, vocalTakeNameDraft]);
+
+  const downloadSavedVocalTake = useCallback(async (take: VocalTakeSummary) => {
+    setVocalTakeMessage(null);
+    setActiveVocalTakeId(take.id);
+    try {
+      const blob = await getVocalTakeBlob(take.id);
+      if (!blob) {
+        throw new Error('That saved vocal take is no longer available.');
+      }
+      downloadBlobFile(blob, buildCaptureFileName(take.name, 'wav'));
+    } catch (err) {
+      setVocalTakeMessage(err instanceof Error ? err.message : 'Could not download that vocal take.');
+    } finally {
+      setActiveVocalTakeId(null);
+    }
+  }, []);
+
+  const removeSavedVocalTake = useCallback(async (takeId: string) => {
+    setVocalTakeMessage(null);
+    setActiveVocalTakeId(takeId);
+    try {
+      await deleteVocalTake(takeId);
+      setVocalTakeLibrary((current) => current.filter((entry) => entry.id !== takeId));
+      setVocalTakeMessage('Saved vocal take removed from this device.');
+    } catch (err) {
+      setVocalTakeMessage(err instanceof Error ? err.message : 'Could not remove that vocal take.');
+    } finally {
+      setActiveVocalTakeId(null);
+    }
+  }, []);
 
   if (!open) return null;
 
@@ -545,6 +704,49 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
   const resultCaptureHint = result
     ? describeCaptureHint(result.durationSeconds, result.transientDensity, result.clarity)
     : null;
+  const captureProfileDescription = describeCaptureProfile(capturePreferences.analysisProfile);
+  const shelfStateLabel = capturePreferences.keepShelfBetweenTakes
+    ? 'Shelf keeps notes between takes'
+    : 'Shelf resets each take';
+  const captureWorkflowSteps = [
+    {
+      body: state === 'recording'
+        ? 'Listening now. Hold one clear pitch or hit.'
+        : state === 'ready'
+          ? 'Take recorded. You can capture again anytime.'
+          : 'Start with one short, clean take.',
+      state: state === 'idle' || state === 'error' ? 'current' : 'done',
+      title: 'Record',
+    },
+    {
+      body: state === 'ready'
+        ? `${rankedSuggestionCount} lane ${rankedSuggestionCount === 1 ? 'match is' : 'matches are'} ready below.`
+        : liveSuggestions.length > 0
+          ? `${liveSuggestions.length} live ${liveSuggestions.length === 1 ? 'match is' : 'matches are'} settling in.`
+          : 'Watch the note, meter, and lane guesses lock in.',
+      state: state === 'ready'
+        ? 'done'
+        : state === 'recording' || state === 'analyzing'
+          ? 'current'
+          : 'upcoming',
+      title: 'Check match',
+    },
+    {
+      body: pendingRecordedNote || sessionRecordedNotes.length > 0
+        ? `Shelf has ${sessionRecordedNotes.length + (pendingRecordedNote ? 1 : 0)} note${sessionRecordedNotes.length + (pendingRecordedNote ? 1 : 0) === 1 ? '' : 's'} ready or saved this pass.`
+        : result
+          ? 'Save the note shelf, export the take as WAV, or apply a lane below.'
+        : saveableDetectedNote
+          ? 'Name the note once, then save it or apply a match to a track.'
+          : 'Save the note shelf or create/apply a lane once a match appears.',
+      state: pendingRecordedNote || sessionRecordedNotes.length > 0 || state === 'ready'
+        ? 'current'
+        : 'upcoming',
+      title: 'Store or apply',
+    },
+  ] as const;
+  const recentRecordedLibrary = recordedNoteLibrary.slice(0, 4);
+  const recentVocalTakes = vocalTakeLibrary.slice(0, 4);
 
   return (
     <div
@@ -564,10 +766,10 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
               <span className="section-label text-[var(--accent)]">Audio capture</span>
             </div>
             <h2 className="mt-1.5 text-lg font-semibold tracking-tight text-[var(--text-primary)]">
-              Record something and we'll suggest the closest notes and lanes.
+              Record a vocal take or sound and we'll suggest the closest notes and lanes.
             </h2>
             <p className="mt-1 text-[12px] leading-5 text-[var(--text-secondary)]">
-              Hum, whistle, tap, or record a short phrase. SonicStudio listens for the main pitch, gives you a few nearby note guesses, and suggests the closest lanes your current capture settings allow. Everything stays on your device.
+              Hum, whistle, sing a phrase, tap, or record a short idea. SonicStudio listens for the main pitch, gives you nearby note guesses, suggests the closest lanes your current capture settings allow, and can keep the raw take locally as a WAV vocal sketch. Everything stays on your device.
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               <span className="rounded-[2px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-secondary)]">
@@ -591,16 +793,121 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
           </button>
         </div>
 
+        <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1.1fr)_320px]">
+          <section className="surface-panel-strong p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="section-label">Capture flow</div>
+                <p className="mt-2 text-[12px] leading-5 text-[var(--text-secondary)]">
+                  {captureProfileDescription}
+                </p>
+              </div>
+              <span className="rounded-[2px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                {shelfStateLabel}
+              </span>
+            </div>
+
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+              {captureWorkflowSteps.map((step) => (
+                <div
+                  className={`rounded-[3px] border px-3 py-3 ${step.state === 'done'
+                    ? 'border-[rgba(114,217,255,0.24)] bg-[rgba(114,217,255,0.06)]'
+                    : step.state === 'current'
+                      ? 'border-[rgba(245,158,11,0.24)] bg-[rgba(245,158,11,0.08)]'
+                      : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]'}`}
+                  key={step.title}
+                >
+                  <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{step.title}</div>
+                  <div className="mt-2 text-[12px] font-medium text-[var(--text-primary)]">{step.body}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="surface-panel-strong p-4">
+            <div className="section-label">Capture storage</div>
+            <p className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
+              Saved notes stay local to this browser profile. The session shelf helps during the current pass, the note library keeps reusable note captures, and saved vocal takes are stored locally as WAV sketches.
+            </p>
+
+            <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-2">
+              <CaptureSummaryStat label="Saved notes" value={`${recordedNoteLibrary.length}`} />
+              <CaptureSummaryStat label="Saved vocals" value={`${vocalTakeLibrary.length}`} />
+              <CaptureSummaryStat label="This pass" value={`${sessionRecordedNotes.length + (pendingRecordedNote ? 1 : 0)}`} />
+              <CaptureSummaryStat label="Live matches" value={`${capturePreferences.liveSuggestionCount}`} />
+            </div>
+
+            <div className="mt-3 grid gap-3 xl:grid-cols-2">
+              <div className="rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+                <div className="section-label">Recent library</div>
+                {recentRecordedLibrary.length > 0 ? (
+                  <div className="mt-3 grid gap-2">
+                    {recentRecordedLibrary.map((savedNote) => (
+                      <div
+                        className="rounded-[2px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-2"
+                        key={savedNote.id}
+                      >
+                        <div className="text-[12px] font-medium text-[var(--text-primary)]">{savedNote.name}</div>
+                        <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+                          {savedNote.note} · {savedNote.trackType} · {Math.round(savedNote.clarity * 100)}% clarity
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="mt-3 text-[11px] leading-5 text-[var(--text-secondary)]">
+                    No saved capture notes yet. Once you save a note from this modal it will appear here and in the Piano Roll menu.
+                  </div>
+                )}
+              </div>
+
+              <div className="rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+                <div className="section-label">Recent vocal takes</div>
+                <p className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
+                  Save the raw take as a local WAV sketch if you want the vocal idea later, even if you do not apply a lane right away.
+                </p>
+                {vocalTakeMessage && (
+                  <div className="mt-3 rounded-[2px] border border-[rgba(114,217,255,0.18)] bg-[rgba(114,217,255,0.06)] px-3 py-3 text-[11px] leading-5 text-[var(--text-secondary)]">
+                    {vocalTakeMessage}
+                  </div>
+                )}
+                {recentVocalTakes.length > 0 ? (
+                  <div className="mt-3 grid gap-2">
+                    {recentVocalTakes.map((take) => (
+                      <div key={take.id}>
+                        <SavedVocalTakeCard
+                          isBusy={activeVocalTakeId === take.id}
+                          onDelete={() => {
+                            void removeSavedVocalTake(take.id);
+                          }}
+                          onDownload={() => {
+                            void downloadSavedVocalTake(take);
+                          }}
+                          take={take}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="mt-3 text-[11px] leading-5 text-[var(--text-secondary)]">
+                    No saved vocal takes yet. Record a phrase, then save the WAV take from the playback section below.
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
+        </div>
+
         <div className="mt-4 grid gap-3">
           <section className="surface-panel-strong p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="section-label">Record</div>
                 <p className="mt-1 text-[12px] text-[var(--text-secondary)]">
-                  {state === 'idle' && 'Tap record, make a sound for a second or two, then stop.'}
-                  {state === 'recording' && 'Listening now. Hold a steady tone for the clearest match.'}
+                  {state === 'idle' && 'Tap record, make one clear sound for a second or two, then stop. Short hits work, but held notes produce the cleanest matches.'}
+                  {state === 'recording' && 'Listening now. Hold a steady tone for the clearest match, or make one clean transient if you are capturing a hit.'}
                   {state === 'analyzing' && 'Analyzing...'}
-                  {state === 'ready' && 'Got it. Check the preview and suggestions below.'}
+                  {state === 'ready' && 'Got it. Check the preview, save the vocal take if you want the raw idea later, then store the note or apply a lane below.'}
                   {state === 'error' && (error ?? 'Something went wrong.')}
                 </p>
               </div>
@@ -789,7 +1096,7 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
                       />
                     ) : (
                       <div className="mt-3 rounded-[2px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3 text-[11px] leading-5 text-[var(--text-secondary)]">
-                        Hold a pitch until the note and clarity settle. Small fluctuations can still land a capture now; it does not need one perfectly frozen tone for ages.
+                        Hold a pitch until the note and clarity settle. Small fluctuations can still land a capture now, and this shelf will {capturePreferences.keepShelfBetweenTakes ? 'stay in place between takes.' : 'reset when you start the next take.'}
                       </div>
                     )}
 
@@ -843,20 +1150,58 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
                   </div>
 
                   <div className="border-t border-[var(--border-soft)] pt-4">
-                    <div className="section-label">Playback</div>
+                    <div className="section-label">Playback + vocal take</div>
                     <audio
                       ref={audioElRef}
                       className="mt-2 w-full"
                       controls
                       src={previewUrl}
                     />
+                    <label className="mt-3 grid gap-2">
+                      <span className="section-label">Take name</span>
+                      <input
+                        className="control-field h-10 px-3 text-sm"
+                        onChange={(event) => setVocalTakeNameDraft(event.target.value)}
+                        placeholder={buildSuggestedVocalTakeName(selectedDetectedNote ?? result.detectedNote)}
+                        value={vocalTakeNameDraft}
+                      />
+                    </label>
+                    {vocalTakeMessage && (
+                      <div className="mt-3 rounded-[2px] border border-[rgba(114,217,255,0.18)] bg-[rgba(114,217,255,0.06)] px-3 py-3 text-[11px] leading-5 text-[var(--text-secondary)]">
+                        {vocalTakeMessage}
+                      </div>
+                    )}
                     <div className="mt-3 flex flex-wrap gap-2">
                       <button
                         className="control-chip flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em]"
                         onClick={downloadRecording}
                         type="button"
                       >
+                        <Download className="h-3.5 w-3.5" />
                         Download .webm
+                      </button>
+                      <button
+                        className="control-chip flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em]"
+                        disabled={isExportingVocalTake}
+                        onClick={() => {
+                          void exportRecordingAsWav();
+                        }}
+                        type="button"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        {isExportingVocalTake ? 'Exporting WAV...' : 'Download .wav'}
+                      </button>
+                      <button
+                        className="control-chip flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em]"
+                        data-active="true"
+                        disabled={isSavingVocalTake}
+                        onClick={() => {
+                          void saveCurrentVocalTake();
+                        }}
+                        type="button"
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                        {isSavingVocalTake ? 'Saving take...' : 'Save vocal take'}
                       </button>
                       <button
                         className="control-chip flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em]"
@@ -1154,6 +1499,18 @@ const describeCaptureHint = (durationSeconds: number, transientDensity: number, 
   return null;
 };
 
+const describeCaptureProfile = (profile: CaptureAnalysisProfile) => {
+  switch (profile) {
+    case 'quick':
+      return 'Quick mode commits faster and favors immediate ideas. It works best for short stabs, taps, and fast sketching where speed matters more than a perfectly settled read.';
+    case 'steady':
+      return 'Steady mode waits longer before committing, which is better for held notes, soft tones, and cleaner pitch matching when you want the shelf to be stricter.';
+    case 'balanced':
+    default:
+      return 'Balanced mode is the general-purpose capture path: quick enough for sketches, but patient enough to settle the note, lane match, and saved shelf with less jitter.';
+  }
+};
+
 const SuggestionBadge = ({ type }: { type: InstrumentType }) => {
   const personality = getTrackPersonality(type);
   return (
@@ -1258,6 +1615,93 @@ const SavedRecordedNoteCard = ({ savedNote }: { savedNote: RecordedNotePreset })
     </div>
   </div>
 );
+
+const SavedVocalTakeCard = ({
+  isBusy,
+  onDelete,
+  onDownload,
+  take,
+}: {
+  isBusy: boolean;
+  onDelete: () => void;
+  onDownload: () => void;
+  take: VocalTakeSummary;
+}) => (
+  <div className="rounded-[2px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+    <div className="flex items-start justify-between gap-3">
+      <div className="min-w-0">
+        <div className="text-[12px] font-medium text-[var(--text-primary)]">{take.name}</div>
+        <div className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
+          {formatCaptureDuration(take.durationSeconds)} · {formatStorageSize(take.sizeBytes)} · {Math.round(take.clarity * 100)}% clarity{take.note ? ` · ${take.note}` : ''}
+        </div>
+        <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+          {formatSavedCaptureTime(take.updatedAt)}
+        </div>
+      </div>
+      {take.note && (
+        <span className="rounded-[2px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)] px-2 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+          {take.note}
+        </span>
+      )}
+    </div>
+    <div className="mt-3 flex flex-wrap gap-2">
+      <button
+        className="control-chip flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em]"
+        disabled={isBusy}
+        onClick={onDownload}
+        type="button"
+      >
+        <Download className="h-3.5 w-3.5" />
+        {isBusy ? 'Working...' : 'Download'}
+      </button>
+      <button
+        className="control-chip flex items-center gap-1.5 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em]"
+        disabled={isBusy}
+        onClick={onDelete}
+        type="button"
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+        Remove
+      </button>
+    </div>
+  </div>
+);
+
+const CaptureSummaryStat = ({ label, value }: { label: string; value: string }) => (
+  <div className="rounded-[2px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+    <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{label}</div>
+    <div className="mt-2 text-lg font-semibold tracking-tight text-[var(--text-primary)]">{value}</div>
+  </div>
+);
+
+const formatCaptureDuration = (durationSeconds: number) => {
+  const minutes = Math.floor(durationSeconds / 60);
+  const seconds = Math.max(0, Math.round(durationSeconds % 60));
+
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+};
+
+const formatStorageSize = (sizeBytes: number) => {
+  if (sizeBytes >= 1024 * 1024) {
+    return `${(sizeBytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  return `${Math.max(1, Math.round(sizeBytes / 1024))} KB`;
+};
+
+const formatSavedCaptureTime = (timestamp: string) => {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) {
+    return 'Saved locally';
+  }
+
+  return date.toLocaleString([], {
+    hour: 'numeric',
+    minute: '2-digit',
+    month: 'short',
+    day: 'numeric',
+  });
+};
 
 export const isStableCaptureFrame = (frame: LiveCaptureFrame, analysisProfile: CaptureAnalysisProfile = 'balanced') => {
   const candidate = frame.noteCandidates[0] ?? null;

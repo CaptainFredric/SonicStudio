@@ -215,6 +215,31 @@ export const Mixer = () => {
     };
   }, [mixerScope, mixerSections.length, tracks.length]);
 
+  useEffect(() => {
+    const node = mixerViewportRef.current;
+    if (!node) {
+      return undefined;
+    }
+
+    const handleMixerWheel = (event: WheelEvent) => {
+      if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
+        return;
+      }
+
+      if (node.scrollWidth <= node.clientWidth) {
+        return;
+      }
+
+      event.preventDefault();
+      node.scrollLeft += event.deltaY;
+    };
+
+    node.addEventListener('wheel', handleMixerWheel, { passive: false });
+    return () => {
+      node.removeEventListener('wheel', handleMixerWheel);
+    };
+  }, [mixerScope, mixerSections.length, tracks.length]);
+
   const scrollMixerByViewport = (direction: -1 | 1) => {
     const node = mixerViewportRef.current;
     if (!node) {
@@ -263,19 +288,6 @@ export const Mixer = () => {
 
       <div
         className="flex-1 overflow-x-auto overflow-y-hidden p-5 [scroll-behavior:smooth] [-webkit-overflow-scrolling:touch]"
-        onWheel={(event) => {
-          const node = mixerViewportRef.current;
-          if (!node || Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
-            return;
-          }
-
-          if (node.scrollWidth <= node.clientWidth) {
-            return;
-          }
-
-          event.preventDefault();
-          node.scrollLeft += event.deltaY;
-        }}
         ref={mixerViewportRef}
       >
         <div className="flex h-full min-h-[360px] gap-4 scroll-snap-x-mandatory md:min-h-[560px] md:gap-6">

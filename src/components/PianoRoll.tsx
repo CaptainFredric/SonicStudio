@@ -13,7 +13,7 @@ import {
   Zap,
 } from 'lucide-react';
 
-import { useAudio } from '../context/AudioContext';
+import { useAudio, usePlaybackStep } from '../context/AudioContext';
 import { type NoteEvent } from '../project/schema';
 import { TrackIcon, getTrackPersonality } from '../utils/trackPersonality';
 import {
@@ -122,11 +122,11 @@ interface NoteResizeState {
 
 export const PianoRoll = () => {
   const isMobileViewport = useMediaQuery('(max-width: 767px)');
+  const currentStep = usePlaybackStep();
   const {
     applyTrackVoicePreset,
     clearTrack,
     currentPattern,
-    currentStep,
     humanizePattern,
     moveNoteToStep,
     selectedTrackId,
@@ -146,6 +146,7 @@ export const PianoRoll = () => {
     updateStepEvent,
   } = useAudio();
   const track = tracks.find((candidate) => candidate.id === selectedTrackId);
+  const playbackStep = stepsPerPattern > 0 ? currentStep % stepsPerPattern : 0;
   const [noteWindow, setNoteWindow] = useState<NoteWindowKey>('MID');
   const [selectedStepIndex, setSelectedStepIndex] = useState<number | null>(null);
   const [selectedNoteIndex, setSelectedNoteIndex] = useState<number | null>(null);
@@ -528,6 +529,38 @@ export const PianoRoll = () => {
       window.removeEventListener('resize', syncViewport);
     };
   }, [stepZoom, rowZoom, stepsPerPattern, noteWindow, focusSelectedNote, track?.id]);
+
+  useEffect(() => {
+    const node = gridViewportRef.current;
+    if (!node) {
+      return undefined;
+    }
+
+    const handleGridWheel = (event: WheelEvent) => {
+      if (event.ctrlKey || event.altKey) {
+        event.preventDefault();
+        const dominantDelta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+        updateHorizontalZoom(stepCellWidth + (dominantDelta < 0 ? 8 : -8), event.clientX);
+        return;
+      }
+
+      if (!event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
+        return;
+      }
+
+      if (node.scrollWidth <= node.clientWidth) {
+        return;
+      }
+
+      event.preventDefault();
+      node.scrollLeft += event.deltaY;
+    };
+
+    node.addEventListener('wheel', handleGridWheel, { passive: false });
+    return () => {
+      node.removeEventListener('wheel', handleGridWheel);
+    };
+  }, [stepCellWidth, updateHorizontalZoom]);
 
   useEffect(() => {
     if (selectedStepIndex === null || !gridViewportRef.current) {
@@ -926,33 +959,9 @@ export const PianoRoll = () => {
       )}
 
       <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 xl:flex-row">
-        <div className="min-h-[520px] min-w-0 flex-1 overflow-hidden xl:min-h-0">
+        <div className="min-h-[420px] min-w-0 flex-1 overflow-hidden xl:min-h-0">
           <div
             className="sequencer-grid-scroll h-full overflow-auto"
-            onWheel={(event) => {
-              const node = gridViewportRef.current;
-              if (!node) {
-                return;
-              }
-
-              if (event.ctrlKey || event.altKey) {
-                event.preventDefault();
-                const dominantDelta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
-                updateHorizontalZoom(stepCellWidth + (dominantDelta < 0 ? 8 : -8), event.clientX);
-                return;
-              }
-
-              if (!event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
-                return;
-              }
-
-              if (node.scrollWidth <= node.clientWidth) {
-                return;
-              }
-
-              event.preventDefault();
-              node.scrollLeft += event.deltaY;
-            }}
             ref={gridViewportRef}
           >
           <div className="inline-flex min-w-max flex-col overflow-hidden rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
@@ -974,7 +983,7 @@ export const PianoRoll = () => {
                         {noteCount}
                       </span>
                     )}
-                    {currentStep === stepIndex && <div className="absolute inset-x-1 bottom-1 h-[2px] rounded-full bg-[var(--accent)]" />}
+                    {playbackStep === stepIndex && <div className="absolute inset-x-1 bottom-1 h-[2px] rounded-full bg-[var(--accent-strong)]" />}
                   </button>
                 );
               })}
@@ -996,7 +1005,7 @@ export const PianoRoll = () => {
                     const step = patternSteps[stepIndex] ?? [];
                     const noteIndex = step.findIndex((event) => event.note === note);
                     const activeEvent = noteIndex >= 0 ? step[noteIndex] : null;
-                    const isCurrent = currentStep === stepIndex;
+                    const isCurrent = playbackStep === stepIndex;
                     const isSelected = selectedStepIndex === stepIndex;
 
                     return (
@@ -1067,7 +1076,9 @@ export const PianoRoll = () => {
                               onPointerDown={(event) => handleNotePointerDown(stepIndex, noteIndex, note, activeEvent, rowIndex, event)}
                               style={{
                                 background: track.color,
-                                boxShadow: 'inset 0 0 0 1px rgba(15, 23, 42, 0.16)',
+                                boxShadow: isCurrent
+                                  ? `inset 0 0 0 1px rgba(255,255,255,0.74), 0 0 0 1px rgba(15, 23, 42, 0.14), 0 0 18px ${track.color}40`
+                                  : 'inset 0 0 0 1px rgba(15, 23, 42, 0.16)',
                                 opacity: isCurrent ? 1 : 0.9,
                                 width: `${Math.max(10, Math.min((stepCellWidth * NOTE_GATE_MAX) - 6, (activeEvent.gate * stepCellWidth) - 6))}px`,
                                 touchAction: 'none',
@@ -1214,7 +1225,7 @@ export const PianoRoll = () => {
                 />
                 <div
                   className="pointer-events-none absolute bottom-0 top-0 w-[2px] bg-[rgba(255,255,255,0.42)]"
-                  style={{ left: `${(currentStep / stepsPerPattern) * 100}%` }}
+                  style={{ left: `${(playbackStep / stepsPerPattern) * 100}%` }}
                 />
               </div>
               <div className="mt-2 text-[11px] leading-5 text-[var(--text-tertiary)]">

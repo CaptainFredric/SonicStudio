@@ -41,11 +41,11 @@ const resolveRecipe = (variant: UiSoundVariant, mode: UiSoundMode): UiSoundRecip
   }
 
   return {
-    decay: recipe.decay * 0.84,
-    detuneSpread: recipe.detuneSpread + 3,
-    frequency: recipe.frequency * 1.08,
-    gain: recipe.gain * 0.92,
-    harmonicRatio: recipe.harmonicRatio + 0.42,
+    decay: recipe.decay * 0.92,
+    detuneSpread: recipe.detuneSpread + 4,
+    frequency: recipe.frequency * 1.05,
+    gain: recipe.gain * 1.24,
+    harmonicRatio: recipe.harmonicRatio + 0.58,
     wave: recipe.wave === 'triangle'
       ? 'square'
       : recipe.wave === 'square'
@@ -100,6 +100,8 @@ class UiSoundEngine {
     const harmonic = context.createOscillator();
     const envelope = context.createGain();
     const filter = context.createBiquadFilter();
+    const shimmer = mode === 'supersonic' ? context.createOscillator() : null;
+    const shimmerEnvelope = mode === 'supersonic' ? context.createGain() : null;
 
     filter.type = mode === 'supersonic' ? 'bandpass' : 'lowpass';
     filter.frequency.value = mode === 'supersonic'
@@ -118,13 +120,87 @@ class UiSoundEngine {
 
     primary.connect(filter);
     harmonic.connect(filter);
+    if (shimmer && shimmerEnvelope) {
+      shimmer.type = 'triangle';
+      shimmer.frequency.value = recipe.frequency * (recipe.harmonicRatio + 1.8) * jitter;
+      shimmer.detune.value = recipe.detuneSpread * 7;
+      shimmerEnvelope.gain.setValueAtTime(0.0001, now);
+      shimmerEnvelope.gain.exponentialRampToValueAtTime(recipe.gain * 0.32, now + 0.003);
+      shimmerEnvelope.gain.exponentialRampToValueAtTime(0.0001, now + Math.min(0.12, recipe.decay * 0.95));
+      shimmer.connect(shimmerEnvelope);
+      shimmerEnvelope.connect(filter);
+    }
     filter.connect(envelope);
     envelope.connect(context.destination);
 
     primary.start(now);
     harmonic.start(now);
+    shimmer?.start(now);
     primary.stop(now + recipe.decay + 0.02);
     harmonic.stop(now + recipe.decay + 0.02);
+    shimmer?.stop(now + Math.min(0.14, recipe.decay + 0.04));
+  }
+
+  playSupersonicTransition(enabled: boolean) {
+    const context = this.ensureContext();
+    if (!context) {
+      return;
+    }
+
+    const now = context.currentTime;
+    if (now - this.lastPlaybackAt < 0.05) {
+      return;
+    }
+    this.lastPlaybackAt = now;
+
+    const carrier = context.createOscillator();
+    const body = context.createOscillator();
+    const shimmer = context.createOscillator();
+    const envelope = context.createGain();
+    const shimmerEnvelope = context.createGain();
+    const filter = context.createBiquadFilter();
+
+    filter.type = enabled ? 'lowpass' : 'bandpass';
+    filter.Q.value = enabled ? 0.85 : 1.15;
+    filter.frequency.setValueAtTime(enabled ? 260 : 1800, now);
+    filter.frequency.exponentialRampToValueAtTime(enabled ? 3600 : 180, now + 0.26);
+
+    envelope.gain.setValueAtTime(0.0001, now);
+    envelope.gain.exponentialRampToValueAtTime(enabled ? 0.05 : 0.038, now + 0.014);
+    envelope.gain.exponentialRampToValueAtTime(0.0001, now + 0.31);
+
+    shimmerEnvelope.gain.setValueAtTime(0.0001, now);
+    shimmerEnvelope.gain.exponentialRampToValueAtTime(enabled ? 0.018 : 0.012, now + 0.012);
+    shimmerEnvelope.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+
+    carrier.type = enabled ? 'sawtooth' : 'triangle';
+    body.type = 'triangle';
+    shimmer.type = enabled ? 'square' : 'sine';
+
+    carrier.frequency.setValueAtTime(enabled ? 120 : 760, now);
+    carrier.frequency.exponentialRampToValueAtTime(enabled ? 760 : 110, now + 0.24);
+    body.frequency.setValueAtTime(enabled ? 240 : 560, now);
+    body.frequency.exponentialRampToValueAtTime(enabled ? 1180 : 140, now + 0.28);
+    shimmer.frequency.setValueAtTime(enabled ? 620 : 1800, now);
+    shimmer.frequency.exponentialRampToValueAtTime(enabled ? 2200 : 260, now + 0.16);
+
+    body.detune.value = enabled ? 9 : -7;
+    shimmer.detune.value = enabled ? 16 : -18;
+
+    carrier.connect(filter);
+    body.connect(filter);
+    filter.connect(envelope);
+    envelope.connect(context.destination);
+
+    shimmer.connect(shimmerEnvelope);
+    shimmerEnvelope.connect(context.destination);
+
+    carrier.start(now);
+    body.start(now);
+    shimmer.start(now);
+    carrier.stop(now + 0.33);
+    body.stop(now + 0.33);
+    shimmer.stop(now + 0.21);
   }
 }
 
@@ -132,4 +208,8 @@ const uiSoundEngine = new UiSoundEngine();
 
 export const playUiSound = (variant: UiSoundVariant, mode: UiSoundMode = 'classic') => {
   uiSoundEngine.play(variant, mode);
+};
+
+export const playSupersonicToggleSound = (enabled: boolean) => {
+  uiSoundEngine.playSupersonicTransition(enabled);
 };

@@ -22,6 +22,7 @@ type TrackInstrument =
   | Tone.Gain;
 
 interface TrackGraph {
+  ambienceActive: boolean;
   channel: Tone.Channel;
   chorus: Tone.Chorus;
   crusher: Tone.BitCrusher;
@@ -29,18 +30,31 @@ interface TrackGraph {
   dist: Tone.Distortion;
   filter: Tone.Filter;
   instrument: TrackInstrument;
+  lastAutomationCutoff: number | null;
+  lastAutomationVolume: number | null;
   meter: Tone.Meter;
+  postFilter: Tone.Gain;
   reverb: Tone.Freeverb;
   sampleBuffer: Tone.ToneAudioBuffer | null;
+  samplePlayerAvailableAt: number[];
+  samplePlayerCursor: number;
+  samplePlayers: Tone.Player[];
   sampleRootNote: string | null;
   type: Track['type'];
   vibrato: Tone.Vibrato;
   voiceSignature: string;
 }
 
+const SAMPLE_VOICE_POOL_SIZE = 12;
+const MAX_SAMPLE_VOICE_POOL_SIZE = 24;
+const PLAYBACK_STABILITY_LOOKAHEAD_SECONDS = 0.14;
+const DEFAULT_SYNTH_MAX_POLYPHONY = 10;
+const FX_MAX_POLYPHONY = 6;
+const PAD_MAX_POLYPHONY = 8;
+
 export class ToneEngine {
-  private activeSamplePlayers = new Set<Tone.Player>();
   private arrangerClips: ArrangementClip[] = [];
+  private arrangerClipsByTrack: Record<string, ArrangementClip[]> = {};
   private initPromise: Promise<void> | null = null;
   private isInitialized = false;
   private loopRange: { endBeat: number; startBeat: number } | null = null;
@@ -84,6 +98,7 @@ export class ToneEngine {
     if (this.isInitialized) {
       if (!offlineMode) {
         await Tone.start();
+        Tone.getContext().lookAhead = PLAYBACK_STABILITY_LOOKAHEAD_SECONDS;
       }
       return;
     }
@@ -96,6 +111,7 @@ export class ToneEngine {
     this.initPromise = (async () => {
       if (!offlineMode) {
         await Tone.start();
+        Tone.getContext().lookAhead = PLAYBACK_STABILITY_LOOKAHEAD_SECONDS;
       }
 
       if (this.isInitialized) {
@@ -159,6 +175,16 @@ export class ToneEngine {
 
   public syncProject(project: Project) {
     this.arrangerClips = project.arrangerClips;
+    this.arrangerClipsByTrack = project.arrangerClips.reduce<Record<string, ArrangementClip[]>>((lookup, clip) => {
+      if (!lookup[clip.trackId]) {
+        lookup[clip.trackId] = [];
+      }
+      lookup[clip.trackId].push(clip);
+      return lookup;
+    }, {});
+    Object.values(this.arrangerClipsByTrack).forEach((clips) => {
+      clips.sort((left, right) => left.startBeat - right.startBeat);
+    });
     this.currentPattern = project.transport.currentPattern;
     this.masterSettings = project.master;
     this.metronomeEnabled = project.transport.metronomeEnabled;
@@ -256,7 +282,7 @@ export class ToneEngine {
       };
     }
 
-    const activeClip = this.arrangerClips.find((clip) => (
+    const activeClip = (this.arrangerClipsByTrack[track.id] ?? []).find((clip) => (
       clip.trackId === track.id
       && songStep >= clip.startBeat
       && songStep < clip.startBeat + clip.beatLength
@@ -289,10 +315,18 @@ export class ToneEngine {
     const automation = this.getAutomationStep(track, patternIndex, stepIndex);
     const volumeOffset = (automation.level - 0.5) * 18;
     const toneFactor = 0.35 + automation.tone * 1.3;
+    const automatedVolume = track.volume + volumeOffset;
     const automatedCutoff = Math.max(80, Math.min(18_000, track.params.cutoff * toneFactor));
 
-    graph.channel.volume.rampTo(track.volume + volumeOffset, 0.02);
-    graph.filter.frequency.rampTo(automatedCutoff, 0.02);
+    if (graph.lastAutomationVolume === null || Math.abs(graph.lastAutomationVolume - automatedVolume) > 0.02) {
+      graph.channel.volume.rampTo(automatedVolume, 0.02);
+      graph.lastAutomationVolume = automatedVolume;
+    }
+
+    if (graph.lastAutomationCutoff === null || Math.abs(graph.lastAutomationCutoff - automatedCutoff) > 12) {
+      graph.filter.frequency.rampTo(automatedCutoff, 0.02);
+      graph.lastAutomationCutoff = automatedCutoff;
+    }
   }
 
   private triggerTrack(graph: TrackGraph, track: Track, step: NoteEvent, time: number) {
@@ -559,6 +593,17 @@ export class ToneEngine {
     };
   }
 
+  private createSamplePlayer(sampleBuffer: Tone.ToneAudioBuffer, vibrato: Tone.Vibrato) {
+    const player = new Tone.Player({
+      fadeOut: 0.05,
+      loop: false,
+      reverse: false,
+      url: sampleBuffer,
+    });
+    player.connect(vibrato);
+    return player;
+  }
+
   private triggerSampleTrack(
     graph: TrackGraph,
     track: Track,
@@ -579,34 +624,56 @@ export class ToneEngine {
     const scheduledDuration = track.source.samplePlayback === 'oneshot'
       ? trimmedDuration
       : Math.min(trimmedDuration, Math.max(0.02, duration * playbackRate));
-    const player = new Tone.Player({
-      fadeOut: Math.min(0.05, scheduledDuration * 0.25),
-      loop: false,
-      playbackRate,
-      reverse: sliceWindow.reverse,
-      url: graph.sampleBuffer,
+
+    if (graph.samplePlayers.length === 0) {
+      return;
+    }
+
+    let playerIndex = graph.samplePlayerAvailableAt.findIndex((availableAt, index) => {
+      const player = graph.samplePlayers[index];
+      return availableAt <= time + 0.001 && Boolean(player?.loaded);
     });
 
-    this.activeSamplePlayers.add(player);
+    if (playerIndex === -1 && graph.sampleBuffer && graph.samplePlayers.length < MAX_SAMPLE_VOICE_POOL_SIZE) {
+      const extraPlayer = this.createSamplePlayer(graph.sampleBuffer, graph.vibrato);
+      graph.samplePlayers.push(extraPlayer);
+      graph.samplePlayerAvailableAt.push(0);
+      playerIndex = graph.samplePlayers.length - 1;
+    }
+
+    if (playerIndex === -1) {
+      return;
+    }
+
+    const player = graph.samplePlayers[playerIndex];
+
+    player.fadeOut = Math.min(0.05, scheduledDuration * 0.25);
+    player.loop = false;
+    player.playbackRate = playbackRate;
+    player.reverse = sliceWindow.reverse;
     player.volume.value = Tone.gainToDb(Math.max(0.0001, step.velocity * sliceWindow.gain));
-    player.connect(graph.vibrato);
-    player.start(time, windowStart, scheduledDuration);
-    player.stop(time + scheduledDuration + 0.06);
-    player.onstop = () => {
-      this.activeSamplePlayers.delete(player);
-      player.dispose();
-    };
+
+    try {
+      player.start(time, windowStart, scheduledDuration);
+      player.stop(time + scheduledDuration + 0.06);
+      graph.samplePlayerAvailableAt[playerIndex] = time + scheduledDuration + 0.06;
+      graph.samplePlayerCursor = (playerIndex + 1) % graph.samplePlayers.length;
+    } catch {
+      graph.samplePlayerAvailableAt[playerIndex] = time;
+    }
   }
 
   private stopActiveVoices() {
-    this.activeSamplePlayers.forEach((player) => {
-      try {
-        player.stop();
-      } catch {
-        player.dispose();
-      }
+    Object.values(this.trackGraphs).forEach((graph) => {
+      graph.samplePlayers.forEach((player) => {
+        try {
+          player.stop();
+        } catch {
+          // Ignore idle pooled voices.
+        }
+      });
+      graph.samplePlayerAvailableAt = graph.samplePlayerAvailableAt.map(() => 0);
     });
-    this.activeSamplePlayers.clear();
 
     Object.values(this.trackGraphs).forEach((graph) => {
       const instrument = graph.instrument;
@@ -646,11 +713,23 @@ export class ToneEngine {
       case 'bass':
         return new Tone.MonoSynth();
       case 'pad':
-        return new Tone.PolySynth(Tone.AMSynth);
+        {
+          const instrument = new Tone.PolySynth(Tone.AMSynth);
+          instrument.maxPolyphony = PAD_MAX_POLYPHONY;
+          return instrument;
+        }
       case 'fx':
-        return new Tone.PolySynth(Tone.FMSynth);
+        {
+          const instrument = new Tone.PolySynth(Tone.FMSynth);
+          instrument.maxPolyphony = FX_MAX_POLYPHONY;
+          return instrument;
+        }
       default:
-        return new Tone.PolySynth(Tone.Synth);
+        {
+          const instrument = new Tone.PolySynth(Tone.Synth);
+          instrument.maxPolyphony = DEFAULT_SYNTH_MAX_POLYPHONY;
+          return instrument;
+        }
     }
   }
 
@@ -663,19 +742,24 @@ export class ToneEngine {
     const delay = new Tone.FeedbackDelay('8n', 0.4);
     const filter = new Tone.Filter(2000, 'lowpass');
     const dist = new Tone.Distortion(0);
+    const postFilter = new Tone.Gain();
     const vibrato = new Tone.Vibrato(4, 0);
     const instrument = this.createInstrument(track);
     const sampleMeta = track.source.engine === 'sample' ? getSamplePresetMeta(track.source.samplePreset) : null;
     const sampleBuffer = track.source.engine === 'sample'
       ? new Tone.ToneAudioBuffer(track.source.customSampleDataUrl ?? getSampleUrl(track.source.samplePreset))
       : null;
+    const samplePlayers = track.source.engine === 'sample' && sampleBuffer
+      ? Array.from({ length: SAMPLE_VOICE_POOL_SIZE }, () => this.createSamplePlayer(sampleBuffer, vibrato))
+      : [];
 
     channel.connect(this.masterLimiter!);
     channel.connect(meter);
     reverb.connect(channel);
     delay.connect(reverb);
     chorus.connect(delay);
-    filter.connect(chorus);
+  postFilter.connect(channel);
+  filter.connect(postFilter);
     dist.connect(filter);
     crusher.connect(dist);
     vibrato.connect(crusher);
@@ -688,6 +772,7 @@ export class ToneEngine {
     vibrato.wet.value = 1;
 
     return {
+      ambienceActive: false,
       channel,
       chorus,
       crusher,
@@ -695,9 +780,15 @@ export class ToneEngine {
       dist,
       filter,
       instrument,
+      lastAutomationCutoff: null,
+      lastAutomationVolume: null,
       meter,
+      postFilter,
       reverb,
       sampleBuffer,
+      samplePlayerAvailableAt: samplePlayers.map(() => 0),
+      samplePlayerCursor: 0,
+      samplePlayers,
       sampleRootNote: sampleMeta?.rootNote ?? null,
       type: track.type,
       vibrato,
@@ -727,11 +818,13 @@ export class ToneEngine {
       return;
     }
 
+    graph.samplePlayers.forEach((player) => player.dispose());
     graph.instrument.dispose();
     graph.vibrato.dispose();
     graph.crusher.dispose();
     graph.dist.dispose();
     graph.filter.dispose();
+    graph.postFilter.dispose();
     graph.chorus.dispose();
     graph.delay.dispose();
     graph.reverb.dispose();
@@ -773,6 +866,22 @@ export class ToneEngine {
   }
 
   private applyTrackGraphState(graph: TrackGraph, track: Track) {
+    const ambienceActive = track.params.chorusSend > 0.001
+      || track.params.delaySend > 0.001
+      || track.params.reverbSend > 0.001;
+
+    if (graph.ambienceActive !== ambienceActive) {
+      if (ambienceActive) {
+        graph.postFilter.disconnect(graph.channel);
+        graph.postFilter.connect(graph.chorus);
+      } else {
+        graph.postFilter.disconnect(graph.chorus);
+        graph.postFilter.connect(graph.channel);
+      }
+
+      graph.ambienceActive = ambienceActive;
+    }
+
     graph.channel.mute = track.muted;
     graph.channel.pan.rampTo(track.pan, 0.05);
     graph.channel.solo = track.solo;

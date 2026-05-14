@@ -99,8 +99,11 @@ const LaneStateButton = ({
 }) => (
   <button
     aria-label={label}
-    className={`ghost-icon-button flex h-8 w-8 items-center justify-center ${active ? 'border-[rgba(124,211,252,0.3)] bg-[rgba(124,211,252,0.1)] text-[var(--accent-strong)]' : ''}`}
+    className="arranger-lane-menu-button flex h-8 w-8 items-center justify-center"
+    data-active={active ? 'true' : 'false'}
+    data-ui-sound="action"
     onClick={onClick}
+    type="button"
   >
     {children}
   </button>

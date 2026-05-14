@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 
 import { getSamplePresetMeta } from '../audio/sampleLibrary';
-import { useAudio } from '../context/AudioContext';
+import { useAudio, usePlaybackStep } from '../context/AudioContext';
 import { SONG_FORM_DEFINITIONS, type SongFormId } from '../context/editor/songFormDefinitions';
 import {
   createPatternSegment,
@@ -230,13 +230,13 @@ const getLaneGroup = (trackType: typeof TRACK_BUTTONS[number]['type']): LaneGrou
 
 export const MainWorkspace = () => {
   const isMobileViewport = useMediaQuery('(max-width: 767px)');
+  const currentStep = usePlaybackStep();
   const {
     applySongForm,
     applyPatternSegment,
     clearPatternAt,
     clearTrack,
     createTrack,
-    currentStep,
     currentPattern,
     duplicateTrack,
     moveTrack,
@@ -293,6 +293,7 @@ export const MainWorkspace = () => {
   const [gridViewportWidth, setGridViewportWidth] = useState(0);
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
   const selectedTrackPattern = selectedTrack?.patterns[currentPattern] ?? Array.from({ length: stepsPerPattern }, () => []);
+  const playbackStep = stepsPerPattern > 0 ? currentStep % stepsPerPattern : 0;
   const selectedStep = selectedTrackPattern[selectedStepIndex] ?? [];
   const selectedLeadEvent = selectedStep[0] ?? null;
   const selectedStepNote = selectedStep[selectedStepNoteIndex] ?? selectedLeadEvent;
@@ -507,6 +508,38 @@ export const MainWorkspace = () => {
       window.removeEventListener('resize', syncGridViewport);
     };
   }, [compactLanes, laneScope, laneHeaderWidth, stepCellWidth, stepsPerPattern, visibleTrackSections.length]);
+
+  useEffect(() => {
+    const node = gridViewportRef.current;
+    if (!node) {
+      return undefined;
+    }
+
+    const handleGridWheel = (event: WheelEvent) => {
+      if (event.ctrlKey || event.altKey) {
+        event.preventDefault();
+        const dominantDelta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+        updateStepZoom(stepCellWidth + (dominantDelta < 0 ? 6 : -6), event.clientX);
+        return;
+      }
+
+      if (!event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
+        return;
+      }
+
+      if (node.scrollWidth <= node.clientWidth) {
+        return;
+      }
+
+      event.preventDefault();
+      node.scrollLeft += event.deltaY;
+    };
+
+    node.addEventListener('wheel', handleGridWheel, { passive: false });
+    return () => {
+      node.removeEventListener('wheel', handleGridWheel);
+    };
+  }, [laneHeaderWidth, stepCellWidth, stepZoomMax]);
 
   const updateStepZoom = (nextWidth: number, anchorClientX?: number) => {
     setStepZoom((currentWidth) => {
@@ -903,8 +936,8 @@ export const MainWorkspace = () => {
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-visible p-4 xl:flex-row xl:items-start">
-        <div className="flex min-h-[520px] min-w-0 flex-1 flex-col overflow-visible xl:min-h-0">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-visible p-4 xl:flex-row xl:items-start">
+        <div className="flex min-h-[340px] min-w-0 flex-1 flex-col overflow-visible lg:min-h-[380px] xl:min-h-0">
           <div className="surface-panel-muted mb-3 px-4 py-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -1156,30 +1189,6 @@ export const MainWorkspace = () => {
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <div
               className="sequencer-grid-scroll flex-1 overflow-auto rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]"
-              onWheel={(event) => {
-                const node = gridViewportRef.current;
-                if (!node) {
-                  return;
-                }
-
-                if (event.ctrlKey || event.altKey) {
-                  event.preventDefault();
-                  const dominantDelta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
-                  updateStepZoom(stepCellWidth + (dominantDelta < 0 ? 6 : -6), event.clientX);
-                  return;
-                }
-
-                if (!event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
-                  return;
-                }
-
-                if (node.scrollWidth <= node.clientWidth) {
-                  return;
-                }
-
-                event.preventDefault();
-                node.scrollLeft += event.deltaY;
-              }}
               ref={gridViewportRef}
             >
               <div style={{ minWidth: `${laneHeaderWidth + stepGridWidth}px` }}>
@@ -1208,7 +1217,7 @@ export const MainWorkspace = () => {
 
               {visibleTracks.length === 0 ? (
                 <div className="flex h-full items-center justify-center px-6 py-10 text-center text-sm text-[var(--text-secondary)]">
-                  No lanes match the current scope. Change the filter or add activity to the current pattern.
+                  Show off your musicial prowess by adding a lane and placing some notes! Use the track map above to jump around as your pattern grows.
                 </div>
               ) : visibleTrackSections.map(({ key, label, tracks: groupedTracks }) => (
                 <div key={key}>
@@ -1338,7 +1347,7 @@ export const MainWorkspace = () => {
                         <div className={`flex gap-[2px] ${laneGridPaddingClass}`} style={{ width: `${stepGridWidth}px` }}>
                           {patternSteps.map((value, stepIndex) => {
                             const isActive = value.length > 0;
-                            const isCurrent = currentStep === stepIndex;
+                            const isCurrent = playbackStep === stepIndex;
                             const isSelectedStep = selectedStepIndex === stepIndex;
                             const leadEvent = value[0];
                             const extraNotes = Math.max(0, value.length - 1);
@@ -1381,16 +1390,29 @@ export const MainWorkspace = () => {
                                 style={isActive
                                   ? {
                                       background: isCurrent ? track.color : `${track.color}cc`,
-                                      boxShadow: 'inset 0 0 0 1px rgba(15, 23, 42, 0.12)',
+                                      boxShadow: isCurrent
+                                        ? `inset 0 0 0 1px rgba(255, 255, 255, 0.76), 0 0 0 1px rgba(15, 23, 42, 0.14), 0 0 18px ${track.color}44`
+                                        : 'inset 0 0 0 1px rgba(15, 23, 42, 0.12)',
                                       width: `${stepCellWidth - 2}px`,
                                       touchAction: 'none',
                                     }
                                   : {
+                                      background: isCurrent ? `${track.color}16` : undefined,
                                       width: `${stepCellWidth - 2}px`,
                                       touchAction: 'none',
                                     }}
                                 type="button"
                               >
+                                {isCurrent && (
+                                  <span
+                                    aria-hidden
+                                    className="absolute inset-x-0 top-0 h-[3px]"
+                                    style={{
+                                      background: isActive ? 'rgba(255,255,255,0.82)' : track.color,
+                                      opacity: isActive ? 1 : 0.74,
+                                    }}
+                                  />
+                                )}
                                 {isActive && showStepNoteLabel && !['kick', 'snare', 'hihat'].includes(track.type) && leadEvent && (
                                   <span className="absolute bottom-1 right-1 font-mono text-[9px] font-medium text-black/60">
                                     {leadEvent.note}

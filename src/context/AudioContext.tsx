@@ -1,4 +1,5 @@
 import React, {
+  useCallback,
   createContext,
   useContext,
   useEffect,
@@ -109,7 +110,6 @@ interface AudioContextType {
   createTrack: (trackType: InstrumentType) => void;
   createSampleSlice: (trackId: string, slice?: Partial<SampleSliceMemory>) => void;
   currentPattern: number;
-  currentStep: number;
   duplicateArrangerClip: (clipId: string) => void;
   exportAudioMix: (scope?: ExportScope, options?: { normalization?: BounceNormalizationMode; tailMode?: BounceTailMode; targetProfileId?: RenderTargetProfileId }) => Promise<void>;
   exportMidi: (scope?: ExportScope) => Promise<void>;
@@ -243,6 +243,7 @@ interface AudioContextType {
 }
 
 const AudioContext = createContext<AudioContextType | null>(null);
+const PlaybackStepContext = createContext(0);
 
 export const useAudio = () => {
   const context = useContext(AudioContext);
@@ -252,6 +253,8 @@ export const useAudio = () => {
 
   return context;
 };
+
+export const usePlaybackStep = () => useContext(PlaybackStepContext);
 
 export const AudioProvider = ({
   children,
@@ -456,11 +459,11 @@ export const AudioProvider = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editorState.history.present, editorState.ui]);
 
-  const initAudio = async () => {
+  const initAudio = useCallback(async () => {
     await engine.init();
     engine.syncProject(project);
     setIsInitialized(true);
-  };
+  }, [project]);
 
   // First-pointer audio unlock. Browser audio policy requires a user gesture
   // to start AudioContext. Rather than waiting for the user to find the Wake
@@ -486,7 +489,7 @@ export const AudioProvider = ({
     stop,
     togglePlay,
     toggleRecording,
-  } = createTransportController({
+  } = useMemo(() => createTransportController({
     countInActive,
     countInTokenRef,
     currentProject: project,
@@ -501,7 +504,7 @@ export const AudioProvider = ({
     setIsPlaying,
     setIsRecording,
     tracks: project.tracks,
-  });
+  }), [countInActive, initAudio, isInitialized, isPlaying, isRecording, project]);
 
   const {
     deleteCheckpoint,
@@ -513,7 +516,7 @@ export const AudioProvider = ({
     restoreCheckpoint,
     saveCheckpoint,
     saveProject: persistSessionNow,
-  } = createSessionController({
+  } = useMemo(() => createSessionController({
     currentProject: project,
     currentUi: editorState.ui,
     dispatchHydrateSession: (session) => dispatch({ type: 'HYDRATE_SESSION', session }),
@@ -522,14 +525,14 @@ export const AudioProvider = ({
     setLastSavedAt,
     setProjectCheckpoints,
     setSaveStatus,
-  });
+  }), [editorState.ui, persistCurrentSession, project, resetTransportState]);
 
-  const saveProject = () => {
+  const saveProject = useCallback(() => {
     manualSavePendingRef.current = true;
     persistSessionNow();
-  };
+  }, [persistSessionNow]);
 
-  const importSession = async (file: File) => {
+  const importSession = useCallback(async (file: File) => {
     const ok = await importSessionFromController(file);
     publishNotice(
       ok ? 'success' : 'error',
@@ -537,9 +540,9 @@ export const AudioProvider = ({
       ok ? `Loaded ${file.name}.` : 'That file does not match the SonicStudio session format.',
     );
     return ok;
-  };
+  }, [importSessionFromController]);
 
-  const importMidiSession = async (file: File) => {
+  const importMidiSession = useCallback(async (file: File) => {
     const ok = await importMidiSessionFromController(file);
     publishNotice(
       ok ? 'success' : 'error',
@@ -547,7 +550,7 @@ export const AudioProvider = ({
       ok ? `Loaded ${file.name}.` : 'Try a standard .mid file and import it again.',
     );
     return ok;
-  };
+  }, [importMidiSessionFromController]);
 
   const keyboardShortcutHandler = useEffectEvent(createKeyboardShortcutHandler({
     dispatch,
@@ -568,160 +571,220 @@ export const AudioProvider = ({
     };
   }, [keyboardShortcutHandler]);
 
-  const handleSaveScoresheet = (name: string, options?: { replaceId?: string }) => {
+  const handleSaveScoresheet = useCallback((name: string, options?: { replaceId?: string }) => {
     const next = saveScoresheetService(name, { project, ui: editorState.ui }, options ?? {});
     setScoresheets(next);
-  };
-  const handleLoadScoresheet = (id: string) => {
+  }, [editorState.ui, project]);
+  const handleLoadScoresheet = useCallback((id: string) => {
     const sheet = loadScoresheetService(id);
     if (!sheet) return;
     dispatch({ type: 'HYDRATE_SESSION', session: sheet.session });
     resetTransportState();
     setSaveStatus('idle');
-  };
-  const handleRenameScoresheet = (id: string, name: string) => {
+  }, [resetTransportState]);
+  const handleRenameScoresheet = useCallback((id: string, name: string) => {
     setScoresheets(renameScoresheetService(id, name));
-  };
-  const handleDeleteScoresheet = (id: string) => {
+  }, []);
+  const handleDeleteScoresheet = useCallback((id: string) => {
     setScoresheets(deleteScoresheetService(id));
-  };
+  }, []);
 
   const {
     exportAudioMix,
     exportMidi,
     exportTrackStems,
     rerunBounceHistory,
-  } = createRenderController({
+  } = useMemo(() => createRenderController({
     currentProject: project,
     dispatchAppendBounceHistory: (entry) => dispatch({ type: 'APPEND_BOUNCE_HISTORY', entry }),
     loopRangeEndBeat,
     loopRangeStartBeat,
     selectedArrangerClipId,
     setRenderState,
-  });
+  }), [loopRangeEndBeat, loopRangeStartBeat, project, selectedArrangerClipId]);
+
+  const audioContextValue = useMemo<AudioContextType>(() => ({
+    activeView,
+    arrangerClips,
+    bpm: project.transport.bpm,
+    bounceHistory: project.bounceHistory,
+    canRedo: editorState.history.future.length > 0,
+    canUndo: editorState.history.past.length > 0,
+    countInActive,
+    countInBars: project.transport.countInBars,
+    countInBeatsRemaining,
+    currentPattern: project.transport.currentPattern,
+    currentSession,
+    exportAudioMix,
+    exportMidi,
+    exportTrackStems,
+    exportSession: exportSessionToFile,
+    importMidiSession,
+    importSession,
+    initAudio,
+    isInitialized,
+    isPlaying,
+    isRecording,
+    isSettingsOpen: editorState.ui.isSettingsOpen,
+    lastSavedAt,
+    latestNotice,
+    loadSessionTemplate,
+    loopRangeEndBeat,
+    loopRangeStartBeat,
+    master: project.master,
+    masterSnapshots: project.masterSnapshots,
+    metronomeEnabled: project.transport.metronomeEnabled,
+    motionMode: preferences.motionMode,
+    capturePreferences: preferences.capture,
+    accentColor: preferences.accentColor,
+    density: preferences.density,
+    defaultWorkspace: preferences.defaultWorkspace,
+    superSonicMode: preferences.superSonicMode,
+    superSonicPreferences: preferences.superSonic,
+    newSession,
+    patternCount: project.transport.patternCount,
+    pinnedTrackIds,
+    previewTrack,
+    projectCheckpoints,
+    scoresheets,
+    saveScoresheet: handleSaveScoresheet,
+    loadScoresheet: handleLoadScoresheet,
+    renameScoresheet: handleRenameScoresheet,
+    deleteScoresheet: handleDeleteScoresheet,
+    projectName: project.metadata.name,
+    renderState,
+    rerunBounceHistory,
+    restoreCheckpoint,
+    saveCheckpoint,
+    saveProject,
+    saveStatus,
+    selectedArrangerClipId,
+    selectedTrackId,
+    songLengthInBeats,
+    songMarkers,
+    stepsPerPattern: project.transport.stepsPerPattern,
+    stop,
+    togglePlay,
+    toggleRecording,
+    tracks: project.tracks,
+    trackSnapshots: project.trackSnapshots,
+    transportMode: project.transport.mode,
+    uiSoundsEnabled: preferences.uiSoundsEnabled,
+    deleteCheckpoint,
+    ...dispatchers,
+    setMotionMode: (motionMode) => setPreferences((current) => ({ ...current, motionMode })),
+    setCaptureAnalysisProfile: (analysisProfile) => setPreferences((current) => ({
+      ...current,
+      capture: {
+        ...current.capture,
+        analysisProfile,
+      },
+    })),
+    setCaptureAutoPreviewMatch: (autoPreviewMatch) => setPreferences((current) => ({
+      ...current,
+      capture: {
+        ...current.capture,
+        autoPreviewMatch,
+      },
+    })),
+    setCaptureKeepShelfBetweenTakes: (keepShelfBetweenTakes) => setPreferences((current) => ({
+      ...current,
+      capture: {
+        ...current.capture,
+        keepShelfBetweenTakes,
+      },
+    })),
+    setCaptureLiveSuggestionCount: (liveSuggestionCount) => setPreferences((current) => ({
+      ...current,
+      capture: {
+        ...current.capture,
+        liveSuggestionCount,
+      },
+    })),
+    setSettingsOpen: (open) => dispatch({ type: 'SET_SETTINGS_OPEN', open }),
+    setUiSoundsEnabled: (uiSoundsEnabled) => setPreferences((current) => ({ ...current, uiSoundsEnabled })),
+    setAccentColor: (accentColor) => setPreferences((current) => ({ ...current, accentColor })),
+    setDensity: (density) => setPreferences((current) => ({ ...current, density })),
+    setDefaultWorkspace: (defaultWorkspace) => setPreferences((current) => ({ ...current, defaultWorkspace })),
+    setSuperSonicMode: (superSonicMode) => setPreferences((current) => ({ ...current, superSonicMode })),
+    setSuperSonicGuidanceBadges: (guidanceBadges) => setPreferences((current) => ({
+      ...current,
+      superSonic: {
+        ...current.superSonic,
+        guidanceBadges,
+      },
+    })),
+    setSuperSonicWaveIntensity: (waveIntensity) => setPreferences((current) => ({
+      ...current,
+      superSonic: {
+        ...current.superSonic,
+        waveIntensity,
+      },
+    })),
+  }), [
+    activeView,
+    arrangerClips,
+    countInActive,
+    countInBeatsRemaining,
+    currentSession,
+    deleteCheckpoint,
+    dispatchers,
+    editorState.history.future.length,
+    editorState.history.past.length,
+    editorState.ui.isSettingsOpen,
+    exportAudioMix,
+    exportMidi,
+    exportSessionToFile,
+    exportTrackStems,
+    handleDeleteScoresheet,
+    handleLoadScoresheet,
+    handleRenameScoresheet,
+    handleSaveScoresheet,
+    importMidiSession,
+    importSession,
+    initAudio,
+    isInitialized,
+    isPlaying,
+    isRecording,
+    lastSavedAt,
+    latestNotice,
+    loadSessionTemplate,
+    loopRangeEndBeat,
+    loopRangeStartBeat,
+    newSession,
+    pinnedTrackIds,
+    preferences.accentColor,
+    preferences.capture,
+    preferences.defaultWorkspace,
+    preferences.density,
+    preferences.motionMode,
+    preferences.superSonic,
+    preferences.superSonicMode,
+    preferences.uiSoundsEnabled,
+    previewTrack,
+    project,
+    projectCheckpoints,
+    renderState,
+    rerunBounceHistory,
+    restoreCheckpoint,
+    saveCheckpoint,
+    saveProject,
+    saveStatus,
+    scoresheets,
+    selectedArrangerClipId,
+    selectedTrackId,
+    songLengthInBeats,
+    songMarkers,
+    stop,
+    togglePlay,
+    toggleRecording,
+  ]);
 
   return (
-    <AudioContext.Provider value={{
-      activeView,
-      arrangerClips,
-      bpm: project.transport.bpm,
-      bounceHistory: project.bounceHistory,
-      canRedo: editorState.history.future.length > 0,
-      canUndo: editorState.history.past.length > 0,
-      countInActive,
-      countInBars: project.transport.countInBars,
-      countInBeatsRemaining,
-      currentPattern: project.transport.currentPattern,
-      currentSession,
-      currentStep,
-      exportAudioMix,
-      exportMidi,
-      exportTrackStems,
-      exportSession: exportSessionToFile,
-      importMidiSession,
-      importSession,
-      initAudio,
-      isInitialized,
-      isPlaying,
-      isRecording,
-      isSettingsOpen: editorState.ui.isSettingsOpen,
-      lastSavedAt,
-      latestNotice,
-      loadSessionTemplate,
-      loopRangeEndBeat,
-      loopRangeStartBeat,
-      master: project.master,
-      masterSnapshots: project.masterSnapshots,
-      metronomeEnabled: project.transport.metronomeEnabled,
-      motionMode: preferences.motionMode,
-      capturePreferences: preferences.capture,
-      accentColor: preferences.accentColor,
-      density: preferences.density,
-      defaultWorkspace: preferences.defaultWorkspace,
-      superSonicMode: preferences.superSonicMode,
-      superSonicPreferences: preferences.superSonic,
-      newSession,
-      patternCount: project.transport.patternCount,
-      pinnedTrackIds,
-      previewTrack,
-      projectCheckpoints,
-      scoresheets,
-      saveScoresheet: handleSaveScoresheet,
-      loadScoresheet: handleLoadScoresheet,
-      renameScoresheet: handleRenameScoresheet,
-      deleteScoresheet: handleDeleteScoresheet,
-      projectName: project.metadata.name,
-      renderState,
-      rerunBounceHistory,
-      restoreCheckpoint,
-      saveCheckpoint,
-      saveProject,
-      saveStatus,
-      selectedArrangerClipId,
-      selectedTrackId,
-      songLengthInBeats,
-      songMarkers,
-      stepsPerPattern: project.transport.stepsPerPattern,
-      stop,
-      togglePlay,
-      toggleRecording,
-      tracks: project.tracks,
-      trackSnapshots: project.trackSnapshots,
-      transportMode: project.transport.mode,
-      uiSoundsEnabled: preferences.uiSoundsEnabled,
-      deleteCheckpoint,
-      ...dispatchers,
-      setMotionMode: (motionMode) => setPreferences((current) => ({ ...current, motionMode })),
-      setCaptureAnalysisProfile: (analysisProfile) => setPreferences((current) => ({
-        ...current,
-        capture: {
-          ...current.capture,
-          analysisProfile,
-        },
-      })),
-      setCaptureAutoPreviewMatch: (autoPreviewMatch) => setPreferences((current) => ({
-        ...current,
-        capture: {
-          ...current.capture,
-          autoPreviewMatch,
-        },
-      })),
-      setCaptureKeepShelfBetweenTakes: (keepShelfBetweenTakes) => setPreferences((current) => ({
-        ...current,
-        capture: {
-          ...current.capture,
-          keepShelfBetweenTakes,
-        },
-      })),
-      setCaptureLiveSuggestionCount: (liveSuggestionCount) => setPreferences((current) => ({
-        ...current,
-        capture: {
-          ...current.capture,
-          liveSuggestionCount,
-        },
-      })),
-      setSettingsOpen: (open) => dispatch({ type: 'SET_SETTINGS_OPEN', open }),
-      setUiSoundsEnabled: (uiSoundsEnabled) => setPreferences((current) => ({ ...current, uiSoundsEnabled })),
-      setAccentColor: (accentColor) => setPreferences((current) => ({ ...current, accentColor })),
-      setDensity: (density) => setPreferences((current) => ({ ...current, density })),
-      setDefaultWorkspace: (defaultWorkspace) => setPreferences((current) => ({ ...current, defaultWorkspace })),
-      setSuperSonicMode: (superSonicMode) => setPreferences((current) => ({ ...current, superSonicMode })),
-      setSuperSonicGuidanceBadges: (guidanceBadges) => setPreferences((current) => ({
-        ...current,
-        superSonic: {
-          ...current.superSonic,
-          guidanceBadges,
-        },
-      })),
-      setSuperSonicWaveIntensity: (waveIntensity) => setPreferences((current) => ({
-        ...current,
-        superSonic: {
-          ...current.superSonic,
-          waveIntensity,
-        },
-      })),
-    }}>
-      {children}
-    </AudioContext.Provider>
+    <PlaybackStepContext.Provider value={currentStep}>
+      <AudioContext.Provider value={audioContextValue}>
+        {children}
+      </AudioContext.Provider>
+    </PlaybackStepContext.Provider>
   );
 };

@@ -3,6 +3,7 @@ import type { MutableRefObject, Dispatch, SetStateAction } from 'react';
 import { defaultNoteForTrack, type Project, type Track } from '../../project/schema';
 
 interface TransportEngine {
+  awaitAssetLoad: () => Promise<void>;
   init: () => Promise<void>;
   previewMetronomeTick: (isAccent: boolean) => void;
   previewTrack: (track: Track, note: string, sampleSliceIndex?: number, velocity?: number) => void;
@@ -49,6 +50,10 @@ export const createTransportController = ({
   const ensureAudioReady = async () => {
     await initAudio();
     engine.syncProject(currentProject);
+
+    if (currentProject.tracks.some((track) => track.source.engine === 'sample')) {
+      await engine.awaitAssetLoad();
+    }
   };
 
   const cancelCountIn = () => {

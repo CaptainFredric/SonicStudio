@@ -56,7 +56,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchp
         data-tour-target="record"
         data-ui-sound="record"
         onClick={onOpenRecord}
-        title="Record a sound and match it to a lane"
+        title="Record a vocal, sound, or note and match it to a lane"
         type="button"
       >
         <div className="flex md:flex-col flex-row items-center gap-2">
@@ -135,7 +135,7 @@ const ViewRouter = () => {
     return <ComposeView />;
   }
   return (
-    <main className="relative flex flex-col min-h-[60vh] md:min-h-0 md:min-w-0 md:flex-1">
+    <main className="relative flex min-h-[44vh] flex-col md:min-h-[38vh] md:min-w-0 md:flex-1 xl:min-h-[34vh]">
       {activeView === 'SEQUENCER' && <Sequencer />}
       {activeView === 'PIANO_ROLL' && <PianoRoll />}
       {activeView === 'MIXER' && <Mixer />}

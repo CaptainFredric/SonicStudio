@@ -20,6 +20,7 @@ describe('transportController', () => {
     project.transport.bpm = 120;
 
     const engine = {
+      awaitAssetLoad: vi.fn(),
       init: vi.fn(),
       previewMetronomeTick: vi.fn(),
       previewTrack: vi.fn(),
@@ -71,6 +72,7 @@ describe('transportController', () => {
     project.transport.countInBars = 0;
 
     const engine = {
+      awaitAssetLoad: vi.fn(),
       init: vi.fn(),
       previewMetronomeTick: vi.fn(),
       previewTrack: vi.fn(),
@@ -117,6 +119,7 @@ describe('transportController', () => {
     }
 
     const engine = {
+      awaitAssetLoad: vi.fn(),
       init: vi.fn(),
       previewMetronomeTick: vi.fn(),
       previewTrack: vi.fn(),
@@ -149,6 +152,7 @@ describe('transportController', () => {
 
     expect(initAudio).toHaveBeenCalledTimes(1);
     expect(engine.syncProject).toHaveBeenCalledWith(project);
+    expect(engine.awaitAssetLoad).toHaveBeenCalledTimes(1);
     expect(engine.previewTrack).toHaveBeenCalledWith(
       previewTrackTarget,
       defaultNoteForTrack(previewTrackTarget),
@@ -160,6 +164,7 @@ describe('transportController', () => {
   it('re-arms audio before playback even after initialization so suspended contexts resume', async () => {
     const project = createProjectFromTemplate('blank-grid');
     const engine = {
+      awaitAssetLoad: vi.fn(),
       init: vi.fn(),
       previewMetronomeTick: vi.fn(),
       previewTrack: vi.fn(),
@@ -193,6 +198,7 @@ describe('transportController', () => {
 
     expect(initAudio).toHaveBeenCalledTimes(1);
     expect(engine.syncProject).toHaveBeenCalledWith(project);
+    expect(engine.awaitAssetLoad).toHaveBeenCalledTimes(1);
     expect(engine.togglePlayback).toHaveBeenCalledTimes(1);
     expect(setIsPlaying).toHaveBeenCalledWith(true);
   });
@@ -205,6 +211,7 @@ describe('transportController', () => {
     }
 
     const engine = {
+      awaitAssetLoad: vi.fn(),
       init: vi.fn(),
       previewMetronomeTick: vi.fn(),
       previewTrack: vi.fn(),
@@ -235,6 +242,7 @@ describe('transportController', () => {
 
     await controller.previewTrack(previewTrackTarget.id, undefined, undefined, 0.55);
 
+    expect(engine.awaitAssetLoad).toHaveBeenCalledTimes(1);
     expect(engine.previewTrack).toHaveBeenCalledWith(
       previewTrackTarget,
       defaultNoteForTrack(previewTrackTarget),

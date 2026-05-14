@@ -1,4 +1,4 @@
-import React, { useCallback, useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { GripVertical } from 'lucide-react';
 
 import type { ArrangementClip, Track } from '../../project/schema';
@@ -13,7 +13,7 @@ interface ArrangerTimelineProps {
   currentStep: number;
   onPinchZoom?: (delta: number, anchorRatio: number) => void;
   getRenderedClipFrame: (clip: ArrangementClip) => { beatLength: number; startBeat: number };
-  handleTimelineWheel: (event: React.WheelEvent<HTMLDivElement>) => void;
+  handleTimelineWheel: (event: WheelEvent) => void;
   inspectorOpen: boolean;
   laneDataCount: number;
   laneHeightClass: string;
@@ -94,6 +94,22 @@ export const ArrangerTimeline = ({
 }: ArrangerTimelineProps) => {
   const panStateRef = useRef<{ startX: number; startScroll: number } | null>(null);
   const pinchStateRef = useRef<{ distance: number } | null>(null);
+
+  useEffect(() => {
+    const node = timelineRef.current;
+    if (!node) {
+      return undefined;
+    }
+
+    const onWheel = (event: WheelEvent) => {
+      handleTimelineWheel(event);
+    };
+
+    node.addEventListener('wheel', onWheel, { passive: false });
+    return () => {
+      node.removeEventListener('wheel', onWheel);
+    };
+  }, [handleTimelineWheel, timelineRef]);
 
   const handleTouchStart = useCallback((event: React.TouchEvent<HTMLDivElement>) => {
     if (event.touches.length === 2 && onPinchZoom) {
@@ -240,7 +256,6 @@ export const ArrangerTimeline = ({
       )}
     <div
       className="timeline-shell h-full overflow-auto border border-[var(--border-soft)] bg-[rgba(0,0,0,0.24)]"
-      onWheel={handleTimelineWheel}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
