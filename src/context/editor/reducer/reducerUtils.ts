@@ -132,13 +132,6 @@ export const getLoopBoundsForProject = (
   loopRangeStartBeat: number | null,
   loopRangeEndBeat: number | null,
 ) => {
-  if (project.transport.mode === 'PATTERN') {
-    return {
-      endBeat: project.transport.stepsPerPattern,
-      startBeat: 0,
-    };
-  }
-
   if (
     loopRangeStartBeat !== null
     && loopRangeEndBeat !== null
@@ -147,6 +140,13 @@ export const getLoopBoundsForProject = (
     return {
       endBeat: loopRangeEndBeat,
       startBeat: loopRangeStartBeat,
+    };
+  }
+
+  if (project.transport.mode === 'PATTERN') {
+    return {
+      endBeat: project.transport.stepsPerPattern,
+      startBeat: 0,
     };
   }
 

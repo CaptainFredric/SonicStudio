@@ -13,10 +13,19 @@ describe('reducerUtils loop bounds', () => {
     });
   });
 
-  it('falls back to pattern bounds in pattern mode', () => {
+  it('uses the explicit loop range even in pattern mode', () => {
     const project = createProjectFromTemplate('blank-grid');
 
     expect(getLoopBoundsForProject(project, 24, 48)).toEqual({
+      endBeat: 48,
+      startBeat: 24,
+    });
+  });
+
+  it('falls back to the full pattern bounds when pattern playback has no custom loop', () => {
+    const project = createProjectFromTemplate('blank-grid');
+
+    expect(getLoopBoundsForProject(project, null, null)).toEqual({
       endBeat: project.transport.stepsPerPattern,
       startBeat: 0,
     });

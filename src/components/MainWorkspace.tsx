@@ -17,6 +17,7 @@ import {
   Zap,
 } from 'lucide-react';
 
+import { engine } from '../audio/ToneEngine';
 import { getSamplePresetMeta } from '../audio/sampleLibrary';
 import { useAudio, usePlaybackStep } from '../context/AudioContext';
 import { SONG_FORM_DEFINITIONS, type SongFormId } from '../context/editor/songFormDefinitions';
@@ -98,11 +99,45 @@ const formatTrackTypeList = (trackTypes: InstrumentType[]) => (
 
 type SessionPlayerApplyMode = 'groove' | 'song';
 
+type ComposeEditorMode = 'select' | 'edit';
+type LoadWatchState = 'light' | 'busy' | 'dense';
+
 interface PendingSessionPlayerRequest {
   formId: SongFormId;
   mode: SessionPlayerApplyMode;
   profileId: string;
 }
+
+interface PatternActivitySpan {
+  activeStepCount: number;
+  endStep: number;
+  noteCount: number;
+  startStep: number;
+}
+
+interface LoadWatchSummary {
+  activeLaneCount: number;
+  label: string;
+  peakNotes: number;
+  score: number;
+  state: LoadWatchState;
+  totalNotes: number;
+}
+
+const LOAD_WATCH_STYLES: Record<LoadWatchState, { bar: string; text: string }> = {
+  busy: {
+    bar: 'linear-gradient(90deg, rgba(212,177,106,0.96) 0%, rgba(246,173,85,0.96) 100%)',
+    text: 'rgba(246,173,85,0.96)',
+  },
+  dense: {
+    bar: 'linear-gradient(90deg, rgba(248,113,113,0.96) 0%, rgba(239,68,68,0.96) 100%)',
+    text: 'rgba(248,113,113,0.96)',
+  },
+  light: {
+    bar: 'linear-gradient(90deg, rgba(130,201,187,0.96) 0%, rgba(124,211,252,0.96) 100%)',
+    text: 'rgba(130,201,187,0.96)',
+  },
+};
 
 const getSongFormDefinition = (formId: SongFormId) => (
   SONG_FORM_DEFINITIONS.find((definition) => definition.id === formId) ?? SONG_FORM_DEFINITIONS[0]
@@ -148,6 +183,127 @@ const segmentSpanSteps = (segment: PatternSegment) => {
   });
 
   return Math.max(1, Math.min(segment.stepsPerPattern, lastActiveStep >= 0 ? lastActiveStep + 1 : segment.stepsPerPattern));
+};
+
+const getPatternActivitySpan = (patternSteps: NoteEvent[][], stepsPerPattern: number): PatternActivitySpan | null => {
+  let firstActiveStep = -1;
+  let lastEndStep = -1;
+  let activeStepCount = 0;
+  let noteCount = 0;
+
+  patternSteps.forEach((step, stepIndex) => {
+    if (step.length === 0) {
+      return;
+    }
+
+    if (firstActiveStep === -1) {
+      firstActiveStep = stepIndex;
+    }
+
+    activeStepCount += 1;
+    noteCount += step.length;
+    const longestStepGate = step.reduce((maxGate, event) => (
+      Math.max(maxGate, Math.max(1, Math.ceil(event.gate)))
+    ), 1);
+    lastEndStep = Math.max(lastEndStep, Math.min(stepsPerPattern, stepIndex + longestStepGate));
+  });
+
+  if (firstActiveStep === -1 || lastEndStep <= firstActiveStep) {
+    return null;
+  }
+
+  return {
+    activeStepCount,
+    endStep: lastEndStep,
+    noteCount,
+    startStep: firstActiveStep,
+  };
+};
+
+const buildLoadWatchSummary = (
+  tracks: Track[],
+  currentPattern: number,
+  stepsPerPattern: number,
+  superSonicMode: boolean,
+  liveOutputLevelDb: number,
+): LoadWatchSummary => {
+  let activeLaneCount = 0;
+  let peakNotes = 0;
+  let totalNotes = 0;
+  let sustainedNotes = 0;
+  let activeSampleLanes = 0;
+
+  const patternStepsByTrack = tracks.map((track) => {
+    const patternSteps = getTrackPatternSteps(track, currentPattern, stepsPerPattern);
+    const hasNotes = patternSteps.some((step) => step.length > 0);
+
+    if (hasNotes) {
+      activeLaneCount += 1;
+      if (track.source.engine === 'sample') {
+        activeSampleLanes += 1;
+      }
+    }
+
+    return patternSteps;
+  });
+
+  for (let stepIndex = 0; stepIndex < stepsPerPattern; stepIndex += 1) {
+    let simultaneousNotes = 0;
+
+    patternStepsByTrack.forEach((patternSteps) => {
+      const step = patternSteps[stepIndex] ?? [];
+      simultaneousNotes += step.length;
+      totalNotes += step.length;
+      sustainedNotes += step.reduce((count, event) => count + (event.gate > 1.25 ? 1 : 0), 0);
+    });
+
+    peakNotes = Math.max(peakNotes, simultaneousNotes);
+  }
+
+  const livePlaybackBoost = liveOutputLevelDb > -42 ? 8 : 0;
+  const score = Math.min(
+    100,
+    Math.round(
+      (activeLaneCount * 9)
+      + (activeSampleLanes * 12)
+      + (peakNotes * 5)
+      + (sustainedNotes * 2)
+      + (totalNotes * 0.45)
+      + (superSonicMode ? 8 : 0)
+      + livePlaybackBoost,
+    ),
+  );
+
+  if (score >= 78) {
+    return {
+      activeLaneCount,
+      label: 'Dense session',
+      peakNotes,
+      score,
+      state: 'dense',
+      totalNotes,
+    };
+  }
+
+  if (score >= 42) {
+    return {
+      activeLaneCount,
+      label: 'Busy session',
+      peakNotes,
+      score,
+      state: 'busy',
+      totalNotes,
+    };
+  }
+
+  return {
+    activeLaneCount,
+    label: 'Light load',
+    peakNotes,
+    score,
+    state: 'light',
+    totalNotes,
+  };
 };
 
 interface TrackOverviewStepActivity {
@@ -239,6 +395,8 @@ export const MainWorkspace = () => {
     createTrack,
     currentPattern,
     duplicateTrack,
+    loopRangeEndBeat,
+    loopRangeStartBeat,
     moveTrack,
     patternCount,
     pinnedTrackIds,
@@ -247,9 +405,11 @@ export const MainWorkspace = () => {
     selectedTrackId,
     setActiveView,
     setCurrentPattern,
+    setLoopRange,
     setPatternCount,
     setSelectedTrackId,
     setStepsPerPattern,
+    setTransportMode,
     shiftPattern,
     stepsPerPattern,
     superSonicMode,
@@ -262,6 +422,8 @@ export const MainWorkspace = () => {
     transposePattern,
     updateStepEvent,
   } = useAudio();
+  const [editorMode, setEditorMode] = useState<ComposeEditorMode>('edit');
+  const [masterLevel, setMasterLevel] = useState(-100);
   const [selectedStepIndex, setSelectedStepIndex] = useState(0);
   const [selectedStepNoteIndex, setSelectedStepNoteIndex] = useState(0);
   const [segmentDraftName, setSegmentDraftName] = useState('');
@@ -293,6 +455,7 @@ export const MainWorkspace = () => {
   const [gridViewportWidth, setGridViewportWidth] = useState(0);
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
   const selectedTrackPattern = selectedTrack?.patterns[currentPattern] ?? Array.from({ length: stepsPerPattern }, () => []);
+  const currentPatternLabel = `Pattern ${String.fromCharCode(65 + currentPattern)}`;
   const playbackStep = stepsPerPattern > 0 ? currentStep % stepsPerPattern : 0;
   const selectedStep = selectedTrackPattern[selectedStepIndex] ?? [];
   const selectedLeadEvent = selectedStep[0] ?? null;
@@ -301,6 +464,17 @@ export const MainWorkspace = () => {
     ? Math.max(0, selectedStep.findIndex((event) => event === selectedStepNote))
     : null;
   const isSelectedTrackDrum = selectedTrack ? isRhythmTrackType(selectedTrack.type) : false;
+  const selectedTrackPatternSpan = useMemo(() => (
+    getPatternActivitySpan(selectedTrackPattern, stepsPerPattern)
+  ), [selectedTrackPattern, stepsPerPattern]);
+  const hasExplicitLoopRange = loopRangeStartBeat !== null && loopRangeEndBeat !== null;
+  const isSelectedTrackLoopActive = selectedTrackPatternSpan !== null
+    && loopRangeStartBeat === selectedTrackPatternSpan.startStep
+    && loopRangeEndBeat === selectedTrackPatternSpan.endStep;
+  const loadWatchSummary = useMemo(() => (
+    buildLoadWatchSummary(tracks, currentPattern, stepsPerPattern, superSonicMode, masterLevel)
+  ), [currentPattern, masterLevel, stepsPerPattern, superSonicMode, tracks]);
+  const loadWatchStyle = LOAD_WATCH_STYLES[loadWatchSummary.state];
   const melodicTrackCount = useMemo(() => (
     tracks.filter((track) => !isRhythmTrackType(track.type)).length
   ), [tracks]);
@@ -467,6 +641,16 @@ export const MainWorkspace = () => {
   }, [stepZoomMax]);
 
   useEffect(() => {
+    const interval = window.setInterval(() => {
+      setMasterLevel(engine.getMasterMeterValue());
+    }, 120);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!selectedTrack) {
       setSelectedStepIndex(0);
       setSelectedStepNoteIndex(0);
@@ -619,7 +803,34 @@ export const MainWorkspace = () => {
     setSelectedStepNoteIndex(noteIndex);
   };
 
-  const paintStateRef = useRef<{ trackId: string; mode: 'add' | 'remove'; visited: Set<string>; note?: string } | null>(null);
+  const handleToggleSelectedTrackLoop = () => {
+    if (!selectedTrackPatternSpan || !selectedTrack) {
+      return;
+    }
+
+    if (isSelectedTrackLoopActive) {
+      setLoopRange(null, null);
+      return;
+    }
+
+    setTransportMode('PATTERN');
+    setLoopRange(selectedTrackPatternSpan.startStep, selectedTrackPatternSpan.endStep);
+    jumpToStep(selectedTrackPatternSpan.startStep, selectedTrack.id);
+  };
+
+  const handleClearSelectedTrackNotes = () => {
+    if (!selectedTrack) {
+      return;
+    }
+
+    clearTrack(selectedTrack.id);
+    if (isSelectedTrackLoopActive) {
+      setLoopRange(null, null);
+    }
+    selectStep(0);
+  };
+
+  const paintStateRef = useRef<{ trackId: string; mode: 'add' | 'remove' | 'select'; visited: Set<string>; note?: string } | null>(null);
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
     const endPaint = () => { paintStateRef.current = null; };
@@ -643,6 +854,11 @@ export const MainWorkspace = () => {
     setSelectedTrackId(trackId);
     selectStep(stepIndex);
 
+    if (editorMode === 'select') {
+      paintStateRef.current = { trackId, mode: 'select', note, visited: new Set([`${stepIndex}`]) };
+      return;
+    }
+
     const hasTargetNote = note
       ? stepEvents.some((entry) => entry.note === note)
       : stepEvents.length > 0;
@@ -661,6 +877,11 @@ export const MainWorkspace = () => {
     const key = `${stepIndex}`;
     if (state.visited.has(key)) return;
     state.visited.add(key);
+    if (state.mode === 'select') {
+      setSelectedTrackId(trackId);
+      selectStep(stepIndex);
+      return;
+    }
     const hasTargetNote = state.note
       ? stepEvents.some((entry) => entry.note === state.note)
       : stepEvents.length > 0;
@@ -993,6 +1214,43 @@ export const MainWorkspace = () => {
                   </button>
                   <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">{stepCellWidth}px</span>
                 </div>
+                <div className="surface-panel-strong flex flex-wrap items-center gap-1 p-1">
+                  <span className="px-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Editor</span>
+                  {(['select', 'edit'] as const).map((mode) => (
+                    <button
+                      className="control-chip px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                      data-active={editorMode === mode}
+                      key={mode}
+                      onClick={() => setEditorMode(mode)}
+                      type="button"
+                    >
+                      {mode === 'select' ? 'Select' : 'Edit'}
+                    </button>
+                  ))}
+                </div>
+                <div className="surface-panel-strong min-w-[196px] px-3 py-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="section-label">Load watch</span>
+                    <span
+                      className="font-mono text-[10px] uppercase tracking-[0.14em]"
+                      style={{ color: loadWatchStyle.text }}
+                    >
+                      {loadWatchSummary.label}
+                    </span>
+                  </div>
+                  <div className="mt-2 h-1.5 overflow-hidden rounded-[2px] bg-black/20">
+                    <div
+                      className="h-full rounded-[2px]"
+                      style={{
+                        background: loadWatchStyle.bar,
+                        width: `${Math.max(6, loadWatchSummary.score)}%`,
+                      }}
+                    />
+                  </div>
+                  <div className="mt-2 text-[10px] uppercase tracking-[0.12em] text-[var(--text-secondary)]">
+                    {loadWatchSummary.activeLaneCount} lanes · {loadWatchSummary.totalNotes} notes · peak {loadWatchSummary.peakNotes}
+                  </div>
+                </div>
                 {superSonicMode && superSonicPreferences.guidanceBadges && (
                   <div className="surface-panel-strong flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--accent-strong)]">
                     <Zap className="h-3.5 w-3.5 text-[var(--accent)]" />
@@ -1018,13 +1276,25 @@ export const MainWorkspace = () => {
                     <button
                       className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
                       onClick={() => void previewTrack(selectedTrack.id)}
+                      type="button"
                     >
                       <Play className="h-3.5 w-3.5" />
                       Audition
                     </button>
                     <button
                       className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                      data-active={isSelectedTrackLoopActive}
+                      disabled={!selectedTrackPatternSpan}
+                      onClick={handleToggleSelectedTrackLoop}
+                      type="button"
+                    >
+                      <Music2 className="h-3.5 w-3.5" />
+                      {isSelectedTrackLoopActive ? 'Looping notes' : 'Loop notes'}
+                    </button>
+                    <button
+                      className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
                       onClick={() => setActiveView(isSelectedTrackDrum ? 'ARRANGER' : 'PIANO_ROLL')}
+                      type="button"
                     >
                       <SlidersHorizontal className="h-3.5 w-3.5" />
                       {isSelectedTrackDrum ? 'Song tools' : 'Deep edit'}
@@ -1329,7 +1599,7 @@ export const MainWorkspace = () => {
                             }}>
                               <Copy className="h-3.5 w-3.5" />
                             </RowActionBtn>}
-                            <RowActionBtn label="Clear pattern" onClick={(event) => {
+                            <RowActionBtn label="Delete all notes in this pattern" onClick={(event) => {
                               event.stopPropagation();
                               clearTrack(track.id);
                             }}>
@@ -1358,7 +1628,7 @@ export const MainWorkspace = () => {
 
                             return (
                               <button
-                                className={`group relative shrink-0 touch-none border transition-colors ${compactLanes ? 'min-h-[38px]' : 'min-h-[48px]'} ${isActive ? 'border-transparent' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.05)]'} ${isCurrent ? 'ring-1 ring-inset ring-[rgba(255,255,255,0.08)]' : ''} ${isSelectedStep ? 'outline outline-1 outline-offset-0 outline-[rgba(125,211,252,0.26)]' : ''}`}
+                                className={`group relative shrink-0 touch-none border transition-colors ${editorMode === 'select' ? 'cursor-pointer' : 'cursor-crosshair'} ${compactLanes ? 'min-h-[38px]' : 'min-h-[48px]'} ${isActive ? 'border-transparent' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.05)]'} ${isCurrent ? 'ring-1 ring-inset ring-[rgba(255,255,255,0.08)]' : ''} ${isSelectedStep ? 'outline outline-1 outline-offset-0 outline-[rgba(125,211,252,0.26)]' : ''}`}
                                 key={`${track.id}-${stepIndex}`}
                                 onPointerDown={(event) => {
                                   if (queuedSegment) {
@@ -1566,6 +1836,48 @@ export const MainWorkspace = () => {
                   <div className="ml-auto font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
                     {visibleTracks.length} visible
                   </div>
+                </div>
+                <div className="mt-3 rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-2.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="section-label">Grid mode</span>
+                    <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+                      {editorMode === 'select' ? 'Select' : 'Edit'}
+                    </span>
+                  </div>
+                  <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
+                    {editorMode === 'select'
+                      ? 'Select mode keeps the grid read-only so you can highlight steps without placing or deleting notes. Gate and pitch shaping stay active below.'
+                      : 'Edit mode lets the grid place, remove, and drag-paint notes directly across steps.'}
+                  </div>
+                </div>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <button
+                    className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                    data-active={isSelectedTrackLoopActive}
+                    disabled={!selectedTrackPatternSpan}
+                    onClick={handleToggleSelectedTrackLoop}
+                    type="button"
+                  >
+                    <Music2 className="h-3.5 w-3.5" />
+                    {isSelectedTrackLoopActive ? 'Looping notes' : 'Loop active notes'}
+                  </button>
+                  <button
+                    className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--danger)]"
+                    onClick={handleClearSelectedTrackNotes}
+                    type="button"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    Delete all notes
+                  </button>
+                </div>
+                <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
+                  {selectedTrackPatternSpan
+                    ? isSelectedTrackLoopActive
+                      ? `Looping steps ${selectedTrackPatternSpan.startStep + 1}-${selectedTrackPatternSpan.endStep} in ${currentPatternLabel}. Delete all notes clears this lane in ${currentPatternLabel}.`
+                      : `Loop active notes snaps playback to steps ${selectedTrackPatternSpan.startStep + 1}-${selectedTrackPatternSpan.endStep} in ${currentPatternLabel}.`
+                    : hasExplicitLoopRange
+                      ? `A loop is active from step ${loopRangeStartBeat! + 1} to ${loopRangeEndBeat}. Add notes to this lane to refresh the loop span.`
+                      : 'Add a few notes, then loop the active span or clear this lane without hunting through row controls.'}
                 </div>
               </div>
 

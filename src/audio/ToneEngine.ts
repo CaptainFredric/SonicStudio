@@ -29,6 +29,7 @@ interface TrackGraph {
   delay: Tone.FeedbackDelay;
   dist: Tone.Distortion;
   filter: Tone.Filter;
+  insertFxActive: boolean;
   instrument: TrackInstrument;
   lastAutomationCutoff: number | null;
   lastAutomationVolume: number | null;
@@ -40,6 +41,7 @@ interface TrackGraph {
   samplePlayerCursor: number;
   samplePlayers: Tone.Player[];
   sampleRootNote: string | null;
+  sourceInput: Tone.Gain;
   type: Track['type'];
   vibrato: Tone.Vibrato;
   voiceSignature: string;
@@ -241,15 +243,15 @@ export class ToneEngine {
   }
 
   private getLoopBounds() {
+    if (this.loopRange) {
+      return this.loopRange;
+    }
+
     if (this.transportMode === 'PATTERN') {
       return {
         endBeat: this.stepsPerPattern,
         startBeat: 0,
       };
-    }
-
-    if (this.loopRange) {
-      return this.loopRange;
     }
 
     const clipTail = this.arrangerClips.reduce(
@@ -593,14 +595,14 @@ export class ToneEngine {
     };
   }
 
-  private createSamplePlayer(sampleBuffer: Tone.ToneAudioBuffer, vibrato: Tone.Vibrato) {
+  private createSamplePlayer(sampleBuffer: Tone.ToneAudioBuffer, sourceInput: Tone.Gain) {
     const player = new Tone.Player({
       fadeOut: 0.05,
       loop: false,
       reverse: false,
       url: sampleBuffer,
     });
-    player.connect(vibrato);
+    player.connect(sourceInput);
     return player;
   }
 
@@ -635,7 +637,7 @@ export class ToneEngine {
     });
 
     if (playerIndex === -1 && graph.sampleBuffer && graph.samplePlayers.length < MAX_SAMPLE_VOICE_POOL_SIZE) {
-      const extraPlayer = this.createSamplePlayer(graph.sampleBuffer, graph.vibrato);
+      const extraPlayer = this.createSamplePlayer(graph.sampleBuffer, graph.sourceInput);
       graph.samplePlayers.push(extraPlayer);
       graph.samplePlayerAvailableAt.push(0);
       playerIndex = graph.samplePlayers.length - 1;
@@ -743,6 +745,7 @@ export class ToneEngine {
     const filter = new Tone.Filter(2000, 'lowpass');
     const dist = new Tone.Distortion(0);
     const postFilter = new Tone.Gain();
+    const sourceInput = new Tone.Gain();
     const vibrato = new Tone.Vibrato(4, 0);
     const instrument = this.createInstrument(track);
     const sampleMeta = track.source.engine === 'sample' ? getSamplePresetMeta(track.source.samplePreset) : null;
@@ -750,7 +753,7 @@ export class ToneEngine {
       ? new Tone.ToneAudioBuffer(track.source.customSampleDataUrl ?? getSampleUrl(track.source.samplePreset))
       : null;
     const samplePlayers = track.source.engine === 'sample' && sampleBuffer
-      ? Array.from({ length: SAMPLE_VOICE_POOL_SIZE }, () => this.createSamplePlayer(sampleBuffer, vibrato))
+      ? Array.from({ length: SAMPLE_VOICE_POOL_SIZE }, () => this.createSamplePlayer(sampleBuffer, sourceInput))
       : [];
 
     channel.connect(this.masterLimiter!);
@@ -758,12 +761,13 @@ export class ToneEngine {
     reverb.connect(channel);
     delay.connect(reverb);
     chorus.connect(delay);
-  postFilter.connect(channel);
-  filter.connect(postFilter);
+    postFilter.connect(channel);
+    filter.connect(postFilter);
     dist.connect(filter);
     crusher.connect(dist);
     vibrato.connect(crusher);
-    instrument.connect(vibrato);
+    sourceInput.connect(filter);
+    instrument.connect(sourceInput);
 
     chorus.wet.value = 0;
     crusher.bits.value = 16;
@@ -779,6 +783,7 @@ export class ToneEngine {
       delay,
       dist,
       filter,
+      insertFxActive: false,
       instrument,
       lastAutomationCutoff: null,
       lastAutomationVolume: null,
@@ -790,6 +795,7 @@ export class ToneEngine {
       samplePlayerCursor: 0,
       samplePlayers,
       sampleRootNote: sampleMeta?.rootNote ?? null,
+      sourceInput,
       type: track.type,
       vibrato,
       voiceSignature: this.buildVoiceSignature(track),
@@ -820,6 +826,7 @@ export class ToneEngine {
 
     graph.samplePlayers.forEach((player) => player.dispose());
     graph.instrument.dispose();
+    graph.sourceInput.dispose();
     graph.vibrato.dispose();
     graph.crusher.dispose();
     graph.dist.dispose();
@@ -869,6 +876,15 @@ export class ToneEngine {
     const ambienceActive = track.params.chorusSend > 0.001
       || track.params.delaySend > 0.001
       || track.params.reverbSend > 0.001;
+    const insertFxActive = track.params.vibratoDepth > 0.001
+      || track.params.bitCrush > 0.001
+      || track.params.distortion > 0.001;
+
+    if (graph.insertFxActive !== insertFxActive) {
+      graph.sourceInput.disconnect();
+      graph.sourceInput.connect(insertFxActive ? graph.vibrato : graph.filter);
+      graph.insertFxActive = insertFxActive;
+    }
 
     if (graph.ambienceActive !== ambienceActive) {
       if (ambienceActive) {
