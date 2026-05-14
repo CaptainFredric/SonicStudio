@@ -40,13 +40,13 @@ const GUIDE_STEPS: GuideStep[] = [
     title: 'Try notes from the lower strip.',
   },
   {
-    body: 'Record listens for live pitch, suggests matching lanes, and now lets you save captured notes into a small reusable shelf. Those saved notes can be recalled later from the Roll menu.',
+    body: 'Record listens for live pitch, suggests matching lanes, and lets you save captured notes into a reusable shelf. In Options you can now tune how quickly capture commits, how many live matches appear, and whether the top match auto-previews.',
     eyebrow: 'Capture',
     target: 'record',
     title: 'Capture sounds and turn them into reusable note presets.',
   },
   {
-    body: 'SuperSonic flips the studio into the advanced workflow. In Sequencer and Roll you get precision hover ladders, macro lane navigation, and faster note targeting without leaving the grid.',
+    body: 'SuperSonic flips the studio into the advanced workflow. In Sequencer and Roll you get precision hover ladders, macro lane navigation, faster note targeting, and the new ambient wave veil if you want the full alternate skin.',
     eyebrow: 'SuperSonic',
     target: 'supersonic',
     title: 'SuperSonic unlocks the more precise editing layer.',
@@ -58,7 +58,7 @@ const GUIDE_STEPS: GuideStep[] = [
     title: 'Share the session without bouncing stems.',
   },
   {
-    body: 'Options is where you will find MIDI import, exports, checkpoints, workspace defaults, and the SuperSonic preference if you want that mode available by default.',
+    body: 'Options is where the practical controls live now: MIDI import, exports, checkpoints, workspace defaults, SuperSonic wave and guidance settings, plus the upgraded capture controls.',
     eyebrow: 'Options',
     target: 'options',
     title: 'Settings is where the practical stuff lives.',
@@ -169,6 +169,20 @@ export const OnboardingGuide = ({ open, onComplete, onSkip }: OnboardingGuidePro
       }
     : undefined;
 
+  const focusTarget = () => {
+    const element = document.querySelector<HTMLElement>(`[data-tour-target="${step.target}"]`);
+    if (!element) {
+      return;
+    }
+
+    element.scrollIntoView({
+      behavior: reducedMotion ? 'auto' : 'smooth',
+      block: 'center',
+      inline: 'nearest',
+    });
+    setTargetRect(element.getBoundingClientRect());
+  };
+
   return (
     <div className="pointer-events-none fixed inset-0 z-[65]">
       {highlightStyle ? (
@@ -199,8 +213,32 @@ export const OnboardingGuide = ({ open, onComplete, onSkip }: OnboardingGuidePro
         <h2 className="mt-3 text-[18px] font-semibold tracking-tight text-[var(--text-primary)]">{step.title}</h2>
         <p className="mt-3 text-[13px] leading-6 text-[var(--text-secondary)]">{step.body}</p>
 
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          {GUIDE_STEPS.map((guideStep, index) => (
+            <button
+              aria-label={`Jump to guide step ${index + 1}: ${guideStep.eyebrow}`}
+              className="control-chip flex h-8 min-w-8 items-center justify-center px-2 text-[10px] font-mono font-semibold uppercase tracking-[0.14em]"
+              data-active={index === stepIndex}
+              key={guideStep.target}
+              onClick={() => setStepIndex(index)}
+              type="button"
+            >
+              {index + 1}
+            </button>
+          ))}
+          {targetRect ? (
+            <button
+              className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+              onClick={focusTarget}
+              type="button"
+            >
+              Show control
+            </button>
+          ) : null}
+        </div>
+
         <div className="mt-4 border-t border-[var(--border-soft)] pt-4 text-[11px] leading-5 text-[var(--text-tertiary)]">
-          Use the arrow keys to move between steps. Press Esc to skip.
+          Use the arrow keys to move between steps. Press Esc to skip. On smaller screens, Show control recenters the highlighted UI before you continue.
         </div>
 
         <div className="mt-4 flex items-center justify-between gap-3">

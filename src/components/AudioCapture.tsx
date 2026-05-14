@@ -29,6 +29,7 @@ import {
   getTrackVoicePresetDefinitions,
   type InstrumentType,
 } from '../project/schema';
+import type { CaptureAnalysisProfile, CapturePreferences } from '../project/preferences';
 
 interface AudioCaptureProps {
   open: boolean;
@@ -81,28 +82,50 @@ const buildSuggestedRecordedNoteName = (note: string | null, suggestion: Capture
   return `${note} ${suggestion?.presetLabel ?? 'Captured note'}`.slice(0, 40);
 };
 
-const MIN_STABLE_CAPTURE_SIGNAL = 0.055;
-const MIN_STABLE_CAPTURE_CLARITY = 0.44;
-const MIN_STABLE_CAPTURE_CONFIDENCE = 0.5;
-const MIN_QUIET_STABLE_SIGNAL = 0.045;
-const MIN_QUIET_STABLE_CLARITY = 0.6;
-const MIN_QUIET_STABLE_CONFIDENCE = 0.72;
+const CAPTURE_ANALYSIS_CONFIGS: Record<CaptureAnalysisProfile, {
+  liveSuggestionClarity: [number, number];
+  liveSuggestionDuration: [number, number];
+  quietStable: { clarity: number; confidence: number; signal: number };
+  stable: { clarity: number; confidence: number; signal: number };
+}> = {
+  quick: {
+    liveSuggestionClarity: [0.18, 0.3],
+    liveSuggestionDuration: [0.18, 0.42],
+    quietStable: { clarity: 0.54, confidence: 0.66, signal: 0.042 },
+    stable: { clarity: 0.4, confidence: 0.46, signal: 0.05 },
+  },
+  balanced: {
+    liveSuggestionClarity: [0.22, 0.36],
+    liveSuggestionDuration: [0.24, 0.56],
+    quietStable: { clarity: 0.6, confidence: 0.72, signal: 0.045 },
+    stable: { clarity: 0.44, confidence: 0.5, signal: 0.055 },
+  },
+  steady: {
+    liveSuggestionClarity: [0.26, 0.44],
+    liveSuggestionDuration: [0.3, 0.68],
+    quietStable: { clarity: 0.68, confidence: 0.78, signal: 0.05 },
+    stable: { clarity: 0.5, confidence: 0.56, signal: 0.065 },
+  },
+};
 
-const getStagedLiveSuggestions = (frame: LiveCaptureFrame | null) => {
+export const getStagedLiveSuggestions = (frame: LiveCaptureFrame | null, capturePreferences: CapturePreferences) => {
   if (!frame || frame.signalLevel < 0.04) {
     return [] as CaptureSuggestion[];
   }
 
-  const suggestions = frame.suggestions.map(cloneCaptureSuggestion);
-  if (frame.durationSeconds < 0.24 || frame.clarity < 0.22) {
+  const profile = CAPTURE_ANALYSIS_CONFIGS[capturePreferences.analysisProfile];
+  const suggestions = frame.suggestions
+    .map(cloneCaptureSuggestion)
+    .slice(0, capturePreferences.liveSuggestionCount);
+  if (frame.durationSeconds < profile.liveSuggestionDuration[0] || frame.clarity < profile.liveSuggestionClarity[0]) {
     return suggestions.slice(0, 1);
   }
 
-  if (frame.durationSeconds < 0.56 || frame.clarity < 0.36) {
+  if (frame.durationSeconds < profile.liveSuggestionDuration[1] || frame.clarity < profile.liveSuggestionClarity[1]) {
     return suggestions.slice(0, 2);
   }
 
-  return suggestions.slice(0, 3);
+  return suggestions;
 };
 
 const buildCapturePreviewTrack = (suggestion: CaptureSuggestion) => {
@@ -127,6 +150,7 @@ const buildCapturePreviewTrack = (suggestion: CaptureSuggestion) => {
 export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
   const {
     applyTrackVoicePreset,
+    capturePreferences,
     createTrack,
     initAudio,
     selectedTrackId,
@@ -152,6 +176,7 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
   const [sessionRecordedNotes, setSessionRecordedNotes] = useState<RecordedNotePreset[]>([]);
   const [suggestions, setSuggestions] = useState<CaptureSuggestion[]>([]);
   const [pitchCoachTarget, setPitchCoachTarget] = useState('C4');
+  const autoPreviewKeyRef = useRef<string | null>(null);
 
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
   const activeNoteCandidate = result?.noteCandidates[activeNoteIndex] ?? result?.noteCandidates[0] ?? null;
@@ -337,7 +362,9 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
     setLiveFrame(null);
     setPendingRecordedNote(null);
     setCaptureNameDraft('');
-    setSessionRecordedNotes([]);
+    setSessionRecordedNotes((current) => (
+      capturePreferences.keepShelfBetweenTakes ? current : []
+    ));
     stableCaptureRef.current = null;
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
@@ -364,7 +391,7 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
       setError(err instanceof Error ? err.message : 'Could not access the microphone.');
       setState('error');
     }
-  }, [previewUrl]);
+  }, [capturePreferences.keepShelfBetweenTakes, previewUrl]);
 
   const stopRecording = useCallback(async () => {
     const recorder = recorderRef.current;
@@ -395,13 +422,15 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
     setSuggestions([]);
     setPendingRecordedNote(null);
     setCaptureNameDraft('');
-    setSessionRecordedNotes([]);
+    setSessionRecordedNotes((current) => (
+      capturePreferences.keepShelfBetweenTakes ? current : []
+    ));
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
       setPreviewUrl(null);
     }
     setError(null);
-  }, [previewUrl]);
+  }, [capturePreferences.keepShelfBetweenTakes, previewUrl]);
 
   const queueNextRecordedNote = useCallback(() => {
     stableCaptureRef.current = null;
@@ -476,6 +505,22 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
     engine.previewTrack(previewTrack, previewNote);
   }, [initAudio, selectedDetectedNote]);
 
+  useEffect(() => {
+    if (!capturePreferences.autoPreviewMatch || state !== 'ready' || suggestions.length === 0) {
+      autoPreviewKeyRef.current = null;
+      return;
+    }
+
+    const topSuggestion = suggestions[0];
+    const previewKey = `${previewUrl ?? 'no-preview'}:${topSuggestion.trackType}:${selectedDetectedNote ?? topSuggestion.note ?? 'none'}`;
+    if (autoPreviewKeyRef.current === previewKey) {
+      return;
+    }
+
+    autoPreviewKeyRef.current = previewKey;
+    void auditionSuggestion(topSuggestion);
+  }, [auditionSuggestion, capturePreferences.autoPreviewMatch, previewUrl, selectedDetectedNote, state, suggestions]);
+
   const downloadRecording = useCallback(() => {
     if (!result) return;
     const anchor = document.createElement('a');
@@ -486,13 +531,14 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
 
   if (!open) return null;
 
-  const liveSuggestions = getStagedLiveSuggestions(liveFrame);
+  const liveSuggestions = getStagedLiveSuggestions(liveFrame, capturePreferences);
+  const visibleSuggestions = suggestions.slice(0, capturePreferences.liveSuggestionCount);
   const saveableDetectedNote = selectedDetectedNote ?? liveFrame?.noteCandidates[0]?.note ?? pendingRecordedNote?.note ?? null;
   const captureNamePlaceholder = buildSuggestedRecordedNoteName(
     saveableDetectedNote,
-    suggestions[0] ?? liveSuggestions[0] ?? pendingRecordedNote?.suggestion ?? null,
+    visibleSuggestions[0] ?? liveSuggestions[0] ?? pendingRecordedNote?.suggestion ?? null,
   );
-  const rankedSuggestionCount = suggestions.length;
+  const rankedSuggestionCount = visibleSuggestions.length;
   const liveCaptureHint = liveFrame
     ? describeCaptureHint(liveFrame.durationSeconds, liveFrame.transientDensity, liveFrame.clarity)
     : null;
@@ -521,8 +567,19 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
               Record something and we'll suggest the closest notes and lanes.
             </h2>
             <p className="mt-1 text-[12px] leading-5 text-[var(--text-secondary)]">
-              Hum, whistle, tap, or record a short phrase. SonicStudio listens for the main pitch, gives you a few nearby note guesses, and suggests three lanes you can tweak. Everything stays on your device.
+              Hum, whistle, tap, or record a short phrase. SonicStudio listens for the main pitch, gives you a few nearby note guesses, and suggests the closest lanes your current capture settings allow. Everything stays on your device.
             </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <span className="rounded-[2px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                Profile {capturePreferences.analysisProfile}
+              </span>
+              <span className="rounded-[2px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                Live matches {capturePreferences.liveSuggestionCount}
+              </span>
+              <span className="rounded-[2px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                Auto preview {capturePreferences.autoPreviewMatch ? 'on' : 'off'}
+              </span>
+            </div>
           </div>
           <button
             aria-label="Close audio capture"
@@ -879,7 +936,7 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
                     <span className="section-label">Lane matches</span>
                   </div>
                   <p className="mt-2 text-[12px] leading-5 text-[var(--text-secondary)]">
-                    Best guess first, then two nearby alternatives. You can tweak each one before creating a lane or applying it to an existing one.
+                    Best guess first, then any nearby alternatives your live-match limit allows. You can tweak each one before creating a lane or applying it to an existing one.
                   </p>
 
                   <div className="mt-3 rounded-[2px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3 text-[11px] leading-5 text-[var(--text-secondary)]">
@@ -913,7 +970,7 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
                   )}
 
                   <div className="mt-4 grid gap-3">
-                    {suggestions.map((suggestion, index) => {
+                    {visibleSuggestions.map((suggestion, index) => {
                       const existingTrack = tracks.find((track) => track.type === suggestion.trackType) ?? null;
                       const rankLabel = index === 0 ? 'Best match' : index === 1 ? 'Also try' : 'Another option';
 
@@ -1202,17 +1259,18 @@ const SavedRecordedNoteCard = ({ savedNote }: { savedNote: RecordedNotePreset })
   </div>
 );
 
-export const isStableCaptureFrame = (frame: LiveCaptureFrame) => {
+export const isStableCaptureFrame = (frame: LiveCaptureFrame, analysisProfile: CaptureAnalysisProfile = 'balanced') => {
   const candidate = frame.noteCandidates[0] ?? null;
+  const profile = CAPTURE_ANALYSIS_CONFIGS[analysisProfile];
   const primaryGate = (
-    frame.signalLevel >= MIN_STABLE_CAPTURE_SIGNAL
-    && frame.clarity >= MIN_STABLE_CAPTURE_CLARITY
-    && (candidate?.confidence ?? 0) >= MIN_STABLE_CAPTURE_CONFIDENCE
+    frame.signalLevel >= profile.stable.signal
+    && frame.clarity >= profile.stable.clarity
+    && (candidate?.confidence ?? 0) >= profile.stable.confidence
   );
   const quietReliableGate = (
-    frame.signalLevel >= MIN_QUIET_STABLE_SIGNAL
-    && frame.clarity >= MIN_QUIET_STABLE_CLARITY
-    && (candidate?.confidence ?? 0) >= MIN_QUIET_STABLE_CONFIDENCE
+    frame.signalLevel >= profile.quietStable.signal
+    && frame.clarity >= profile.quietStable.clarity
+    && (candidate?.confidence ?? 0) >= profile.quietStable.confidence
   );
 
   return Boolean(

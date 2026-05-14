@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import {
   ArrowRight,
+  Coffee,
   Disc3,
   FileInput,
   Shuffle,
@@ -9,6 +10,8 @@ import {
 } from 'lucide-react';
 
 import type { SessionTemplateId } from '../project/schema';
+
+const SUPPORT_URL = 'https://buymeacoffee.com/captainarm1';
 
 interface LaunchpadProps {
   isInitialized: boolean;
@@ -299,6 +302,18 @@ export const Launchpad = ({
             >
               Back to studio
             </button>
+            <a
+              className="control-chip inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-[var(--text-primary)]"
+              href={SUPPORT_URL}
+              rel="noreferrer noopener"
+              target="_blank"
+            >
+              <Coffee className="h-4 w-4" />
+              Buy me a coffee
+            </a>
+          </div>
+          <div className="mt-4 rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.025)] px-4 py-3 text-[12px] leading-5 text-[var(--text-secondary)]">
+            SonicStudio is staying broadly free. If it earns a place in your workflow, the support button above goes straight to Buy Me a Coffee.
           </div>
         </aside>
       </div>

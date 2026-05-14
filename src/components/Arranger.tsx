@@ -81,6 +81,7 @@ export const Arranger = () => {
     transformClipPattern,
     transportMode,
     superSonicMode,
+    superSonicPreferences,
     updateArrangerClip,
     updateClipPatternAutomationStep,
     updateClipPatternStepEvent,
@@ -424,6 +425,7 @@ export const Arranger = () => {
         visibleRangeLabel={visibleRangeLabel}
         visibleStartStep={visibleStartStep}
         zoomPreset={zoomPreset}
+        showSuperSonicGuidance={superSonicMode && superSonicPreferences.guidanceBadges}
         superSonicMode={superSonicMode}
       />
 

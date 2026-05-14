@@ -131,7 +131,7 @@ const PaneHeader = ({
 );
 
 export const ComposeView = () => {
-  const { superSonicMode } = useAudio();
+  const { superSonicMode, superSonicPreferences } = useAudio();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mainColumnRef = useRef<HTMLDivElement | null>(null);
   const isMobileViewport = useMediaQuery('(max-width: 767px)');
@@ -357,6 +357,7 @@ export const ComposeView = () => {
         <PresetBar
           presets={presets}
           recentlyApplied={recentlyApplied}
+          showSuperSonicGuidance={superSonicPreferences.guidanceBadges}
           superSonicMode={superSonicMode}
           onApply={applyPreset}
           onOverwrite={overwritePreset}
@@ -421,6 +422,7 @@ export const ComposeView = () => {
         <PresetBar
           presets={presets}
           recentlyApplied={recentlyApplied}
+          showSuperSonicGuidance={superSonicPreferences.guidanceBadges}
           superSonicMode={superSonicMode}
           onApply={applyPreset}
           onOverwrite={overwritePreset}
@@ -497,6 +499,7 @@ export const ComposeView = () => {
 const PresetBar = ({
   presets,
   recentlyApplied,
+  showSuperSonicGuidance,
   superSonicMode,
   onApply,
   onOverwrite,
@@ -504,6 +507,7 @@ const PresetBar = ({
 }: {
   presets: LayoutPreset[];
   recentlyApplied: string | null;
+  showSuperSonicGuidance: boolean;
   superSonicMode: boolean;
   onApply: (preset: LayoutPreset) => void;
   onOverwrite: (index: number) => void;
@@ -561,7 +565,7 @@ const PresetBar = ({
           {recentlyApplied}
         </span>
       )}
-      {superSonicMode && (
+      {superSonicMode && showSuperSonicGuidance && (
         <span className="inline-flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--accent-strong)]">
           <Zap className="h-3.5 w-3.5 text-[var(--accent)]" />
           SuperSonic

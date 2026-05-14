@@ -34,10 +34,15 @@ import {
 import type { SongFormId } from './editor/songFormDefinitions';
 import {
   ACCENT_PRESETS,
+  type CaptureAnalysisProfile,
+  type CapturePreferences,
+  type CaptureSuggestionCount,
   type AccentColor,
   type DefaultWorkspace,
   type Density,
   type MotionMode,
+  type SuperSonicPreferences,
+  type SuperSonicWaveIntensity,
   loadStudioPreferences,
   persistStudioPreferences,
 } from '../project/preferences';
@@ -113,14 +118,22 @@ interface AudioContextType {
   makeClipPatternUnique: (clipId: string) => void;
   moveTrack: (trackId: string, direction: 'up' | 'down') => void;
   motionMode: MotionMode;
+  capturePreferences: CapturePreferences;
   accentColor: AccentColor;
   density: Density;
   defaultWorkspace: DefaultWorkspace;
   superSonicMode: boolean;
+  superSonicPreferences: SuperSonicPreferences;
+  setCaptureAnalysisProfile: (profile: CaptureAnalysisProfile) => void;
+  setCaptureAutoPreviewMatch: (enabled: boolean) => void;
+  setCaptureKeepShelfBetweenTakes: (enabled: boolean) => void;
+  setCaptureLiveSuggestionCount: (count: CaptureSuggestionCount) => void;
   setAccentColor: (color: AccentColor) => void;
   setDensity: (density: Density) => void;
   setDefaultWorkspace: (workspace: DefaultWorkspace) => void;
   setSuperSonicMode: (enabled: boolean) => void;
+  setSuperSonicGuidanceBadges: (enabled: boolean) => void;
+  setSuperSonicWaveIntensity: (intensity: SuperSonicWaveIntensity) => void;
   duplicateTrack: (trackId: string) => void;
   exportSession: () => void;
   importSession: (file: File) => Promise<boolean>;
@@ -326,6 +339,15 @@ export const AudioProvider = ({
 
     document.documentElement.dataset.supersonic = preferences.superSonicMode ? 'true' : 'false';
   }, [preferences.superSonicMode]);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') {
+      return;
+    }
+
+    document.documentElement.dataset.supersonicWaveIntensity = preferences.superSonic.waveIntensity;
+    document.documentElement.dataset.supersonicGuidance = preferences.superSonic.guidanceBadges ? 'true' : 'false';
+  }, [preferences.superSonic.guidanceBadges, preferences.superSonic.waveIntensity]);
 
   useEffect(() => {
     engine.syncProject(project);
@@ -573,10 +595,12 @@ export const AudioProvider = ({
       masterSnapshots: project.masterSnapshots,
       metronomeEnabled: project.transport.metronomeEnabled,
       motionMode: preferences.motionMode,
+      capturePreferences: preferences.capture,
       accentColor: preferences.accentColor,
       density: preferences.density,
       defaultWorkspace: preferences.defaultWorkspace,
       superSonicMode: preferences.superSonicMode,
+      superSonicPreferences: preferences.superSonic,
       newSession,
       patternCount: project.transport.patternCount,
       pinnedTrackIds,
@@ -609,12 +633,54 @@ export const AudioProvider = ({
       deleteCheckpoint,
       ...dispatchers,
       setMotionMode: (motionMode) => setPreferences((current) => ({ ...current, motionMode })),
+      setCaptureAnalysisProfile: (analysisProfile) => setPreferences((current) => ({
+        ...current,
+        capture: {
+          ...current.capture,
+          analysisProfile,
+        },
+      })),
+      setCaptureAutoPreviewMatch: (autoPreviewMatch) => setPreferences((current) => ({
+        ...current,
+        capture: {
+          ...current.capture,
+          autoPreviewMatch,
+        },
+      })),
+      setCaptureKeepShelfBetweenTakes: (keepShelfBetweenTakes) => setPreferences((current) => ({
+        ...current,
+        capture: {
+          ...current.capture,
+          keepShelfBetweenTakes,
+        },
+      })),
+      setCaptureLiveSuggestionCount: (liveSuggestionCount) => setPreferences((current) => ({
+        ...current,
+        capture: {
+          ...current.capture,
+          liveSuggestionCount,
+        },
+      })),
       setSettingsOpen: (open) => dispatch({ type: 'SET_SETTINGS_OPEN', open }),
       setUiSoundsEnabled: (uiSoundsEnabled) => setPreferences((current) => ({ ...current, uiSoundsEnabled })),
       setAccentColor: (accentColor) => setPreferences((current) => ({ ...current, accentColor })),
       setDensity: (density) => setPreferences((current) => ({ ...current, density })),
       setDefaultWorkspace: (defaultWorkspace) => setPreferences((current) => ({ ...current, defaultWorkspace })),
       setSuperSonicMode: (superSonicMode) => setPreferences((current) => ({ ...current, superSonicMode })),
+      setSuperSonicGuidanceBadges: (guidanceBadges) => setPreferences((current) => ({
+        ...current,
+        superSonic: {
+          ...current.superSonic,
+          guidanceBadges,
+        },
+      })),
+      setSuperSonicWaveIntensity: (waveIntensity) => setPreferences((current) => ({
+        ...current,
+        superSonic: {
+          ...current.superSonic,
+          waveIntensity,
+        },
+      })),
     }}>
       {children}
     </AudioContext.Provider>

@@ -138,6 +138,7 @@ export const PianoRoll = () => {
     stampChord,
     stepsPerPattern,
     superSonicMode,
+    superSonicPreferences,
     toggleStep,
     tracks,
     transposePattern,
@@ -828,7 +829,7 @@ export const PianoRoll = () => {
               )}
             </div>
 
-            {superSonicMode && !isDrum && (
+            {superSonicMode && superSonicPreferences.guidanceBadges && !isDrum && (
               <div className="surface-panel-muted flex items-center gap-2 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--accent-strong)]">
                 <Zap className="h-3.5 w-3.5 text-[var(--accent)]" />
                 Hover ladders on

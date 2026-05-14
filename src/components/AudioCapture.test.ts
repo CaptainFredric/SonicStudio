@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
+import { DEFAULT_STUDIO_PREFERENCES } from '../project/preferences';
 import type { CaptureSuggestion, LiveCaptureFrame } from '../services/audioRecording';
-import { isStableCaptureFrame, scoreStableCaptureFrame } from './AudioCapture';
+import { getStagedLiveSuggestions, isStableCaptureFrame, scoreStableCaptureFrame } from './AudioCapture';
 
 const baseSuggestion: CaptureSuggestion = {
   confidence: 0.72,
@@ -51,6 +52,8 @@ const createLiveFrame = (overrides: Partial<LiveCaptureFrame> = {}): LiveCapture
   ...overrides,
 });
 
+const createCapturePreferences = () => DEFAULT_STUDIO_PREFERENCES.capture;
+
 describe('AudioCapture stable live capture gate', () => {
   it('accepts a strong pitched live frame', () => {
     expect(isStableCaptureFrame(createLiveFrame())).toBe(true);
@@ -84,10 +87,46 @@ describe('AudioCapture stable live capture gate', () => {
     }))).toBe(true);
   });
 
+  it('lets the quick profile accept a borderline pitched frame sooner than steady', () => {
+    const borderlineFrame = createLiveFrame({
+      clarity: 0.46,
+      noteCandidates: [{
+        centsOff: 4,
+        confidence: 0.5,
+        midi: 57,
+        note: 'A3',
+        pitchHz: 220,
+      }],
+      signalLevel: 0.052,
+    });
+
+    expect(isStableCaptureFrame(borderlineFrame, 'quick')).toBe(true);
+    expect(isStableCaptureFrame(borderlineFrame, 'steady')).toBe(false);
+  });
+
   it('prefers stronger frames when scoring stable capture candidates', () => {
     const quietFrame = createLiveFrame({ signalLevel: 0.06 });
     const strongerFrame = createLiveFrame({ signalLevel: 0.18 });
 
     expect(scoreStableCaptureFrame(strongerFrame)).toBeGreaterThan(scoreStableCaptureFrame(quietFrame));
+  });
+
+  it('uses capture settings to decide how many live suggestions appear', () => {
+    const frame = createLiveFrame({
+      clarity: 0.32,
+      durationSeconds: 0.34,
+      suggestions: [baseSuggestion, { ...baseSuggestion, trackType: 'pad' }, { ...baseSuggestion, trackType: 'bass' }],
+    });
+
+    expect(getStagedLiveSuggestions(frame, {
+      ...createCapturePreferences(),
+      analysisProfile: 'quick',
+      liveSuggestionCount: 3,
+    })).toHaveLength(2);
+    expect(getStagedLiveSuggestions(frame, {
+      ...createCapturePreferences(),
+      analysisProfile: 'steady',
+      liveSuggestionCount: 1,
+    })).toHaveLength(1);
   });
 });

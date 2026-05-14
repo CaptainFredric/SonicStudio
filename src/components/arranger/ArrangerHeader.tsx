@@ -48,6 +48,7 @@ interface ArrangerHeaderProps {
   visibleRangeLabel: string;
   visibleStartStep: number;
   zoomPreset: ZoomPreset;
+  showSuperSonicGuidance: boolean;
   superSonicMode: boolean;
 }
 
@@ -89,6 +90,7 @@ export const ArrangerHeader = ({
   visibleRangeLabel,
   visibleStartStep,
   zoomPreset,
+  showSuperSonicGuidance,
   superSonicMode,
 }: ArrangerHeaderProps) => (
   <div className="border-b border-[var(--border-soft)] px-5 py-4">
@@ -99,7 +101,7 @@ export const ArrangerHeader = ({
         <p className="mt-2 max-w-3xl text-sm text-[var(--text-secondary)]">
           Lay out clips and shape the song on the timeline.
         </p>
-        {superSonicMode && (
+        {superSonicMode && showSuperSonicGuidance && (
           <div className="mt-2 inline-flex items-center gap-2 rounded-[2px] border border-[rgba(114,217,255,0.3)] bg-[rgba(114,217,255,0.1)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--accent-strong)]">
             <Zap className="h-3.5 w-3.5 text-[var(--accent)]" />
             SuperSonic precision timeline on

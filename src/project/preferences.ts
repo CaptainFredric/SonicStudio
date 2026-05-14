@@ -2,6 +2,21 @@ export type MotionMode = 'fluid' | 'focus' | 'still';
 export type AccentColor = 'aqua' | 'violet' | 'amber' | 'rose' | 'mint';
 export type Density = 'comfortable' | 'compact';
 export type DefaultWorkspace = 'compose' | 'arranger' | 'piano-roll' | 'mixer' | 'sequencer';
+export type CaptureAnalysisProfile = 'quick' | 'balanced' | 'steady';
+export type CaptureSuggestionCount = 1 | 2 | 3;
+export type SuperSonicWaveIntensity = 'off' | 'faint' | 'flow';
+
+export interface CapturePreferences {
+  analysisProfile: CaptureAnalysisProfile;
+  autoPreviewMatch: boolean;
+  keepShelfBetweenTakes: boolean;
+  liveSuggestionCount: CaptureSuggestionCount;
+}
+
+export interface SuperSonicPreferences {
+  guidanceBadges: boolean;
+  waveIntensity: SuperSonicWaveIntensity;
+}
 
 export interface StudioPreferences {
   motionMode: MotionMode;
@@ -10,6 +25,8 @@ export interface StudioPreferences {
   density: Density;
   defaultWorkspace: DefaultWorkspace;
   superSonicMode: boolean;
+  capture: CapturePreferences;
+  superSonic: SuperSonicPreferences;
 }
 
 const STUDIO_PREFERENCES_KEY = 'sonicstudio:preferences:v1';
@@ -21,6 +38,16 @@ export const DEFAULT_STUDIO_PREFERENCES: StudioPreferences = {
   density: 'comfortable',
   defaultWorkspace: 'piano-roll',
   superSonicMode: false,
+  capture: {
+    analysisProfile: 'balanced',
+    autoPreviewMatch: false,
+    keepShelfBetweenTakes: true,
+    liveSuggestionCount: 3,
+  },
+  superSonic: {
+    guidanceBadges: true,
+    waveIntensity: 'faint',
+  },
 };
 
 export interface AccentTokenSet {
@@ -89,8 +116,22 @@ const isDefaultWorkspace = (value: unknown): value is DefaultWorkspace => (
   value === 'compose' || value === 'arranger' || value === 'piano-roll' || value === 'mixer' || value === 'sequencer'
 );
 
+const isCaptureAnalysisProfile = (value: unknown): value is CaptureAnalysisProfile => (
+  value === 'quick' || value === 'balanced' || value === 'steady'
+);
+
+const isCaptureSuggestionCount = (value: unknown): value is CaptureSuggestionCount => (
+  value === 1 || value === 2 || value === 3
+);
+
+const isSuperSonicWaveIntensity = (value: unknown): value is SuperSonicWaveIntensity => (
+  value === 'off' || value === 'faint' || value === 'flow'
+);
+
 export const normalizeStudioPreferences = (value: unknown): StudioPreferences => {
   const candidate = isRecord(value) ? value : {};
+  const captureCandidate = isRecord(candidate.capture) ? candidate.capture : {};
+  const superSonicCandidate = isRecord(candidate.superSonic) ? candidate.superSonic : {};
 
   return {
     motionMode: candidate.motionMode === 'focus' || candidate.motionMode === 'still'
@@ -103,6 +144,28 @@ export const normalizeStudioPreferences = (value: unknown): StudioPreferences =>
     density: isDensity(candidate.density) ? candidate.density : 'comfortable',
     defaultWorkspace: isDefaultWorkspace(candidate.defaultWorkspace) ? candidate.defaultWorkspace : 'piano-roll',
     superSonicMode: typeof candidate.superSonicMode === 'boolean' ? candidate.superSonicMode : false,
+    capture: {
+      analysisProfile: isCaptureAnalysisProfile(captureCandidate.analysisProfile)
+        ? captureCandidate.analysisProfile
+        : DEFAULT_STUDIO_PREFERENCES.capture.analysisProfile,
+      autoPreviewMatch: typeof captureCandidate.autoPreviewMatch === 'boolean'
+        ? captureCandidate.autoPreviewMatch
+        : DEFAULT_STUDIO_PREFERENCES.capture.autoPreviewMatch,
+      keepShelfBetweenTakes: typeof captureCandidate.keepShelfBetweenTakes === 'boolean'
+        ? captureCandidate.keepShelfBetweenTakes
+        : DEFAULT_STUDIO_PREFERENCES.capture.keepShelfBetweenTakes,
+      liveSuggestionCount: isCaptureSuggestionCount(captureCandidate.liveSuggestionCount)
+        ? captureCandidate.liveSuggestionCount
+        : DEFAULT_STUDIO_PREFERENCES.capture.liveSuggestionCount,
+    },
+    superSonic: {
+      guidanceBadges: typeof superSonicCandidate.guidanceBadges === 'boolean'
+        ? superSonicCandidate.guidanceBadges
+        : DEFAULT_STUDIO_PREFERENCES.superSonic.guidanceBadges,
+      waveIntensity: isSuperSonicWaveIntensity(superSonicCandidate.waveIntensity)
+        ? superSonicCandidate.waveIntensity
+        : DEFAULT_STUDIO_PREFERENCES.superSonic.waveIntensity,
+    },
   };
 };
 

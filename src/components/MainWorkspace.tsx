@@ -253,6 +253,7 @@ export const MainWorkspace = () => {
     shiftPattern,
     stepsPerPattern,
     superSonicMode,
+    superSonicPreferences,
     toggleStep,
     toggleMute,
     togglePinnedTrack,
@@ -959,7 +960,7 @@ export const MainWorkspace = () => {
                   </button>
                   <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">{stepCellWidth}px</span>
                 </div>
-                {superSonicMode && (
+                {superSonicMode && superSonicPreferences.guidanceBadges && (
                   <div className="surface-panel-strong flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--accent-strong)]">
                     <Zap className="h-3.5 w-3.5 text-[var(--accent)]" />
                     Macro lane view ready

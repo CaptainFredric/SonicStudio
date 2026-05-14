@@ -31,6 +31,7 @@ export const WorkspaceSettingsPanel = () => {
     arrangerClips,
     bpm,
     bounceHistory,
+    capturePreferences,
     exportAudioMix,
     exportMidi,
     exportTrackStems,
@@ -55,8 +56,14 @@ export const WorkspaceSettingsPanel = () => {
     setSelectedTrackId,
     setBpm,
     setPatternCount,
+    setCaptureAnalysisProfile,
+    setCaptureAutoPreviewMatch,
+    setCaptureKeepShelfBetweenTakes,
+    setCaptureLiveSuggestionCount,
     setMotionMode,
     setSuperSonicMode,
+    setSuperSonicGuidanceBadges,
+    setSuperSonicWaveIntensity,
     setStepsPerPattern,
     setTransportMode,
     setUiSoundsEnabled,
@@ -67,6 +74,7 @@ export const WorkspaceSettingsPanel = () => {
     transportMode,
     motionMode,
     superSonicMode,
+    superSonicPreferences,
     uiSoundsEnabled,
     deleteCheckpoint,
   } = useAudio();
@@ -190,11 +198,23 @@ export const WorkspaceSettingsPanel = () => {
       />
 
       <WorkspaceOptionsPanel
+        captureAnalysisProfile={capturePreferences.analysisProfile}
+        captureAutoPreviewMatch={capturePreferences.autoPreviewMatch}
+        captureKeepShelfBetweenTakes={capturePreferences.keepShelfBetweenTakes}
+        captureLiveSuggestionCount={capturePreferences.liveSuggestionCount}
         motionMode={motionMode}
+        onCaptureAnalysisProfileChange={setCaptureAnalysisProfile}
+        onCaptureAutoPreviewMatchChange={setCaptureAutoPreviewMatch}
+        onCaptureKeepShelfBetweenTakesChange={setCaptureKeepShelfBetweenTakes}
+        onCaptureLiveSuggestionCountChange={setCaptureLiveSuggestionCount}
         onMotionModeChange={setMotionMode}
         onSuperSonicModeChange={setSuperSonicMode}
+        onSuperSonicGuidanceBadgesChange={setSuperSonicGuidanceBadges}
+        onSuperSonicWaveIntensityChange={setSuperSonicWaveIntensity}
         onUiSoundsEnabledChange={setUiSoundsEnabled}
+        superSonicGuidanceBadges={superSonicPreferences.guidanceBadges}
         superSonicMode={superSonicMode}
+        superSonicWaveIntensity={superSonicPreferences.waveIntensity}
         uiSoundsEnabled={uiSoundsEnabled}
       />
 

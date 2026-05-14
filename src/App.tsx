@@ -18,8 +18,10 @@ import { ToastStack, type ToastItem } from './components/ToastStack';
 import { resolveStudioRoute, type StudioRouteState } from './app/routeController';
 import type { SessionTemplateId } from './project/schema';
 import { markOnboardingCompleted, markOnboardingSkipped, shouldAutoOpenOnboarding } from './services/onboardingState';
-import { Music, LayoutGrid, Volume2, Settings, Layers3, Sparkles, Rows2, Share2, Mic } from 'lucide-react';
+import { Music, LayoutGrid, Volume2, Settings, Layers3, Sparkles, Rows2, Share2, Mic, Coffee } from 'lucide-react';
 import { Circle, Pause, Play, Square } from 'lucide-react';
+
+const SUPPORT_URL = 'https://buymeacoffee.com/captainarm1';
 
 const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchpad: () => void; onOpenShare: () => void; onOpenRecord: () => void }) => {
   const { activeView, isSettingsOpen, setActiveView, toggleSettings } = useAudio();
@@ -103,6 +105,19 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchp
             <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Options</span>
           </div>
         </button>
+        <a
+          className="studio-nav-button flex shrink-0 items-center justify-center md:w-full"
+          data-tour-target="support"
+          href={SUPPORT_URL}
+          rel="noreferrer noopener"
+          target="_blank"
+          title="Support SonicStudio on Buy Me a Coffee"
+        >
+          <div className="flex md:flex-col flex-row items-center gap-2">
+            <Coffee size={20} className="text-[var(--accent)]" />
+            <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Support</span>
+          </div>
+        </a>
       </div>
     </aside>
   );

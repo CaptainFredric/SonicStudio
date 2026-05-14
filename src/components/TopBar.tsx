@@ -255,10 +255,6 @@ export const TopBar = ({
                   data-tour-target="record"
                   data-ui-sound="record"
                   onClick={onOpenCapture}
-                  style={{
-                    opacity: compactStart ? 0.42 : 1,
-                    transition: 'opacity 230ms cubic-bezier(0.22,1,0.36,1)',
-                  }}
                   type="button"
                 >
                   <Mic className="h-3.5 w-3.5" />
@@ -274,10 +270,6 @@ export const TopBar = ({
                   const enabled = !superSonicMode;
                   runSupersonicTransition(enabled, getSupersonicTransitionOrigin(event.currentTarget));
                   setSuperSonicMode(enabled);
-                }}
-                style={{
-                  opacity: compactStart ? 0.42 : 1,
-                  transition: 'opacity 230ms cubic-bezier(0.22,1,0.36,1)',
                 }}
                 type="button"
               >
