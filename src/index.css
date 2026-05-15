@@ -85,7 +85,7 @@ html[data-supersonic="true"] body::before {
 }
 
 html[data-supersonic="true"][data-supersonic-wave-intensity="faint"] body::after {
-  opacity: 1;
+  opacity: 0.88;
   animation:
     supersonic-whisp-drift 26s cubic-bezier(0.37, 0, 0.21, 1) infinite alternate,
     supersonic-whisp-breathe 15s ease-in-out infinite;
@@ -196,9 +196,9 @@ html[data-density="compact"] header.surface-panel {
       radial-gradient(34% 18% at 50% 102%, rgba(214, 90, 106, 0.14), transparent 76%),
       radial-gradient(20% 16% at 8% 10%, rgba(214, 90, 106, 0.1), transparent 74%),
       radial-gradient(20% 16% at 92% 10%, rgba(176, 31, 55, 0.1), transparent 74%);
-    filter: blur(36px) saturate(112%);
-    mask-image: radial-gradient(circle at center, transparent 34%, rgba(0, 0, 0, 0.42) 62%, black 100%);
-    mix-blend-mode: multiply;
+    filter: blur(30px) saturate(118%);
+    mask-image: radial-gradient(circle at center, transparent 42%, rgba(0, 0, 0, 0.4) 70%, black 100%);
+    mix-blend-mode: normal;
     transform: translate3d(0, 0, 0);
     will-change: transform, opacity;
   }
@@ -237,11 +237,11 @@ html[data-density="compact"] header.surface-panel {
 
 @keyframes supersonic-whisp-breathe {
   0%, 100% {
-    opacity: 0.18;
+    opacity: 0.28;
   }
 
   50% {
-    opacity: 0.28;
+    opacity: 0.46;
   }
 }
 
@@ -774,7 +774,7 @@ html[data-supersonic="true"] .pattern-toggle-chip[data-active="true"] {
   transition:
     border-color 240ms cubic-bezier(0.22, 1, 0.36, 1),
     background-color 240ms cubic-bezier(0.22, 1, 0.36, 1),
-    color 180ms cubic-bezier(0.22, 1, 0.36, 1) 90ms,
+    color 190ms cubic-bezier(0.22, 1, 0.36, 1) 120ms,
     box-shadow 240ms cubic-bezier(0.22, 1, 0.36, 1);
   will-change: box-shadow, color, background-color;
 }
@@ -787,7 +787,7 @@ html[data-supersonic="true"] .pattern-toggle-chip[data-active="true"] {
   background: linear-gradient(90deg, rgba(255, 250, 249, 0.98), rgba(255, 236, 232, 0.94));
   transform: scaleX(0);
   transform-origin: left center;
-  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
   will-change: transform;
 }
 
@@ -1097,6 +1097,18 @@ html[data-supersonic="true"] .arranger-lane-menu-button[data-active="true"] {
   cursor: not-allowed;
 }
 
+.utility-btn-fill {
+  background: linear-gradient(180deg, rgba(248,113,113,0.9) 0%, rgba(251,191,36,0.8) 100%);
+  opacity: 0;
+  transform: scaleY(0);
+  transform-origin: top center;
+}
+
+.ghost-icon-button[data-armed="true"] .utility-btn-fill {
+  opacity: 1;
+  animation: utility-btn-sweep-down 230ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
 .status-dot {
   display: inline-block;
   width: 8px;
@@ -1195,6 +1207,16 @@ html[data-supersonic="true"] .status-chip {
   100% {
     transform: scale(1);
     box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.35), 0 0 0 0 rgba(122, 223, 176, 0);
+  }
+}
+
+@keyframes utility-btn-sweep-down {
+  from {
+    transform: scaleY(0);
+  }
+
+  to {
+    transform: scaleY(1);
   }
 }
 

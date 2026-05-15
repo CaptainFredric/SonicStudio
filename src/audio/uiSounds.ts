@@ -183,9 +183,9 @@ class UiSoundEngine {
     const swapEnabled = !enabled;
 
     filter.type = 'bandpass';
-    filter.Q.value = swapEnabled ? 1.15 : 1.35;
-    filter.frequency.setValueAtTime(swapEnabled ? 180 : 2200, now);
-    filter.frequency.exponentialRampToValueAtTime(swapEnabled ? 4200 : 220, now + 0.29);
+    filter.Q.value = swapEnabled ? 1.12 : 1.35;
+    filter.frequency.setValueAtTime(swapEnabled ? 2400 : 2200, now);
+    filter.frequency.exponentialRampToValueAtTime(swapEnabled ? 160 : 220, now + 0.29);
 
     envelope.gain.setValueAtTime(0.0001, now);
     envelope.gain.exponentialRampToValueAtTime(swapEnabled ? 0.056 : 0.041, now + 0.016);
@@ -197,9 +197,9 @@ class UiSoundEngine {
 
     air.buffer = this.getNoiseBuffer(context);
     airFilter.type = swapEnabled ? 'bandpass' : 'highpass';
-    airFilter.Q.value = swapEnabled ? 0.92 : 0.74;
-    airFilter.frequency.setValueAtTime(swapEnabled ? 420 : 2200, now);
-    airFilter.frequency.exponentialRampToValueAtTime(swapEnabled ? 5200 : 300, now + 0.27);
+    airFilter.Q.value = swapEnabled ? 0.88 : 0.74;
+    airFilter.frequency.setValueAtTime(swapEnabled ? 1600 : 2200, now);
+    airFilter.frequency.exponentialRampToValueAtTime(swapEnabled ? 220 : 300, now + 0.27);
     airEnvelope.gain.setValueAtTime(0.0001, now);
     airEnvelope.gain.exponentialRampToValueAtTime(swapEnabled ? 0.025 : 0.018, now + 0.02);
     airEnvelope.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
@@ -208,12 +208,12 @@ class UiSoundEngine {
     body.type = swapEnabled ? 'triangle' : 'sine';
     shimmer.type = swapEnabled ? 'triangle' : 'sine';
 
-    carrier.frequency.setValueAtTime(swapEnabled ? 96 : 840, now);
-    carrier.frequency.exponentialRampToValueAtTime(swapEnabled ? 720 : 118, now + 0.26);
-    body.frequency.setValueAtTime(swapEnabled ? 210 : 620, now);
-    body.frequency.exponentialRampToValueAtTime(swapEnabled ? 1320 : 150, now + 0.3);
-    shimmer.frequency.setValueAtTime(swapEnabled ? 780 : 2100, now);
-    shimmer.frequency.exponentialRampToValueAtTime(swapEnabled ? 2600 : 240, now + 0.18);
+    carrier.frequency.setValueAtTime(swapEnabled ? 460 : 840, now);
+    carrier.frequency.exponentialRampToValueAtTime(swapEnabled ? 72 : 118, now + 0.26);
+    body.frequency.setValueAtTime(swapEnabled ? 780 : 620, now);
+    body.frequency.exponentialRampToValueAtTime(swapEnabled ? 120 : 150, now + 0.3);
+    shimmer.frequency.setValueAtTime(swapEnabled ? 1680 : 2100, now);
+    shimmer.frequency.exponentialRampToValueAtTime(swapEnabled ? 170 : 240, now + 0.18);
 
     body.detune.value = swapEnabled ? 11 : -8;
     shimmer.detune.value = swapEnabled ? 22 : -20;

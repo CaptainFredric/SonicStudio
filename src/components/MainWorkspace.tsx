@@ -874,7 +874,10 @@ export const MainWorkspace = () => {
     note?: string,
   ) => {
     if (event.button !== 0) return;
-    event.preventDefault();
+    const isTouchPointer = event.pointerType === 'touch';
+    if (!isTouchPointer || editorMode === 'edit') {
+      event.preventDefault();
+    }
     setSelectedTrackId(trackId);
     selectStep(stepIndex);
 
@@ -1486,7 +1489,7 @@ export const MainWorkspace = () => {
 
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <div
-              className="sequencer-grid-scroll flex-1 overflow-auto rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]"
+              className="sequencer-grid-scroll flex-1 overflow-auto touch-pan-y rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]"
               ref={gridViewportRef}
             >
               <div style={{ minWidth: `${laneHeaderWidth + stepGridWidth}px` }}>
@@ -1692,12 +1695,12 @@ export const MainWorkspace = () => {
                                         ? `inset 0 0 0 1px rgba(255, 255, 255, 0.76), 0 0 0 1px rgba(15, 23, 42, 0.14), 0 0 18px ${track.color}44`
                                         : 'inset 0 0 0 1px rgba(15, 23, 42, 0.12)',
                                       width: `${stepCellWidth - 2}px`,
-                                      touchAction: 'none',
+                                      touchAction: editorMode === 'edit' ? 'none' : 'pan-y',
                                     }
                                   : {
                                       background: isCurrent ? `${track.color}16` : undefined,
                                       width: `${stepCellWidth - 2}px`,
-                                      touchAction: 'none',
+                                      touchAction: editorMode === 'edit' ? 'none' : 'pan-y',
                                     }}
                                 type="button"
                               >

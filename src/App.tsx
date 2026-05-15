@@ -87,7 +87,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchp
         </button>
       </div>
 
-      <div className="grid gap-2 md:hidden">
+      <div className="mt-2 grid gap-2 md:mt-0 md:hidden">
         <div className="grid grid-cols-3 gap-2">
           {navItems.slice(0, 3).map(renderViewButton)}
         </div>

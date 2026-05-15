@@ -70,7 +70,7 @@ const VUChannel: React.FC<{ selected: boolean; track: Track }> = ({ selected, tr
         </div>
       </div>
 
-      <div className="mt-4 flex items-center gap-2">
+      <div className="mt-4 grid grid-cols-2 gap-2">
         <StateBtn active={track.muted} label="Mute" onClick={() => toggleMute(track.id)} />
         <StateBtn active={track.solo} label="Solo" onClick={() => toggleSolo(track.id)} />
       </div>
@@ -518,7 +518,7 @@ export const Mixer = () => {
 
 const StateBtn = ({ active, label, onClick }: { active: boolean; label: string; onClick: () => void }) => (
   <button
-    className="control-chip flex-1 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.16em] transition-colors"
+    className="control-chip w-full min-w-0 px-2 py-2 text-[10px] font-medium uppercase tracking-[0.14em] transition-colors"
     data-active={active}
     onClick={onClick}
   >

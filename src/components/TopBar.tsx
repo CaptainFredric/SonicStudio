@@ -24,7 +24,8 @@ import { getSupersonicTransitionOrigin, runSupersonicTransition } from '../utils
 import { BrandMark } from './BrandMark';
 
 const MASTER_MATCH_EPSILON = 0.015;
-const SUPERSONIC_OFF_PREVIEW_DELAY_MS = 110;
+const SUPERSONIC_WIPE_DURATION_MS = 240;
+const SUPERSONIC_OFF_PREVIEW_DELAY_MS = Math.round(SUPERSONIC_WIPE_DURATION_MS * 0.52);
 
 interface AudioHealthSummary {
   detail: string;
@@ -667,6 +668,7 @@ const UtilityBtn = ({
   <button
     aria-label={label}
     className={`ghost-icon-button relative flex h-8 min-w-0 items-center justify-center gap-1.5 overflow-hidden px-2.5 ${armed ? 'border-[rgba(248,113,113,0.34)] text-[var(--danger)] shadow-[inset_0_0_0_1px_rgba(248,113,113,0.14)]' : ''}`}
+    data-armed={armed ? 'true' : 'false'}
     data-ui-sound={uiSound}
     disabled={disabled}
     onClick={onClick}
@@ -675,12 +677,7 @@ const UtilityBtn = ({
   >
     <span
       aria-hidden="true"
-      className="absolute inset-x-0 bottom-0 transition-[height,opacity] duration-500 ease-linear"
-      style={{
-        background: 'linear-gradient(180deg, rgba(248,113,113,0.9) 0%, rgba(251,191,36,0.8) 100%)',
-        height: armed ? '100%' : '0%',
-        opacity: armed ? 1 : 0,
-      }}
+      className="utility-btn-fill absolute inset-0"
     />
     <span className="relative z-[1] shrink-0">{children}</span>
     <span className="relative z-[1] truncate text-[9px] font-semibold uppercase tracking-[0.14em]">{armed ? armedLabel ?? label : label}</span>
