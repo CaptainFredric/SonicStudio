@@ -11,6 +11,7 @@ import {
   Save,
   SlidersHorizontal,
   Square,
+  Trash2,
   Undo2,
   Zap,
 } from 'lucide-react';
@@ -62,6 +63,7 @@ export const TopBar = ({
     loopRangeStartBeat,
     master,
     metronomeEnabled,
+    newSession,
     patternCount,
     projectName,
     redo,
@@ -90,6 +92,7 @@ export const TopBar = ({
   } = useAudio();
   const [draftProjectName, setDraftProjectName] = useState(projectName);
   const [isSupersonicHovered, setIsSupersonicHovered] = useState(false);
+  const [isRestartArmed, setIsRestartArmed] = useState(false);
   const [showSupersonicOffPreview, setShowSupersonicOffPreview] = useState(false);
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
   const activeMasterPreset = MASTER_PRESET_DEFINITIONS.find((preset) => (
@@ -114,6 +117,20 @@ export const TopBar = ({
       window.clearTimeout(timeoutId);
     };
   }, [isSupersonicHovered, superSonicMode]);
+
+  useEffect(() => {
+    if (!isRestartArmed) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setIsRestartArmed(false);
+    }, 500);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [isRestartArmed]);
 
   const commitProjectName = () => {
     renameProject(draftProjectName);
@@ -158,6 +175,17 @@ export const TopBar = ({
     }
     runSupersonicTransition(enabled, getSupersonicTransitionOrigin(button));
     setSuperSonicMode(enabled);
+  };
+
+  const handleRestartSession = () => {
+    if (isRestartArmed) {
+      setIsRestartArmed(false);
+      stop();
+      newSession();
+      return;
+    }
+
+    setIsRestartArmed(true);
   };
 
   return (
@@ -267,7 +295,7 @@ export const TopBar = ({
             <div className="hidden md:grid md:justify-items-end">
               <div className="grid w-full max-w-[372px] gap-2">
                 <div
-                  className="grid grid-cols-3 gap-2"
+                  className="grid grid-cols-4 gap-2"
                   style={{
                     opacity: compactStart ? 0.42 : 1,
                     transition: 'opacity 230ms cubic-bezier(0.22,1,0.36,1)',
@@ -281,6 +309,16 @@ export const TopBar = ({
                   </UtilityBtn>
                   <UtilityBtn disabled={!canRedo} label="Redo" onClick={redo} shortcut="⇧⌘Z">
                     <Redo2 className="h-3.5 w-3.5" />
+                  </UtilityBtn>
+                  <UtilityBtn
+                    armed={isRestartArmed}
+                    armedLabel="Confirm"
+                    label="Restart"
+                    onClick={handleRestartSession}
+                    shortcut="Double click"
+                    uiSound="danger"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
                   </UtilityBtn>
                 </div>
 
@@ -377,6 +415,16 @@ export const TopBar = ({
                 </UtilityBtn>
                 <UtilityBtn disabled={!canRedo} label="Redo" onClick={redo} shortcut="⇧⌘Z">
                   <Redo2 className="h-3.5 w-3.5" />
+                </UtilityBtn>
+                <UtilityBtn
+                  armed={isRestartArmed}
+                  armedLabel="Confirm"
+                  label="Restart"
+                  onClick={handleRestartSession}
+                  shortcut="Double click"
+                  uiSound="danger"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
                 </UtilityBtn>
               </div>
               <div className="flex flex-wrap items-center justify-end gap-2">
@@ -537,29 +585,44 @@ export const TopBar = ({
 };
 
 const UtilityBtn = ({
+  armed = false,
+  armedLabel,
   children,
   disabled = false,
   label,
   onClick,
   shortcut,
+  uiSound = 'action',
 }: {
+  armed?: boolean;
+  armedLabel?: string;
   children: React.ReactNode;
   disabled?: boolean;
   label: string;
   onClick: () => void;
   shortcut?: string;
+  uiSound?: 'action' | 'danger';
 }) => (
   <button
     aria-label={label}
-    className="ghost-icon-button flex h-8 min-w-0 items-center justify-center gap-1.5 px-2.5"
-    data-ui-sound="action"
+    className={`ghost-icon-button relative flex h-8 min-w-0 items-center justify-center gap-1.5 overflow-hidden px-2.5 ${armed ? 'border-[rgba(248,113,113,0.34)] text-[var(--danger)] shadow-[inset_0_0_0_1px_rgba(248,113,113,0.14)]' : ''}`}
+    data-ui-sound={uiSound}
     disabled={disabled}
     onClick={onClick}
-    title={shortcut ? `${label} (${shortcut})` : label}
+    title={armed ? 'Click again to restart the session' : shortcut ? `${label} (${shortcut})` : label}
     type="button"
   >
-    <span className="shrink-0">{children}</span>
-    <span className="truncate text-[9px] font-semibold uppercase tracking-[0.14em]">{label}</span>
+    <span
+      aria-hidden="true"
+      className="absolute inset-x-0 bottom-0 transition-[height,opacity] duration-500 ease-linear"
+      style={{
+        background: 'linear-gradient(180deg, rgba(248,113,113,0.9) 0%, rgba(251,191,36,0.8) 100%)',
+        height: armed ? '100%' : '0%',
+        opacity: armed ? 1 : 0,
+      }}
+    />
+    <span className="relative z-[1] shrink-0">{children}</span>
+    <span className="relative z-[1] truncate text-[9px] font-semibold uppercase tracking-[0.14em]">{armed ? armedLabel ?? label : label}</span>
   </button>
 );
 

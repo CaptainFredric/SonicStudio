@@ -231,7 +231,7 @@ export const WorkspaceBouncePanel = ({
     </div>
 
     <div className="mt-3 rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3 text-[11px] leading-5 text-[var(--text-secondary)]">
-      Mixes and stems render offline before encoding, so timing and analysis come from the full audio buffer.
+      Mixes and stems render offline before encoding, so timing and analysis come from the full audio buffer. For audio debugging, the easiest thing to share is a short WAV bounced from the current loop window.
     </div>
 
     <div className="mt-4">
