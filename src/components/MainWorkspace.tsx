@@ -65,7 +65,7 @@ const QUICK_INTERVALS = [
   { label: '+8va', semitones: 12 },
 ] as const;
 const NOTE_OPTIONS = buildNoteOptions(6, 2);
-const STEP_OPTIONS = [16, 32, 64, 96, 128] as const;
+const STEP_OPTIONS = [16, 24, 32, 48, 64, 96, 128, 160, 192] as const;
 const STEP_ZOOM_MIN = 16;
 const STEP_ZOOM_STEP = 2;
 const SUPERSONIC_NOTE_OFFSETS = [4, 3, 2, 1, 0, -1, -2, -3, -4] as const;
@@ -1231,7 +1231,7 @@ export const MainWorkspace = () => {
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <div className="surface-panel-strong flex flex-wrap items-center gap-1 p-1">
-                  <span className="px-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Steps 16-128</span>
+                  <span className="px-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Steps 16-192</span>
                   {STEP_OPTIONS.map((option) => (
                     <button
                       className="control-chip px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]"

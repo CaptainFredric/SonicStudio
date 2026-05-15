@@ -231,7 +231,7 @@ export interface StudioSession {
 export const DEFAULT_PATTERN_COUNT = 4;
 export const DEFAULT_STEPS_PER_PATTERN = 16;
 export const MAX_PATTERN_COUNT = 16;
-export const MAX_STEPS_PER_PATTERN = 128;
+export const MAX_STEPS_PER_PATTERN = 192;
 export const MIN_PATTERN_COUNT = 1;
 export const MIN_STEPS_PER_PATTERN = 8;
 export const PROJECT_SCHEMA_VERSION = 12;

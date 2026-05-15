@@ -4,7 +4,7 @@ import { Gauge, Layers3 } from 'lucide-react';
 import { MetricCell, SegmentButton, ShortcutRow } from './SettingsPrimitives';
 
 const PATTERN_OPTIONS = [2, 4, 6, 8, 12, 16];
-const STEP_OPTIONS = [8, 16, 32, 64, 96, 128];
+const STEP_OPTIONS = [8, 16, 24, 32, 48, 64, 96, 128, 160, 192];
 
 interface WorkspaceTransportPanelProps {
   bpm: number;

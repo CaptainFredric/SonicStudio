@@ -47,7 +47,7 @@ const MOBILE_GRID_LABEL_WIDTH = 72;
 const STEP_ZOOM_MAX = 120;
 const STEP_ZOOM_MIN = 20;
 const STEP_ZOOM_STEP = 2;
-const STEP_OPTIONS = [16, 32, 64, 96, 128] as const;
+const STEP_OPTIONS = [16, 24, 32, 48, 64, 96, 128, 160, 192] as const;
 const SUPERSONIC_NOTE_OFFSETS = [4, 3, 2, 1, 0, -1, -2, -3, -4] as const;
 
 const shiftPitch = (note: string, semitones: number): string | null => {
@@ -786,7 +786,7 @@ export const PianoRoll = () => {
         <div className="flex w-full flex-col gap-2 xl:flex-row xl:flex-wrap xl:items-center">
           <div className="flex max-w-full flex-wrap items-center gap-2">
             <div className="surface-panel-muted flex max-w-full flex-wrap items-center gap-2 p-1">
-            <span className="px-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Steps 16-128</span>
+            <span className="px-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Steps 16-192</span>
             {STEP_OPTIONS.map((option) => (
               <React.Fragment key={`steps-${option}`}>
                 <WindowButton active={stepsPerPattern === option} label={`${option}`} onClick={() => setStepsPerPattern(option)} />

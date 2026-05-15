@@ -1,6 +1,7 @@
 import {
   createArrangerClip as buildArrangerClip,
   createEmptyPattern,
+  MAX_STEPS_PER_PATTERN,
   type ArrangementClip,
   type NoteEvent,
   type Project,
@@ -30,7 +31,7 @@ export const syncArrangerClips = (
     .filter((clip) => trackOrder.has(clip.trackId))
     .map((clip) => ({
       ...clip,
-      beatLength: clamp(Math.round(clip.beatLength || 16), 4, 128),
+      beatLength: clamp(Math.round(clip.beatLength || 16), 4, MAX_STEPS_PER_PATTERN),
       patternIndex: clamp(Math.round(clip.patternIndex || 0), 0, Math.max(patternCount - 1, 0)),
       startBeat: clamp(Math.round(clip.startBeat || 0), 0, 4096),
     }))

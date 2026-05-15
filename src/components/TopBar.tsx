@@ -199,6 +199,9 @@ export const TopBar = ({
   const isFirstImpression = compactStart;
   const showPlayPulse = !isPlaying && !countInActive;
   const brandName = superSonicMode ? 'SuperSonicStudio' : 'SonicStudio';
+  const brandTagline = superSonicMode
+    ? 'Sharper lanes, faster edits, same session.'
+    : 'Sketch, arrange, and mix in one place.';
   const focusTitle = isFirstImpression
     ? projectName
     : selectedTrack
@@ -276,7 +279,7 @@ export const TopBar = ({
             </div>
             <div className="min-w-0">
               <h1 className="text-[18px] font-semibold tracking-tight text-[var(--text-primary)]">{brandName}</h1>
-              <p className="mt-1 text-xs text-[var(--text-secondary)]">Sketch, arrange, and mix without leaving the browser.</p>
+              <p className="mt-1 text-xs text-[var(--text-secondary)]">{brandTagline}</p>
             </div>
           </div>
 

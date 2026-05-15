@@ -9,6 +9,8 @@ import { WorkspaceRecoveryPanel } from './WorkspaceRecoveryPanel';
 import { WorkspaceSessionPanel } from './WorkspaceSessionPanel';
 import { WorkspaceTransportPanel } from './WorkspaceTransportPanel';
 import { WorkspaceUtilityPanel } from './WorkspaceUtilityPanel';
+import { resetOnboardingStatus } from '../../services/onboardingState';
+import { resetUiReminders } from '../../services/uiReminders';
 
 const formatSaveLabel = (saveStatus: 'idle' | 'saving' | 'saved' | 'error', lastSavedAt: string | null) => {
   if (saveStatus === 'error') {
@@ -61,6 +63,7 @@ export const WorkspaceSettingsPanel = () => {
     setCaptureKeepShelfBetweenTakes,
     setCaptureLiveSuggestionCount,
     setMotionMode,
+    resetStudioPreferences,
     setSuperSonicMode,
     setSuperSonicGuidanceBadges,
     setSuperSonicWaveIntensity,
@@ -208,6 +211,11 @@ export const WorkspaceSettingsPanel = () => {
         onCaptureKeepShelfBetweenTakesChange={setCaptureKeepShelfBetweenTakes}
         onCaptureLiveSuggestionCountChange={setCaptureLiveSuggestionCount}
         onMotionModeChange={setMotionMode}
+        onResetGuidance={() => {
+          resetOnboardingStatus();
+          resetUiReminders();
+        }}
+        onResetStudioPreferences={resetStudioPreferences}
         onSuperSonicModeChange={setSuperSonicMode}
         onSuperSonicGuidanceBadgesChange={setSuperSonicGuidanceBadges}
         onSuperSonicWaveIntensityChange={setSuperSonicWaveIntensity}

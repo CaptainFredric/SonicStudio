@@ -18,7 +18,7 @@ import { ToastStack, type ToastItem } from './components/ToastStack';
 import { resolveStudioRoute, type StudioRouteState } from './app/routeController';
 import type { SessionTemplateId } from './project/schema';
 import { markOnboardingCompleted, markOnboardingSkipped, shouldAutoOpenOnboarding } from './services/onboardingState';
-import { Music, LayoutGrid, Volume2, Settings, Layers3, Sparkles, Rows2, Share2, Mic, Coffee } from 'lucide-react';
+import { AudioWaveform, LayoutGrid, Volume2, Settings, Layers3, Sparkles, Rows2, Share2, Radio, Coffee } from 'lucide-react';
 import { Circle, Pause, Play, Square } from 'lucide-react';
 
 const SUPPORT_URL = 'https://buymeacoffee.com/captainarm1';
@@ -28,7 +28,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchp
 
   const navItems = [
     { id: 'COMPOSE', icon: <Rows2 size={20} />, label: 'Compose' },
-    { id: 'SEQUENCER', icon: <Music size={20} />, label: 'Sequencer' },
+    { id: 'SEQUENCER', icon: <AudioWaveform size={20} />, label: 'Sequencer' },
     { id: 'PIANO_ROLL', icon: <LayoutGrid size={20} />, label: 'Piano Roll' },
     { id: 'MIXER', icon: <Volume2 size={20} />, label: 'Mixer' },
     { id: 'ARRANGER', icon: <Layers3 size={20} />, label: 'Arranger' },
@@ -81,7 +81,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchp
           type="button"
         >
           <div className="flex items-center justify-center gap-2 md:flex-col">
-            <Mic size={20} className="text-[var(--danger)]" />
+            <Radio size={20} className="text-[var(--danger)]" />
             <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Capture</span>
           </div>
         </button>

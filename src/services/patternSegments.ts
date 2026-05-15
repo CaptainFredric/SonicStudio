@@ -1,5 +1,6 @@
 import {
   createEmptyPattern,
+  MAX_STEPS_PER_PATTERN,
   type InstrumentType,
   type NoteEvent,
   type PatternAutomation,
@@ -23,7 +24,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> => (
   typeof value === 'object' && value !== null
 );
 
-const clampSteps = (value: number) => Math.max(8, Math.min(128, Math.round(value)));
+const clampSteps = (value: number) => Math.max(8, Math.min(MAX_STEPS_PER_PATTERN, Math.round(value)));
 
 const cloneSteps = (steps: NoteEvent[][], stepsPerPattern: number) => {
   const next = createEmptyPattern(stepsPerPattern);

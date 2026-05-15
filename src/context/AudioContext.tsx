@@ -36,6 +36,7 @@ import {
 import type { SongFormId } from './editor/songFormDefinitions';
 import {
   ACCENT_PRESETS,
+  DEFAULT_STUDIO_PREFERENCES,
   type CaptureAnalysisProfile,
   type CapturePreferences,
   type CaptureSuggestionCount,
@@ -133,6 +134,7 @@ interface AudioContextType {
   setAccentColor: (color: AccentColor) => void;
   setDensity: (density: Density) => void;
   setDefaultWorkspace: (workspace: DefaultWorkspace) => void;
+  resetStudioPreferences: () => void;
   setSuperSonicMode: (enabled: boolean) => void;
   setSuperSonicGuidanceBadges: (enabled: boolean) => void;
   setSuperSonicWaveIntensity: (intensity: SuperSonicWaveIntensity) => void;
@@ -707,6 +709,7 @@ export const AudioProvider = ({
     setAccentColor: (accentColor) => setPreferences((current) => ({ ...current, accentColor })),
     setDensity: (density) => setPreferences((current) => ({ ...current, density })),
     setDefaultWorkspace: (defaultWorkspace) => setPreferences((current) => ({ ...current, defaultWorkspace })),
+    resetStudioPreferences: () => setPreferences(DEFAULT_STUDIO_PREFERENCES),
     setSuperSonicMode: (superSonicMode) => setPreferences((current) => ({ ...current, superSonicMode })),
     setSuperSonicGuidanceBadges: (guidanceBadges) => setPreferences((current) => ({
       ...current,

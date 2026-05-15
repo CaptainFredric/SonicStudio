@@ -1,6 +1,8 @@
-import { Coffee, Mic, Settings2, Volume2, Waves, Zap } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Coffee, Mic, RotateCcw, Settings2, Volume2, Waves, Zap } from 'lucide-react';
 
 import type { CaptureAnalysisProfile, CaptureSuggestionCount, MotionMode, SuperSonicWaveIntensity } from '../../project/preferences';
+import { hasSeenUiReminder, markUiReminderSeen } from '../../services/uiReminders';
 import { SegmentButton, StateButton } from './SettingsPrimitives';
 
 const SUPPORT_URL = 'https://buymeacoffee.com/captainarm1';
@@ -16,6 +18,8 @@ interface WorkspaceOptionsPanelProps {
   onCaptureKeepShelfBetweenTakesChange: (enabled: boolean) => void;
   onCaptureLiveSuggestionCountChange: (count: CaptureSuggestionCount) => void;
   onMotionModeChange: (mode: MotionMode) => void;
+  onResetGuidance: () => void;
+  onResetStudioPreferences: () => void;
   onSuperSonicModeChange: (enabled: boolean) => void;
   onSuperSonicGuidanceBadgesChange: (enabled: boolean) => void;
   onSuperSonicWaveIntensityChange: (intensity: SuperSonicWaveIntensity) => void;
@@ -37,6 +41,8 @@ export const WorkspaceOptionsPanel = ({
   onCaptureKeepShelfBetweenTakesChange,
   onCaptureLiveSuggestionCountChange,
   onMotionModeChange,
+  onResetGuidance,
+  onResetStudioPreferences,
   onSuperSonicModeChange,
   onSuperSonicGuidanceBadgesChange,
   onSuperSonicWaveIntensityChange,
@@ -45,8 +51,19 @@ export const WorkspaceOptionsPanel = ({
   superSonicMode,
   superSonicWaveIntensity,
   uiSoundsEnabled,
-}: WorkspaceOptionsPanelProps) => (
-  <section className="surface-panel-strong p-4">
+}: WorkspaceOptionsPanelProps) => {
+  const [compactCopy, setCompactCopy] = useState(() => hasSeenUiReminder('workspace-options-copy'));
+
+  useEffect(() => {
+    const seen = hasSeenUiReminder('workspace-options-copy');
+    setCompactCopy(seen);
+    if (!seen) {
+      markUiReminderSeen('workspace-options-copy');
+    }
+  }, []);
+
+  return (
+    <section className="surface-panel-strong p-4">
     <div className="flex items-center gap-2 text-[var(--text-primary)]">
       <Settings2 className="h-4 w-4 text-[var(--accent)]" />
       <span className="section-label">Studio options</span>
@@ -59,7 +76,9 @@ export const WorkspaceOptionsPanel = ({
           <div>
             <div className="text-sm font-medium text-[var(--text-primary)]">SuperSonic tools</div>
             <div className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
-              Precision ladders, stronger track-map guidance, brighter desk contrast, and the faster alternate studio skin.
+              {compactCopy
+                ? 'Precision ladders, stronger track-map guidance, and the faster alternate studio skin.'
+                : 'Precision ladders, stronger track-map guidance, brighter desk contrast, and the faster alternate studio skin.'}
             </div>
           </div>
         </div>
@@ -85,7 +104,9 @@ export const WorkspaceOptionsPanel = ({
           </div>
         </div>
         <div className="mt-3 rounded-[4px] border border-[rgba(176,31,55,0.2)] bg-[rgba(176,31,55,0.05)] px-3 py-2 text-[11px] leading-5 text-[var(--text-secondary)]">
-          Use the SuperSonic button in the top bar when you want the precision layout quickly. The mode now also supports a faint moving wave veil across the studio and optional guidance badges for the advanced lane tools.
+          {compactCopy
+            ? 'Use the SuperSonic button in the top bar for quick precision mode.'
+            : 'Use the SuperSonic button in the top bar when you want the precision layout quickly. The mode now also supports a faint moving wave veil across the studio and optional guidance badges for the advanced lane tools.'}
         </div>
       </div>
 
@@ -95,7 +116,9 @@ export const WorkspaceOptionsPanel = ({
           <div>
             <div className="text-sm font-medium text-[var(--text-primary)]">Capture sound</div>
             <div className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
-              Record a short phrase, get nearby note guesses, and drop the result into a matching lane without leaving the session.
+              {compactCopy
+                ? 'Record a phrase, review note guesses, and apply a lane match.'
+                : 'Record a short phrase, get nearby note guesses, and drop the result into a matching lane without leaving the session.'}
             </div>
           </div>
         </div>
@@ -113,7 +136,9 @@ export const WorkspaceOptionsPanel = ({
               <SegmentButton active={captureAnalysisProfile === 'steady'} label="Steady" onClick={() => onCaptureAnalysisProfileChange('steady')} />
             </div>
             <div className="mt-3 text-[11px] leading-5 text-[var(--text-secondary)]">
-              Quick commits faster, Balanced keeps the current behavior, and Steady waits for a cleaner held tone before shelving a capture.
+              {compactCopy
+                ? 'Quick commits fastest, Balanced is default, and Steady waits for cleaner held tones.'
+                : 'Quick commits faster, Balanced keeps the current behavior, and Steady waits for a cleaner held tone before shelving a capture.'}
             </div>
           </div>
           <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
@@ -124,7 +149,9 @@ export const WorkspaceOptionsPanel = ({
               <SegmentButton active={captureLiveSuggestionCount === 3} label="3" onClick={() => onCaptureLiveSuggestionCountChange(3)} />
             </div>
             <div className="mt-3 text-[11px] leading-5 text-[var(--text-secondary)]">
-              Limit how many lane matches appear live and after recording. Lower counts keep mobile capture calmer.
+              {compactCopy
+                ? 'Limit how many lane matches show up live and after recording.'
+                : 'Limit how many lane matches appear live and after recording. Lower counts keep mobile capture calmer.'}
             </div>
           </div>
           <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
@@ -134,7 +161,9 @@ export const WorkspaceOptionsPanel = ({
               <StateButton active={!captureAutoPreviewMatch} label="Off" onClick={() => onCaptureAutoPreviewMatchChange(false)} />
             </div>
             <div className="mt-3 text-[11px] leading-5 text-[var(--text-secondary)]">
-              Auditions the strongest lane suggestion right after analysis finishes so you can judge the match faster.
+              {compactCopy
+                ? 'Auto-plays the strongest lane suggestion right after analysis.'
+                : 'Auditions the strongest lane suggestion right after analysis finishes so you can judge the match faster.'}
             </div>
           </div>
           <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
@@ -144,9 +173,49 @@ export const WorkspaceOptionsPanel = ({
               <StateButton active={!captureKeepShelfBetweenTakes} label="Off" onClick={() => onCaptureKeepShelfBetweenTakesChange(false)} />
             </div>
             <div className="mt-3 text-[11px] leading-5 text-[var(--text-secondary)]">
-              Keeps saved notes visible while you keep recording inside the same capture pass instead of clearing the shelf on every retry.
+              {compactCopy
+                ? 'Keeps saved notes visible while you keep recording in the same pass.'
+                : 'Keeps saved notes visible while you keep recording inside the same capture pass instead of clearing the shelf on every retry.'}
             </div>
           </div>
+        </div>
+      </div>
+
+      <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
+        <div className="flex items-center gap-2">
+          <RotateCcw className="h-4 w-4 text-[var(--accent)]" />
+          <div>
+            <div className="text-sm font-medium text-[var(--text-primary)]">Reset helpers</div>
+            <div className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
+              Restart the tutorial/reminder guidance or restore all default app settings.
+            </div>
+          </div>
+        </div>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <button
+            className="control-chip px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em]"
+            onClick={() => {
+              onResetGuidance();
+            }}
+            type="button"
+          >
+            Reset tutorial + reminders
+          </button>
+          <button
+            className="control-chip px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em]"
+            onClick={() => {
+              if (typeof window !== 'undefined') {
+                const confirmed = window.confirm('Restore default SonicStudio settings? This keeps your sessions and scoresheets, but resets visual/workflow preferences.');
+                if (!confirmed) {
+                  return;
+                }
+              }
+              onResetStudioPreferences();
+            }}
+            type="button"
+          >
+            Reset default settings
+          </button>
         </div>
       </div>
 
@@ -210,4 +279,5 @@ export const WorkspaceOptionsPanel = ({
       </div>
     </div>
   </section>
-);
+  );
+};

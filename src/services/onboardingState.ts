@@ -71,3 +71,17 @@ export const markOnboardingSkipped = () => {
 
   persistStatus('skipped');
 };
+
+export const resetOnboardingStatus = () => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    window.localStorage.removeItem(STORAGE_KEY);
+  } catch (error) {
+    if (typeof console !== 'undefined') {
+      console.warn('SonicStudio: failed to reset onboarding status', error);
+    }
+  }
+};

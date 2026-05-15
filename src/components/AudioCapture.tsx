@@ -30,6 +30,7 @@ import {
   type VocalTakeSummary,
 } from '../services/vocalTakeLibrary';
 import { getPitchCoachFeedback } from '../services/pitchCoach';
+import { hasSeenUiReminder, markUiReminderSeen } from '../services/uiReminders';
 import { TrackIcon, getTrackPersonality } from '../utils/trackPersonality';
 import { convertRecordingBlobToWav } from '../utils/export';
 import {
@@ -215,6 +216,7 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
   const [isSavingVocalTake, setIsSavingVocalTake] = useState(false);
   const [isExportingVocalTake, setIsExportingVocalTake] = useState(false);
   const [activeVocalTakeId, setActiveVocalTakeId] = useState<string | null>(null);
+  const [useShortGuidanceCopy, setUseShortGuidanceCopy] = useState(() => hasSeenUiReminder('capture-copy'));
   const autoPreviewKeyRef = useRef<string | null>(null);
 
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
@@ -251,6 +253,12 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
   useEffect(() => {
     if (!open) {
       return undefined;
+    }
+
+    const seen = hasSeenUiReminder('capture-copy');
+    setUseShortGuidanceCopy(seen);
+    if (!seen) {
+      markUiReminderSeen('capture-copy');
     }
 
     setRecordedNoteLibrary(loadRecordedNotePresets());
@@ -769,7 +777,9 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
               Record a vocal take or sound and we'll suggest the closest notes and lanes.
             </h2>
             <p className="mt-1 text-[12px] leading-5 text-[var(--text-secondary)]">
-              Hum, whistle, sing a phrase, tap, or record a short idea. SonicStudio listens for the main pitch, gives you nearby note guesses, suggests the closest lanes your current capture settings allow, and can keep the raw take locally as a WAV vocal sketch. Everything stays on your device.
+              {useShortGuidanceCopy
+                ? 'Record a short idea, review note guesses, and apply the closest lane. Captures stay on this device.'
+                : 'Hum, whistle, sing a phrase, tap, or record a short idea. SonicStudio listens for the main pitch, gives you nearby note guesses, suggests the closest lanes your current capture settings allow, and can keep the raw take locally as a WAV vocal sketch. Everything stays on your device.'}
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               <span className="rounded-[2px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-secondary)]">
@@ -793,7 +803,7 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
           </button>
         </div>
 
-        <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1.1fr)_320px] md:hidden">
+        <div className="mt-4 hidden gap-3 xl:grid-cols-[minmax(0,1.1fr)_320px] md:grid">
           <section className="surface-panel-strong p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
@@ -1355,7 +1365,9 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
           )}
 
           <p className="text-[11px] leading-5 text-[var(--text-tertiary)]">
-            How matching works: we compare pitch across a few analysis windows, read the brightness and attack shape, then use that combined profile to suggest nearby notes and lanes. It is still an estimate, but it is far better than a single nearest-note guess. Everything stays on your device.
+            {useShortGuidanceCopy
+              ? 'Matching compares pitch, brightness, and attack to suggest nearby notes and lanes. Everything stays on your device.'
+              : 'How matching works: we compare pitch across a few analysis windows, read the brightness and attack shape, then use that combined profile to suggest nearby notes and lanes. It is still an estimate, but it is far better than a single nearest-note guess. Everything stays on your device.'}
           </p>
         </div>
       </div>
