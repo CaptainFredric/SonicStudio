@@ -793,7 +793,7 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
           </button>
         </div>
 
-        <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1.1fr)_320px]">
+        <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1.1fr)_320px] md:hidden">
           <section className="surface-panel-strong p-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
@@ -837,7 +837,7 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
               <CaptureSummaryStat label="Live matches" value={`${capturePreferences.liveSuggestionCount}`} />
             </div>
 
-            <div className="mt-3 grid gap-3 xl:grid-cols-2">
+            <div className="mt-3 grid gap-3 xl:grid-cols-2 md:hidden">
               <div className="rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
                 <div className="section-label">Recent library</div>
                 {recentRecordedLibrary.length > 0 ? (

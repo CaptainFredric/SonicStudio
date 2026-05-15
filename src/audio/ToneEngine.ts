@@ -644,10 +644,13 @@ export class ToneEngine {
     }
 
     if (playerIndex === -1) {
-      return;
+      // Fallback: if no voices available, reuse the oldest voice (round-robin)
+      playerIndex = graph.samplePlayerCursor;
+      graph.samplePlayerCursor = (playerIndex + 1) % graph.samplePlayers.length;
     }
 
     const player = graph.samplePlayers[playerIndex];
+    if (!player) return;
 
     player.fadeOut = Math.min(0.05, scheduledDuration * 0.25);
     player.loop = false;
@@ -659,8 +662,8 @@ export class ToneEngine {
       player.start(time, windowStart, scheduledDuration);
       player.stop(time + scheduledDuration + 0.06);
       graph.samplePlayerAvailableAt[playerIndex] = time + scheduledDuration + 0.06;
-      graph.samplePlayerCursor = (playerIndex + 1) % graph.samplePlayers.length;
-    } catch {
+    } catch (err) {
+      // Silently handle play errors (e.g., note already playing)
       graph.samplePlayerAvailableAt[playerIndex] = time;
     }
   }
