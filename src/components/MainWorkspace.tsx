@@ -314,6 +314,7 @@ interface TrackOverviewStepActivity {
 interface TrackOverviewRow {
   currentPatternActiveSteps: number;
   currentPatternSteps: NoteEvent[][];
+  otherPatternContext: 'bank' | 'song';
   otherPatternActiveSteps: number;
   stepActivity: TrackOverviewStepActivity[];
   totalActiveSteps: number;
@@ -328,18 +329,28 @@ const getTrackPatternSteps = (track: Track, patternIndex: number, stepsPerPatter
   Array.from({ length: stepsPerPattern }, (_, stepIndex) => track.patterns[patternIndex]?.[stepIndex] ?? [])
 );
 
-const buildTrackOverviewRow = (track: Track, currentPattern: number, stepsPerPattern: number): TrackOverviewRow => {
+const buildTrackOverviewRow = (
+  track: Track,
+  currentPattern: number,
+  stepsPerPattern: number,
+  options: { songPatternIndices: Set<number> | null; transportMode: 'PATTERN' | 'SONG' },
+): TrackOverviewRow => {
   const currentPatternSteps = getTrackPatternSteps(track, currentPattern, stepsPerPattern);
   const currentPatternActiveSteps = countPatternActiveSteps(currentPatternSteps);
   const stepActivity = Array.from({ length: stepsPerPattern }, (_, stepIndex) => ({
     currentCount: currentPatternSteps[stepIndex]?.length ?? 0,
     otherCount: 0,
   }));
+  const otherPatternContext: 'bank' | 'song' = options.transportMode === 'SONG' ? 'song' : 'bank';
   let otherPatternActiveSteps = 0;
 
   Object.entries(track.patterns).forEach(([patternKey, patternSteps]) => {
     const patternIndex = Number(patternKey);
     if (patternIndex === currentPattern) {
+      return;
+    }
+
+    if (options.transportMode === 'SONG' && !options.songPatternIndices?.has(patternIndex)) {
       return;
     }
 
@@ -356,6 +367,7 @@ const buildTrackOverviewRow = (track: Track, currentPattern: number, stepsPerPat
   return {
     currentPatternActiveSteps,
     currentPatternSteps,
+    otherPatternContext,
     otherPatternActiveSteps,
     stepActivity,
     totalActiveSteps: currentPatternActiveSteps + otherPatternActiveSteps,
@@ -410,6 +422,7 @@ export const MainWorkspace = () => {
     setSelectedTrackId,
     setStepsPerPattern,
     setTransportMode,
+    transportMode,
     shiftPattern,
     stepsPerPattern,
     superSonicMode,
@@ -419,6 +432,7 @@ export const MainWorkspace = () => {
     togglePinnedTrack,
     toggleSolo,
     tracks,
+    arrangerClips,
     transposePattern,
     updateStepEvent,
   } = useAudio();
@@ -550,11 +564,27 @@ export const MainWorkspace = () => {
 
     return sections;
   }, [groupedVisibleTracks, pinnedVisibleTracks]);
+  const songPatternIndicesByTrack = useMemo(() => {
+    const lookup = new Map<string, Set<number>>();
+
+    arrangerClips.forEach((clip) => {
+      if (!lookup.has(clip.trackId)) {
+        lookup.set(clip.trackId, new Set<number>());
+      }
+
+      lookup.get(clip.trackId)?.add(clip.patternIndex);
+    });
+
+    return lookup;
+  }, [arrangerClips]);
   const overviewTracks = useMemo(() => {
     const trackLimit = isMobileViewport ? 6 : 10;
 
     return visibleTracks
-      .map((track) => buildTrackOverviewRow(track, currentPattern, stepsPerPattern))
+      .map((track) => buildTrackOverviewRow(track, currentPattern, stepsPerPattern, {
+        songPatternIndices: songPatternIndicesByTrack.get(track.id) ?? null,
+        transportMode,
+      }))
       .sort((left, right) => {
         const leftSelected = left.track.id === selectedTrackId ? 1 : 0;
         const rightSelected = right.track.id === selectedTrackId ? 1 : 0;
@@ -577,7 +607,7 @@ export const MainWorkspace = () => {
         return left.track.name.localeCompare(right.track.name);
       })
       .slice(0, trackLimit);
-  }, [currentPattern, isMobileViewport, selectedTrackId, stepsPerPattern, visibleTracks]);
+  }, [currentPattern, isMobileViewport, selectedTrackId, songPatternIndicesByTrack, stepsPerPattern, transportMode, visibleTracks]);
   const showTrackOverviewLimit = visibleTracks.length > overviewTracks.length;
   const activeSessionPlayerForm = useMemo(() => getSongFormDefinition(sessionPlayerFormId), [sessionPlayerFormId]);
   const sessionPlayerSegments = useMemo(() => (
@@ -1351,7 +1381,11 @@ export const MainWorkspace = () => {
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <div className="section-label">Track map</div>
-                  <div className="mt-1 text-[12px] text-[var(--text-secondary)]">Jump across the full pattern while keeping the connected lanes in view.</div>
+                  <div className="mt-1 text-[12px] text-[var(--text-secondary)]">
+                    {transportMode === 'SONG'
+                      ? `Song mode is active. Ghost marks can play from clip patterns outside ${currentPatternLabel}.`
+                      : `Pattern mode is active. Ghost marks are notes stored in other pattern banks and won't play until you switch patterns or Song mode.`}
+                  </div>
                 </div>
                 <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
                   View {visibleStepStart + 1}-{Math.max(visibleStepStart + 1, visibleStepEnd)} of {stepsPerPattern}
@@ -1362,16 +1396,17 @@ export const MainWorkspace = () => {
                   const {
                     currentPatternActiveSteps,
                     currentPatternSteps,
+                    otherPatternContext,
                     otherPatternActiveSteps,
                     stepActivity,
                     track,
                   } = overview;
                   const activityLabel = currentPatternActiveSteps > 0 && otherPatternActiveSteps > 0
-                    ? `${currentPatternActiveSteps} active · ${otherPatternActiveSteps} elsewhere`
+                    ? `${currentPatternActiveSteps} active · ${otherPatternActiveSteps} ${otherPatternContext === 'song' ? 'in song clips' : 'stored elsewhere'}`
                     : currentPatternActiveSteps > 0
                       ? `${currentPatternActiveSteps} active`
                       : otherPatternActiveSteps > 0
-                        ? `${otherPatternActiveSteps} in other patterns`
+                        ? `${otherPatternActiveSteps} ${otherPatternContext === 'song' ? 'in song clips' : 'stored in other patterns'}`
                         : '0 active';
 
                   return (
@@ -1429,7 +1464,7 @@ export const MainWorkspace = () => {
                                 : hasCurrentActivity
                                   ? `Jump to step ${stepIndex + 1}`
                                   : hasOtherPatternActivity
-                                    ? `Jump to step ${stepIndex + 1} · activity exists in other patterns`
+                                    ? `Jump to step ${stepIndex + 1} · ${otherPatternContext === 'song' ? 'playback can come from song clips using other patterns' : 'notes are stored in other pattern banks'}`
                                     : `Jump to step ${stepIndex + 1}`}
                               type="button"
                             >

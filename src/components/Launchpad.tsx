@@ -302,17 +302,17 @@ export const Launchpad = ({
           <div className="border-b border-[var(--border-soft)] pb-5">
             <div className="section-label text-[var(--accent-strong)]">Start here</div>
             <h1 className="mt-3 max-w-[11ch] text-[clamp(2.35rem,5vw,4.7rem)] font-semibold leading-[0.92] tracking-[-0.06em]">
-              Start with something you can hear right away.
+              Start with something that sounds good immediately.
             </h1>
             <p className="mt-5 max-w-[60ch] text-sm leading-6 text-[var(--text-secondary)] md:text-[15px]">
-              Open a finished scene to hear the full room immediately, or jump into Blank Grid if you'd rather build each lane from scratch.
+              Open a finished scene to hear the full room first, or jump into Blank Grid if you want to build lane by lane.
             </p>
           </div>
 
           <div className="grid gap-3 lg:grid-cols-[minmax(0,1.12fr)_minmax(0,0.88fr)]">
             <PrimaryStartCard
               badge="Featured scene"
-              body="Open a full demo with clips, lanes, and mix moves already set up."
+              body="Open a full scene with clips, lanes, and mix moves already in place."
               eyebrow={`${recommended.genre} · ${recommended.bpm} BPM`}
               mark={recommended.mark}
               onClick={() => onSelectTemplate(recommended.id)}
@@ -351,7 +351,7 @@ export const Launchpad = ({
               <div>
                 <div className="section-label">Scene browser</div>
                 <div className="mt-2 text-sm font-medium text-[var(--text-primary)]">
-                  Search by mood, name, or BPM and jump straight into a stronger starting point.
+                  Search by vibe, name, or BPM and jump into a better starting point.
                 </div>
               </div>
               <button
@@ -417,7 +417,7 @@ export const Launchpad = ({
                 <TemplateCard key={option.id} option={option} onSelect={onSelectTemplate} highlight={option.id === recommended.id} />
               )) : (
                 <div className="rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-4 py-4 text-[12px] leading-6 text-[var(--text-secondary)]">
-                  No scenes match that search yet. Try a broader term like house, ambient, pop, or a BPM value such as 110.
+                  No scenes match that search yet. Try a broader term like house, ambient, pop, or a BPM like 110.
                 </div>
               )}
             </div>
@@ -440,7 +440,7 @@ export const Launchpad = ({
               title="Open a scene"
             />
             <LaunchPathStep
-              body="Press Play or Space. Audio wakes up on the first input, so there isn't a separate unlock step."
+              body="Press Play or Space. Audio wakes on first input, so there is no separate unlock step."
               step="02"
               title="Hit play"
             />
@@ -459,7 +459,7 @@ export const Launchpad = ({
                   <span className="section-label">Library storage</span>
                 </div>
                 <p className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
-                  Scenes, saved scoresheets, and captured-note storage now live together here so you can restart, recall, and resume from one place.
+                  Scenes, saved scoresheets, and captured notes all live here so you can restart or pick up quickly.
                 </p>
               </div>
               <span className="rounded-[2px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-secondary)]">
@@ -473,7 +473,7 @@ export const Launchpad = ({
                 <span className="section-label">Store current session</span>
               </div>
               <p className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
-                Save a full local snapshot of the session, arrangement, mix, and sounds before you jump to a new scene.
+                Save a local snapshot of the session, arrangement, mix, and sounds before switching scenes.
               </p>
               <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] xl:grid-cols-1">
                 <input
@@ -537,7 +537,7 @@ export const Launchpad = ({
                 </div>
               ) : (
                 <div className="mt-3 rounded-[2px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3 text-[11px] leading-5 text-[var(--text-secondary)]">
-                  No scoresheets stored yet. Save the current session here once and it will stay in the Library for quick recall.
+                  No scoresheets yet. Save the current session once and it will be ready in Library for quick recall.
                 </div>
               )}
             </div>
@@ -545,7 +545,7 @@ export const Launchpad = ({
             <div className="rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.025)] px-3 py-3">
               <div className="section-label">Captured note library</div>
               <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
-                Capture saves land locally too. The newest saved notes appear here so the Library also reflects what you recorded, not just starter scenes.
+                Capture saves are local too. Your newest saved notes appear here, not just starter scenes.
               </div>
               {recentRecordedNotes.length > 0 ? (
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -563,7 +563,7 @@ export const Launchpad = ({
                 </div>
               ) : (
                 <div className="mt-3 rounded-[2px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3 text-[11px] leading-5 text-[var(--text-secondary)]">
-                  No saved capture notes yet. Record a few notes from Capture and they will show up here the next time you open the Library.
+                  No saved capture notes yet. Record a few notes in Capture and they will show up here next time.
                 </div>
               )}
             </div>
@@ -607,7 +607,7 @@ export const Launchpad = ({
             </a>
           </div>
           <div className="mt-4 rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.025)] px-4 py-3 text-[12px] leading-5 text-[var(--text-secondary)]">
-            SonicStudio is staying broadly free. If it earns a place in your workflow, the support button above goes straight to Buy Me a Coffee.
+            SonicStudio is staying free for most people. If it helps your workflow, the support button above goes to Buy Me a Coffee.
           </div>
         </aside>
       </div>

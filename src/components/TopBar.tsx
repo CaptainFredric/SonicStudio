@@ -60,6 +60,7 @@ export const TopBar = ({
     countInActive,
     countInBars,
     countInBeatsRemaining,
+    clearAllTrackNotes,
     currentPattern,
     initAudio,
     isInitialized,
@@ -71,7 +72,6 @@ export const TopBar = ({
     loopRangeStartBeat,
     master,
     metronomeEnabled,
-    newSession,
     patternCount,
     projectName,
     redo,
@@ -101,6 +101,7 @@ export const TopBar = ({
   const [draftProjectName, setDraftProjectName] = useState(projectName);
   const [isSupersonicHovered, setIsSupersonicHovered] = useState(false);
   const [isRestartArmed, setIsRestartArmed] = useState(false);
+  const [isRestartDisarming, setIsRestartDisarming] = useState(false);
   const [showSupersonicOffPreview, setShowSupersonicOffPreview] = useState(false);
   const [audioRuntime, setAudioRuntime] = useState<{
     baseLatencyMs: number | null;
@@ -142,12 +143,27 @@ export const TopBar = ({
 
     const timeoutId = window.setTimeout(() => {
       setIsRestartArmed(false);
+      setIsRestartDisarming(true);
     }, 500);
 
     return () => {
       window.clearTimeout(timeoutId);
     };
   }, [isRestartArmed]);
+
+  useEffect(() => {
+    if (!isRestartDisarming) {
+      return undefined;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setIsRestartDisarming(false);
+    }, 240);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [isRestartDisarming]);
 
   useEffect(() => {
     if (!isInitialized) {
@@ -237,11 +253,13 @@ export const TopBar = ({
   const handleRestartSession = () => {
     if (isRestartArmed) {
       setIsRestartArmed(false);
+      setIsRestartDisarming(false);
       stop();
-      newSession();
+      clearAllTrackNotes();
       return;
     }
 
+    setIsRestartDisarming(false);
     setIsRestartArmed(true);
   };
 
@@ -370,6 +388,7 @@ export const TopBar = ({
                   <UtilityBtn
                     armed={isRestartArmed}
                     armedLabel="Confirm"
+                    disarming={isRestartDisarming}
                     label="Restart"
                     onClick={handleRestartSession}
                     shortcut="Double click"
@@ -477,6 +496,7 @@ export const TopBar = ({
                   <UtilityBtn
                     armed={isRestartArmed}
                     armedLabel="Confirm"
+                    disarming={isRestartDisarming}
                     label="Restart"
                     onClick={handleRestartSession}
                     shortcut="Double click"
@@ -651,6 +671,7 @@ const UtilityBtn = ({
   armedLabel,
   children,
   disabled = false,
+  disarming = false,
   label,
   onClick,
   shortcut,
@@ -660,6 +681,7 @@ const UtilityBtn = ({
   armedLabel?: string;
   children: React.ReactNode;
   disabled?: boolean;
+  disarming?: boolean;
   label: string;
   onClick: () => void;
   shortcut?: string;
@@ -669,6 +691,7 @@ const UtilityBtn = ({
     aria-label={label}
     className={`ghost-icon-button relative flex h-8 min-w-0 items-center justify-center gap-1.5 overflow-hidden px-2.5 ${armed ? 'border-[rgba(248,113,113,0.34)] text-[var(--danger)] shadow-[inset_0_0_0_1px_rgba(248,113,113,0.14)]' : ''}`}
     data-armed={armed ? 'true' : 'false'}
+    data-armed-phase={armed ? 'armed' : disarming ? 'disarming' : 'idle'}
     data-ui-sound={uiSound}
     disabled={disabled}
     onClick={onClick}

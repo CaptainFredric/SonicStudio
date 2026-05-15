@@ -85,6 +85,40 @@ const clearPattern = (
   )));
 };
 
+const clearAllTrackNotes = (state: EditorState) => {
+  const { present } = state.history;
+  let changed = false;
+
+  const nextTracks = present.tracks.map((track) => {
+    const hasAnyNotes = Object.values(track.patterns).some((patternSteps) => (
+      patternSteps.some((step) => step.length > 0)
+    ));
+
+    if (!hasAnyNotes) {
+      return track;
+    }
+
+    changed = true;
+    const nextPatterns = Object.fromEntries(
+      Object.keys(track.patterns).map((patternKey) => [patternKey, createEmptyPattern(present.transport.stepsPerPattern)]),
+    );
+
+    return {
+      ...track,
+      patterns: nextPatterns,
+    };
+  });
+
+  if (!changed) {
+    return state;
+  }
+
+  return commitProject(state, {
+    ...present,
+    tracks: nextTracks,
+  });
+};
+
 const applyPatternSegment = (
   state: EditorState,
   trackId: string,
@@ -211,6 +245,9 @@ export const handleTrackNotePatternAction = (state: EditorState, action: EditorA
 
     case 'CLEAR_TRACK':
       return clearPattern(state, action.trackId, present.transport.currentPattern);
+
+    case 'CLEAR_ALL_TRACK_NOTES':
+      return clearAllTrackNotes(state);
 
     case 'CLEAR_PATTERN_AT':
       return clearPattern(state, action.trackId, action.patternIndex);

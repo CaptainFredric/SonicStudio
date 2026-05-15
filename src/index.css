@@ -1109,6 +1109,11 @@ html[data-supersonic="true"] .arranger-lane-menu-button[data-active="true"] {
   animation: utility-btn-sweep-down 230ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
+.ghost-icon-button[data-armed-phase="disarming"] .utility-btn-fill {
+  opacity: 1;
+  animation: utility-btn-sweep-away 220ms cubic-bezier(0.55, 0, 0.45, 1) forwards;
+}
+
 .status-dot {
   display: inline-block;
   width: 8px;
@@ -1217,6 +1222,16 @@ html[data-supersonic="true"] .status-chip {
 
   to {
     transform: scaleY(1);
+  }
+}
+
+@keyframes utility-btn-sweep-away {
+  from {
+    transform: scaleY(1);
+  }
+
+  to {
+    transform: scaleY(0);
   }
 }
 
@@ -1406,6 +1421,13 @@ html[data-supersonic="true"] .studio-nav-button {
     0 8px 18px rgba(41, 10, 17, 0.12);
 }
 
+html[data-supersonic="true"] .studio-nav-button svg {
+  color: #ffe8e3;
+  fill: currentColor;
+  stroke-width: 1.8;
+  opacity: 0.94;
+}
+
 .studio-nav-button[data-active="true"] {
   color: var(--accent-strong);
   border-color: color-mix(in srgb, var(--accent) 40%, transparent);
@@ -1454,6 +1476,11 @@ html[data-supersonic="true"] .studio-nav-button[data-active="true"] {
     inset 2px 0 0 rgba(176, 31, 55, 0.72);
 }
 
+html[data-supersonic="true"] .studio-nav-button[data-active="true"] svg {
+  color: #9a1026;
+  opacity: 1;
+}
+
 html[data-supersonic="true"] .studio-nav-button[data-capture="true"] {
   color: #ffffff;
   border-color: rgba(176, 31, 55, 0.24);
@@ -1467,6 +1494,11 @@ html[data-supersonic="true"] .studio-nav-button[data-capture="true"]:hover {
   border-color: rgba(176, 31, 55, 0.38);
   color: #8b1427;
   background: linear-gradient(180deg, rgba(255, 246, 244, 0.98), rgba(255, 229, 224, 0.9));
+}
+
+html[data-supersonic="true"] .studio-nav-button:hover svg {
+  color: #b5112d;
+  opacity: 1;
 }
 
 .studio-play-pulse {

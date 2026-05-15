@@ -37,6 +37,7 @@ export type EditorAction =
   | { type: 'APPLY_MASTER_SNAPSHOT'; snapshotId: string }
   | { type: 'APPLY_PATTERN_SEGMENT'; automation?: PatternAutomation; patternIndex: number; steps: NoteEvent[][]; trackId: string }
   | { type: 'CLEAR_TRACK'; trackId: string }
+  | { type: 'CLEAR_ALL_TRACK_NOTES' }
   | { type: 'CLEAR_PATTERN_AT'; trackId: string; patternIndex: number }
   | { type: 'CREATE_SONG_MARKER'; beat: number; name?: string }
   | { type: 'CREATE_TRACK'; trackType: InstrumentType }

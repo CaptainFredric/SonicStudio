@@ -23,6 +23,7 @@ export const createEditorDispatchers = (dispatch: Dispatch<EditorAction>) => ({
   applyTrackSnapshot: (trackId: string, snapshotId: string) => dispatch({ type: 'APPLY_TRACK_SNAPSHOT', snapshotId, trackId }),
   applyTrackVoicePreset: (trackId: string, presetId: string) => dispatch({ type: 'APPLY_TRACK_VOICE_PRESET', presetId, trackId }),
   clearPatternAt: (trackId: string, patternIndex: number) => dispatch({ type: 'CLEAR_PATTERN_AT', trackId, patternIndex }),
+  clearAllTrackNotes: () => dispatch({ type: 'CLEAR_ALL_TRACK_NOTES' }),
   clearTrack: (trackId: string) => dispatch({ type: 'CLEAR_TRACK', trackId }),
   createSampleSlice: (trackId: string, slice?: Partial<SampleSliceMemory>) => dispatch({ type: 'CREATE_SAMPLE_SLICE', slice, trackId }),
   createSongMarker: (beat: number, name?: string) => dispatch({ type: 'CREATE_SONG_MARKER', beat, name }),

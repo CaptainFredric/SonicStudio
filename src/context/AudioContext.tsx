@@ -106,6 +106,7 @@ interface AudioContextType {
   countInBeatsRemaining: number;
   currentSession: StudioSession;
   clearPatternAt: (trackId: string, patternIndex: number) => void;
+  clearAllTrackNotes: () => void;
   clearTrack: (trackId: string) => void;
   createTrack: (trackType: InstrumentType) => void;
   createSampleSlice: (trackId: string, slice?: Partial<SampleSliceMemory>) => void;
