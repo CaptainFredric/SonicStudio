@@ -1594,7 +1594,7 @@ export const MainWorkspace = () => {
 
               {visibleTracks.length === 0 ? (
                 <div className="flex h-full items-center justify-center px-6 py-10 text-center text-sm text-[var(--text-secondary)]">
-                  Show off your musicial prowess by adding a lane and placing some notes! Use the track map above to jump around as your pattern grows.
+                  Show off your musical prowess by adding a lane and placing some notes. Use the track map above to jump around as your pattern grows.
                 </div>
               ) : visibleTrackSections.map(({ key, label, tracks: groupedTracks }) => (
                 <div key={key}>

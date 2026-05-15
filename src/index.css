@@ -1581,28 +1581,19 @@ html[data-supersonic="true"] .studio-nav-button svg {
   transition: opacity var(--motion-fast) var(--motion-ease);
 }
 
-html[data-supersonic="true"] .studio-nav-button .studio-icon-fill {
-  opacity: 0.92;
-}
-
+html[data-supersonic="true"] .studio-nav-button .studio-icon-fill,
 html[data-supersonic="true"] .studio-nav-button .studio-seq-head-fill,
 html[data-supersonic="true"] .studio-nav-button .studio-mic-capsule-fill,
-html[data-supersonic="true"] .studio-nav-button .studio-arrange-top-fill {
-  opacity: 0.92;
-}
-
+html[data-supersonic="true"] .studio-nav-button .studio-arrange-top-fill,
 html[data-supersonic="true"] .studio-nav-button:hover .studio-icon-fill,
-html[data-supersonic="true"] .studio-nav-button[data-active="true"] .studio-icon-fill {
-  opacity: 1;
-}
-
+html[data-supersonic="true"] .studio-nav-button[data-active="true"] .studio-icon-fill,
 html[data-supersonic="true"] .studio-nav-button:hover .studio-seq-head-fill,
 html[data-supersonic="true"] .studio-nav-button[data-active="true"] .studio-seq-head-fill,
 html[data-supersonic="true"] .studio-nav-button:hover .studio-mic-capsule-fill,
 html[data-supersonic="true"] .studio-nav-button[data-active="true"] .studio-mic-capsule-fill,
 html[data-supersonic="true"] .studio-nav-button:hover .studio-arrange-top-fill,
 html[data-supersonic="true"] .studio-nav-button[data-active="true"] .studio-arrange-top-fill {
-  opacity: 1;
+  opacity: 0;
 }
 
 .studio-nav-button[data-active="true"] {
