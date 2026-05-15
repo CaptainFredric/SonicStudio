@@ -1,12 +1,20 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, ChevronUp, GripHorizontal, Hand, Minus, Plus, Power } from 'lucide-react';
 
-import { useAudio } from '../context/AudioContext';
+import { engine } from '../audio/ToneEngine';
+import { useAudio, usePlaybackStep } from '../context/AudioContext';
+import {
+  captureSuggestionControlsToTrackParams,
+  captureSuggestionControlsToTrackSource,
+} from '../services/audioRecording';
+import { loadRecordedNotePresets, subscribeRecordedNotePresets, type RecordedNotePreset } from '../services/recordedNoteLibrary';
+import { createTrack as createPreviewTrackModel, defaultNoteForTrack, getTrackVoicePresetDefinitions } from '../project/schema';
 import { TrackIcon, getTrackPersonality } from '../utils/trackPersonality';
 
 const STORAGE_KEY = 'sonicstudio:tapToPlay:open';
 const HEIGHT_STORAGE_KEY = 'sonicstudio:tapToPlay:height';
 const OCTAVE_STORAGE_KEY = 'sonicstudio:tapToPlay:octaveShift';
+const WRITE_MODE_STORAGE_KEY = 'sonicstudio:tapToPlay:writeMode';
 const MIN_HEIGHT = 56;
 const MAX_HEIGHT = 240;
 const DEFAULT_HEIGHT = 88;
@@ -42,6 +50,15 @@ const readInitialOctaveShift = () => {
     return Math.max(-3, Math.min(3, Math.round(parsed)));
   } catch {
     return 0;
+  }
+};
+
+const readInitialWriteMode = () => {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(WRITE_MODE_STORAGE_KEY) === '1';
+  } catch {
+    return false;
   }
 };
 
@@ -115,22 +132,58 @@ const DRUM_PAD_TONES: Record<string, { backgroundAlpha: string; borderAlpha: str
   Accent: { backgroundAlpha: '4d', borderAlpha: '9c', glowAlpha: '44' },
 };
 
+const buildRecordedPresetPreviewTrack = (preset: RecordedNotePreset) => {
+  const voicePreset = preset.presetId
+    ? getTrackVoicePresetDefinitions(preset.trackType).find((candidate) => candidate.id === preset.presetId) ?? null
+    : null;
+
+  return createPreviewTrackModel(preset.trackType, {
+    id: `tap-preview-${preset.id}`,
+    name: preset.name,
+    params: {
+      ...(voicePreset?.params ?? {}),
+      ...captureSuggestionControlsToTrackParams(preset.controls),
+    },
+    source: {
+      ...(voicePreset?.source ?? {}),
+      ...captureSuggestionControlsToTrackSource(preset.controls),
+    },
+  });
+};
+
 export const TapToPlay = () => {
   const {
+    applyTrackVoicePreset,
     initAudio,
     isInitialized,
+    isPlaying,
     previewTrack,
     selectedTrackId,
+    setTrackParams,
     setSelectedTrackId,
+    setTrackSource,
+    stampChord,
+    stepsPerPattern,
     tracks,
   } = useAudio();
+  const playbackStep = usePlaybackStep();
   const track = tracks.find((candidate) => candidate.id === selectedTrackId) ?? null;
   const [open, setOpen] = useState<boolean>(readInitialOpen);
   const [activeKey, setActiveKey] = useState<string | null>(null);
   const [height, setHeight] = useState<number>(readInitialHeight);
   const [octaveShift, setOctaveShift] = useState<number>(readInitialOctaveShift);
+  const [writeMode, setWriteMode] = useState<boolean>(readInitialWriteMode);
+  const [writeStep, setWriteStep] = useState(0);
+  const [recordedNoteLibrary, setRecordedNoteLibrary] = useState<RecordedNotePreset[]>([]);
+  const [selectedRecordedPresetId, setSelectedRecordedPresetId] = useState<string | null>(null);
   const lastFlashRef = useRef<number | null>(null);
   const resizeStateRef = useRef<{ startY: number; startHeight: number } | null>(null);
+  const appliedPresetKeyRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    setRecordedNoteLibrary(loadRecordedNotePresets());
+    return subscribeRecordedNotePresets(setRecordedNoteLibrary);
+  }, []);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -153,40 +206,129 @@ export const TapToPlay = () => {
     } catch { /* ignore */ }
   }, [octaveShift]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      window.localStorage.setItem(WRITE_MODE_STORAGE_KEY, writeMode ? '1' : '0');
+    } catch { /* ignore */ }
+  }, [writeMode]);
+
   const isDrum = !!track && (track.type === 'kick' || track.type === 'snare' || track.type === 'hihat');
+  const normalizedPlaybackStep = stepsPerPattern > 0 ? playbackStep % stepsPerPattern : 0;
   const octaveRange = useMemo(() => {
     if (!track) return { startOctave: 3, totalOctaves: 2 };
     const base = getOctaveRangeForType(track.type);
     return { ...base, startOctave: Math.max(0, Math.min(8, base.startOctave + octaveShift)) };
   }, [track, octaveShift]);
   const whiteKeys = useMemo(() => buildWhiteKeys(octaveRange), [octaveRange]);
+  const selectedRecordedPreset = useMemo(() => (
+    selectedRecordedPresetId
+      ? recordedNoteLibrary.find((preset) => preset.id === selectedRecordedPresetId) ?? null
+      : null
+  ), [recordedNoteLibrary, selectedRecordedPresetId]);
+  const visibleRecordedPresets = useMemo(() => {
+    if (!track) {
+      return [] as RecordedNotePreset[];
+    }
+
+    const matchingType = recordedNoteLibrary.filter((preset) => preset.trackType === track.type);
+    const remaining = recordedNoteLibrary.filter((preset) => preset.trackType !== track.type);
+    return [...matchingType, ...remaining].slice(0, 6);
+  }, [recordedNoteLibrary, track]);
+
+  useEffect(() => {
+    if (!selectedRecordedPresetId) {
+      return;
+    }
+
+    if (!recordedNoteLibrary.some((preset) => preset.id === selectedRecordedPresetId)) {
+      setSelectedRecordedPresetId(null);
+    }
+  }, [recordedNoteLibrary, selectedRecordedPresetId]);
+
+  useEffect(() => {
+    setWriteStep(normalizedPlaybackStep);
+    appliedPresetKeyRef.current = null;
+  }, [normalizedPlaybackStep, track?.id]);
+
+  const applyRecordedPresetToTrack = useCallback((preset: RecordedNotePreset) => {
+    if (!track) {
+      return;
+    }
+
+    if (preset.presetId) {
+      applyTrackVoicePreset(track.id, preset.presetId);
+    }
+
+    setTrackSource(track.id, captureSuggestionControlsToTrackSource(preset.controls));
+    setTrackParams(track.id, captureSuggestionControlsToTrackParams(preset.controls));
+    appliedPresetKeyRef.current = `${track.id}:${preset.id}`;
+  }, [applyTrackVoicePreset, setTrackParams, setTrackSource, track]);
+
+  const stampPlayedNote = useCallback((note: string, velocity: number) => {
+    if (!track || !stepsPerPattern) {
+      return;
+    }
+
+    if (selectedRecordedPreset && appliedPresetKeyRef.current !== `${track.id}:${selectedRecordedPreset.id}`) {
+      applyRecordedPresetToTrack(selectedRecordedPreset);
+    }
+
+    const targetStep = isPlaying ? normalizedPlaybackStep : writeStep;
+    stampChord(track.id, targetStep, [note], {
+      gate: track.source.engine === 'sample' ? 2 : track.type === 'pad' ? 2 : 1.25,
+      velocity,
+    });
+
+    if (!isPlaying) {
+      setWriteStep((current) => (current + 1) % stepsPerPattern);
+    }
+  }, [applyRecordedPresetToTrack, isPlaying, normalizedPlaybackStep, selectedRecordedPreset, stampChord, stepsPerPattern, track, writeStep]);
+
+  const previewPlayable = useCallback(async (note: string, velocity: number = 0.88) => {
+    if (!track) {
+      return;
+    }
+
+    await initAudio();
+
+    if (selectedRecordedPreset) {
+      const previewTrackModel = buildRecordedPresetPreviewTrack(selectedRecordedPreset);
+      const previewNote = note || selectedRecordedPreset.note || defaultNoteForTrack(previewTrackModel);
+      engine.previewTrack(previewTrackModel, previewNote, undefined, velocity);
+      return;
+    }
+
+    await previewTrack(track.id, note || defaultNoteForTrack(track), undefined, velocity);
+  }, [initAudio, previewTrack, selectedRecordedPreset, track]);
 
   const playKey = useCallback(
     (note: string) => {
       if (!track) return;
-      if (!isInitialized) {
-        void initAudio();
+      void previewPlayable(note, 0.88);
+      if (writeMode) {
+        stampPlayedNote(note, 0.88);
       }
-      void previewTrack(track.id, note);
       setActiveKey(note);
       const id = window.setTimeout(() => setActiveKey((current) => (current === note ? null : current)), 170);
       lastFlashRef.current = id;
     },
-    [initAudio, isInitialized, previewTrack, track],
+    [previewPlayable, stampPlayedNote, track, writeMode],
   );
 
   const playDrum = useCallback(
     (velocity: number) => {
       if (!track) return;
-      if (!isInitialized) {
-        void initAudio();
+      const note = selectedRecordedPreset?.note ?? defaultNoteForTrack(track);
+      void previewPlayable(note, velocity);
+      if (writeMode) {
+        stampPlayedNote(note, velocity);
       }
-      void previewTrack(track.id, undefined, undefined, velocity);
       setActiveKey(`pad-${velocity}`);
       const id = window.setTimeout(() => setActiveKey(null), 170);
       lastFlashRef.current = id;
     },
-    [initAudio, isInitialized, previewTrack, track],
+    [previewPlayable, selectedRecordedPreset?.note, stampPlayedNote, track, writeMode],
   );
 
   useEffect(() => {
@@ -357,6 +499,48 @@ export const TapToPlay = () => {
             </button>
           </div>
         )}
+        <button
+          className="control-chip flex h-7 items-center gap-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
+          data-active={writeMode ? 'true' : 'false'}
+          onClick={() => {
+            setWriteMode((current) => {
+              const next = !current;
+              if (next) {
+                setWriteStep(normalizedPlaybackStep);
+              }
+              return next;
+            });
+          }}
+          type="button"
+          title="Write played notes into the current pattern"
+        >
+          {writeMode ? 'Write on' : 'Write off'}
+        </button>
+        {writeMode && (
+          <div className="flex items-center gap-0.5">
+            <button
+              aria-label="Previous write step"
+              className="ghost-icon-button flex h-7 w-7 items-center justify-center"
+              onClick={() => setWriteStep((current) => Math.max(0, current - 1))}
+              title="Previous step"
+              type="button"
+            >
+              <Minus className="h-3 w-3" />
+            </button>
+            <span className="min-w-[62px] text-center font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+              {isPlaying ? `Play ${normalizedPlaybackStep + 1}` : `Step ${writeStep + 1}`}
+            </span>
+            <button
+              aria-label="Next write step"
+              className="ghost-icon-button flex h-7 w-7 items-center justify-center"
+              onClick={() => setWriteStep((current) => Math.min(Math.max(0, stepsPerPattern - 1), current + 1))}
+              title="Next step"
+              type="button"
+            >
+              <Plus className="h-3 w-3" />
+            </button>
+          </div>
+        )}
         <span className="hidden min-w-0 md:inline text-[11px] text-[var(--text-secondary)]">{getTrackPersonality(track.type).blurb}</span>
         {!isInitialized && (
           <button
@@ -370,6 +554,55 @@ export const TapToPlay = () => {
             Enable audio
           </button>
         )}
+      </div>
+
+      {visibleRecordedPresets.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 border-t border-[var(--border-soft)] pt-2">
+          <span className="section-label">Captured sounds</span>
+          <button
+            className="control-chip flex h-7 items-center px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em]"
+            data-active={selectedRecordedPreset ? 'false' : 'true'}
+            onClick={() => setSelectedRecordedPresetId(null)}
+            type="button"
+          >
+            Track sound
+          </button>
+          {visibleRecordedPresets.map((preset) => (
+            <button
+              key={preset.id}
+              className="control-chip flex h-7 items-center gap-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em]"
+              data-active={selectedRecordedPresetId === preset.id ? 'true' : 'false'}
+              onClick={() => setSelectedRecordedPresetId((current) => current === preset.id ? null : preset.id)}
+              title={`${preset.name} · ${preset.note} · ${preset.trackType}`}
+              type="button"
+            >
+              <span className="truncate">{preset.name}</span>
+              <span className="font-mono text-[9px] text-[var(--text-tertiary)]">{preset.note}</span>
+            </button>
+          ))}
+          {selectedRecordedPreset && (
+            <button
+              className="control-chip ml-auto flex h-7 items-center gap-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em]"
+              onClick={() => applyRecordedPresetToTrack(selectedRecordedPreset)}
+              type="button"
+            >
+              Use on lane
+            </button>
+          )}
+        </div>
+      )}
+
+      <div className="flex flex-wrap items-center gap-2 text-[11px] text-[var(--text-secondary)]">
+        <span>
+          {selectedRecordedPreset
+            ? `Previewing ${selectedRecordedPreset.name} on the tap keys.`
+            : 'Using the selected lane sound on the tap keys.'}
+        </span>
+        <span className="hidden md:inline">
+          {writeMode
+            ? 'Played notes can be stamped into the current pattern while you audition.'
+            : 'Turn on Write to drop notes into the pattern from the keyboard.'}
+        </span>
       </div>
 
       {isDrum ? (
