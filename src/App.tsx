@@ -18,7 +18,7 @@ import { ToastStack, type ToastItem } from './components/ToastStack';
 import { resolveStudioRoute, type StudioRouteState } from './app/routeController';
 import type { SessionTemplateId } from './project/schema';
 import { markOnboardingCompleted, markOnboardingSkipped, shouldAutoOpenOnboarding } from './services/onboardingState';
-import { AudioWaveform, LayoutGrid, Volume2, Settings, Layers3, Sparkles, Rows2, Share2, Radio, Coffee } from 'lucide-react';
+import { LayoutGrid, Volume2, Settings, Sparkles, Rows2, Share2, Coffee } from 'lucide-react';
 import { Circle, Pause, Play, Square } from 'lucide-react';
 
 const SUPPORT_URL = 'https://buymeacoffee.com/captainarm1';
@@ -28,10 +28,37 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchp
 
   const navItems = [
     { id: 'COMPOSE', icon: <Rows2 size={20} />, label: 'Compose' },
-    { id: 'SEQUENCER', icon: <AudioWaveform size={20} />, label: 'Sequencer' },
+    {
+      id: 'SEQUENCER',
+      icon: (
+        <span className="studio-icon-shell">
+          <svg aria-hidden="true" className="h-5 w-5 studio-seq-icon" viewBox="0 0 20 20">
+            <circle className="studio-seq-head-fill" cx="5.25" cy="14.25" r="2.5" />
+            <circle className="studio-seq-head-fill" cx="13.25" cy="12.25" r="2.5" />
+            <path className="studio-seq-outline" d="M7.5 14.25V5.5L15.5 3.75V12.25" />
+            <circle className="studio-seq-outline" cx="5.25" cy="14.25" r="2.5" />
+            <circle className="studio-seq-outline" cx="13.25" cy="12.25" r="2.5" />
+          </svg>
+        </span>
+      ),
+      label: 'Sequencer',
+    },
     { id: 'PIANO_ROLL', icon: <LayoutGrid size={20} />, label: 'Piano Roll' },
     { id: 'MIXER', icon: <Volume2 size={20} />, label: 'Mixer' },
-    { id: 'ARRANGER', icon: <Layers3 size={20} />, label: 'Arranger' },
+    {
+      id: 'ARRANGER',
+      icon: (
+        <span className="studio-icon-shell">
+          <svg aria-hidden="true" className="h-5 w-5 studio-arrange-icon" viewBox="0 0 20 20">
+            <rect className="studio-arrange-top-fill" height="4.2" rx="1" width="11" x="4.5" y="2.8" />
+            <rect className="studio-arrange-outline" height="4.2" rx="1" width="11" x="4.5" y="2.8" />
+            <rect className="studio-arrange-outline" height="4.2" rx="1" width="13" x="3.5" y="8.1" />
+            <rect className="studio-arrange-outline" height="4.2" rx="1" width="15" x="2.5" y="13.4" />
+          </svg>
+        </span>
+      ),
+      label: 'Arranger',
+    },
   ];
 
   const renderViewButton = (item: { icon: React.ReactNode; id: string; label: string }) => (
@@ -81,7 +108,15 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchp
           type="button"
         >
           <div className="flex items-center justify-center gap-2 md:flex-col">
-            <Radio size={20} className="text-[var(--danger)]" />
+            <span className="studio-icon-shell text-[var(--danger)]">
+              <svg aria-hidden="true" className="h-5 w-5 studio-mic-icon" viewBox="0 0 20 20">
+                <rect className="studio-mic-capsule-fill" height="10" rx="4" width="8" x="6" y="2.5" />
+                <rect className="studio-mic-outline" height="10" rx="4" width="8" x="6" y="2.5" />
+                <path className="studio-mic-outline" d="M4.5 8.5a5.5 5.5 0 0 0 11 0" />
+                <line className="studio-mic-outline" x1="10" x2="10" y1="13.5" y2="16.8" />
+                <line className="studio-mic-outline" x1="7.2" x2="12.8" y1="16.8" y2="16.8" />
+              </svg>
+            </span>
             <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Capture</span>
           </div>
         </button>
@@ -124,7 +159,10 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchp
           type="button"
         >
           <div className="flex items-center justify-center gap-2 md:flex-col">
-            <Settings size={20} />
+            <span className="studio-icon-shell studio-icon-shell-gear">
+              <Settings size={20} />
+              <span className="studio-icon-fill studio-icon-fill-gear-core" />
+            </span>
             <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Options</span>
           </div>
         </button>

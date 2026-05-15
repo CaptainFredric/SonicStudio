@@ -1423,9 +1423,125 @@ html[data-supersonic="true"] .studio-nav-button {
 
 html[data-supersonic="true"] .studio-nav-button svg {
   color: #ffe8e3;
-  fill: currentColor;
-  stroke-width: 1.8;
+  fill: none;
+  stroke-width: 2;
   opacity: 0.94;
+}
+
+.studio-icon-shell {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+}
+
+.studio-seq-icon .studio-seq-outline {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.studio-seq-icon .studio-seq-head-fill {
+  fill: currentColor;
+  opacity: 0;
+  transition: opacity var(--motion-fast) var(--motion-ease);
+}
+
+.studio-mic-icon .studio-mic-outline {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.studio-mic-icon .studio-mic-capsule-fill {
+  fill: currentColor;
+  opacity: 0;
+  transition: opacity var(--motion-fast) var(--motion-ease);
+}
+
+.studio-icon-fill {
+  position: absolute;
+  pointer-events: none;
+  z-index: 2;
+  opacity: 0;
+  background: currentColor;
+  filter: drop-shadow(0 0 2px color-mix(in srgb, currentColor 50%, transparent));
+  transition: opacity var(--motion-fast) var(--motion-ease);
+}
+
+.studio-icon-fill-seq-left,
+.studio-icon-fill-seq-right {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+}
+
+.studio-icon-fill-seq-left {
+  left: 1.5px;
+  top: 11.5px;
+}
+
+.studio-icon-fill-seq-right {
+  left: 10.5px;
+  top: 9.5px;
+}
+
+.studio-icon-fill-mic-top {
+  width: 9px;
+  height: 6px;
+  left: 5.5px;
+  top: 2.5px;
+  border-radius: 999px;
+}
+
+.studio-icon-fill-gear-core {
+  width: 7px;
+  height: 7px;
+  left: 6.5px;
+  top: 6.5px;
+  border-radius: 999px;
+}
+
+.studio-arrange-icon .studio-arrange-outline {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.25;
+}
+
+.studio-arrange-icon .studio-arrange-top-fill {
+  fill: currentColor;
+  opacity: 0;
+  transition: opacity var(--motion-fast) var(--motion-ease);
+}
+
+html[data-supersonic="true"] .studio-nav-button .studio-icon-fill {
+  opacity: 0.92;
+}
+
+html[data-supersonic="true"] .studio-nav-button .studio-seq-head-fill,
+html[data-supersonic="true"] .studio-nav-button .studio-mic-capsule-fill,
+html[data-supersonic="true"] .studio-nav-button .studio-arrange-top-fill {
+  opacity: 0.92;
+}
+
+html[data-supersonic="true"] .studio-nav-button:hover .studio-icon-fill,
+html[data-supersonic="true"] .studio-nav-button[data-active="true"] .studio-icon-fill {
+  opacity: 1;
+}
+
+html[data-supersonic="true"] .studio-nav-button:hover .studio-seq-head-fill,
+html[data-supersonic="true"] .studio-nav-button[data-active="true"] .studio-seq-head-fill,
+html[data-supersonic="true"] .studio-nav-button:hover .studio-mic-capsule-fill,
+html[data-supersonic="true"] .studio-nav-button[data-active="true"] .studio-mic-capsule-fill,
+html[data-supersonic="true"] .studio-nav-button:hover .studio-arrange-top-fill,
+html[data-supersonic="true"] .studio-nav-button[data-active="true"] .studio-arrange-top-fill {
+  opacity: 1;
 }
 
 .studio-nav-button[data-active="true"] {

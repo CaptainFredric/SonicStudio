@@ -78,6 +78,7 @@ const FILTER_MODE_OPTIONS = [
   { label: 'High', value: 'highpass' },
 ] as const;
 const PITCH_COACH_NOTE_OPTIONS = buildPitchCoachNoteOptions(6, 2);
+const CAPTURE_MAX_DURATION_SECONDS = 12;
 
 const cloneCaptureSuggestion = (suggestion: CaptureSuggestion): CaptureSuggestion => ({
   ...suggestion,
@@ -217,6 +218,8 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
   const [isExportingVocalTake, setIsExportingVocalTake] = useState(false);
   const [activeVocalTakeId, setActiveVocalTakeId] = useState<string | null>(null);
   const [useShortGuidanceCopy, setUseShortGuidanceCopy] = useState(() => hasSeenUiReminder('capture-copy'));
+  const [recordingStartedAt, setRecordingStartedAt] = useState<number | null>(null);
+  const [recordingElapsedSeconds, setRecordingElapsedSeconds] = useState(0);
   const autoPreviewKeyRef = useRef<string | null>(null);
 
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
@@ -364,6 +367,8 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
       setIsSavingVocalTake(false);
       setIsExportingVocalTake(false);
       setActiveVocalTakeId(null);
+      setRecordingStartedAt(null);
+      setRecordingElapsedSeconds(0);
       setPitchCoachTarget(selectedTrack ? defaultNoteForTrack(selectedTrack) : 'C4');
       setSuggestions([]);
       setError(null);
@@ -481,6 +486,8 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
     try {
       await recorder.start();
       recorderRef.current = recorder;
+      setRecordingStartedAt(Date.now());
+      setRecordingElapsedSeconds(0);
       setState('recording');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not access the microphone.');
@@ -492,6 +499,7 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
     const recorder = recorderRef.current;
     if (!recorder) return;
     setState('analyzing');
+    setRecordingStartedAt(null);
     try {
       const next = await recorder.stop();
       const url = URL.createObjectURL(next.blob);
@@ -512,6 +520,8 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
     recorderRef.current = null;
     stableCaptureRef.current = null;
     setState('idle');
+    setRecordingStartedAt(null);
+    setRecordingElapsedSeconds(0);
     setResult(null);
     setLiveFrame(null);
     setSuggestions([]);
@@ -528,6 +538,25 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
     }
     setError(null);
   }, [capturePreferences.keepShelfBetweenTakes, previewUrl]);
+
+  useEffect(() => {
+    if (state !== 'recording' || !recordingStartedAt) {
+      return undefined;
+    }
+
+    const intervalId = window.setInterval(() => {
+      const elapsed = (Date.now() - recordingStartedAt) / 1000;
+      setRecordingElapsedSeconds(elapsed);
+
+      if (elapsed >= CAPTURE_MAX_DURATION_SECONDS && recorderRef.current) {
+        void stopRecording();
+      }
+    }, 120);
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [recordingStartedAt, state, stopRecording]);
 
   const queueNextRecordedNote = useCallback(() => {
     stableCaptureRef.current = null;
@@ -755,6 +784,12 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
   ] as const;
   const recentRecordedLibrary = recordedNoteLibrary.slice(0, 4);
   const recentVocalTakes = vocalTakeLibrary.slice(0, 4);
+  const recordingRemainingSeconds = Math.max(0, CAPTURE_MAX_DURATION_SECONDS - recordingElapsedSeconds);
+  const recordingProgress = Math.min(1, recordingElapsedSeconds / CAPTURE_MAX_DURATION_SECONDS);
+  const bestSuggestion = visibleSuggestions[0] ?? null;
+  const hasMatchingTrackForBestSuggestion = bestSuggestion
+    ? tracks.some((track) => track.type === bestSuggestion.trackType)
+    : false;
 
   return (
     <div
@@ -915,7 +950,7 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
                 <div className="section-label">Record</div>
                 <p className="mt-1 text-[12px] text-[var(--text-secondary)]">
                   {state === 'idle' && 'Tap record, make one clear sound for a second or two, then stop. Short hits work, but held notes produce the cleanest matches.'}
-                  {state === 'recording' && 'Listening now. Hold a steady tone for the clearest match, or make one clean transient if you are capturing a hit.'}
+                  {state === 'recording' && `Listening now. Hold a steady tone for the clearest match, or make one clean transient if you are capturing a hit. Auto-stop in ${Math.ceil(recordingRemainingSeconds)}s.`}
                   {state === 'analyzing' && 'Analyzing...'}
                   {state === 'ready' && 'Got it. Check the preview, save the vocal take if you want the raw idea later, then store the note or apply a lane below.'}
                   {state === 'error' && (error ?? 'Something went wrong.')}
@@ -964,6 +999,48 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
                 ) : null}
               </div>
             </div>
+
+            {state === 'recording' ? (
+              <div className="mt-3">
+                <div className="h-1.5 w-full overflow-hidden rounded-[2px] bg-[rgba(255,255,255,0.08)]">
+                  <div
+                    className="h-full rounded-[2px] bg-[linear-gradient(90deg,rgba(248,113,113,0.84),rgba(114,217,255,0.88))] transition-[width] duration-100"
+                    style={{ width: `${Math.max(2, recordingProgress * 100)}%` }}
+                  />
+                </div>
+              </div>
+            ) : null}
+
+            {state === 'ready' && bestSuggestion ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {hasMatchingTrackForBestSuggestion ? (
+                  <button
+                    className="control-chip px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em]"
+                    onClick={() => applyToMatchingTrack(bestSuggestion)}
+                    type="button"
+                  >
+                    Apply best match
+                  </button>
+                ) : (
+                  <button
+                    className="control-chip px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em]"
+                    onClick={() => createSuggestedTrack(bestSuggestion)}
+                    type="button"
+                  >
+                    Create best lane
+                  </button>
+                )}
+                {saveableDetectedNote ? (
+                  <button
+                    className="control-chip px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em]"
+                    onClick={() => saveSuggestedRecordedNote(bestSuggestion)}
+                    type="button"
+                  >
+                    Save best note
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
 
             {state === 'recording' && (
               <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1fr)_280px]">
