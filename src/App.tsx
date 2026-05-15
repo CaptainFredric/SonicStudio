@@ -25,9 +25,15 @@ const SUPPORT_URL = 'https://buymeacoffee.com/captainarm1';
 
 const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchpad: () => void; onOpenShare: () => void; onOpenRecord: () => void }) => {
   const { activeView, isSettingsOpen, setActiveView, toggleSettings } = useAudio();
+  const withSuperFill = (icon: React.ReactNode, fillClass = 'studio-icon-fill-core') => (
+    <span className="studio-icon-shell">
+      {icon}
+      <span className={`studio-icon-fill ${fillClass}`} />
+    </span>
+  );
 
   const navItems = [
-    { id: 'COMPOSE', icon: <Rows2 size={20} />, label: 'Compose' },
+    { id: 'COMPOSE', icon: withSuperFill(<Rows2 size={20} />, 'studio-icon-fill-compose-core'), label: 'Compose' },
     {
       id: 'SEQUENCER',
       icon: (
@@ -43,8 +49,8 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchp
       ),
       label: 'Sequencer',
     },
-    { id: 'PIANO_ROLL', icon: <LayoutGrid size={20} />, label: 'Piano Roll' },
-    { id: 'MIXER', icon: <Volume2 size={20} />, label: 'Mixer' },
+    { id: 'PIANO_ROLL', icon: withSuperFill(<LayoutGrid size={20} />, 'studio-icon-fill-grid-core'), label: 'Piano Roll' },
+    { id: 'MIXER', icon: withSuperFill(<Volume2 size={20} />, 'studio-icon-fill-mixer-core'), label: 'Mixer' },
     {
       id: 'ARRANGER',
       icon: (
@@ -94,7 +100,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchp
           type="button"
         >
           <div className="flex items-center justify-center gap-2 md:flex-col">
-            <Sparkles size={20} className="text-[var(--accent)]" />
+            {withSuperFill(<Sparkles size={20} className="text-[var(--accent)]" />, 'studio-icon-fill-spark-core')}
             <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Library</span>
           </div>
         </button>
@@ -145,7 +151,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchp
           type="button"
         >
           <div className="flex items-center justify-center gap-2 md:flex-col">
-            <Share2 size={20} className="text-[var(--accent)]" />
+            {withSuperFill(<Share2 size={20} className="text-[var(--accent)]" />, 'studio-icon-fill-share-core')}
             <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Share</span>
           </div>
         </button>
@@ -176,7 +182,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchp
           title="Support SonicStudio on Buy Me a Coffee"
         >
           <div className="flex items-center justify-center gap-2 md:flex-col">
-            <Coffee size={20} className="text-[var(--accent)]" />
+            {withSuperFill(<Coffee size={20} className="text-[var(--accent)]" />, 'studio-icon-fill-support-core')}
             <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Support</span>
           </div>
         </a>

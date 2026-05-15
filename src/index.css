@@ -1437,6 +1437,11 @@ html[data-supersonic="true"] .studio-nav-button svg {
   height: 20px;
 }
 
+.studio-icon-shell > svg {
+  position: relative;
+  z-index: 2;
+}
+
 .studio-seq-icon .studio-seq-outline {
   fill: none;
   stroke: currentColor;
@@ -1468,11 +1473,69 @@ html[data-supersonic="true"] .studio-nav-button svg {
 .studio-icon-fill {
   position: absolute;
   pointer-events: none;
-  z-index: 2;
+  z-index: 1;
   opacity: 0;
   background: currentColor;
   filter: drop-shadow(0 0 2px color-mix(in srgb, currentColor 50%, transparent));
   transition: opacity var(--motion-fast) var(--motion-ease);
+}
+
+.studio-icon-fill-core {
+  width: 8px;
+  height: 8px;
+  left: 6px;
+  top: 6px;
+  border-radius: 2px;
+}
+
+.studio-icon-fill-compose-core {
+  width: 10px;
+  height: 7px;
+  left: 5px;
+  top: 6.5px;
+  border-radius: 2px;
+}
+
+.studio-icon-fill-grid-core {
+  width: 9px;
+  height: 9px;
+  left: 5.5px;
+  top: 5.5px;
+  border-radius: 2px;
+}
+
+.studio-icon-fill-mixer-core {
+  width: 10px;
+  height: 9px;
+  left: 5px;
+  top: 5.5px;
+  border-radius: 2px;
+  clip-path: polygon(0 38%, 43% 38%, 73% 18%, 100% 18%, 100% 82%, 73% 82%, 43% 62%, 0 62%);
+}
+
+.studio-icon-fill-spark-core {
+  width: 8px;
+  height: 8px;
+  left: 6px;
+  top: 6px;
+  border-radius: 2px;
+  clip-path: polygon(50% 0, 66% 34%, 100% 50%, 66% 66%, 50% 100%, 34% 66%, 0 50%, 34% 34%);
+}
+
+.studio-icon-fill-share-core {
+  width: 9px;
+  height: 9px;
+  left: 5.5px;
+  top: 5.5px;
+  border-radius: 999px;
+}
+
+.studio-icon-fill-support-core {
+  width: 10px;
+  height: 8px;
+  left: 5px;
+  top: 7px;
+  border-radius: 2px;
 }
 
 .studio-icon-fill-seq-left,

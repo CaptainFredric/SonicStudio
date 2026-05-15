@@ -959,18 +959,56 @@ const buildPitchWindows = (samples: Float32Array, start: number, end: number) =>
   return offsets.map((offset) => samples.subarray(offset, Math.min(samples.length, offset + windowSize)));
 };
 
+const detectPeakWindowPitch = (samples: Float32Array, sampleRate: number): WindowPitchCandidate | null => {
+  if (samples.length < 1024) {
+    return null;
+  }
+
+  const windowSize = Math.min(samples.length, Math.max(2048, Math.floor(sampleRate * 0.1)));
+  const hopSize = Math.max(128, Math.floor(windowSize / 4));
+  let bestStart = 0;
+  let bestEnergy = 0;
+
+  for (let start = 0; start + windowSize <= samples.length; start += hopSize) {
+    const window = samples.subarray(start, start + windowSize);
+    const energy = rmsOf(window);
+    if (energy > bestEnergy) {
+      bestEnergy = energy;
+      bestStart = start;
+    }
+  }
+
+  const fallbackWindow = samples.subarray(bestStart, Math.min(samples.length, bestStart + windowSize));
+  return detectPitchInWindow(fallbackWindow, sampleRate);
+};
+
 // Aggregate the strongest repeating pitch across a few windows so the capture can survive noisy attacks.
 const detectFundamentalHz = (samples: Float32Array, sampleRate: number): PitchDetectionResult => {
-  const SILENCE_THRESHOLD = 0.01;
+  let peakAmplitude = 0;
+  for (let index = 0; index < samples.length; index += 1) {
+    peakAmplitude = Math.max(peakAmplitude, Math.abs(samples[index]));
+  }
+
+  const silenceThreshold = clamp(peakAmplitude * 0.14, 0.003, 0.01);
   let start = 0;
-  while (start < samples.length && Math.abs(samples[start]) < SILENCE_THRESHOLD) start += 1;
+  while (start < samples.length && Math.abs(samples[start]) < silenceThreshold) start += 1;
   let end = samples.length - 1;
-  while (end > start && Math.abs(samples[end]) < SILENCE_THRESHOLD) end -= 1;
+  while (end > start && Math.abs(samples[end]) < silenceThreshold) end -= 1;
   if (end - start < 1024) return { clarity: 0, pitchHz: null };
 
+  const trimmed = samples.subarray(start, end + 1);
   const candidates = buildPitchWindows(samples, start, end)
     .map((window) => detectPitchInWindow(window, sampleRate))
     .filter((candidate): candidate is WindowPitchCandidate => candidate !== null);
+
+  const peakWindowCandidate = detectPeakWindowPitch(trimmed, sampleRate);
+  if (peakWindowCandidate) {
+    const boostedPeakCandidate: WindowPitchCandidate = {
+      ...peakWindowCandidate,
+      clarity: clamp(peakWindowCandidate.clarity + 0.05, 0, 1),
+    };
+    candidates.push(boostedPeakCandidate);
+  }
 
   if (candidates.length === 0) {
     return { clarity: 0, pitchHz: null };

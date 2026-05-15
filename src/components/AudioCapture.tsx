@@ -787,6 +787,7 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
   const recordingRemainingSeconds = Math.max(0, CAPTURE_MAX_DURATION_SECONDS - recordingElapsedSeconds);
   const recordingProgress = Math.min(1, recordingElapsedSeconds / CAPTURE_MAX_DURATION_SECONDS);
   const bestSuggestion = visibleSuggestions[0] ?? null;
+  const isQuickTakeResult = Boolean(result && result.durationSeconds <= 0.9);
   const hasMatchingTrackForBestSuggestion = bestSuggestion
     ? tracks.some((track) => track.type === bestSuggestion.trackType)
     : false;
@@ -949,10 +950,12 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
               <div>
                 <div className="section-label">Record</div>
                 <p className="mt-1 text-[12px] text-[var(--text-secondary)]">
-                  {state === 'idle' && 'Tap record, make one clear sound for a second or two, then stop. Short hits work, but held notes produce the cleanest matches.'}
-                  {state === 'recording' && `Listening now. Hold a steady tone for the clearest match, or make one clean transient if you are capturing a hit. Auto-stop in ${Math.ceil(recordingRemainingSeconds)}s.`}
+                  {state === 'idle' && 'Tap record, make one clear sound, then stop whenever it feels right. Quick one-shots are valid here and still produce useful matches.'}
+                  {state === 'recording' && `Listening now. Hold a steady tone for the clearest match, or make one clean transient if you are capturing a hit. You can stop any time, or auto-stop in ${Math.ceil(recordingRemainingSeconds)}s.`}
                   {state === 'analyzing' && 'Analyzing...'}
-                  {state === 'ready' && 'Got it. Check the preview, save the vocal take if you want the raw idea later, then store the note or apply a lane below.'}
+                  {state === 'ready' && (isQuickTakeResult
+                    ? 'Nice quick capture. That is enough to match a lane, and you can always do one longer pass after if you want a tighter note lock.'
+                    : 'Got it. Check the preview, save the vocal take if you want the raw idea later, then store the note or apply a lane below.')}
                   {state === 'error' && (error ?? 'Something went wrong.')}
                 </p>
               </div>
