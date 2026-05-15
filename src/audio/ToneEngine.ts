@@ -175,6 +175,32 @@ export class ToneEngine {
     return this.masterMeter ? (this.masterMeter.getValue() as number) : -100;
   }
 
+  public getAudioContextState(): AudioContextState {
+    if (this.offlineMode) {
+      return 'running';
+    }
+
+    try {
+      return Tone.getContext().rawContext.state;
+    } catch {
+      return 'suspended';
+    }
+  }
+
+  public getBaseLatencySeconds(): number | null {
+    if (this.offlineMode) {
+      return null;
+    }
+
+    try {
+      const rawContext = Tone.getContext().rawContext as AudioContext | OfflineAudioContext;
+      const latency = 'baseLatency' in rawContext ? rawContext.baseLatency : null;
+      return Number.isFinite(latency) ? latency : null;
+    } catch {
+      return null;
+    }
+  }
+
   public syncProject(project: Project) {
     this.arrangerClips = project.arrangerClips;
     this.arrangerClipsByTrack = project.arrangerClips.reduce<Record<string, ArrangementClip[]>>((lookup, clip) => {

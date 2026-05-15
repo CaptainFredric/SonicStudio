@@ -16,6 +16,7 @@ import {
   Zap,
 } from 'lucide-react';
 
+import { engine } from '../audio/ToneEngine';
 import { playSupersonicToggleSound } from '../audio/uiSounds';
 import { useAudio } from '../context/AudioContext';
 import { MASTER_PRESET_DEFINITIONS, type MasterSettings } from '../project/schema';
@@ -24,6 +25,12 @@ import { BrandMark } from './BrandMark';
 
 const MASTER_MATCH_EPSILON = 0.015;
 const SUPERSONIC_OFF_PREVIEW_DELAY_MS = 110;
+
+interface AudioHealthSummary {
+  detail: string;
+  label: string;
+  tone: 'attention' | 'error' | 'ready';
+}
 
 const isMasterPresetMatch = (current: MasterSettings, target: MasterSettings) => (
   Math.abs(current.glueCompression - target.glueCompression) <= MASTER_MATCH_EPSILON
@@ -94,6 +101,15 @@ export const TopBar = ({
   const [isSupersonicHovered, setIsSupersonicHovered] = useState(false);
   const [isRestartArmed, setIsRestartArmed] = useState(false);
   const [showSupersonicOffPreview, setShowSupersonicOffPreview] = useState(false);
+  const [audioRuntime, setAudioRuntime] = useState<{
+    baseLatencyMs: number | null;
+    contextState: AudioContextState;
+    masterDb: number;
+  }>({
+    baseLatencyMs: null,
+    contextState: 'suspended',
+    masterDb: -100,
+  });
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
   const activeMasterPreset = MASTER_PRESET_DEFINITIONS.find((preset) => (
     isMasterPresetMatch(master, preset.settings)
@@ -132,6 +148,32 @@ export const TopBar = ({
     };
   }, [isRestartArmed]);
 
+  useEffect(() => {
+    if (!isInitialized) {
+      setAudioRuntime({
+        baseLatencyMs: null,
+        contextState: 'suspended',
+        masterDb: -100,
+      });
+      return undefined;
+    }
+
+    const updateAudioRuntime = () => {
+      const baseLatencySeconds = engine.getBaseLatencySeconds();
+      setAudioRuntime({
+        baseLatencyMs: baseLatencySeconds === null ? null : baseLatencySeconds * 1000,
+        contextState: engine.getAudioContextState(),
+        masterDb: engine.getMasterMeterValue(),
+      });
+    };
+
+    updateAudioRuntime();
+    const intervalId = window.setInterval(updateAudioRuntime, 700);
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [isInitialized]);
+
   const commitProjectName = () => {
     renameProject(draftProjectName);
   };
@@ -165,6 +207,20 @@ export const TopBar = ({
     : showSupersonicOffPreview
       ? 'SuperSonic off'
       : 'SuperSonic on';
+  const soloTrackCount = tracks.filter((track) => track.solo).length;
+  const activeTrackCount = tracks.filter((track) => !track.muted && (soloTrackCount === 0 || track.solo)).length;
+  const allTracksMuted = tracks.length > 0 && activeTrackCount === 0;
+  const masterMuted = master.outputGain <= -45;
+  const audioHealth = getAudioHealthSummary({
+    activeTrackCount,
+    allTracksMuted,
+    audioContextState: audioRuntime.contextState,
+    baseLatencyMs: audioRuntime.baseLatencyMs,
+    isInitialized,
+    isPlaying,
+    masterDb: audioRuntime.masterDb,
+    masterMuted,
+  });
 
   const toggleSupersonicMode = (button: HTMLButtonElement) => {
     const enabled = !superSonicMode;
@@ -541,23 +597,26 @@ export const TopBar = ({
             <div className="min-w-0">
               <div className="section-label mb-1">Audio</div>
               <div className="flex flex-col gap-2 text-[11px] leading-5 text-[var(--text-secondary)]">
-                {metronomeEnabled
-                  ? `Metronome on${countInBars > 0 ? ` with ${countInBars} bar count in` : ''}.`
-                  : isInitialized
-                    ? 'Audio on.'
-                    : 'Audio off.'}
+                <span>
+                  {metronomeEnabled
+                    ? `Metronome on${countInBars > 0 ? ` with ${countInBars} bar count in` : ''}.`
+                    : isInitialized
+                      ? 'Audio on.'
+                      : 'Audio off.'}
+                </span>
+                <span>{isInitialized ? audioHealth.detail : 'Tap Enable audio if browser autoplay has not unlocked yet.'}</span>
                 {isInitialized ? (
                   <span
-                    aria-label="Audio engine enabled"
+                    aria-label={`Audio status: ${audioHealth.label}`}
                     className="status-chip mt-1 inline-flex h-9 items-center justify-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                    data-tone="ready"
+                    data-tone={audioHealth.tone}
                   >
                     <span
                       aria-hidden="true"
                       className="status-dot"
-                      data-tone="ready"
+                      data-tone={audioHealth.tone}
                     />
-                    Audio on
+                    {audioHealth.label}
                   </span>
                 ) : (
                   <button
@@ -815,4 +874,88 @@ const saveStatusTone = (
   if (saveStatus === 'saving') return 'saving';
   if (lastSavedAt) return 'saved';
   return 'ready';
+};
+
+const getAudioHealthSummary = ({
+  activeTrackCount,
+  allTracksMuted,
+  audioContextState,
+  baseLatencyMs,
+  isInitialized,
+  isPlaying,
+  masterDb,
+  masterMuted,
+}: {
+  activeTrackCount: number;
+  allTracksMuted: boolean;
+  audioContextState: AudioContextState;
+  baseLatencyMs: number | null;
+  isInitialized: boolean;
+  isPlaying: boolean;
+  masterDb: number;
+  masterMuted: boolean;
+}): AudioHealthSummary => {
+  if (!isInitialized) {
+    return {
+      detail: 'Audio context is currently idle.',
+      label: 'Audio off',
+      tone: 'error',
+    };
+  }
+
+  if (audioContextState !== 'running') {
+    return {
+      detail: 'Browser audio context is suspended. Tap Play or Enable audio to resume output.',
+      label: 'Audio suspended',
+      tone: 'error',
+    };
+  }
+
+  if (masterMuted) {
+    return {
+      detail: 'Master output is heavily attenuated. Raise master gain to hear playback.',
+      label: 'Master muted',
+      tone: 'attention',
+    };
+  }
+
+  if (allTracksMuted) {
+    return {
+      detail: 'All active lanes are muted or solo-isolated. Unmute a lane to restore sound.',
+      label: 'Tracks muted',
+      tone: 'attention',
+    };
+  }
+
+  if (isPlaying && masterDb > -1.2) {
+    return {
+      detail: `Output peak is hot (${masterDb.toFixed(1)} dB). Lower lane or master gain to avoid clipping.`,
+      label: 'Output hot',
+      tone: 'attention',
+    };
+  }
+
+  if (baseLatencyMs !== null && baseLatencyMs >= 120) {
+    return {
+      detail: `Device latency is elevated (${Math.round(baseLatencyMs)} ms). Close background audio apps for tighter timing.`,
+      label: 'High latency',
+      tone: 'attention',
+    };
+  }
+
+  if (isPlaying && activeTrackCount >= 8 && baseLatencyMs !== null && baseLatencyMs >= 90) {
+    return {
+      detail: `Dense playback load detected with ${activeTrackCount} active lanes. Consider freezing or muting unused lanes.`,
+      label: 'Heavy load',
+      tone: 'attention',
+    };
+  }
+
+  const latencyLabel = baseLatencyMs === null ? 'unknown latency' : `${Math.round(baseLatencyMs)} ms latency`;
+  const levelLabel = Number.isFinite(masterDb) ? `${masterDb.toFixed(1)} dB` : 'stable output';
+  return {
+    detail: `Engine running with ${latencyLabel} and current output around ${levelLabel}.`,
+    label: 'Audio healthy',
+    tone: 'ready',
+  };
 };

@@ -1145,6 +1145,16 @@ html[data-supersonic="true"] .arranger-lane-menu-button[data-active="true"] {
   color: var(--accent-strong);
 }
 
+.status-chip[data-tone="attention"] {
+  border-color: rgba(228, 191, 106, 0.42);
+  color: var(--warning);
+}
+
+.status-chip[data-tone="error"] {
+  border-color: rgba(255, 156, 138, 0.42);
+  color: var(--danger);
+}
+
 html[data-supersonic="true"] .status-chip {
   background:
     linear-gradient(180deg, rgba(255, 227, 221, 0.96), rgba(244, 208, 202, 0.9) 40%, rgba(228, 189, 183, 0.86)),
@@ -2083,7 +2093,7 @@ html[data-supersonic="true"] .session-player-deck-chip[data-role="intro"] {
     top: 0.35rem;
     z-index: 48;
     display: grid;
-    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.25fr) minmax(0, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 0.45rem;
     margin-inline: 0.55rem;
     margin-top: 0.35rem;
@@ -2140,7 +2150,7 @@ html[data-supersonic="true"] .session-player-deck-chip[data-role="intro"] {
     position: sticky;
     top: 3.6rem;
     z-index: 40;
-    margin-inline: -0.65rem;
+    margin-inline: 0;
     border-left: 0;
     border-right: 0;
     backdrop-filter: blur(16px);

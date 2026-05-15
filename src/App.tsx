@@ -34,70 +34,88 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchp
     { id: 'ARRANGER', icon: <Layers3 size={20} />, label: 'Arranger' },
   ];
 
-  return (
-    <aside className="studio-rail md:w-[88px] w-full shrink-0 px-2 py-2 md:py-3 flex flex-wrap md:flex-nowrap md:flex-col items-stretch md:items-center justify-start gap-2" data-tour-target="views">
-      <div className="section-label hidden md:block">Views</div>
-      <button
-        className="studio-nav-button shrink-0 md:w-full"
-        data-tour-target="sessions"
-        data-ui-sound="nav"
-        onClick={onOpenLaunchpad}
-        title="Open session library"
-        type="button"
-      >
-        <div className="flex md:flex-col flex-row items-center gap-2">
-          <Sparkles size={20} className="text-[var(--accent)]" />
-          <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Library</span>
-        </div>
-      </button>
-      <button
-        className="studio-nav-button studio-nav-button-capture shrink-0 md:w-full"
-        data-capture="true"
-        data-tour-target="record"
-        data-ui-sound="record"
-        onClick={onOpenRecord}
-        title="Record a vocal, sound, or note and match it to a lane"
-        type="button"
-      >
-        <div className="flex md:flex-col flex-row items-center gap-2">
-          <Mic size={20} className="text-[var(--danger)]" />
-          <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Capture</span>
-        </div>
-      </button>
-      <div className="flex flex-row gap-2 min-w-0 md:flex-col">
-        {navItems.map(item => (
-          <button
-            key={item.id}
-            onClick={() => setActiveView(item.id as any)}
-            className="studio-nav-button"
-            data-active={activeView === item.id}
-            data-ui-sound="nav"
-            title={item.label}
-            type="button"
-          >
-            <div className="flex flex-col items-center gap-2">
-              {item.icon}
-            <span className="font-mono text-[9px] uppercase tracking-[0.18em]">{item.label === 'Piano Roll' ? 'Roll' : item.label === 'Sequencer' ? 'Seq' : item.label === 'Mixer' ? 'Mix' : item.label === 'Arranger' ? 'Arrange' : item.label}</span>
-            </div>
-          </button>
-        ))}
+  const renderViewButton = (item: { icon: React.ReactNode; id: string; label: string }) => (
+    <button
+      key={item.id}
+      aria-label={item.label}
+      className="studio-nav-button w-full"
+      data-active={activeView === item.id}
+      data-ui-sound="nav"
+      onClick={() => setActiveView(item.id as any)}
+      title={item.label}
+      type="button"
+    >
+      <div className="flex flex-col items-center gap-2">
+        {item.icon}
+        <span className="font-mono text-[9px] uppercase tracking-[0.18em]">
+          {item.label === 'Piano Roll' ? 'Roll' : item.label === 'Sequencer' ? 'Seq' : item.label === 'Mixer' ? 'Mix' : item.label === 'Arranger' ? 'Arrange' : item.label}
+        </span>
       </div>
-      <div className="flex w-full flex-row gap-2 pt-3 md:mt-auto md:w-full md:flex-col md:gap-0 md:border-t border-[var(--border-soft)]">
+    </button>
+  );
+
+  return (
+    <aside className="studio-rail w-full shrink-0 px-2 py-2 md:w-[88px] md:py-3" data-tour-target="views">
+      <div className="section-label hidden md:block">Views</div>
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-1">
         <button
-          className="studio-nav-button shrink-0 md:w-full"
+          className="studio-nav-button w-full"
+          data-tour-target="sessions"
+          data-ui-sound="nav"
+          onClick={onOpenLaunchpad}
+          title="Open session library"
+          type="button"
+        >
+          <div className="flex items-center justify-center gap-2 md:flex-col">
+            <Sparkles size={20} className="text-[var(--accent)]" />
+            <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Library</span>
+          </div>
+        </button>
+        <button
+          className="studio-nav-button studio-nav-button-capture w-full"
+          data-capture="true"
+          data-tour-target="record"
+          data-ui-sound="record"
+          onClick={onOpenRecord}
+          title="Record a vocal, sound, or note and match it to a lane"
+          type="button"
+        >
+          <div className="flex items-center justify-center gap-2 md:flex-col">
+            <Mic size={20} className="text-[var(--danger)]" />
+            <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Capture</span>
+          </div>
+        </button>
+      </div>
+
+      <div className="grid gap-2 md:hidden">
+        <div className="grid grid-cols-3 gap-2">
+          {navItems.slice(0, 3).map(renderViewButton)}
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {navItems.slice(3).map(renderViewButton)}
+        </div>
+      </div>
+
+      <div className="hidden md:grid md:w-full md:gap-2">
+        {navItems.map(renderViewButton)}
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 border-t border-[var(--border-soft)] pt-3 md:mt-auto md:grid-cols-1 md:gap-2">
+        <button
+          className="studio-nav-button w-full"
           data-tour-target="share"
           data-ui-sound="action"
           onClick={onOpenShare}
           title="Share this session"
           type="button"
         >
-          <div className="flex md:flex-col flex-row items-center gap-2">
+          <div className="flex items-center justify-center gap-2 md:flex-col">
             <Share2 size={20} className="text-[var(--accent)]" />
             <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Share</span>
           </div>
         </button>
         <button
-          className="studio-nav-button shrink-0 md:w-full"
+          className="studio-nav-button w-full"
           data-active={isSettingsOpen}
           data-tour-target="options"
           data-ui-sound="settings"
@@ -105,13 +123,13 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchp
           title="Options"
           type="button"
         >
-          <div className="flex md:flex-col flex-row items-center gap-2">
+          <div className="flex items-center justify-center gap-2 md:flex-col">
             <Settings size={20} />
             <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Options</span>
           </div>
         </button>
         <a
-          className="studio-nav-button flex shrink-0 items-center justify-center md:w-full"
+          className="studio-nav-button flex w-full items-center justify-center"
           data-tour-target="support"
           data-ui-sound="action"
           href={SUPPORT_URL}
@@ -119,7 +137,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchp
           target="_blank"
           title="Support SonicStudio on Buy Me a Coffee"
         >
-          <div className="flex md:flex-col flex-row items-center gap-2">
+          <div className="flex items-center justify-center gap-2 md:flex-col">
             <Coffee size={20} className="text-[var(--accent)]" />
             <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Support</span>
           </div>
