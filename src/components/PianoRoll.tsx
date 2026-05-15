@@ -792,6 +792,7 @@ export const PianoRoll = () => {
                 <WindowButton active={stepsPerPattern === option} label={`${option}`} onClick={() => setStepsPerPattern(option)} />
               </React.Fragment>
             ))}
+            <WindowButton active={false} label="-1 bar" onClick={() => setStepsPerPattern(Math.max(16, stepsPerPattern - 16))} />
             <WindowButton active={false} label="+1 bar" onClick={() => setStepsPerPattern(Math.min(MAX_STEPS_PER_PATTERN, stepsPerPattern + 16))} />
             <WindowButton active={false} label="+2 bars" onClick={() => setStepsPerPattern(Math.min(MAX_STEPS_PER_PATTERN, stepsPerPattern + 32))} />
             </div>

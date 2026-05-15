@@ -51,6 +51,7 @@ export const Arranger = () => {
     arrangerClips,
     bpm,
     createSongMarker,
+    currentPattern,
     duplicateArrangerClip,
     duplicateSongRange,
     loopArrangerClip,
@@ -70,6 +71,7 @@ export const Arranger = () => {
     setLoopRange,
     setSelectedArrangerClipId,
     setSelectedTrackId,
+    setStepsPerPattern,
     songMarkers,
     songLengthInBeats,
     splitArrangerClip,
@@ -258,6 +260,40 @@ export const Arranger = () => {
   const selectedAutomationLevel = selectedClipAutomation.level[selectedPhraseStepIndex] ?? 0.5;
   const selectedAutomationTone = selectedClipAutomation.tone[selectedPhraseStepIndex] ?? 0.5;
   const selectedPhraseSliceIndex = selectedPhraseStep[0]?.sampleSliceIndex ?? null;
+  const hiddenPatternContent = useMemo(() => {
+    const relevantPatternIndices = new Set<number>([currentPattern]);
+    arrangerClips.forEach((clip) => {
+      relevantPatternIndices.add(clip.patternIndex);
+    });
+
+    let hiddenNoteCount = 0;
+    let requiredSteps = stepsPerPattern;
+
+    tracks.forEach((track) => {
+      Object.keys(track.patterns).forEach((patternKey) => {
+        const patternIndex = Number(patternKey);
+        const patternSteps = track.patterns[patternIndex] ?? [];
+        if (!relevantPatternIndices.has(patternIndex)) {
+          return;
+        }
+
+        for (let stepIndex = stepsPerPattern; stepIndex < patternSteps.length; stepIndex += 1) {
+          const step = patternSteps[stepIndex] ?? [];
+          if (step.length === 0) {
+            continue;
+          }
+
+          hiddenNoteCount += step.length;
+          requiredSteps = Math.max(requiredSteps, stepIndex + 1);
+        }
+      });
+    });
+
+    return {
+      hiddenNoteCount,
+      requiredSteps: Math.min(4096, Math.max(16, requiredSteps)),
+    };
+  }, [arrangerClips, currentPattern, stepsPerPattern, tracks]);
   const markerCount = songMarkers.length;
   const sectionRanges = useMemo(
     () => buildSectionRanges(arrangerClips, songMarkers, timelineSteps),
@@ -414,6 +450,9 @@ export const Arranger = () => {
         onSetZoomPreset={(value) => { setZoomPreset(value); setCustomPixelsPerStep(null); }}
         phraseSummary={phraseSummary}
         sectionCount={sectionRanges.length}
+        hiddenOverflowNoteCount={hiddenPatternContent.hiddenNoteCount}
+        hiddenOverflowRequiredSteps={hiddenPatternContent.requiredSteps}
+        onRestoreOverflowLength={() => setStepsPerPattern(hiddenPatternContent.requiredSteps)}
         selectedArrangerClipId={selectedArrangerClipId}
         selectedClip={selectedClip}
         snapOptions={SNAP_OPTIONS}

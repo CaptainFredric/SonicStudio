@@ -18,76 +18,81 @@ interface GuideStep {
 
 const GUIDE_STEPS: GuideStep[] = [
   {
-    action: 'Open Library when you want a fresh scene, a saved scoresheet, or your captured notes.',
-    body: 'Library keeps starter scenes, your saved sessions, and captured-note storage in one place.',
+    action: 'Open Library to start fresh, reopen saved work, or pull captured notes.',
+    body: 'Library keeps starter scenes, saved sessions, and captured notes together so you can reset or recover fast.',
     eyebrow: 'Library',
-    payoff: 'You always have a quick reset point and a fast way back to saved work.',
+    payoff: 'You always have a clean starting point and a quick return path.',
     target: 'sessions',
-    title: 'Starter sessions are always close by.',
+    title: 'Library is your reset and recall hub.',
   },
   {
-    action: 'Use the left rail first when you need to switch views quickly.',
-    body: 'The left rail jumps between Compose, Sequencer, Roll, Mix, and Arrange. If you lose your place, start there.',
+    action: 'Use the left rail to switch editing context, not just screens.',
+    body: 'Compose is idea capture, Sequencer is step timing, Roll is pitch detail, Mix is balance, and Arranger is song structure.',
     eyebrow: 'Views',
-    payoff: 'Once you treat the rail as home base, navigation gets much easier.',
+    payoff: 'Knowing each view role makes the workflow feel intentional instead of repetitive.',
     target: 'views',
-    title: 'Move around the studio from the left rail.',
+    title: 'Each main view has a distinct job.',
   },
   {
-    action: 'Hit Play before editing so you hear the scene, tempo, and balance first. That usually tells you what needs work fastest.',
-    body: 'Press Space or click Play. Your first input wakes audio, so this is the quickest first step.',
+    action: 'Start with Play so you hear timing, energy, and balance before editing.',
+    body: 'Press Space or tap Play. The first interaction wakes audio, so this is the fastest first check.',
     eyebrow: 'Transport',
-    payoff: 'Playback is the quickest sanity check for whether you are changing the right thing.',
+    payoff: 'You can spot what to fix in seconds instead of guessing.',
     target: 'play',
-    title: 'Listen before you start editing.',
+    title: 'Listen first, then edit with intent.',
   },
   {
-    action: 'Use the lower strip or A through L to test notes in context without leaving the current screen.',
-    body: 'Click the lower strip or use A through L on the keyboard to audition the selected track without leaving the current view.',
+    action: 'Use the lower strip (or A through L) to audition notes in place.',
+    body: 'You can test note choices on the selected lane without leaving your current screen.',
     eyebrow: 'Audition',
-    payoff: 'It is the fastest way to check pitch ideas while you stay focused on timing, mix, or arrangement.',
+    payoff: 'You stay in flow while testing pitch ideas quickly.',
     target: 'tap-to-play',
-    title: 'Try notes from the lower strip.',
+    title: 'Audition notes without context switching.',
   },
   {
-    action: 'Record a clean sound, check the note and lane guesses, then save or apply a match.',
-    body: 'Capture listens for live pitch, suggests matching lanes, and can save notes to a reusable shelf. In Options you can tune commit timing, match count, and auto-preview behavior.',
+    action: 'Capture a clean note, review the suggested lane and pitch, then apply or save it.',
+    body: 'Capture listens for pitch and suggests lane matches. You can tune behavior in Options (commit timing, match count, auto-preview).',
     eyebrow: 'Capture',
-    payoff: 'It works for quick note detection and for building a local note library over time.',
+    payoff: 'Great for fast note detection and building your own reusable note shelf.',
     target: 'record',
-    title: 'Capture sounds and turn them into reusable note presets.',
+    title: 'Capture turns sounds into reusable note starts.',
   },
   {
-    action: 'Toggle SuperSonic when you want a tighter, more surgical editing pass.',
-    body: 'SuperSonic switches to the advanced workflow. In Sequencer and Roll you get precision hover ladders, faster lane travel, and quicker note targeting.',
+    action: 'Use SuperSonic for tighter, precision-focused editing passes.',
+    body: 'SuperSonic switches to a sharper workflow with faster note targeting and more deliberate controls for detail work.',
     eyebrow: 'SuperSonic',
-    payoff: 'Same session, just a sharper editing posture for detail work.',
+    payoff: 'Same song, faster precision when you are refining details.',
     target: 'supersonic',
-    title: 'SuperSonic unlocks the more precise editing layer.',
+    title: 'SuperSonic is your precision editing mode.',
   },
   {
-    action: 'Use Share when you want a portable copy or a link. Use the Library when you only need local recall on this device.',
-    body: 'Share the exact session with a link, copied JSON, or a session file when you want feedback or need to reopen it elsewhere.',
+    action: 'Use Share for links or portable files. Use Library for local recall.',
+    body: 'Share can export the exact session for feedback or cross-device work.',
     eyebrow: 'Share',
-    payoff: 'Keeping local saves and portable exports separate is safer and easier to reason about.',
+    payoff: 'Keeping local and portable workflows separate is cleaner and safer.',
     target: 'share',
-    title: 'Share the session without bouncing stems.',
+    title: 'Share sessions without bouncing audio first.',
   },
   {
-    action: 'Use Options for defaults and workflow tuning; use the Library for quick storage and recall.',
-    body: 'Options is where practical controls live: MIDI import, exports, checkpoints, workspace defaults, SuperSonic settings, and capture controls.',
+    action: 'Use Options for defaults and behavior tuning. Keep creative material in Library.',
+    body: 'Options includes MIDI import, exports, checkpoints, workspace defaults, SuperSonic behavior, and capture controls.',
     eyebrow: 'Options',
-    payoff: 'That split keeps setup controls in one place and saved creative material in another.',
+    payoff: 'Settings stay organized, and your creative material stays easy to find.',
     target: 'options',
-    title: 'Settings is where the practical stuff lives.',
+    title: 'Options handles setup and workflow tuning.',
   },
 ];
-
-const GUIDE_HIGHLIGHT_PAD = 10;
 
 export const OnboardingGuide = ({ open, onComplete, onSkip }: OnboardingGuideProps) => {
   const [stepIndex, setStepIndex] = useState(0);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
+  const isCompactViewport = useMemo(() => {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+
+    return window.matchMedia('(max-width: 767px)').matches;
+  }, []);
 
   useEffect(() => {
     if (!open) {
@@ -120,7 +125,7 @@ export const OnboardingGuide = ({ open, onComplete, onSkip }: OnboardingGuidePro
 
     element.scrollIntoView({
       behavior: reducedMotion ? 'auto' : 'smooth',
-      block: 'nearest',
+      block: isCompactViewport ? 'center' : 'nearest',
       inline: 'nearest',
     });
 
@@ -130,6 +135,7 @@ export const OnboardingGuide = ({ open, onComplete, onSkip }: OnboardingGuidePro
 
     updateRect();
     const frameId = window.requestAnimationFrame(updateRect);
+    const settleId = window.setTimeout(updateRect, reducedMotion ? 0 : 120);
     const resizeObserver = typeof ResizeObserver !== 'undefined'
       ? new ResizeObserver(() => updateRect())
       : null;
@@ -140,11 +146,12 @@ export const OnboardingGuide = ({ open, onComplete, onSkip }: OnboardingGuidePro
 
     return () => {
       window.cancelAnimationFrame(frameId);
+      window.clearTimeout(settleId);
       resizeObserver?.disconnect();
       window.removeEventListener('resize', updateRect);
       window.removeEventListener('scroll', updateRect, true);
     };
-  }, [open, reducedMotion, step.target]);
+  }, [isCompactViewport, open, reducedMotion, step.target]);
 
   useEffect(() => {
     if (!open) {
@@ -179,12 +186,26 @@ export const OnboardingGuide = ({ open, onComplete, onSkip }: OnboardingGuidePro
 
   const isLastStep = stepIndex === GUIDE_STEPS.length - 1;
   const highlightStyle = targetRect
-    ? {
-        height: Math.max(0, targetRect.height + GUIDE_HIGHLIGHT_PAD * 2),
-        left: Math.max(8, targetRect.left - GUIDE_HIGHLIGHT_PAD),
-        top: Math.max(8, targetRect.top - GUIDE_HIGHLIGHT_PAD),
-        width: Math.max(0, targetRect.width + GUIDE_HIGHLIGHT_PAD * 2),
-      }
+    ? (() => {
+        const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 0;
+        const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 0;
+        const dynamicPad = Math.max(6, Math.min(14, Math.round(Math.min(targetRect.width, targetRect.height) * 0.08)));
+        const rawLeft = targetRect.left - dynamicPad;
+        const rawTop = targetRect.top - dynamicPad;
+        const rawWidth = targetRect.width + (dynamicPad * 2);
+        const rawHeight = targetRect.height + (dynamicPad * 2);
+        const clampedWidth = Math.max(0, Math.min(rawWidth, Math.max(0, viewportWidth - 16)));
+        const clampedHeight = Math.max(0, Math.min(rawHeight, Math.max(0, viewportHeight - 16)));
+        const clampedLeft = Math.max(8, Math.min(rawLeft, Math.max(8, viewportWidth - clampedWidth - 8)));
+        const clampedTop = Math.max(8, Math.min(rawTop, Math.max(8, viewportHeight - clampedHeight - 8)));
+
+        return {
+          height: clampedHeight,
+          left: clampedLeft,
+          top: clampedTop,
+          width: clampedWidth,
+        };
+      })()
     : undefined;
 
   const focusTarget = () => {
@@ -276,7 +297,7 @@ export const OnboardingGuide = ({ open, onComplete, onSkip }: OnboardingGuidePro
         </div>
 
         <div className="mt-4 border-t border-[var(--border-soft)] pt-4 text-[11px] leading-5 text-[var(--text-tertiary)]">
-          Use the arrow keys to move between steps. Press Esc to skip. On smaller screens, Show control recenters the highlighted UI before you continue.
+          Use left and right arrows to move through steps. Press Esc to skip. On mobile, Show control recenters the target before you continue.
         </div>
 
         <div className="mt-4 flex items-center justify-between gap-3">

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Circle,
   Compass,
@@ -6,7 +6,6 @@ import {
   Mic,
   Pause,
   Play,
-  Radio,
   Redo2,
   Save,
   SlidersHorizontal,
@@ -19,18 +18,34 @@ import {
 import { engine } from '../audio/ToneEngine';
 import { playSupersonicToggleSound } from '../audio/uiSounds';
 import { useAudio } from '../context/AudioContext';
-import { MASTER_PRESET_DEFINITIONS, type MasterSettings } from '../project/schema';
+import {
+  MASTER_PRESET_DEFINITIONS,
+  MAX_STEPS_PER_PATTERN,
+  MIN_STEPS_PER_PATTERN,
+  type MasterSettings,
+} from '../project/schema';
 import { getSupersonicTransitionOrigin, runSupersonicTransition } from '../utils/supersonicTransition';
+import { useMediaQuery } from '../utils/useMediaQuery';
 import { BrandMark } from './BrandMark';
 
 const MASTER_MATCH_EPSILON = 0.015;
 const SUPERSONIC_WIPE_DURATION_MS = 240;
 const SUPERSONIC_OFF_PREVIEW_DELAY_MS = Math.round(SUPERSONIC_WIPE_DURATION_MS * 0.52);
+const MIN_TEMPO_BPM = 40;
+const MAX_TEMPO_BPM = 240;
+const TAP_TEMPO_MAX_INTERVAL_MS = 2500;
+const TAP_TEMPO_MIN_TAPS = 3;
 
 interface AudioHealthSummary {
   detail: string;
   label: string;
   tone: 'attention' | 'error' | 'ready';
+}
+
+interface AudioNerdStat {
+  label: string;
+  tone: 'attention' | 'error' | 'ready';
+  value: string;
 }
 
 const isMasterPresetMatch = (current: MasterSettings, target: MasterSettings) => (
@@ -52,6 +67,7 @@ export const TopBar = ({
   isCaptureOpen?: boolean;
   onOpenCapture?: () => void;
 }) => {
+  const isCompactViewport = useMediaQuery('(max-width: 1023px)');
   const {
     activeView,
     bpm,
@@ -84,11 +100,14 @@ export const TopBar = ({
     setBpm,
     setCountInBars,
     setCurrentPattern,
+    setLoopRange,
     setSettingsOpen,
+    setStepsPerPattern,
     setSuperSonicMode,
     setMetronomeEnabled,
     setTransportMode,
     songLengthInBeats,
+    stepsPerPattern,
     stop,
     superSonicMode,
     togglePlay,
@@ -103,6 +122,8 @@ export const TopBar = ({
   const [isRestartArmed, setIsRestartArmed] = useState(false);
   const [isRestartDisarming, setIsRestartDisarming] = useState(false);
   const [showSupersonicOffPreview, setShowSupersonicOffPreview] = useState(false);
+  const [showAudioNerdStats, setShowAudioNerdStats] = useState(false);
+  const [tapTempoLabel, setTapTempoLabel] = useState<string | null>(null);
   const [audioRuntime, setAudioRuntime] = useState<{
     baseLatencyMs: number | null;
     contextState: AudioContextState;
@@ -113,6 +134,8 @@ export const TopBar = ({
     masterDb: -100,
   });
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
+  const tapTempoHistoryRef = useRef<number[]>([]);
+  const tapTempoLabelTimeoutRef = useRef<number | null>(null);
   const activeMasterPreset = MASTER_PRESET_DEFINITIONS.find((preset) => (
     isMasterPresetMatch(master, preset.settings)
   )) ?? null;
@@ -164,6 +187,12 @@ export const TopBar = ({
       window.clearTimeout(timeoutId);
     };
   }, [isRestartDisarming]);
+
+  useEffect(() => () => {
+    if (tapTempoLabelTimeoutRef.current !== null) {
+      window.clearTimeout(tapTempoLabelTimeoutRef.current);
+    }
+  }, []);
 
   useEffect(() => {
     if (!isInitialized) {
@@ -217,11 +246,6 @@ export const TopBar = ({
     : transportMode === 'SONG'
       ? 'Song timeline'
       : 'Pattern loop';
-  const transportSummary = countInActive
-    ? `Count in ${countInBeatsRemaining} beat${countInBeatsRemaining === 1 ? '' : 's'}`
-    : isInitialized
-      ? loopSummary
-      : 'Audio off';
   const supersonicLabel = !superSonicMode
     ? 'SuperSonic'
     : showSupersonicOffPreview
@@ -231,6 +255,13 @@ export const TopBar = ({
   const activeTrackCount = tracks.filter((track) => !track.muted && (soloTrackCount === 0 || track.solo)).length;
   const allTracksMuted = tracks.length > 0 && activeTrackCount === 0;
   const masterMuted = master.outputGain <= -45;
+  const likelyDeviceMuted = isInitialized
+    && isPlaying
+    && !masterMuted
+    && !allTracksMuted
+    && Number.isFinite(audioRuntime.masterDb)
+    && audioRuntime.masterDb <= -95;
+  const isLoopWindowActive = loopRangeStartBeat !== null && loopRangeEndBeat !== null;
   const audioHealth = getAudioHealthSummary({
     activeTrackCount,
     allTracksMuted,
@@ -238,9 +269,55 @@ export const TopBar = ({
     baseLatencyMs: audioRuntime.baseLatencyMs,
     isInitialized,
     isPlaying,
+    likelyDeviceMuted,
     masterDb: audioRuntime.masterDb,
     masterMuted,
   });
+  const audioNerdStats: AudioNerdStat[] = [
+    {
+      label: 'Context',
+      tone: audioRuntime.contextState === 'running' ? 'ready' : 'error',
+      value: audioRuntime.contextState,
+    },
+    {
+      label: 'Base latency',
+      tone: audioRuntime.baseLatencyMs !== null && audioRuntime.baseLatencyMs >= 120 ? 'attention' : 'ready',
+      value: audioRuntime.baseLatencyMs === null ? 'Unknown' : `${Math.round(audioRuntime.baseLatencyMs)} ms`,
+    },
+    {
+      label: 'Master level',
+      tone: isPlaying && audioRuntime.masterDb > -1.2 ? 'attention' : 'ready',
+      value: Number.isFinite(audioRuntime.masterDb) ? `${audioRuntime.masterDb.toFixed(1)} dB` : 'Unknown',
+    },
+    {
+      label: 'Active lanes',
+      tone: allTracksMuted ? 'attention' : 'ready',
+      value: `${activeTrackCount}/${tracks.length}`,
+    },
+    {
+      label: 'Loop window',
+      tone: isLoopWindowActive ? 'attention' : 'ready',
+      value: isLoopWindowActive ? `${loopRangeStartBeat + 1} to ${loopRangeEndBeat}` : 'Off',
+    },
+    {
+      label: 'Pattern length',
+      tone: 'ready',
+      value: `${stepsPerPattern} steps`,
+    },
+  ];
+
+  const applyPatternLength = (nextStepsPerPattern: number) => {
+    const clamped = Math.max(MIN_STEPS_PER_PATTERN, Math.min(MAX_STEPS_PER_PATTERN, nextStepsPerPattern));
+    if (clamped === stepsPerPattern) {
+      return;
+    }
+
+    setStepsPerPattern(clamped);
+    setTransportMode('PATTERN');
+    if (isLoopWindowActive) {
+      setLoopRange(null, null);
+    }
+  };
 
   const toggleSupersonicMode = (button: HTMLButtonElement) => {
     const enabled = !superSonicMode;
@@ -251,6 +328,63 @@ export const TopBar = ({
     }
     runSupersonicTransition(enabled, getSupersonicTransitionOrigin(button));
     setSuperSonicMode(enabled);
+  };
+
+  const pushTapTempoLabel = (label: string) => {
+    setTapTempoLabel(label);
+    if (tapTempoLabelTimeoutRef.current !== null) {
+      window.clearTimeout(tapTempoLabelTimeoutRef.current);
+    }
+    tapTempoLabelTimeoutRef.current = window.setTimeout(() => {
+      setTapTempoLabel(null);
+      tapTempoLabelTimeoutRef.current = null;
+    }, 1500);
+  };
+
+  const clampTempo = (nextBpm: number) => Math.max(MIN_TEMPO_BPM, Math.min(MAX_TEMPO_BPM, Math.round(nextBpm)));
+
+  const setTempoValue = (nextBpm: number) => {
+    const clamped = clampTempo(nextBpm);
+    if (clamped === bpm) {
+      return;
+    }
+    setBpm(clamped);
+  };
+
+  const nudgeTempo = (delta: number) => {
+    setTempoValue(bpm + delta);
+  };
+
+  const applyTempoMultiplier = (multiplier: number) => {
+    setTempoValue(bpm * multiplier);
+  };
+
+  const tapTempo = () => {
+    const now = Date.now();
+    const recent = tapTempoHistoryRef.current.filter((timestamp) => now - timestamp <= TAP_TEMPO_MAX_INTERVAL_MS);
+    recent.push(now);
+    tapTempoHistoryRef.current = recent.slice(-6);
+
+    if (tapTempoHistoryRef.current.length < TAP_TEMPO_MIN_TAPS) {
+      const remaining = TAP_TEMPO_MIN_TAPS - tapTempoHistoryRef.current.length;
+      pushTapTempoLabel(remaining > 0 ? `Tap ${remaining} more` : 'Tap again');
+      return;
+    }
+
+    const intervals = [] as number[];
+    for (let index = 1; index < tapTempoHistoryRef.current.length; index += 1) {
+      intervals.push(tapTempoHistoryRef.current[index] - tapTempoHistoryRef.current[index - 1]);
+    }
+
+    const averageIntervalMs = intervals.reduce((sum, value) => sum + value, 0) / intervals.length;
+    if (!Number.isFinite(averageIntervalMs) || averageIntervalMs <= 0) {
+      pushTapTempoLabel('Tap again');
+      return;
+    }
+
+    const detectedBpm = clampTempo(60000 / averageIntervalMs);
+    setBpm(detectedBpm);
+    pushTapTempoLabel(`${detectedBpm} BPM`);
   };
 
   const handleRestartSession = () => {
@@ -405,6 +539,7 @@ export const TopBar = ({
                   <TransportBtn
                     active={isPlaying}
                     className="w-full min-w-0 justify-center"
+                    compactViewport={isCompactViewport}
                     data-tour-target="play"
                     emphasize={showPlayPulse}
                     label={isPlaying ? 'Pause' : 'Play'}
@@ -415,6 +550,7 @@ export const TopBar = ({
                       }
                     }}
                     shortcut="Space"
+                    supersonicMode={superSonicMode}
                     tone="play"
                   >
                     {isPlaying ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
@@ -458,7 +594,7 @@ export const TopBar = ({
                     </button>
                   )}
                   <button
-                    className="control-chip supersonic-toggle flex h-10 w-full items-center justify-center gap-2 px-4 text-[10px] font-semibold uppercase tracking-[0.16em]"
+                    className="control-chip supersonic-toggle flex h-9 w-full items-center justify-center gap-2 px-3.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
                     data-active={superSonicMode}
                     data-preview={showSupersonicOffPreview ? 'off' : 'on'}
                     data-super="true"
@@ -474,6 +610,113 @@ export const TopBar = ({
                     <Zap className="h-3.5 w-3.5" />
                     <span>{supersonicLabel}</span>
                   </button>
+                </div>
+
+                <div className="surface-panel-muted grid gap-2 p-2">
+                  <div className="flex flex-wrap items-end gap-3">
+                    <span className="section-label">Tempo dock</span>
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        aria-label="Tempo BPM"
+                        className="control-field h-8 w-20 px-2 text-center font-mono text-[11px]"
+                        max={MAX_TEMPO_BPM}
+                        min={MIN_TEMPO_BPM}
+                        onChange={(event) => setTempoValue(Number(event.target.value))}
+                        step={1}
+                        type="number"
+                        value={bpm}
+                      />
+                      <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--accent-strong)]">BPM</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      className="control-chip inline-flex h-8 items-center justify-center px-2 text-[10px] font-semibold uppercase tracking-[0.12em]"
+                      data-ui-sound="tab"
+                      onClick={() => nudgeTempo(-5)}
+                      type="button"
+                    >
+                      -5
+                    </button>
+                    <button
+                      className="control-chip inline-flex h-8 items-center justify-center px-2 text-[10px] font-semibold uppercase tracking-[0.12em]"
+                      data-ui-sound="tab"
+                      onClick={() => nudgeTempo(-1)}
+                      type="button"
+                    >
+                      -1
+                    </button>
+                    <button
+                      className="control-chip inline-flex h-8 items-center justify-center px-2 text-[10px] font-semibold uppercase tracking-[0.12em]"
+                      data-ui-sound="tab"
+                      onClick={() => nudgeTempo(1)}
+                      type="button"
+                    >
+                      +1
+                    </button>
+                    <button
+                      className="control-chip inline-flex h-8 items-center justify-center px-2 text-[10px] font-semibold uppercase tracking-[0.12em]"
+                      data-ui-sound="tab"
+                      onClick={() => nudgeTempo(5)}
+                      type="button"
+                    >
+                      +5
+                    </button>
+                    {superSonicMode ? (
+                      <>
+                        <button
+                          className="control-chip inline-flex h-8 items-center justify-center px-2 text-[10px] font-semibold uppercase tracking-[0.12em]"
+                          data-ui-sound="tab"
+                          onClick={() => applyTempoMultiplier(0.5)}
+                          type="button"
+                        >
+                          Half-time
+                        </button>
+                        <button
+                          className="control-chip inline-flex h-8 items-center justify-center px-2 text-[10px] font-semibold uppercase tracking-[0.12em]"
+                          data-ui-sound="tab"
+                          onClick={() => applyTempoMultiplier(2)}
+                          type="button"
+                        >
+                          Double-time
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          className="control-chip inline-flex h-8 items-center justify-center px-2 text-[10px] font-semibold uppercase tracking-[0.12em]"
+                          data-ui-sound="tab"
+                          onClick={tapTempo}
+                          type="button"
+                        >
+                          Tap tempo
+                        </button>
+                        <button
+                          className="control-chip inline-flex h-8 items-center justify-center px-2 text-[10px] font-semibold uppercase tracking-[0.12em]"
+                          data-ui-sound="tab"
+                          onClick={() => setTempoValue(120)}
+                          type="button"
+                        >
+                          Reset 120
+                        </button>
+                      </>
+                    )}
+                  </div>
+                  <input
+                    aria-label="Tempo quick slider"
+                    className="w-full accent-[var(--accent)]"
+                    max={MAX_TEMPO_BPM}
+                    min={MIN_TEMPO_BPM}
+                    onChange={(event) => setTempoValue(Number(event.target.value))}
+                    step={1}
+                    type="range"
+                    value={bpm}
+                  />
+                  {tapTempoLabel ? (
+                    <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--accent-strong)]">
+                      {tapTempoLabel}
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -525,7 +768,7 @@ export const TopBar = ({
                   </button>
                 )}
                 <button
-                  className="control-chip supersonic-toggle flex h-10 items-center gap-2 px-4 text-[10px] font-semibold uppercase tracking-[0.16em]"
+                  className="control-chip supersonic-toggle flex h-9 items-center gap-2 px-3.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
                   data-active={superSonicMode}
                   data-preview={showSupersonicOffPreview ? 'off' : 'on'}
                   data-super="true"
@@ -541,6 +784,113 @@ export const TopBar = ({
                   <Zap className="h-3.5 w-3.5" />
                   <span>{supersonicLabel}</span>
                 </button>
+              </div>
+
+              <div className="surface-panel-muted grid gap-2 p-2">
+                <div className="flex flex-wrap items-end gap-3">
+                  <span className="section-label">Tempo dock</span>
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      aria-label="Tempo BPM"
+                      className="control-field h-8 w-20 px-2 text-center font-mono text-[11px]"
+                      max={MAX_TEMPO_BPM}
+                      min={MIN_TEMPO_BPM}
+                      onChange={(event) => setTempoValue(Number(event.target.value))}
+                      step={1}
+                      type="number"
+                      value={bpm}
+                    />
+                    <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--accent-strong)]">BPM</span>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    className="control-chip inline-flex h-8 items-center justify-center px-2 text-[10px] font-semibold uppercase tracking-[0.12em]"
+                    data-ui-sound="tab"
+                    onClick={() => nudgeTempo(-5)}
+                    type="button"
+                  >
+                    -5
+                  </button>
+                  <button
+                    className="control-chip inline-flex h-8 items-center justify-center px-2 text-[10px] font-semibold uppercase tracking-[0.12em]"
+                    data-ui-sound="tab"
+                    onClick={() => nudgeTempo(-1)}
+                    type="button"
+                  >
+                    -1
+                  </button>
+                  <button
+                    className="control-chip inline-flex h-8 items-center justify-center px-2 text-[10px] font-semibold uppercase tracking-[0.12em]"
+                    data-ui-sound="tab"
+                    onClick={() => nudgeTempo(1)}
+                    type="button"
+                  >
+                    +1
+                  </button>
+                  <button
+                    className="control-chip inline-flex h-8 items-center justify-center px-2 text-[10px] font-semibold uppercase tracking-[0.12em]"
+                    data-ui-sound="tab"
+                    onClick={() => nudgeTempo(5)}
+                    type="button"
+                  >
+                    +5
+                  </button>
+                  {superSonicMode ? (
+                    <>
+                      <button
+                        className="control-chip inline-flex h-8 items-center justify-center px-2 text-[10px] font-semibold uppercase tracking-[0.12em]"
+                        data-ui-sound="tab"
+                        onClick={() => applyTempoMultiplier(0.5)}
+                        type="button"
+                      >
+                        Half-time
+                      </button>
+                      <button
+                        className="control-chip inline-flex h-8 items-center justify-center px-2 text-[10px] font-semibold uppercase tracking-[0.12em]"
+                        data-ui-sound="tab"
+                        onClick={() => applyTempoMultiplier(2)}
+                        type="button"
+                      >
+                        Double-time
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        className="control-chip inline-flex h-8 items-center justify-center px-2 text-[10px] font-semibold uppercase tracking-[0.12em]"
+                        data-ui-sound="tab"
+                        onClick={tapTempo}
+                        type="button"
+                      >
+                        Tap tempo
+                      </button>
+                      <button
+                        className="control-chip inline-flex h-8 items-center justify-center px-2 text-[10px] font-semibold uppercase tracking-[0.12em]"
+                        data-ui-sound="tab"
+                        onClick={() => setTempoValue(120)}
+                        type="button"
+                      >
+                        Reset 120
+                      </button>
+                    </>
+                  )}
+                </div>
+                <input
+                  aria-label="Tempo quick slider"
+                  className="w-full accent-[var(--accent)]"
+                  max={MAX_TEMPO_BPM}
+                  min={MIN_TEMPO_BPM}
+                  onChange={(event) => setTempoValue(Number(event.target.value))}
+                  step={1}
+                  type="range"
+                  value={bpm}
+                />
+                {tapTempoLabel ? (
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--accent-strong)]">
+                    {tapTempoLabel}
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
@@ -600,6 +950,36 @@ export const TopBar = ({
               <div className="section-label mb-1">Song span</div>
               <div className="text-sm font-medium text-[var(--text-primary)]">{songLengthInBeats} steps</div>
               <div className="mt-1 text-[11px] text-[var(--text-secondary)]">{Math.max(1, Math.ceil(songLengthInBeats / 16))} bars</div>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-[var(--text-secondary)]">
+                <span className="section-label">Pattern length</span>
+                <button
+                  className="control-chip inline-flex h-7 items-center justify-center px-2 text-[10px] font-semibold uppercase tracking-[0.12em]"
+                  data-ui-sound="tab"
+                  onClick={() => applyPatternLength(stepsPerPattern - 16)}
+                  type="button"
+                >
+                  -1 bar
+                </button>
+                <button
+                  className="control-chip inline-flex h-7 items-center justify-center px-2 text-[10px] font-semibold uppercase tracking-[0.12em]"
+                  data-ui-sound="tab"
+                  onClick={() => applyPatternLength(stepsPerPattern + 16)}
+                  type="button"
+                >
+                  +1 bar
+                </button>
+                <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--accent-strong)]">{stepsPerPattern} steps</span>
+              </div>
+              {isLoopWindowActive ? (
+                <button
+                  className="control-chip mt-2 inline-flex h-7 items-center justify-center px-2 text-[10px] font-semibold uppercase tracking-[0.12em]"
+                  data-ui-sound="tab"
+                  onClick={() => setLoopRange(null, null)}
+                  type="button"
+                >
+                  Use full pattern loop
+                </button>
+              ) : null}
             </div>
 
             <div className="min-w-0">
@@ -612,28 +992,17 @@ export const TopBar = ({
                 />
                 <span className="truncate">{formatSaveLabel(saveStatus, lastSavedAt)}</span>
               </div>
-              <div className="mt-1 flex items-center gap-2 text-[11px] text-[var(--text-secondary)]">
-                <Radio className="h-3 w-3 text-[var(--accent)]" />
-                {transportSummary}
-              </div>
             </div>
 
             <div className="min-w-0">
-              <div className="section-label mb-1">Audio</div>
               <div className="flex flex-col gap-2 text-[11px] leading-5 text-[var(--text-secondary)]">
-                <span>
-                  {metronomeEnabled
-                    ? `Metronome on${countInBars > 0 ? ` with ${countInBars} bar count in` : ''}.`
-                    : isInitialized
-                      ? 'Audio on.'
-                      : 'Audio off.'}
-                </span>
-                <span>{isInitialized ? audioHealth.detail : 'Tap Enable audio if browser autoplay has not unlocked yet.'}</span>
-                {isInitialized ? (
-                  <span
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
                     aria-label={`Audio status: ${audioHealth.label}`}
-                    className="status-chip mt-1 inline-flex h-9 items-center justify-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                    className="status-chip inline-flex h-9 items-center justify-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
                     data-tone={audioHealth.tone}
+                    onClick={() => setShowAudioNerdStats((current) => !current)}
+                    type="button"
                   >
                     <span
                       aria-hidden="true"
@@ -641,11 +1010,21 @@ export const TopBar = ({
                       data-tone={audioHealth.tone}
                     />
                     {audioHealth.label}
-                  </span>
-                ) : (
+                  </button>
+                  <button
+                    className="control-chip inline-flex h-9 items-center justify-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                    data-ui-sound="tab"
+                    onClick={() => setShowAudioNerdStats((current) => !current)}
+                    type="button"
+                  >
+                    {showAudioNerdStats ? 'Hide stats' : 'Stats for nerds'}
+                  </button>
+                </div>
+                <span>{isInitialized ? audioHealth.detail : 'Tap Enable audio if browser autoplay has not unlocked yet.'}</span>
+                {!isInitialized ? (
                   <button
                     aria-label="Enable audio engine"
-                    className="control-chip mt-1 inline-flex h-9 items-center justify-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                    className="control-chip inline-flex h-9 items-center justify-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
                     data-needs-attention="true"
                     data-ui-sound="settings"
                     onClick={() => void initAudio()}
@@ -658,7 +1037,27 @@ export const TopBar = ({
                     />
                     Enable audio
                   </button>
-                )}
+                ) : null}
+                {showAudioNerdStats ? (
+                  <div className="surface-panel-muted grid gap-2 border border-[var(--border-soft)] p-2.5">
+                    {audioNerdStats.map((stat) => (
+                      <div className="flex items-center justify-between gap-3" key={stat.label}>
+                        <span className="section-label">{stat.label}</span>
+                        <span className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-primary)]">
+                          <span aria-hidden="true" className="status-dot" data-tone={stat.tone} />
+                          {stat.value}
+                        </span>
+                      </div>
+                    ))}
+                    <div className="border-t border-[var(--border-soft)] pt-2 text-[10px] leading-5 text-[var(--text-secondary)]">
+                      {countInActive
+                        ? `Count in active: ${countInBeatsRemaining} beat${countInBeatsRemaining === 1 ? '' : 's'} remaining.`
+                        : metronomeEnabled
+                          ? `Metronome is on${countInBars > 0 ? ` with ${countInBars} bar count in` : ''}.`
+                          : `Metronome is off. ${loopSummary}.`}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
@@ -795,43 +1194,61 @@ const TransportBtn = ({
   active = false,
   className,
   children,
+  compactViewport = false,
   emphasize = false,
   label,
   onClick,
   onPointerDown,
   shortcut,
   style,
+  supersonicMode = false,
   tone,
   ...rest
 }: {
   active?: boolean;
   className?: string;
   children: React.ReactNode;
+  compactViewport?: boolean;
   emphasize?: boolean;
   label: string;
   onClick: () => void;
   onPointerDown?: React.PointerEventHandler<HTMLButtonElement>;
   shortcut?: string;
   style?: React.CSSProperties;
+  supersonicMode?: boolean;
   tone: 'neutral' | 'play' | 'record';
   [key: `data-${string}`]: string | undefined;
 }) => {
   const activeStyles = tone === 'record'
     ? 'bg-[rgba(240,143,134,0.16)] border-[rgba(240,143,134,0.28)] text-[var(--danger)]'
+    : tone === 'play' && supersonicMode
+      ? 'bg-[rgba(12,109,112,0.16)] border-[rgba(12,109,112,0.38)] text-[var(--text-primary)]'
     : tone === 'play'
       ? 'bg-[var(--accent-muted)] border-[var(--accent)] text-[var(--accent-strong)]'
       : 'bg-[rgba(255,255,255,0.04)] border-[var(--border-soft)] text-[var(--text-primary)]';
   const restingStyles = emphasize && tone === 'play'
-    ? 'border-[var(--accent)] text-[var(--bg-app)] bg-[var(--accent)]'
+    ? supersonicMode
+      ? 'border-[rgba(12,109,112,0.42)] text-[var(--text-primary)] bg-[rgba(12,109,112,0.16)]'
+      : 'border-[var(--accent)] text-[var(--bg-app)] bg-[var(--accent)]'
     : tone === 'play'
-      ? 'border-[color-mix(in_srgb,var(--accent)_28%,transparent)] text-[var(--accent-strong)] hover:bg-[var(--accent-muted)] hover:border-[var(--accent)]'
+      ? supersonicMode
+        ? 'border-[rgba(12,109,112,0.26)] text-[var(--text-secondary)] hover:bg-[rgba(12,109,112,0.12)] hover:border-[rgba(12,109,112,0.42)] hover:text-[var(--text-primary)]'
+        : 'border-[color-mix(in_srgb,var(--accent)_28%,transparent)] text-[var(--accent-strong)] hover:bg-[var(--accent-muted)] hover:border-[var(--accent)]'
       : 'border-transparent text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.03)] hover:border-[var(--border-soft)] hover:text-[var(--text-primary)]';
 
   const playStyle: React.CSSProperties | undefined = emphasize && tone === 'play'
     ? {
-        boxShadow:
-          '0 0 0 1px color-mix(in srgb, var(--accent) 52%, transparent), 0 8px 30px color-mix(in srgb, var(--accent) 34%, transparent), inset 0 1px 0 rgba(255,255,255,0.35)',
-        transform: 'translateY(-1px) scale(1.03)',
+        background: supersonicMode
+          ? 'linear-gradient(180deg, rgba(255,255,255,0.24), rgba(255,255,255,0.04) 32%, rgba(8,82,88,0.2) 100%)'
+          : compactViewport
+            ? 'linear-gradient(180deg, rgba(255,255,255,0.48), rgba(255,255,255,0.16) 28%, rgba(125,211,252,0.9) 100%)'
+            : undefined,
+        boxShadow: supersonicMode
+          ? '0 0 0 1px rgba(12,109,112,0.42), 0 10px 26px rgba(8,82,88,0.2), inset 0 1px 0 rgba(255,255,255,0.26)'
+          : compactViewport
+            ? '0 0 0 1px color-mix(in srgb, var(--accent) 58%, transparent), 0 10px 32px color-mix(in srgb, var(--accent) 38%, transparent), inset 0 1px 0 rgba(255,255,255,0.5)'
+            : '0 0 0 1px color-mix(in srgb, var(--accent) 52%, transparent), 0 8px 30px color-mix(in srgb, var(--accent) 34%, transparent), inset 0 1px 0 rgba(255,255,255,0.35)',
+        transform: supersonicMode ? 'translateY(-1px) scale(1.02)' : 'translateY(-1px) scale(1.03)',
         transition: 'all 230ms cubic-bezier(0.22,1,0.36,1)',
       }
     : { transition: 'all 230ms cubic-bezier(0.22,1,0.36,1)' };
@@ -906,6 +1323,7 @@ const getAudioHealthSummary = ({
   baseLatencyMs,
   isInitialized,
   isPlaying,
+  likelyDeviceMuted,
   masterDb,
   masterMuted,
 }: {
@@ -915,6 +1333,7 @@ const getAudioHealthSummary = ({
   baseLatencyMs: number | null;
   isInitialized: boolean;
   isPlaying: boolean;
+  likelyDeviceMuted: boolean;
   masterDb: number;
   masterMuted: boolean;
 }): AudioHealthSummary => {
@@ -946,6 +1365,14 @@ const getAudioHealthSummary = ({
     return {
       detail: 'All active lanes are muted or solo-isolated. Unmute a lane to restore sound.',
       label: 'Tracks muted',
+      tone: 'attention',
+    };
+  }
+
+  if (likelyDeviceMuted) {
+    return {
+      detail: 'Playback is running but output is nearly silent. Your device, system, or browser tab volume may be muted.',
+      label: 'Output silent',
       tone: 'attention',
     };
   }

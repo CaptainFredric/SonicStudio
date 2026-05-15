@@ -33,7 +33,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchp
   );
 
   const navItems = [
-    { id: 'COMPOSE', icon: withSuperFill(<Rows2 size={20} />, 'studio-icon-fill-compose-core'), label: 'Compose' },
+    { id: 'COMPOSE', icon: withSuperFill(<Rows2 size={20} />, 'studio-icon-fill-compose-core'), label: 'Compose', title: 'Compose: sketch ideas and audition quickly' },
     {
       id: 'SEQUENCER',
       icon: (
@@ -48,9 +48,10 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchp
         </span>
       ),
       label: 'Sequencer',
+      title: 'Sequencer: build step timing and groove',
     },
-    { id: 'PIANO_ROLL', icon: withSuperFill(<LayoutGrid size={20} />, 'studio-icon-fill-grid-core'), label: 'Piano Roll' },
-    { id: 'MIXER', icon: withSuperFill(<Volume2 size={20} />, 'studio-icon-fill-mixer-core'), label: 'Mixer' },
+    { id: 'PIANO_ROLL', icon: withSuperFill(<LayoutGrid size={20} />, 'studio-icon-fill-grid-core'), label: 'Piano Roll', title: 'Piano Roll: edit pitch, velocity, and phrasing' },
+    { id: 'MIXER', icon: withSuperFill(<Volume2 size={20} />, 'studio-icon-fill-mixer-core'), label: 'Mixer', title: 'Mixer: balance levels, pan, and tone' },
     {
       id: 'ARRANGER',
       icon: (
@@ -64,18 +65,19 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchp
         </span>
       ),
       label: 'Arranger',
+      title: 'Arranger: place clips and shape full song structure',
     },
   ];
 
-  const renderViewButton = (item: { icon: React.ReactNode; id: string; label: string }) => (
+  const renderViewButton = (item: { icon: React.ReactNode; id: string; label: string; title: string }) => (
     <button
       key={item.id}
-      aria-label={item.label}
+      aria-label={item.title}
       className="studio-nav-button w-full"
       data-active={activeView === item.id}
       data-ui-sound="nav"
       onClick={() => setActiveView(item.id as any)}
-      title={item.label}
+      title={item.title}
       type="button"
     >
       <div className="flex flex-col items-center gap-2">
@@ -208,18 +210,38 @@ const ViewRouter = () => {
 
 const MobileTransportStrip = () => {
   const {
-    initAudio,
-    isInitialized,
     isPlaying,
     isRecording,
     togglePlay,
     stop,
     toggleRecording,
   } = useAudio();
+  const playTogglePendingRef = useRef(false);
+  const recordingTogglePendingRef = useRef(false);
 
-  const armAudio = () => {
-    if (!isInitialized) {
-      void initAudio();
+  const handleTogglePlay = async () => {
+    if (playTogglePendingRef.current) {
+      return;
+    }
+
+    playTogglePendingRef.current = true;
+    try {
+      await togglePlay();
+    } finally {
+      playTogglePendingRef.current = false;
+    }
+  };
+
+  const handleToggleRecording = async () => {
+    if (recordingTogglePendingRef.current) {
+      return;
+    }
+
+    recordingTogglePendingRef.current = true;
+    try {
+      await toggleRecording();
+    } finally {
+      recordingTogglePendingRef.current = false;
     }
   };
 
@@ -230,8 +252,7 @@ const MobileTransportStrip = () => {
         className="control-chip mobile-transport-btn"
         data-active={isPlaying ? 'true' : 'false'}
         data-primary="true"
-        onPointerDown={armAudio}
-        onClick={() => void togglePlay()}
+        onClick={() => void handleTogglePlay()}
         type="button"
       >
         {isPlaying ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
@@ -251,8 +272,7 @@ const MobileTransportStrip = () => {
         className="control-chip mobile-transport-btn"
         data-active={isRecording ? 'true' : 'false'}
         data-record="true"
-        onPointerDown={armAudio}
-        onClick={() => void toggleRecording()}
+        onClick={() => void handleToggleRecording()}
         type="button"
       >
         <Circle className="h-4 w-4 fill-current" />

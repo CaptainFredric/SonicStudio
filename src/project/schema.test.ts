@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { createArrangerClip, createProjectFromTemplate, createTrack } from './schema';
+import {
+  createArrangerClip,
+  createProjectFromTemplate,
+  createStepEvent,
+  createTrack,
+  getTrackVoicePresetDefinitions,
+  normalizeProject,
+  resizeTrackPatterns,
+} from './schema';
 
 const countPatternNotes = (patterns: Record<number, Array<Array<{ note: string }>>>) => (
   Object.values(patterns).reduce((total, steps) => (
@@ -81,5 +89,60 @@ describe('track defaults', () => {
     expect(track.patterns[0]).toHaveLength(4096);
     expect(clip.beatLength).toBe(8192);
     expect(clip.startBeat).toBe(12000);
+  });
+
+  it('keeps overflow notes when shrinking pattern length so they can be restored later', () => {
+    const track = createTrack('lead', { patternCount: 4, stepsPerPattern: 64 });
+    track.patterns[0][40] = [createStepEvent('A4', { gate: 2, velocity: 0.7 })];
+
+    const resized = resizeTrackPatterns(track, 4, 16);
+
+    expect(resized.patterns[0].length).toBeGreaterThanOrEqual(64);
+    expect(resized.patterns[0][40]?.[0]?.note).toBe('A4');
+  });
+
+  it('preserves overflow pattern content during normalizeProject when transport length is shorter', () => {
+    const project = createProjectFromTemplate('blank-grid');
+    const leadTrack = project.tracks.find((track) => track.type === 'lead');
+
+    expect(leadTrack).toBeTruthy();
+    leadTrack!.patterns[0][48] = [createStepEvent('G4', { gate: 1, velocity: 0.75 })];
+    if (leadTrack!.automation?.[0]) {
+      leadTrack!.automation[0].level[48] = 0.66;
+      leadTrack!.automation[0].tone[48] = 0.41;
+    }
+    project.transport.stepsPerPattern = 16;
+
+    const normalized = normalizeProject(project as unknown);
+
+    expect(normalized).toBeTruthy();
+    const normalizedLeadTrack = normalized!.tracks.find((track) => track.type === 'lead');
+    expect(normalizedLeadTrack).toBeTruthy();
+    expect(normalizedLeadTrack!.patterns[0].length).toBeGreaterThanOrEqual(49);
+    expect(normalizedLeadTrack!.patterns[0][48]?.[0]?.note).toBe('G4');
+    expect(normalizedLeadTrack!.automation?.[0].level[48]).toBeCloseTo(0.66, 2);
+    expect(normalizedLeadTrack!.automation?.[0].tone[48]).toBeCloseTo(0.41, 2);
+  });
+
+  it('offers foundational primary voice starts on melodic lanes', () => {
+    const leadPresets = getTrackVoicePresetDefinitions('lead');
+    const foundationIds = leadPresets
+      .filter((preset) => preset.id.startsWith('foundation-'))
+      .map((preset) => preset.id);
+
+    expect(foundationIds).toEqual(expect.arrayContaining([
+      'foundation-sine-core',
+      'foundation-triangle-core',
+      'foundation-saw-core',
+      'foundation-square-core',
+    ]));
+  });
+
+  it('keeps noise foundation limited to percussive and texture-oriented lanes', () => {
+    const leadPresetIds = getTrackVoicePresetDefinitions('lead').map((preset) => preset.id);
+    const hihatPresetIds = getTrackVoicePresetDefinitions('hihat').map((preset) => preset.id);
+
+    expect(leadPresetIds.includes('foundation-noise-core')).toBe(false);
+    expect(hihatPresetIds.includes('foundation-noise-core')).toBe(true);
   });
 });

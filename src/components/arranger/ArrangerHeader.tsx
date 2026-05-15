@@ -35,6 +35,9 @@ interface ArrangerHeaderProps {
   onSetZoomPreset: (value: ZoomPreset) => void;
   phraseSummary: string;
   sectionCount: number;
+  hiddenOverflowNoteCount: number;
+  hiddenOverflowRequiredSteps: number;
+  onRestoreOverflowLength: () => void;
   selectedArrangerClipId: string | null;
   selectedClip: ArrangementClip | null;
   snapOptions: SnapOption[];
@@ -77,6 +80,9 @@ export const ArrangerHeader = ({
   onSetZoomPreset,
   phraseSummary,
   sectionCount,
+  hiddenOverflowNoteCount,
+  hiddenOverflowRequiredSteps,
+  onRestoreOverflowLength,
   selectedArrangerClipId,
   selectedClip,
   snapOptions,
@@ -102,29 +108,29 @@ export const ArrangerHeader = ({
           Lay out clips and shape the song on the timeline.
         </p>
         {superSonicMode && showSuperSonicGuidance && (
-          <div className="mt-2 inline-flex items-center gap-2 rounded-[2px] border border-[rgba(114,217,255,0.3)] bg-[rgba(114,217,255,0.1)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--accent-strong)]">
+          <div className="mt-2 inline-flex items-center gap-2 rounded-[2px] border border-[rgba(114,217,255,0.34)] bg-[rgba(114,217,255,0.14)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--accent-strong)]">
             <Zap className="h-3.5 w-3.5 text-[var(--accent)]" />
-            SuperSonic precision timeline on
+            SuperSonic timeline assist active
           </div>
         )}
       </div>
       <div className="flex flex-wrap items-center gap-2 md:justify-end">
         <button
-          className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+          className="control-chip flex items-center gap-2 px-3.5 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
           onClick={onAddMarkerAtPlayhead}
           title="Place a section marker at the playhead position"
           type="button"
         >
           <Flag className="h-3.5 w-3.5" />
-          Mark here
+          Add marker
         </button>
         <button
-          className="control-chip flex items-center gap-2 px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--accent-strong)]"
+          className="control-chip flex items-center gap-2 border-[var(--accent)] bg-[var(--accent-muted)] px-3.5 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--accent-strong)]"
           onClick={addClip}
           type="button"
         >
           <Plus className="h-4 w-4" />
-          Add clip
+          Add clip lane
         </button>
       </div>
     </div>
@@ -138,6 +144,20 @@ export const ArrangerHeader = ({
           <span>{totalDurationSeconds.toFixed(1)}s</span>
           <span className="text-[var(--text-secondary)]">Visible {visibleRangeLabel}</span>
         </div>
+        {hiddenOverflowNoteCount > 0 ? (
+          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-[2px] border border-[rgba(246,173,85,0.3)] bg-[rgba(246,173,85,0.1)] px-2.5 py-2 text-[11px] text-[var(--text-primary)]">
+            <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--warning)]">
+              Shortened view: {hiddenOverflowNoteCount} notes hidden
+            </span>
+            <button
+              className="control-chip px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
+              onClick={onRestoreOverflowLength}
+              type="button"
+            >
+              Restore {hiddenOverflowRequiredSteps} steps
+            </button>
+          </div>
+        ) : null}
         <div
           aria-label="Portion of the song currently visible in the timeline"
           className="mt-3 h-2 overflow-hidden rounded-[2px] bg-[rgba(255,255,255,0.05)]"

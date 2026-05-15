@@ -302,17 +302,17 @@ export const Launchpad = ({
           <div className="border-b border-[var(--border-soft)] pb-5">
             <div className="section-label text-[var(--accent-strong)]">Start here</div>
             <h1 className="mt-3 max-w-[11ch] text-[clamp(2.35rem,5vw,4.7rem)] font-semibold leading-[0.92] tracking-[-0.06em]">
-              Start with something that sounds good immediately.
+              Pick a starting point and get moving.
             </h1>
             <p className="mt-5 max-w-[60ch] text-sm leading-6 text-[var(--text-secondary)] md:text-[15px]">
-              Open a finished scene to hear the full room first, or jump into Blank Grid if you want to build lane by lane.
+              Open a full scene to hear ideas right away, or choose Blank Grid and build it up one lane at a time.
             </p>
           </div>
 
           <div className="grid gap-3 lg:grid-cols-[minmax(0,1.12fr)_minmax(0,0.88fr)]">
             <PrimaryStartCard
               badge="Featured scene"
-              body="Open a full scene with clips, lanes, and mix moves already in place."
+              body="Loads a complete scene with clips, lane parts, and a ready-to-go mix."
               eyebrow={`${recommended.genre} · ${recommended.bpm} BPM`}
               mark={recommended.mark}
               onClick={() => onSelectTemplate(recommended.id)}
@@ -323,7 +323,7 @@ export const Launchpad = ({
             <div className="grid gap-3">
               <SecondaryStartCard
                 actionLabel="Start blank"
-                body="Start clean with the core lanes in place and nothing in the way."
+                body="Starts clean with the core lanes set up and no extra material." 
                 mark={blankGrid.mark}
                 onClick={() => onSelectTemplate(blankGrid.id)}
                 swatch={blankGrid.swatch}
@@ -331,14 +331,14 @@ export const Launchpad = ({
               />
               <SecondaryStartCard
                 actionLabel="Choose MIDI"
-                body="Bring in a MIDI file and start editing right away."
+                body="Import a MIDI file and begin editing right away."
                 icon={<FileInput className="h-4 w-4" />}
                 onClick={onImportMidi}
                 title="Import MIDI"
               />
               <SecondaryStartCard
                 actionLabel="Start tour"
-                body="Open the current scene in Song view and walk through the main controls first."
+                body="Open Song view and walk through the main controls first."
                 icon={<Sparkles className="h-4 w-4" />}
                 onClick={onStartGuide}
                 title="Take the tour"
@@ -351,7 +351,7 @@ export const Launchpad = ({
               <div>
                 <div className="section-label">Scene browser</div>
                 <div className="mt-2 text-sm font-medium text-[var(--text-primary)]">
-                  Search by vibe, name, or BPM and jump into a better starting point.
+                  Search by mood, name, or BPM to quickly find a scene that fits.
                 </div>
               </div>
               <button
@@ -435,17 +435,17 @@ export const Launchpad = ({
 
           <div className="mt-5 grid gap-3 border-t border-[var(--border-soft)] pt-4">
             <LaunchPathStep
-              body="Open any full scene if you want to hear a complete arrangement right away."
+              body="Open a scene to hear a complete arrangement right away."
               step="01"
               title="Open a scene"
             />
             <LaunchPathStep
-              body="Press Play or Space. Audio wakes on first input, so there is no separate unlock step."
+              body="Press Play or Space. Audio wakes on first input, so you can start immediately."
               step="02"
               title="Hit play"
             />
             <LaunchPathStep
-              body="Switch between Song, Notes, Mix, and Compose depending on what you want to change next."
+              body="Switch between Song, Notes, Mix, and Compose based on what you want to adjust next."
               step="03"
               title="Change one part"
             />
@@ -459,7 +459,7 @@ export const Launchpad = ({
                   <span className="section-label">Library storage</span>
                 </div>
                 <p className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
-                  Scenes, saved scoresheets, and captured notes all live here so you can restart or pick up quickly.
+                  Scenes, saved scoresheets, and captured notes are all kept here, so it is easy to pick up where you left off.
                 </p>
               </div>
               <span className="rounded-[2px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-secondary)]">
@@ -473,7 +473,7 @@ export const Launchpad = ({
                 <span className="section-label">Store current session</span>
               </div>
               <p className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
-                Save a local snapshot of the session, arrangement, mix, and sounds before switching scenes.
+                Save a local snapshot of the current session, arrangement, mix, and sounds before switching scenes.
               </p>
               <div className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto] xl:grid-cols-1">
                 <input
@@ -575,7 +575,7 @@ export const Launchpad = ({
                 className="status-chip inline-flex items-center px-4 py-2 text-sm font-medium text-[var(--text-primary)]"
                 data-tone="ready"
               >
-                Audio on
+                Audio ready
               </span>
             ) : (
               <button

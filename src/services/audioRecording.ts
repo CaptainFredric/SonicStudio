@@ -615,6 +615,9 @@ const choosePresetForTrack = (
 
   const ranked = presets.map((preset) => {
     let score = 0.45;
+    if (preset.id.startsWith('foundation-')) {
+      score -= 0.22;
+    }
     if (preset.id === 'tight-impact') {
       score += (1 - brightness) * 0.26 + transientDensity * 0.28 + (1 - durationNorm) * 0.18;
     } else if (preset.id === 'bright-snap') {

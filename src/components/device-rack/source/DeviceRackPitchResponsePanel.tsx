@@ -14,6 +14,9 @@ export const DeviceRackPitchResponsePanel = ({
   track,
 }: DeviceRackPitchResponsePanelProps) => (
   <RackSection icon={<SlidersHorizontal className="h-4 w-4 text-[var(--accent)]" />} title="Pitch and response">
+    <div className="mb-3 rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-2 text-[11px] leading-5 text-[var(--text-secondary)]">
+      Octave handles broad transposition. Detune adds fine offsets, and Glide smooths note-to-note movement.
+    </div>
     <div className="grid gap-4 md:grid-cols-3">
       <Knob
         color="#7dd3fc"
@@ -44,6 +47,48 @@ export const DeviceRackPitchResponsePanel = ({
         unit="s"
         value={track.source.portamento}
       />
+    </div>
+    <div className="mt-3 flex flex-wrap gap-2">
+      <button
+        className="control-chip px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
+        data-ui-sound="tab"
+        onClick={() => onSetTrackSource({
+          detune: 0,
+          octaveShift: 0,
+          portamento: 0,
+        })}
+        type="button"
+      >
+        Reset pitch response
+      </button>
+      <button
+        className="control-chip px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
+        data-ui-sound="tab"
+        onClick={() => onSetTrackSource({ octaveShift: 0 })}
+        type="button"
+      >
+        Octave 0
+      </button>
+      {track.source.engine !== 'sample' ? (
+        <>
+          <button
+            className="control-chip px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
+            data-ui-sound="tab"
+            onClick={() => onSetTrackSource({ detune: 0 })}
+            type="button"
+          >
+            Detune 0
+          </button>
+          <button
+            className="control-chip px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
+            data-ui-sound="tab"
+            onClick={() => onSetTrackSource({ portamento: 0 })}
+            type="button"
+          >
+            Glide off
+          </button>
+        </>
+      ) : null}
     </div>
     {track.source.engine === 'sample' ? (
       <div className="mt-4 rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3 text-[11px] leading-5 text-[var(--text-secondary)]">

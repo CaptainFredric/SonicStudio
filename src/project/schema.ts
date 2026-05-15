@@ -454,6 +454,51 @@ export const SESSION_TEMPLATE_DEFINITIONS: SessionTemplateDefinition[] = [
 
 export const TRACK_VOICE_PRESET_DEFINITIONS: TrackVoicePresetDefinition[] = [
   {
+    description: 'Pure sine core with low harmonics. Start here for sub basses, clean keys, and gentle modulation builds.',
+    focus: 'Primary sine',
+    id: 'foundation-sine-core',
+    label: 'Foundation Sine Core',
+    params: { attack: 0.006, cutoff: 1800, decay: 0.22, distortion: 0, release: 0.55, resonance: 1, sustain: 0.42 },
+    source: { detune: 0, engine: 'synth', octaveShift: 0, portamento: 0, waveform: 'sine' },
+    trackTypes: ['kick', 'snare', 'hihat', 'bass', 'lead', 'pad', 'pluck', 'fx'],
+  },
+  {
+    description: 'Triangle balance between clean and rich. Good all-purpose base for musical lines that need body without harshness.',
+    focus: 'Primary triangle',
+    id: 'foundation-triangle-core',
+    label: 'Foundation Triangle Core',
+    params: { attack: 0.008, cutoff: 2600, decay: 0.24, distortion: 0.02, release: 0.72, resonance: 1.1, sustain: 0.5 },
+    source: { detune: 0, engine: 'synth', octaveShift: 0, portamento: 0.01, waveform: 'triangle' },
+    trackTypes: ['kick', 'snare', 'hihat', 'bass', 'lead', 'pad', 'pluck', 'fx'],
+  },
+  {
+    description: 'Saw foundation with full harmonic stack. Ideal for bold leads, animated pads, and filter-driven motion design.',
+    focus: 'Primary saw',
+    id: 'foundation-saw-core',
+    label: 'Foundation Saw Core',
+    params: { attack: 0.01, cutoff: 3400, decay: 0.28, distortion: 0.06, release: 0.88, resonance: 1.25, sustain: 0.54 },
+    source: { detune: 4, engine: 'synth', octaveShift: 0, portamento: 0.02, waveform: 'sawtooth' },
+    trackTypes: ['kick', 'snare', 'hihat', 'bass', 'lead', 'pad', 'pluck', 'fx'],
+  },
+  {
+    description: 'Square-wave harmonic core for hollow, assertive tones. Useful for plucks, chiptone colors, and punchy rhythmic lines.',
+    focus: 'Primary square',
+    id: 'foundation-square-core',
+    label: 'Foundation Square Core',
+    params: { attack: 0.005, cutoff: 3000, decay: 0.2, distortion: 0.04, release: 0.5, resonance: 1.15, sustain: 0.36 },
+    source: { detune: 0, engine: 'synth', octaveShift: 0, portamento: 0, waveform: 'square' },
+    trackTypes: ['kick', 'snare', 'hihat', 'bass', 'lead', 'pad', 'pluck', 'fx'],
+  },
+  {
+    description: 'Noise-centric transient source for hats, snares, rises, and impact layers. Treat it as the fifth color for percussive design.',
+    focus: 'Primary noise',
+    id: 'foundation-noise-core',
+    label: 'Foundation Noise Core',
+    params: { attack: 0.002, cutoff: 5600, decay: 0.1, filterMode: 'highpass', release: 0.14, resonance: 1.8, sustain: 0.08 },
+    source: { detune: 0, engine: 'sample', samplePlayback: 'oneshot', samplePreset: 'hat-air', sampleTriggerMode: 'full-source', waveform: 'square' },
+    trackTypes: ['snare', 'hihat', 'fx', 'pluck'],
+  },
+  {
     description: 'Tighter low end and shorter body for kicks or bass lines that need to sit forward.',
     focus: 'Punch and control',
     id: 'tight-impact',
@@ -920,7 +965,8 @@ const normalizePatterns = (
 
   for (let patternIndex = 0; patternIndex < patternCount; patternIndex += 1) {
     const rawPattern = Array.isArray(candidate[patternIndex]) ? candidate[patternIndex] as unknown[] : [];
-    const steps = Array.from({ length: stepCount }, (_, stepIndex) => {
+    const normalizedStepCount = Math.max(stepCount, rawPattern.length);
+    const steps = Array.from({ length: normalizedStepCount }, (_, stepIndex) => {
       const value = rawPattern[stepIndex];
       return normalizeStepValue(value);
     });
@@ -949,15 +995,16 @@ const normalizeAutomation = (
     const rawPattern = isRecord(rawPatternCandidate) ? rawPatternCandidate : {};
     const rawLevel = Array.isArray(rawPattern.level) ? rawPattern.level : [];
     const rawTone = Array.isArray(rawPattern.tone) ? rawPattern.tone : [];
-    const fallbackPattern = createAutomationPattern(stepCount);
+    const normalizedStepCount = Math.max(stepCount, rawLevel.length, rawTone.length);
+    const fallbackPattern = createAutomationPattern(normalizedStepCount);
 
     nextAutomation[patternIndex] = {
-      level: Array.from({ length: stepCount }, (_, stepIndex) => clampAutomationValue(
+      level: Array.from({ length: normalizedStepCount }, (_, stepIndex) => clampAutomationValue(
         typeof rawLevel[stepIndex] === 'number'
           ? rawLevel[stepIndex]
           : fallbackPattern.level[stepIndex],
       )),
-      tone: Array.from({ length: stepCount }, (_, stepIndex) => clampAutomationValue(
+      tone: Array.from({ length: normalizedStepCount }, (_, stepIndex) => clampAutomationValue(
         typeof rawTone[stepIndex] === 'number'
           ? rawTone[stepIndex]
           : fallbackPattern.tone[stepIndex],
@@ -1410,14 +1457,21 @@ export const resizeTrackPatterns = (
 
   for (let patternIndex = 0; patternIndex < patternCount; patternIndex += 1) {
     const sourceSteps = track.patterns[patternIndex] ?? [];
-    patterns[patternIndex] = Array.from({ length: stepsPerPattern }, (_, stepIndex) => {
+    const sourceAutomation = track.automation?.[patternIndex] ?? createAutomationPattern(stepsPerPattern);
+    const preservedStepCount = Math.max(
+      stepsPerPattern,
+      sourceSteps.length,
+      sourceAutomation.level.length,
+      sourceAutomation.tone.length,
+    );
+
+    patterns[patternIndex] = Array.from({ length: preservedStepCount }, (_, stepIndex) => {
     const value = sourceSteps[stepIndex];
       return Array.isArray(value) ? cloneStep(value) : [];
     });
-    const sourceAutomation = track.automation?.[patternIndex] ?? createAutomationPattern(stepsPerPattern);
     automation[patternIndex] = {
-      level: Array.from({ length: stepsPerPattern }, (_, stepIndex) => clampAutomationValue(sourceAutomation.level[stepIndex] ?? 0.5)),
-      tone: Array.from({ length: stepsPerPattern }, (_, stepIndex) => clampAutomationValue(sourceAutomation.tone[stepIndex] ?? 0.5)),
+      level: Array.from({ length: preservedStepCount }, (_, stepIndex) => clampAutomationValue(sourceAutomation.level[stepIndex] ?? 0.5)),
+      tone: Array.from({ length: preservedStepCount }, (_, stepIndex) => clampAutomationValue(sourceAutomation.tone[stepIndex] ?? 0.5)),
     };
   }
 
