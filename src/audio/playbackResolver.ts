@@ -1,0 +1,129 @@
+import type { ArrangementClip, StepValue, Track, TransportMode } from '../project/schema';
+
+export interface ResolvedPatternStep {
+  note: StepValue;
+  patternIndex: number;
+  stepIndex: number;
+}
+
+interface PlaybackResolverState {
+  arrangerClipsByTrack: Record<string, ArrangementClip[]>;
+  currentPattern: number;
+  stepsPerPattern: number;
+  transportMode: TransportMode;
+}
+
+interface ResolvePatternStepOptions extends PlaybackResolverState {
+  songStep: number;
+  track: Track;
+}
+
+interface HasPlayableStepAtOptions extends PlaybackResolverState {
+  songStep: number;
+  tracks: Track[];
+}
+
+interface FindFirstPlayableStepInLoopOptions extends PlaybackResolverState {
+  loopBounds: { endBeat: number; startBeat: number };
+  tracks: Track[];
+}
+
+export const resolvePatternStepForPlayback = ({
+  arrangerClipsByTrack,
+  currentPattern,
+  songStep,
+  stepsPerPattern,
+  track,
+  transportMode,
+}: ResolvePatternStepOptions): ResolvedPatternStep | null => {
+  if (transportMode === 'PATTERN') {
+    const stepIndex = songStep % stepsPerPattern;
+    const patternSteps = track.patterns[currentPattern];
+    return {
+      note: patternSteps?.[stepIndex] ?? [],
+      patternIndex: currentPattern,
+      stepIndex,
+    };
+  }
+
+  const trackClips = arrangerClipsByTrack[track.id] ?? [];
+  const activeClip = trackClips.find((clip) => (
+    clip.trackId === track.id
+    && songStep >= clip.startBeat
+    && songStep < clip.startBeat + clip.beatLength
+  ));
+
+  if (!activeClip) {
+    // Song mode can be active before clips are arranged. In that case, fall
+    // back to the current pattern so Play always produces audible feedback.
+    if (trackClips.length === 0) {
+      const stepIndex = songStep % stepsPerPattern;
+      const patternSteps = track.patterns[currentPattern];
+      return {
+        note: patternSteps?.[stepIndex] ?? [],
+        patternIndex: currentPattern,
+        stepIndex,
+      };
+    }
+
+    return null;
+  }
+
+  const localStep = (songStep - activeClip.startBeat) % stepsPerPattern;
+  const patternSteps = track.patterns[activeClip.patternIndex];
+
+  return {
+    note: patternSteps?.[localStep] ?? [],
+    patternIndex: activeClip.patternIndex,
+    stepIndex: localStep,
+  };
+};
+
+export const hasPlayableStepAt = ({
+  arrangerClipsByTrack,
+  currentPattern,
+  songStep,
+  stepsPerPattern,
+  tracks,
+  transportMode,
+}: HasPlayableStepAtOptions): boolean => {
+  return tracks.some((track) => {
+    if (track.muted) {
+      return false;
+    }
+
+    const resolved = resolvePatternStepForPlayback({
+      arrangerClipsByTrack,
+      currentPattern,
+      songStep,
+      stepsPerPattern,
+      track,
+      transportMode,
+    });
+    return Boolean(resolved && resolved.note.length > 0);
+  });
+};
+
+export const findFirstPlayableStepInLoop = ({
+  arrangerClipsByTrack,
+  currentPattern,
+  loopBounds,
+  stepsPerPattern,
+  tracks,
+  transportMode,
+}: FindFirstPlayableStepInLoopOptions): number | null => {
+  for (let step = loopBounds.startBeat; step < loopBounds.endBeat; step += 1) {
+    if (hasPlayableStepAt({
+      arrangerClipsByTrack,
+      currentPattern,
+      songStep: step,
+      stepsPerPattern,
+      tracks,
+      transportMode,
+    })) {
+      return step;
+    }
+  }
+
+  return null;
+};

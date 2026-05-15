@@ -1,6 +1,7 @@
 import * as Tone from 'tone';
 
 import { getSamplePresetMeta, getSampleUrl } from './sampleLibrary';
+import { findFirstPlayableStepInLoop, hasPlayableStepAt, resolvePatternStepForPlayback } from './playbackResolver';
 import type {
   ArrangementClip,
   MasterSettings,
@@ -42,13 +43,14 @@ interface TrackGraph {
   samplePlayers: Tone.Player[];
   sampleRootNote: string | null;
   sourceInput: Tone.Gain;
+  trackStateSignature: string;
   type: Track['type'];
   vibrato: Tone.Vibrato;
   voiceSignature: string;
 }
 
-const SAMPLE_VOICE_POOL_SIZE = 16;
-const MAX_SAMPLE_VOICE_POOL_SIZE = 32;
+const SAMPLE_VOICE_POOL_SIZE = 8;
+const MAX_SAMPLE_VOICE_POOL_SIZE = 20;
 const PLAYBACK_STABILITY_LOOKAHEAD_SECONDS = 0.18;
 const DEFAULT_SYNTH_MAX_POLYPHONY = 12;
 const FX_MAX_POLYPHONY = 8;
@@ -314,34 +316,37 @@ export class ToneEngine {
     Tone.Transport.loopEnd = loopBounds.endBeat * sixteenthDuration;
   }
 
+  private hasPlayableStepAt(songStep: number) {
+    return hasPlayableStepAt({
+      arrangerClipsByTrack: this.arrangerClipsByTrack,
+      currentPattern: this.currentPattern,
+      songStep,
+      stepsPerPattern: this.stepsPerPattern,
+      tracks: this.tracksState,
+      transportMode: this.transportMode,
+    });
+  }
+
+  private findFirstPlayableStepInLoop(loopBounds: { startBeat: number; endBeat: number }) {
+    return findFirstPlayableStepInLoop({
+      arrangerClipsByTrack: this.arrangerClipsByTrack,
+      currentPattern: this.currentPattern,
+      loopBounds,
+      stepsPerPattern: this.stepsPerPattern,
+      tracks: this.tracksState,
+      transportMode: this.transportMode,
+    });
+  }
+
   private resolvePatternStep(track: Track, songStep: number): { note: StepValue; patternIndex: number; stepIndex: number } | null {
-    if (this.transportMode === 'PATTERN') {
-      const patternSteps = track.patterns[this.currentPattern] ?? Array.from({ length: this.stepsPerPattern }, () => []);
-      return {
-        note: patternSteps[songStep % this.stepsPerPattern] ?? [],
-        patternIndex: this.currentPattern,
-        stepIndex: songStep % this.stepsPerPattern,
-      };
-    }
-
-    const activeClip = (this.arrangerClipsByTrack[track.id] ?? []).find((clip) => (
-      clip.trackId === track.id
-      && songStep >= clip.startBeat
-      && songStep < clip.startBeat + clip.beatLength
-    ));
-
-    if (!activeClip) {
-      return null;
-    }
-
-    const localStep = (songStep - activeClip.startBeat) % this.stepsPerPattern;
-    const patternSteps = track.patterns[activeClip.patternIndex] ?? Array.from({ length: this.stepsPerPattern }, () => []);
-
-    return {
-      note: patternSteps[localStep] ?? [],
-      patternIndex: activeClip.patternIndex,
-      stepIndex: localStep,
-    };
+    return resolvePatternStepForPlayback({
+      arrangerClipsByTrack: this.arrangerClipsByTrack,
+      currentPattern: this.currentPattern,
+      songStep,
+      stepsPerPattern: this.stepsPerPattern,
+      track,
+      transportMode: this.transportMode,
+    });
   }
 
   private getAutomationStep(track: Track, patternIndex: number, stepIndex: number): { level: number; tone: number } {
@@ -466,6 +471,16 @@ export class ToneEngine {
     this.updateTransportLoop();
 
     if (Tone.Transport.state !== 'paused') {
+      // If start lands on a silent spot, seek to the first playable step so
+      // users hear music immediately when pressing Play.
+      const loopBounds = this.getLoopBounds();
+      if (!this.hasPlayableStepAt(this.currentStep)) {
+        const firstPlayableStep = this.findFirstPlayableStepInLoop(loopBounds);
+        if (firstPlayableStep !== null) {
+          this.currentStep = firstPlayableStep;
+        }
+      }
+
       Tone.Transport.position = this.currentStep * Tone.Time('16n').toSeconds();
     }
 
@@ -635,6 +650,54 @@ export class ToneEngine {
     };
   }
 
+  private buildTrackStateSignature(track: Track) {
+    const params = track.params;
+    const source = track.source;
+
+    return [
+      track.muted ? '1' : '0',
+      track.solo ? '1' : '0',
+      track.pan.toFixed(3),
+      track.volume.toFixed(3),
+      params.attack.toFixed(3),
+      params.decay.toFixed(3),
+      params.sustain.toFixed(3),
+      params.release.toFixed(3),
+      params.chorusSend.toFixed(3),
+      params.delaySend.toFixed(3),
+      params.reverbSend.toFixed(3),
+      params.bitCrush.toFixed(3),
+      params.distortion.toFixed(3),
+      params.cutoff.toFixed(1),
+      params.resonance.toFixed(3),
+      params.filterMode,
+      params.vibratoRate.toFixed(3),
+      params.vibratoDepth.toFixed(3),
+      source.engine,
+      source.waveform,
+      source.detune.toFixed(3),
+      source.octaveShift,
+      source.portamento.toFixed(4),
+      source.samplePreset,
+      source.samplePlayback,
+      source.sampleStart.toFixed(4),
+      source.sampleEnd.toFixed(4),
+      source.sampleGain.toFixed(4),
+      source.sampleReverse ? '1' : '0',
+      source.sampleTriggerMode,
+      source.activeSampleSlice ?? 'none',
+      source.sampleSlices.length,
+      source.customSampleName ?? '',
+      source.customSampleDataUrl?.length ?? 0,
+    ].join('|');
+  }
+
+  private getInitialSampleVoicePoolSize(track: Track) {
+    return track.source.samplePlayback === 'oneshot'
+      ? SAMPLE_VOICE_POOL_SIZE + 2
+      : SAMPLE_VOICE_POOL_SIZE;
+  }
+
   private createSamplePlayer(sampleBuffer: Tone.ToneAudioBuffer, sourceInput: Tone.Gain) {
     const player = new Tone.Player({
       fadeOut: 0.05,
@@ -796,7 +859,7 @@ export class ToneEngine {
       ? new Tone.ToneAudioBuffer(track.source.customSampleDataUrl ?? getSampleUrl(track.source.samplePreset))
       : null;
     const samplePlayers = track.source.engine === 'sample' && sampleBuffer
-      ? Array.from({ length: SAMPLE_VOICE_POOL_SIZE }, () => this.createSamplePlayer(sampleBuffer, sourceInput))
+      ? Array.from({ length: this.getInitialSampleVoicePoolSize(track) }, () => this.createSamplePlayer(sampleBuffer, sourceInput))
       : [];
 
     channel.connect(this.masterLimiter!);
@@ -839,6 +902,7 @@ export class ToneEngine {
       samplePlayers,
       sampleRootNote: sampleMeta?.rootNote ?? null,
       sourceInput,
+      trackStateSignature: '',
       type: track.type,
       vibrato,
       voiceSignature: this.buildVoiceSignature(track),
@@ -916,6 +980,13 @@ export class ToneEngine {
   }
 
   private applyTrackGraphState(graph: TrackGraph, track: Track) {
+    const trackStateSignature = this.buildTrackStateSignature(track);
+    if (graph.trackStateSignature === trackStateSignature) {
+      return;
+    }
+
+    graph.trackStateSignature = trackStateSignature;
+
     const ambienceActive = track.params.chorusSend > 0.001
       || track.params.delaySend > 0.001
       || track.params.reverbSend > 0.001;

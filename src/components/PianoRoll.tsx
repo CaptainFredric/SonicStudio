@@ -154,6 +154,7 @@ export const PianoRoll = () => {
     typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches ? 46 : STEP_ZOOM_PRESETS.DETAIL
   ));
   const [rowZoom, setRowZoom] = useState<RowZoomKey>('DETAIL');
+  const [autoFitActiveNotes, setAutoFitActiveNotes] = useState(true);
   const [focusSelectedNote, setFocusSelectedNote] = useState(() => (
     typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
   ));
@@ -224,6 +225,28 @@ export const PianoRoll = () => {
   const activeStepCount = patternSteps.filter((step) => step.length > 0).length;
   const totalNoteCount = patternSteps.reduce((sum, step) => sum + step.length, 0);
   const stackedStepCount = patternSteps.filter((step) => step.length > 1).length;
+  const activeNoteBounds = useMemo(() => {
+    let minMidi: number | null = null;
+    let maxMidi: number | null = null;
+
+    patternSteps.forEach((step) => {
+      step.forEach((event) => {
+        const midi = noteToMidi(event.note);
+        if (midi === null) {
+          return;
+        }
+
+        minMidi = minMidi === null ? midi : Math.min(minMidi, midi);
+        maxMidi = maxMidi === null ? midi : Math.max(maxMidi, midi);
+      });
+    });
+
+    if (minMidi === null || maxMidi === null) {
+      return null;
+    }
+
+    return { maxMidi, minMidi };
+  }, [patternSteps]);
   const selectedStep = selectedStepIndex !== null ? patternSteps[selectedStepIndex] ?? [] : [];
   const normalizedSelectedNoteIndex = selectedNoteIndex !== null && selectedStep[selectedNoteIndex]
     ? selectedNoteIndex
@@ -282,6 +305,20 @@ export const PianoRoll = () => {
     setFocusSelectedNote(true);
     setStepZoom((current) => (current >= STEP_ZOOM_PRESETS.DETAIL ? 46 : current));
   }, [isMobileViewport]);
+  const hasNotesOutsideWindow = useMemo(() => {
+    if (isDrum || !activeNoteBounds) {
+      return false;
+    }
+
+    const topWindowMidi = noteToMidi(NOTE_WINDOWS[noteWindow][0]);
+    const bottomWindowMidi = noteToMidi(NOTE_WINDOWS[noteWindow][NOTE_WINDOWS[noteWindow].length - 1]);
+    if (topWindowMidi === null || bottomWindowMidi === null) {
+      return false;
+    }
+
+    return activeNoteBounds.maxMidi > topWindowMidi || activeNoteBounds.minMidi < bottomWindowMidi;
+  }, [activeNoteBounds, isDrum, noteWindow]);
+
   const renderNotes = useMemo(() => {
     if (track.type === 'kick' || track.type === 'snare' || track.type === 'hihat') {
       return ['C3'];
@@ -291,8 +328,14 @@ export const PianoRoll = () => {
       return buildFocusedNoteRange(selectedNote.note, 7);
     }
 
+    if (autoFitActiveNotes && activeNoteBounds) {
+      const span = activeNoteBounds.maxMidi - activeNoteBounds.minMidi;
+      const fitPadding = span <= 18 ? 5 : span <= 32 ? 3 : 2;
+      return buildAdaptiveNoteRange(activeNoteBounds.minMidi, activeNoteBounds.maxMidi, fitPadding);
+    }
+
     return NOTE_WINDOWS[noteWindow];
-  }, [focusSelectedNote, noteWindow, selectedNote, track.type]);
+  }, [activeNoteBounds, autoFitActiveNotes, focusSelectedNote, noteWindow, selectedNote, track.type]);
 
   const selectStep = (stepIndex: number) => {
     setSelectedStepIndex(stepIndex);
@@ -804,6 +847,11 @@ export const PianoRoll = () => {
                     <WindowButton active={noteWindow === windowKey} label={windowKey} onClick={() => setNoteWindow(windowKey)} />
                   </React.Fragment>
                 ))}
+                <WindowButton
+                  active={autoFitActiveNotes}
+                  label={autoFitActiveNotes ? 'Fit active on' : 'Fit active off'}
+                  onClick={() => setAutoFitActiveNotes((current) => !current)}
+                />
               </div>
             )}
           </div>
@@ -957,6 +1005,21 @@ export const PianoRoll = () => {
                 <span className="font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">{triad.quality}</span>
               </button>
             ))}
+          </div>
+        </div>
+      )}
+
+      {!isDrum && hasNotesOutsideWindow && !autoFitActiveNotes && (
+        <div className="border-b border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-4 py-2.5">
+          <div className="flex flex-wrap items-center gap-2 text-[11px] text-[var(--text-secondary)]">
+            <span>Some active notes sit outside this note window, so they can appear in Sequencer but stay off-screen here.</span>
+            <button
+              className="control-chip px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
+              onClick={() => setAutoFitActiveNotes(true)}
+              type="button"
+            >
+              Reveal all notes
+            </button>
           </div>
         </div>
       )}
@@ -1750,6 +1813,27 @@ function buildFocusedNoteRange(centerNote: string, radius: number) {
       notes.push(nextNote);
     }
   }
+  return notes;
+}
+
+function buildAdaptiveNoteRange(minMidi: number, maxMidi: number, padding: number) {
+  const clampedMin = Math.max(24, minMidi - padding);
+  const clampedMax = Math.min(96, maxMidi + padding);
+  const maxVisibleSpan = 42;
+  const center = Math.round((clampedMin + clampedMax) / 2);
+  const halfSpan = Math.floor(maxVisibleSpan / 2);
+  const rangedMin = clampedMax - clampedMin > maxVisibleSpan
+    ? Math.max(24, center - halfSpan)
+    : clampedMin;
+  const rangedMax = clampedMax - clampedMin > maxVisibleSpan
+    ? Math.min(96, center + halfSpan)
+    : clampedMax;
+  const notes: string[] = [];
+
+  for (let midi = rangedMax; midi >= rangedMin; midi -= 1) {
+    notes.push(midiToNote(midi));
+  }
+
   return notes;
 }
 

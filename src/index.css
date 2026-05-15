@@ -1603,7 +1603,7 @@ html[data-supersonic="true"] .studio-nav-button[data-active="true"] .studio-arra
     radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 56%),
     linear-gradient(180deg, color-mix(in srgb, var(--accent) 24%, white 18%), color-mix(in srgb, var(--accent) 12%, rgba(255,255,255,0.08)) 36%, rgba(8, 12, 16, 0.42)),
     rgba(10, 14, 19, 0.86);
-  transform: translateY(calc(var(--motion-lift-distance) * 0.5));
+  transform: none;
   box-shadow:
     0 10px 18px rgba(0,0,0,0.14),
     inset 2px 0 0 color-mix(in srgb, var(--accent) 78%, transparent),

@@ -542,6 +542,7 @@ export const MainWorkspace = () => {
     ? Math.max(0, selectedStep.findIndex((event) => event === selectedStepNote))
     : null;
   const isSelectedTrackDrum = selectedTrack ? isRhythmTrackType(selectedTrack.type) : false;
+  const canDeepEditSelectedTrack = Boolean(selectedTrack) && (!isSelectedTrackDrum || superSonicMode);
   const selectedTrackPatternSpan = useMemo(() => (
     getPatternActivitySpan(selectedTrackPattern, stepsPerPattern)
   ), [selectedTrackPattern, stepsPerPattern]);
@@ -1596,6 +1597,46 @@ export const MainWorkspace = () => {
                     Macro lane view ready
                   </div>
                 )}
+                {!superSonicMode && selectedTrack && (
+                  <div className="surface-panel-strong flex flex-wrap items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)]">
+                    <span className="section-label">Classic lane tools</span>
+                    <button
+                      className="control-chip px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                      onClick={() => setLaneScope('FOCUSED')}
+                      type="button"
+                    >
+                      Focus lane
+                    </button>
+                    <button
+                      className="control-chip px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                      onClick={() => setLaneScope('ALL')}
+                      type="button"
+                    >
+                      Show all
+                    </button>
+                  </div>
+                )}
+                {superSonicMode && selectedTrack && (
+                  <div className="surface-panel-strong flex flex-wrap items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--accent-strong)]">
+                    <Zap className="h-3.5 w-3.5 text-[var(--accent)]" />
+                    Super lane tools
+                    <button
+                      className="control-chip px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                      onClick={() => setActiveView('PIANO_ROLL')}
+                      type="button"
+                    >
+                      Deep edit roll
+                    </button>
+                    <button
+                      className="control-chip px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                      disabled={!selectedTrackPatternSpan}
+                      onClick={handleToggleSelectedTrackLoop}
+                      type="button"
+                    >
+                      Pulse loop
+                    </button>
+                  </div>
+                )}
                 {(['ALL', 'ACTIVE', 'FOCUSED', 'PINNED', 'DRUMS', 'MUSICAL'] as const).map((scope) => (
                   <div key={scope}>
                     <ScopeChip
@@ -1634,11 +1675,11 @@ export const MainWorkspace = () => {
                     )}
                     <button
                       className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                      onClick={() => setActiveView(isSelectedTrackDrum ? 'ARRANGER' : 'PIANO_ROLL')}
+                      onClick={() => setActiveView(canDeepEditSelectedTrack ? 'PIANO_ROLL' : 'ARRANGER')}
                       type="button"
                     >
                       <SlidersHorizontal className="h-3.5 w-3.5" />
-                      {isSelectedTrackDrum ? 'Song tools' : 'Deep edit'}
+                      {canDeepEditSelectedTrack ? 'Deep edit' : 'Song tools'}
                     </button>
                     {isMobileViewport && (
                       <button
@@ -2211,10 +2252,10 @@ export const MainWorkspace = () => {
                   </div>
                   <button
                     className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                    onClick={() => setActiveView(isSelectedTrackDrum ? 'ARRANGER' : 'PIANO_ROLL')}
+                    onClick={() => setActiveView(canDeepEditSelectedTrack ? 'PIANO_ROLL' : 'ARRANGER')}
                   >
                     <SlidersHorizontal className="h-3.5 w-3.5" />
-                    {isSelectedTrackDrum ? 'Song tools' : 'Deep edit'}
+                    {canDeepEditSelectedTrack ? 'Deep edit' : 'Song tools'}
                   </button>
                 </div>
                 <div className="mt-3 flex items-center gap-2">

@@ -203,6 +203,56 @@ describe('transportController', () => {
     expect(setIsPlaying).toHaveBeenCalledWith(true);
   });
 
+  it('continues playback when sample asset loading fails', async () => {
+    const project = createProjectFromTemplate('blank-grid');
+    const loadError = new Error('decode failed');
+    const engine = {
+      awaitAssetLoad: vi.fn(() => Promise.reject(loadError)),
+      init: vi.fn(),
+      previewMetronomeTick: vi.fn(),
+      previewTrack: vi.fn(),
+      startRecording: vi.fn(),
+      stop: vi.fn(),
+      stopRecording: vi.fn(),
+      syncProject: vi.fn(),
+      togglePlayback: vi.fn(() => true),
+    };
+    const initAudio = vi.fn();
+    const setIsPlaying = vi.fn();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    const controller = createTransportController({
+      countInActive: false,
+      countInTokenRef: { current: 0 },
+      currentProject: project,
+      engine,
+      initAudio,
+      isInitialized: true,
+      isPlaying: false,
+      isRecording: false,
+      setCountInActive: vi.fn(),
+      setCountInBeatsRemaining: vi.fn(),
+      setCurrentStep: vi.fn(),
+      setIsPlaying,
+      setIsRecording: vi.fn(),
+      tracks: project.tracks,
+    });
+
+    await controller.togglePlay();
+
+    expect(initAudio).toHaveBeenCalledTimes(1);
+    expect(engine.syncProject).toHaveBeenCalledWith(project);
+    expect(engine.awaitAssetLoad).toHaveBeenCalledTimes(1);
+    expect(engine.togglePlayback).toHaveBeenCalledTimes(1);
+    expect(setIsPlaying).toHaveBeenCalledWith(true);
+    expect(warnSpy).toHaveBeenCalledWith(
+      'SonicStudio: sample asset load failed; continuing playback with available sources.',
+      loadError,
+    );
+
+    warnSpy.mockRestore();
+  });
+
   it('passes preview velocity through to the engine', async () => {
     const project = createProjectFromTemplate('blank-grid');
     const previewTrackTarget = project.tracks.find((track) => track.type === 'hihat') ?? project.tracks[0];
@@ -249,5 +299,97 @@ describe('transportController', () => {
       undefined,
       0.55,
     );
+  });
+
+  it('cancels active count-in when play is pressed again rapidly', async () => {
+    const project = createProjectFromTemplate('blank-grid');
+
+    const engine = {
+      awaitAssetLoad: vi.fn(),
+      init: vi.fn(),
+      previewMetronomeTick: vi.fn(),
+      previewTrack: vi.fn(),
+      startRecording: vi.fn(),
+      stop: vi.fn(),
+      stopRecording: vi.fn(),
+      syncProject: vi.fn(),
+      togglePlayback: vi.fn(() => true),
+    };
+
+    const setCountInActive = vi.fn();
+    const setCountInBeatsRemaining = vi.fn();
+    const setIsPlaying = vi.fn();
+    const countInTokenRef = { current: 3 };
+
+    const controller = createTransportController({
+      countInActive: true,
+      countInTokenRef,
+      currentProject: project,
+      engine,
+      initAudio: vi.fn(),
+      isInitialized: true,
+      isPlaying: false,
+      isRecording: false,
+      setCountInActive,
+      setCountInBeatsRemaining,
+      setCurrentStep: vi.fn(),
+      setIsPlaying,
+      setIsRecording: vi.fn(),
+      tracks: project.tracks,
+    });
+
+    await controller.togglePlay();
+
+    expect(setCountInActive).toHaveBeenCalledWith(false);
+    expect(setCountInBeatsRemaining).toHaveBeenCalledWith(0);
+    expect(engine.togglePlayback).not.toHaveBeenCalled();
+    expect(setIsPlaying).not.toHaveBeenCalled();
+    expect(countInTokenRef.current).toBe(4);
+  });
+
+  it('toggles playback off immediately when already playing', async () => {
+    const project = createProjectFromTemplate('blank-grid');
+
+    const engine = {
+      awaitAssetLoad: vi.fn(),
+      init: vi.fn(),
+      previewMetronomeTick: vi.fn(),
+      previewTrack: vi.fn(),
+      startRecording: vi.fn(),
+      stop: vi.fn(),
+      stopRecording: vi.fn(),
+      syncProject: vi.fn(),
+      togglePlayback: vi.fn(() => false),
+    };
+
+    const setCountInActive = vi.fn();
+    const setCountInBeatsRemaining = vi.fn();
+    const setIsPlaying = vi.fn();
+    const countInTokenRef = { current: 8 };
+
+    const controller = createTransportController({
+      countInActive: false,
+      countInTokenRef,
+      currentProject: project,
+      engine,
+      initAudio: vi.fn(),
+      isInitialized: true,
+      isPlaying: true,
+      isRecording: false,
+      setCountInActive,
+      setCountInBeatsRemaining,
+      setCurrentStep: vi.fn(),
+      setIsPlaying,
+      setIsRecording: vi.fn(),
+      tracks: project.tracks,
+    });
+
+    await controller.togglePlay();
+
+    expect(setCountInActive).toHaveBeenCalledWith(false);
+    expect(setCountInBeatsRemaining).toHaveBeenCalledWith(0);
+    expect(engine.togglePlayback).toHaveBeenCalledTimes(1);
+    expect(setIsPlaying).toHaveBeenCalledWith(false);
+    expect(countInTokenRef.current).toBe(9);
   });
 });

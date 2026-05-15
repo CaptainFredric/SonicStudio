@@ -52,7 +52,12 @@ export const createTransportController = ({
     engine.syncProject(currentProject);
 
     if (currentProject.tracks.some((track) => track.source.engine === 'sample')) {
-      await engine.awaitAssetLoad();
+      try {
+        await engine.awaitAssetLoad();
+      } catch (error) {
+        // Keep transport usable even if one sample source fails to decode.
+        console.warn('SonicStudio: sample asset load failed; continuing playback with available sources.', error);
+      }
     }
   };
 

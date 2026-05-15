@@ -402,7 +402,7 @@ export const TopBar = ({
 
   return (
     <header className="surface-panel px-3 py-3 sm:px-5 sm:py-4">
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(340px,392px)] xl:items-start" data-first-impression={isFirstImpression}>
+      <div className="grid gap-4 2xl:grid-cols-[minmax(0,1fr)_minmax(340px,392px)] 2xl:items-start" data-first-impression={isFirstImpression}>
         <div className="grid min-w-0 content-start gap-4">
           <div className="flex min-w-0 items-center gap-3 border-b border-[var(--border-soft)] pb-3">
             <div className="surface-panel-strong flex h-11 w-11 items-center justify-center" style={{ borderRadius: '14px' }}>
@@ -459,7 +459,7 @@ export const TopBar = ({
             )}
           </div>
 
-          <div className="grid gap-3 border-t border-[var(--border-soft)] pt-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
+          <div className="grid gap-3 border-t border-[var(--border-soft)] pt-3 2xl:grid-cols-[minmax(0,1fr)_auto] 2xl:items-end">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-3">
                 <span className="section-label">Current focus</span>
@@ -479,7 +479,7 @@ export const TopBar = ({
               )}
             </div>
 
-            <div className="flex flex-wrap gap-4 border-t border-[var(--border-soft)] pt-3 xl:border-t-0 xl:pt-0 xl:justify-end">
+            <div className="flex flex-wrap gap-4 border-t border-[var(--border-soft)] pt-3 2xl:border-t-0 2xl:pt-0 2xl:justify-end">
               <WorkflowButton
                 active={activeView === 'SEQUENCER'}
                 icon={<Compass className="h-3.5 w-3.5" />}
@@ -502,10 +502,10 @@ export const TopBar = ({
           </div>
         </div>
 
-        <div className="grid gap-3 border-t border-[var(--border-soft)] pt-3 xl:self-stretch xl:border-l xl:border-t-0 xl:pl-4 xl:pt-0">
+        <div className="grid gap-3 border-t border-[var(--border-soft)] pt-3 2xl:self-stretch 2xl:border-l 2xl:border-t-0 2xl:pl-4 2xl:pt-0">
           <div className="grid gap-3 border-b border-[var(--border-soft)]/70 pb-3">
-            <div className="hidden md:grid md:justify-items-end">
-              <div className="grid w-full max-w-[372px] gap-2">
+            <div className="hidden md:grid md:justify-items-stretch 2xl:justify-items-end">
+              <div className="grid w-full max-w-none gap-2 2xl:max-w-[372px]">
                 <div
                   className="grid grid-cols-4 gap-2"
                   style={{

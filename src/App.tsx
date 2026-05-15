@@ -92,7 +92,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchp
   return (
     <aside className="studio-rail w-full shrink-0 px-2 py-2 md:w-[88px] md:py-3" data-tour-target="views">
       <div className="section-label hidden md:block">Views</div>
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-1">
+      <div className="grid grid-cols-2 gap-2 md:mb-2 md:grid-cols-1">
         <button
           className="studio-nav-button w-full"
           data-tour-target="sessions"
@@ -139,7 +139,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchp
         </div>
       </div>
 
-      <div className="hidden md:grid md:w-full md:gap-2">
+      <div className="hidden md:grid md:w-full md:gap-2.5">
         {navItems.map(renderViewButton)}
       </div>
 
