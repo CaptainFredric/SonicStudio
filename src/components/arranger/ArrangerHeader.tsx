@@ -116,7 +116,7 @@ export const ArrangerHeader = ({
       </div>
       <div className="flex flex-wrap items-center gap-2 md:justify-end">
         <button
-          className="control-chip flex items-center gap-2 px-3.5 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+          className="control-chip flex h-9 items-center gap-2 px-3.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
           onClick={onAddMarkerAtPlayhead}
           title="Place a section marker at the playhead position"
           type="button"
@@ -125,7 +125,7 @@ export const ArrangerHeader = ({
           Add marker
         </button>
         <button
-          className="control-chip flex items-center gap-2 border-[var(--accent)] bg-[var(--accent-muted)] px-3.5 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--accent-strong)]"
+          className="control-chip flex h-9 items-center gap-2 border-[var(--accent)] bg-[var(--accent-muted)] px-3.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--accent-strong)]"
           onClick={addClip}
           type="button"
         >
@@ -350,7 +350,7 @@ export const ArrangerHeader = ({
             <ControlToggle active={false} label="Start" onClick={() => onJumpToBoundary(0)} />
             <ControlToggle active={false} label="End" onClick={() => onJumpToBoundary(timelineSteps)} />
             <button
-              className="control-chip whitespace-nowrap px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+              className="control-chip whitespace-nowrap h-9 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
               onClick={onSetInspectorTab}
               type="button"
             >
@@ -359,7 +359,7 @@ export const ArrangerHeader = ({
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:justify-end">
             <button
-              className="control-chip whitespace-nowrap px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+              className="control-chip whitespace-nowrap h-9 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
               data-active={inspectorOpen ? 'true' : 'false'}
               onClick={() => onSetInspectorOpen(!inspectorOpen)}
               type="button"
@@ -388,7 +388,7 @@ const ControlToggle = ({
   onClick: () => void;
 }) => (
   <button
-    className={`control-chip inline-flex min-w-0 items-center whitespace-nowrap px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] ${className ?? ''}`}
+    className={`control-chip inline-flex h-9 min-w-0 items-center whitespace-nowrap px-3 text-[10px] font-semibold uppercase tracking-[0.14em] ${className ?? ''}`}
     data-active={active}
     onClick={onClick}
     type="button"

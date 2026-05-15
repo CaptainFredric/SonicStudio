@@ -97,13 +97,13 @@ export const SettingsSidebar = ({
           </button>
         </div>
 
-        <nav className="mt-3 flex flex-wrap gap-1.5" aria-label="Settings sections">
+        <nav className="mt-3 flex gap-1.5 overflow-x-auto pb-1" aria-label="Settings sections">
           {TAB_DEFINITIONS.map((tab) => {
             const isActive = settingsTab === tab.id;
             return (
               <button
                 key={tab.id}
-                className="control-chip flex items-center gap-1.5 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] transition-colors"
+                className="control-chip flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap px-3 text-[10px] font-semibold uppercase tracking-[0.14em] transition-colors"
                 data-active={isActive}
                 data-ui-sound="tab"
                 onClick={() => setSettingsTab(tab.id)}

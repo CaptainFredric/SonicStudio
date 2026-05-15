@@ -25,7 +25,6 @@ import {
   type MasterSettings,
 } from '../project/schema';
 import { getSupersonicTransitionOrigin, runSupersonicTransition } from '../utils/supersonicTransition';
-import { useMediaQuery } from '../utils/useMediaQuery';
 import { BrandMark } from './BrandMark';
 
 const MASTER_MATCH_EPSILON = 0.015;
@@ -67,7 +66,6 @@ export const TopBar = ({
   isCaptureOpen?: boolean;
   onOpenCapture?: () => void;
 }) => {
-  const isCompactViewport = useMediaQuery('(max-width: 1023px)');
   const {
     activeView,
     bpm,
@@ -539,7 +537,6 @@ export const TopBar = ({
                   <TransportBtn
                     active={isPlaying}
                     className="w-full min-w-0 justify-center"
-                    compactViewport={isCompactViewport}
                     data-tour-target="play"
                     emphasize={showPlayPulse}
                     label={isPlaying ? 'Pause' : 'Play'}
@@ -930,7 +927,7 @@ export const TopBar = ({
           )}
 
           {!compactStart && (
-          <div className="grid gap-3 border-t border-[var(--border-soft)] pt-3 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 border-t border-[var(--border-soft)] pt-3 sm:grid-cols-2 2xl:grid-cols-4">
             <div className="min-w-0">
               <div className="section-label mb-1">Tempo</div>
               <div className="flex items-center gap-2">
@@ -1091,7 +1088,7 @@ const UtilityBtn = ({
 }) => (
   <button
     aria-label={label}
-    className={`ghost-icon-button relative flex h-8 min-w-0 items-center justify-center gap-1.5 overflow-hidden px-2.5 ${armed ? 'border-[rgba(248,113,113,0.34)] text-[var(--danger)] shadow-[inset_0_0_0_1px_rgba(248,113,113,0.14)]' : ''}`}
+    className={`ghost-icon-button relative flex h-9 min-w-0 items-center justify-center gap-1.5 overflow-hidden px-2.5 ${armed ? 'border-[rgba(248,113,113,0.34)] text-[var(--danger)] shadow-[inset_0_0_0_1px_rgba(248,113,113,0.14)]' : ''}`}
     data-armed={armed ? 'true' : 'false'}
     data-armed-phase={armed ? 'armed' : disarming ? 'disarming' : 'idle'}
     data-ui-sound={uiSound}
@@ -1194,7 +1191,6 @@ const TransportBtn = ({
   active = false,
   className,
   children,
-  compactViewport = false,
   emphasize = false,
   label,
   onClick,
@@ -1208,7 +1204,6 @@ const TransportBtn = ({
   active?: boolean;
   className?: string;
   children: React.ReactNode;
-  compactViewport?: boolean;
   emphasize?: boolean;
   label: string;
   onClick: () => void;
@@ -1240,14 +1235,10 @@ const TransportBtn = ({
     ? {
         background: supersonicMode
           ? 'linear-gradient(180deg, rgba(255,255,255,0.24), rgba(255,255,255,0.04) 32%, rgba(8,82,88,0.2) 100%)'
-          : compactViewport
-            ? 'linear-gradient(180deg, rgba(255,255,255,0.48), rgba(255,255,255,0.16) 28%, rgba(125,211,252,0.9) 100%)'
-            : undefined,
+          : 'linear-gradient(180deg, rgba(255,255,255,0.46), rgba(255,255,255,0.16) 28%, rgba(125,211,252,0.9) 100%)',
         boxShadow: supersonicMode
           ? '0 0 0 1px rgba(12,109,112,0.42), 0 10px 26px rgba(8,82,88,0.2), inset 0 1px 0 rgba(255,255,255,0.26)'
-          : compactViewport
-            ? '0 0 0 1px color-mix(in srgb, var(--accent) 58%, transparent), 0 10px 32px color-mix(in srgb, var(--accent) 38%, transparent), inset 0 1px 0 rgba(255,255,255,0.5)'
-            : '0 0 0 1px color-mix(in srgb, var(--accent) 52%, transparent), 0 8px 30px color-mix(in srgb, var(--accent) 34%, transparent), inset 0 1px 0 rgba(255,255,255,0.35)',
+          : '0 0 0 1px color-mix(in srgb, var(--accent) 58%, transparent), 0 10px 32px color-mix(in srgb, var(--accent) 38%, transparent), inset 0 1px 0 rgba(255,255,255,0.5)',
         transform: supersonicMode ? 'translateY(-1px) scale(1.02)' : 'translateY(-1px) scale(1.03)',
         transition: 'all 230ms cubic-bezier(0.22,1,0.36,1)',
       }
@@ -1257,7 +1248,7 @@ const TransportBtn = ({
     <span style={{ position: 'relative', display: 'inline-flex' }}>
       <button
         aria-label={label}
-        className={`group flex h-10 min-w-[82px] items-center gap-1.5 rounded-[3px] border px-3 text-left transition-colors ${active ? activeStyles : restingStyles} ${className ?? ''}`}
+        className={`group flex h-9 min-w-[82px] items-center gap-1.5 rounded-[3px] border px-3 text-left transition-colors ${active ? activeStyles : restingStyles} ${className ?? ''}`}
         data-ui-sound={tone === 'record' ? 'record' : 'transport'}
         onClick={onClick}
         onPointerDown={onPointerDown}
@@ -1265,7 +1256,7 @@ const TransportBtn = ({
         title={shortcut ? `${label} (${shortcut})` : label}
         {...rest}
       >
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[2px] border border-current/12 bg-black/10 transition-colors group-hover:bg-black/15">
+        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[2px] border border-current/12 bg-black/10 transition-colors group-hover:bg-black/15">
           {children}
         </span>
         <span className="min-w-0 text-[10px] font-semibold uppercase tracking-[0.16em]">

@@ -109,9 +109,9 @@ export const DeviceRackSidebar = ({
 
       {isSoundRecallOpen && (
         <div className="mt-3 grid gap-3">
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-1">
+          <div className="grid gap-2 sm:grid-cols-2 2xl:grid-cols-1">
             <button
-              className="control-chip flex items-center justify-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+              className="control-chip flex h-9 items-center justify-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
               onClick={() => onSaveTrackSnapshot(activeTrackSnapshot?.id ?? null)}
               type="button"
             >
@@ -137,7 +137,7 @@ export const DeviceRackSidebar = ({
                   </div>
                   <div className="flex gap-2">
                     <button
-                      className="ghost-icon-button flex h-8 w-8 items-center justify-center"
+                      className="ghost-icon-button flex h-9 w-9 items-center justify-center"
                       onClick={() => onApplyTrackSnapshot(snapshot.id)}
                       title="Apply sound recall"
                       type="button"
@@ -145,7 +145,7 @@ export const DeviceRackSidebar = ({
                       <Play className="h-3.5 w-3.5" />
                     </button>
                     <button
-                      className="ghost-icon-button flex h-8 w-8 items-center justify-center text-[var(--danger)]"
+                      className="ghost-icon-button flex h-9 w-9 items-center justify-center text-[var(--danger)]"
                       onClick={() => onDeleteTrackSnapshot(snapshot.id)}
                       title="Delete sound recall"
                       type="button"
@@ -168,7 +168,7 @@ export const DeviceRackSidebar = ({
     <div className="mt-4 space-y-4">
       <div className="flex gap-2">
         <button
-          className="control-chip flex flex-1 items-center justify-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] hover:text-[var(--text-primary)]"
+          className="control-chip flex h-9 flex-1 items-center justify-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] hover:text-[var(--text-primary)]"
           onClick={() => void onPreviewTrack(
             defaultNoteForTrack(track),
             typeof track.source.activeSampleSlice === 'number' ? track.source.activeSampleSlice : undefined,
@@ -179,7 +179,7 @@ export const DeviceRackSidebar = ({
           Audition
         </button>
         <button
-          className={`control-chip flex flex-1 items-center justify-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] ${isRecording ? 'text-[var(--danger)]' : 'hover:text-[var(--text-primary)]'}`}
+          className={`control-chip flex h-9 flex-1 items-center justify-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] ${isRecording ? 'text-[var(--danger)]' : 'hover:text-[var(--text-primary)]'}`}
           onClick={() => void onToggleRecording()}
           type="button"
         >
@@ -188,7 +188,7 @@ export const DeviceRackSidebar = ({
         </button>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+      <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-1">
         <InlineSlider
           label="Channel level"
           max={6}

@@ -2293,16 +2293,16 @@ export const MainWorkspace = () => {
                       Sequencer shapes timing and groove. Roll handles pitch and phrase detail. Mixer balances level and tone. Arranger lays out full song structure.
                     </div>
                     <div className="mt-3 grid grid-cols-2 gap-2">
-                      <button className="control-chip px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => setActiveView('SEQUENCER')} type="button">Seq</button>
-                      <button className="control-chip px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => setActiveView('PIANO_ROLL')} type="button">Roll</button>
-                      <button className="control-chip px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => setActiveView('MIXER')} type="button">Mix</button>
-                      <button className="control-chip px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => setActiveView('ARRANGER')} type="button">Arrange</button>
+                      <button className="control-chip h-8 px-2 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => setActiveView('SEQUENCER')} type="button">Seq</button>
+                      <button className="control-chip h-8 px-2 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => setActiveView('PIANO_ROLL')} type="button">Roll</button>
+                      <button className="control-chip h-8 px-2 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => setActiveView('MIXER')} type="button">Mix</button>
+                      <button className="control-chip h-8 px-2 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => setActiveView('ARRANGER')} type="button">Arrange</button>
                     </div>
                   </div>
                 )}
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
                   <button
-                    className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                    className="control-chip flex h-9 items-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
                     data-active={isSelectedTrackLoopActive}
                     disabled={!selectedTrackPatternSpan}
                     onClick={handleToggleSelectedTrackLoop}
@@ -2312,7 +2312,7 @@ export const MainWorkspace = () => {
                     {isSelectedTrackLoopActive ? 'Loop phrase on' : 'Loop active phrase'}
                   </button>
                   <button
-                    className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                    className="control-chip flex h-9 items-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
                     data-active={hasExplicitLoopRange && !isSelectedTrackLoopActive ? 'true' : 'false'}
                     disabled={!hasExplicitLoopRange}
                     onClick={handleClearLoopRange}
@@ -2322,7 +2322,7 @@ export const MainWorkspace = () => {
                     Full pattern
                   </button>
                   <button
-                    className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--danger)]"
+                    className="control-chip flex h-9 items-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--danger)]"
                     onClick={handleClearSelectedTrackNotes}
                     type="button"
                   >
@@ -2345,14 +2345,14 @@ export const MainWorkspace = () => {
                 <div className="section-label">Pattern actions</div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button
-                    className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                    className="control-chip flex h-9 items-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
                     onClick={() => shiftPattern(selectedTrack.id, 'left')}
                   >
                     <ArrowLeftRight className="h-3.5 w-3.5 rotate-180" />
                     Shift left
                   </button>
                   <button
-                    className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                    className="control-chip flex h-9 items-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
                     onClick={() => shiftPattern(selectedTrack.id, 'right')}
                   >
                     <ArrowLeftRight className="h-3.5 w-3.5" />
@@ -2361,13 +2361,13 @@ export const MainWorkspace = () => {
                   {!isSelectedTrackDrum && (
                     <>
                       <button
-                        className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                        className="control-chip h-9 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
                         onClick={() => transposePattern(selectedTrack.id, -1)}
                       >
                         Note down
                       </button>
                       <button
-                        className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                        className="control-chip h-9 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
                         onClick={() => transposePattern(selectedTrack.id, 1)}
                       >
                         Note up
@@ -2926,7 +2926,7 @@ const ScopeChip = ({
   onClick: () => void;
 }) => (
   <button
-    className={`control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] ${active ? 'text-[var(--accent-strong)]' : ''}`}
+    className={`control-chip h-9 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] ${active ? 'text-[var(--accent-strong)]' : ''}`}
     data-active={active ? 'true' : 'false'}
     onClick={onClick}
   >
@@ -2947,7 +2947,7 @@ const StateActionBtn = ({
 }) => (
   <button
     aria-label={label}
-    className={`ghost-icon-button flex h-8 w-8 items-center justify-center ${active ? 'border-[rgba(124,211,252,0.3)] bg-[rgba(124,211,252,0.1)] text-[var(--accent-strong)]' : ''}`}
+    className={`ghost-icon-button flex h-9 w-9 items-center justify-center ${active ? 'border-[rgba(124,211,252,0.3)] bg-[rgba(124,211,252,0.1)] text-[var(--accent-strong)]' : ''}`}
     onClick={onClick}
   >
     {children}
@@ -2964,7 +2964,7 @@ const StateInspectorButton = ({
   onClick: () => void;
 }) => (
   <button
-    className={`control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] ${active ? 'text-[var(--accent-strong)]' : ''}`}
+    className={`control-chip h-9 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] ${active ? 'text-[var(--accent-strong)]' : ''}`}
     onClick={onClick}
   >
     {label}

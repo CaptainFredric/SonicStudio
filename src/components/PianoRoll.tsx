@@ -1480,21 +1480,21 @@ export const PianoRoll = () => {
                   </div>
                   <div className="mt-2 flex gap-2">
                     <button
-                      className="control-chip px-3 py-2 text-[10px] font-medium uppercase tracking-[0.14em]"
+                      className="control-chip h-9 px-3 text-[10px] font-medium uppercase tracking-[0.14em]"
                       disabled={!selectedNote || normalizedSelectedNoteIndex === null}
                       onClick={() => selectedNote && normalizedSelectedNoteIndex !== null && updateStepEvent(track.id, selectedStepIndex, normalizedSelectedNoteIndex, { note: shiftNote(selectedNote.note, -12) })}
                     >
                       -8va
                     </button>
                     <button
-                      className="control-chip px-3 py-2 text-[10px] font-medium uppercase tracking-[0.14em]"
+                      className="control-chip h-9 px-3 text-[10px] font-medium uppercase tracking-[0.14em]"
                       disabled={!selectedNote || normalizedSelectedNoteIndex === null}
                       onClick={() => selectedNote && normalizedSelectedNoteIndex !== null && updateStepEvent(track.id, selectedStepIndex, normalizedSelectedNoteIndex, { note: shiftNote(selectedNote.note, 12) })}
                     >
                       +8va
                     </button>
                     <button
-                      className="control-chip ml-auto flex items-center gap-2 px-3 py-2 text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--danger)]"
+                      className="control-chip ml-auto flex h-9 items-center gap-2 px-3 text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--danger)]"
                       disabled={!selectedNote}
                       onClick={() => {
                         if (!selectedNote) {
@@ -1708,7 +1708,7 @@ const ToolButton = ({
 }) => (
   <button
     aria-label={label}
-    className="ghost-icon-button flex h-10 min-w-10 items-center justify-center px-3"
+    className="ghost-icon-button flex h-9 min-w-9 items-center justify-center px-3"
     onClick={onClick}
     title={label}
   >
@@ -1726,7 +1726,7 @@ const WindowButton = ({
   onClick: () => void;
 }) => (
   <button
-    className="rounded-sm border px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.16em] transition-colors"
+    className="rounded-sm border h-9 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] transition-colors"
     onClick={onClick}
     style={active
       ? {

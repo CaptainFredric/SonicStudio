@@ -298,7 +298,7 @@ const TabButton = ({
   onClick: () => void;
 }) => (
   <button
-    className="control-chip phrase-desk-tab px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+    className="control-chip phrase-desk-tab h-9 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
     data-active={active}
     onClick={onClick}
   >
@@ -316,7 +316,7 @@ const OperationButton = ({
   onClick: () => void;
 }) => (
   <button
-    className="control-chip operation-button flex items-center justify-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+    className="control-chip operation-button flex h-9 items-center justify-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
     onClick={onClick}
   >
     {icon}
