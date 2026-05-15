@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { createProjectFromTemplate, createTrack } from './schema';
+import { createArrangerClip, createProjectFromTemplate, createTrack } from './schema';
 
 const countPatternNotes = (patterns: Record<number, Array<Array<{ note: string }>>>) => (
   Object.values(patterns).reduce((total, steps) => (
@@ -61,5 +61,25 @@ describe('track defaults', () => {
     expect(starlightLead).toBeTruthy();
     expect(countPatternNotes(clubPluck!.patterns)).toBeGreaterThanOrEqual(8);
     expect(countPatternNotes(starlightLead!.patterns)).toBeGreaterThanOrEqual(11);
+  });
+
+  it('supports extended pattern and arranger lengths for longer compositions', () => {
+    const track = createTrack('lead', { stepsPerPattern: 4096 });
+    const clip = createArrangerClip(track.id, {
+      bpm: 128,
+      countInBars: 0,
+      currentPattern: 0,
+      metronomeEnabled: false,
+      mode: 'PATTERN',
+      patternCount: 4,
+      stepsPerPattern: 4096,
+    }, {
+      beatLength: 8192,
+      startBeat: 12000,
+    });
+
+    expect(track.patterns[0]).toHaveLength(4096);
+    expect(clip.beatLength).toBe(8192);
+    expect(clip.startBeat).toBe(12000);
   });
 });

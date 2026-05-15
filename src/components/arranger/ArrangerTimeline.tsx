@@ -94,6 +94,8 @@ export const ArrangerTimeline = ({
 }: ArrangerTimelineProps) => {
   const panStateRef = useRef<{ startX: number; startScroll: number } | null>(null);
   const pinchStateRef = useRef<{ distance: number } | null>(null);
+  const songTimelineWidth = timelineSteps * pixelsPerStep;
+  const runwayWidth = Math.max(0, timelineWidth - songTimelineWidth);
 
   useEffect(() => {
     const node = timelineRef.current;
@@ -255,7 +257,7 @@ export const ArrangerTimeline = ({
         />
       )}
     <div
-      className="timeline-shell h-full overflow-auto border border-[var(--border-soft)] bg-[rgba(0,0,0,0.24)]"
+      className="timeline-shell h-full overflow-auto rounded-[4px] border border-[var(--border-soft)] bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(255,255,255,0.01))] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -287,11 +289,29 @@ export const ArrangerTimeline = ({
                   </span>
                 </div>
               ))}
+              {runwayWidth > 0 && (
+                <button
+                  className="group relative flex h-14 shrink-0 flex-col items-center justify-center border-l border-dashed border-[rgba(151,163,180,0.24)] bg-[linear-gradient(90deg,rgba(255,255,255,0.02),rgba(114,217,255,0.06))] text-center"
+                  style={{ width: `${runwayWidth}px` }}
+                  title="Drag clips into this runway to keep extending the song"
+                  type="button"
+                >
+                  <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--text-secondary)]">Open end</span>
+                  <span className="mt-1 text-[10px] text-[var(--text-tertiary)]">drag clips right to extend</span>
+                </button>
+              )}
             </div>
             <div
               className="pointer-events-none absolute bottom-0 top-0 w-[2px] bg-[rgba(124,211,252,0.8)]"
               style={{ left: `${currentStep * pixelsPerStep}px` }}
             />
+            {runwayWidth > 0 && (
+              <div
+                aria-hidden
+                className="pointer-events-none absolute bottom-0 top-0 border-l border-dashed border-[rgba(151,163,180,0.24)]"
+                style={{ left: `${songTimelineWidth}px` }}
+              />
+            )}
           </div>
 
           {laneDataCount === 0 ? (
@@ -378,6 +398,12 @@ export const ArrangerTimeline = ({
                             }}
                           />
                         ))}
+                        {runwayWidth > 0 && (
+                          <div
+                            className="absolute inset-y-0 border-l border-dashed border-[rgba(151,163,180,0.18)] bg-[linear-gradient(90deg,rgba(255,255,255,0.015),rgba(114,217,255,0.04))]"
+                            style={{ left: `${songTimelineWidth}px`, width: `${runwayWidth}px` }}
+                          />
+                        )}
                       </div>
                       <div
                         className="pointer-events-none absolute bottom-0 top-0 z-[1] w-[2px] bg-[rgba(124,211,252,0.8)]"
@@ -467,6 +493,10 @@ export const ArrangerTimeline = ({
           ))}
         </div>
       </div>
+      <div
+        aria-hidden="true"
+        className="arranger-timeline-fade"
+      />
     </div>
     </div>
     <div className="mt-3 rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)] px-4 py-3">

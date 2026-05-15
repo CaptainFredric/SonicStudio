@@ -788,6 +788,7 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
   const recordingProgress = Math.min(1, recordingElapsedSeconds / CAPTURE_MAX_DURATION_SECONDS);
   const bestSuggestion = visibleSuggestions[0] ?? null;
   const isQuickTakeResult = Boolean(result && result.durationSeconds <= 0.9);
+  const shouldShowRetryHint = Boolean(result && result.clarity < 0.42);
   const hasMatchingTrackForBestSuggestion = bestSuggestion
     ? tracks.some((track) => track.type === bestSuggestion.trackType)
     : false;
@@ -1015,10 +1016,10 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
             ) : null}
 
             {state === 'ready' && bestSuggestion ? (
-              <div className="mt-3 flex flex-wrap gap-2">
+              <div className="mt-3 grid gap-2 sm:flex sm:flex-wrap">
                 {hasMatchingTrackForBestSuggestion ? (
                   <button
-                    className="control-chip px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em]"
+                    className="control-chip w-full px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] sm:w-auto"
                     onClick={() => applyToMatchingTrack(bestSuggestion)}
                     type="button"
                   >
@@ -1026,7 +1027,7 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
                   </button>
                 ) : (
                   <button
-                    className="control-chip px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em]"
+                    className="control-chip w-full px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] sm:w-auto"
                     onClick={() => createSuggestedTrack(bestSuggestion)}
                     type="button"
                   >
@@ -1035,13 +1036,19 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
                 )}
                 {saveableDetectedNote ? (
                   <button
-                    className="control-chip px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em]"
+                    className="control-chip w-full px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] sm:w-auto"
                     onClick={() => saveSuggestedRecordedNote(bestSuggestion)}
                     type="button"
                   >
                     Save best note
                   </button>
                 ) : null}
+              </div>
+            ) : null}
+
+            {state === 'ready' && shouldShowRetryHint ? (
+              <div className="mt-3 rounded-[2px] border border-[rgba(245,158,11,0.3)] bg-[rgba(245,158,11,0.08)] px-3 py-3 text-[11px] leading-5 text-[var(--text-secondary)]">
+                Quick heads-up: this take was a little unstable, but your match can still work. If you want tighter note lock, run one more short pass with a cleaner attack.
               </div>
             ) : null}
 

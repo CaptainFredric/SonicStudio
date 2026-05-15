@@ -4,7 +4,7 @@ import { Gauge, Layers3 } from 'lucide-react';
 import { MetricCell, SegmentButton, ShortcutRow } from './SettingsPrimitives';
 
 const PATTERN_OPTIONS = [2, 4, 6, 8, 12, 16];
-const STEP_OPTIONS = [8, 16, 24, 32, 48, 64, 96, 128, 160, 192];
+const STEP_OPTIONS = [8, 16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512, 768, 1024, 1536, 2048, 3072, 4096];
 
 interface WorkspaceTransportPanelProps {
   bpm: number;
@@ -81,7 +81,19 @@ export const WorkspaceTransportPanel = ({
 
         <div>
           <div className="section-label">Steps per pattern</div>
-          <div className="mt-2 flex flex-wrap gap-2">
+          <div className="mt-2 flex items-center gap-2">
+            <input
+              className="control-field h-11 w-28 px-3 text-center font-mono text-sm"
+              max="4096"
+              min="8"
+              onChange={(event) => onStepsPerPatternChange(Number(event.target.value))}
+              step="8"
+              type="number"
+              value={stepsPerPattern}
+            />
+            <span className="text-xs font-medium uppercase tracking-[0.18em] text-[var(--text-tertiary)]">steps</span>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
             {STEP_OPTIONS.map((option) => (
               <React.Fragment key={option}>
                 <SegmentButton

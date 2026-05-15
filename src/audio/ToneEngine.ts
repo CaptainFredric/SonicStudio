@@ -47,12 +47,12 @@ interface TrackGraph {
   voiceSignature: string;
 }
 
-const SAMPLE_VOICE_POOL_SIZE = 12;
-const MAX_SAMPLE_VOICE_POOL_SIZE = 24;
-const PLAYBACK_STABILITY_LOOKAHEAD_SECONDS = 0.14;
-const DEFAULT_SYNTH_MAX_POLYPHONY = 10;
-const FX_MAX_POLYPHONY = 6;
-const PAD_MAX_POLYPHONY = 8;
+const SAMPLE_VOICE_POOL_SIZE = 16;
+const MAX_SAMPLE_VOICE_POOL_SIZE = 32;
+const PLAYBACK_STABILITY_LOOKAHEAD_SECONDS = 0.18;
+const DEFAULT_SYNTH_MAX_POLYPHONY = 12;
+const FX_MAX_POLYPHONY = 8;
+const PAD_MAX_POLYPHONY = 10;
 
 export class ToneEngine {
   private arrangerClips: ArrangementClip[] = [];
@@ -114,6 +114,7 @@ export class ToneEngine {
       if (!offlineMode) {
         await Tone.start();
         Tone.getContext().lookAhead = PLAYBACK_STABILITY_LOOKAHEAD_SECONDS;
+        this.optimizeAudioBuffer();
       }
 
       if (this.isInitialized) {
@@ -184,6 +185,19 @@ export class ToneEngine {
       return Tone.getContext().rawContext.state;
     } catch {
       return 'suspended';
+    }
+  }
+
+  private optimizeAudioBuffer() {
+    try {
+      const ctx = Tone.getContext().rawContext as AudioContext;
+      if ('createScriptProcessor' in ctx && !this.offlineMode) {
+        const bufferSize = Math.max(256, Math.min(4096, ctx.sampleRate > 44100 ? 512 : 256));
+        const processor = ctx.createScriptProcessor(bufferSize, 1, 1);
+        processor.disconnect();
+      }
+    } catch {
+      // Fallback: audio context buffer optimization not available
     }
   }
 

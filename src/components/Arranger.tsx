@@ -20,6 +20,7 @@ import { buildComposerRows, getComposerStepCount } from './arranger/noteUtils';
 
 const DEFAULT_SNAP = 4;
 const MIN_CLIP_LENGTH = 4;
+const ARRANGER_RUNWAY_STEPS = 6;
 export const ZOOM_PIXELS_PER_STEP: Record<ZoomPreset, number> = {
   PHRASE: 30,
   SECTION: 18,
@@ -173,7 +174,8 @@ export const Arranger = () => {
     && selectedClipTrack.source.sampleTriggerMode === 'step-mapped',
   );
   const timelineSteps = songLengthSteps;
-  const timelineWidth = timelineSteps * pixelsPerStep;
+  const timelineRunwayWidth = Math.max(108, ARRANGER_RUNWAY_STEPS * pixelsPerStep);
+  const timelineWidth = (timelineSteps * pixelsPerStep) + timelineRunwayWidth;
   const { beginClipDrag, dragState } = useArrangerClipDrag({
     arrangerClips,
     minClipLength: MIN_CLIP_LENGTH,
@@ -249,7 +251,7 @@ export const Arranger = () => {
   const totalBars = formatBars(timelineSteps);
   const totalDurationSeconds = songLengthInBeats * (60 / bpm) * 0.25;
   const visibleStartStep = Math.floor(scrollLeft / pixelsPerStep);
-  const visibleEndStep = Math.ceil((scrollLeft + viewportWidth) / pixelsPerStep);
+  const visibleEndStep = Math.min(timelineSteps, Math.ceil((scrollLeft + viewportWidth) / pixelsPerStep));
   const maxTimelineScrollLeft = Math.max(0, timelineWidth - viewportWidth);
   const selectedPhraseActiveSteps = selectedClipPattern.filter((step) => step.length > 0).length;
   const selectedPhraseNoteCount = selectedClipPattern.reduce((sum, step) => sum + step.length, 0);

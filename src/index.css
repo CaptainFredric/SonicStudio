@@ -1489,52 +1489,50 @@ html[data-supersonic="true"] .studio-nav-button svg {
 }
 
 .studio-icon-fill-compose-core {
-  width: 10px;
-  height: 7px;
-  left: 5px;
-  top: 6.5px;
-  border-radius: 2px;
+  width: 11px;
+  height: 9px;
+  left: 4.5px;
+  top: 5.5px;
+  border-radius: 1px;
 }
 
 .studio-icon-fill-grid-core {
-  width: 9px;
-  height: 9px;
-  left: 5.5px;
-  top: 5.5px;
-  border-radius: 2px;
+  width: 11px;
+  height: 11px;
+  left: 4.5px;
+  top: 4.5px;
+  border-radius: 1px;
 }
 
 .studio-icon-fill-mixer-core {
-  width: 10px;
-  height: 9px;
-  left: 5px;
-  top: 5.5px;
-  border-radius: 2px;
-  clip-path: polygon(0 38%, 43% 38%, 73% 18%, 100% 18%, 100% 82%, 73% 82%, 43% 62%, 0 62%);
+  width: 12px;
+  height: 10px;
+  left: 4px;
+  top: 5px;
+  border-radius: 1px;
 }
 
 .studio-icon-fill-spark-core {
-  width: 8px;
-  height: 8px;
-  left: 6px;
-  top: 6px;
+  width: 11px;
+  height: 11px;
+  left: 4.5px;
+  top: 4.5px;
   border-radius: 2px;
-  clip-path: polygon(50% 0, 66% 34%, 100% 50%, 66% 66%, 50% 100%, 34% 66%, 0 50%, 34% 34%);
 }
 
 .studio-icon-fill-share-core {
-  width: 9px;
-  height: 9px;
-  left: 5.5px;
-  top: 5.5px;
-  border-radius: 999px;
+  width: 12px;
+  height: 12px;
+  left: 4px;
+  top: 4px;
+  border-radius: 1px;
 }
 
 .studio-icon-fill-support-core {
-  width: 10px;
-  height: 8px;
-  left: 5px;
-  top: 7px;
+  width: 11px;
+  height: 9px;
+  left: 4.5px;
+  top: 6.5px;
   border-radius: 2px;
 }
 
@@ -2540,4 +2538,38 @@ html[data-supersonic="true"] .session-player-deck-chip[data-role="intro"] {
 
 .scroll-snap-align-start {
   scroll-snap-align: start;
+}
+
+/* Arranger Infinite Track System */
+.arranger-timeline-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.arranger-timeline-fade {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 140px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.06) 100%);
+  z-index: 10;
+}
+
+html[data-theme="dark"] .arranger-timeline-fade {
+  background: linear-gradient(90deg, transparent 0%, rgba(0, 0, 0, 0.18) 100%);
+}
+
+html[data-supersonic="true"] .arranger-timeline-fade {
+  background: linear-gradient(90deg, transparent 0%, rgba(176, 31, 55, 0.08) 100%);
+}
+
+.arranger-clip-future {
+  opacity: 0.42;
+  filter: brightness(0.92);
+}
+
+.arranger-clip-fade-zone {
+  transition: opacity 0.2s ease-out, filter 0.2s ease-out;
 }

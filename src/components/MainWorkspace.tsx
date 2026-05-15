@@ -44,7 +44,7 @@ import {
 } from '../utils/noteEditing';
 import { TrackIcon, getTrackPersonality } from '../utils/trackPersonality';
 import { useMediaQuery } from '../utils/useMediaQuery';
-import { defaultNoteForTrack, type InstrumentType, type NoteEvent, type Track } from '../project/schema';
+import { MAX_STEPS_PER_PATTERN, defaultNoteForTrack, type InstrumentType, type NoteEvent, type Track } from '../project/schema';
 
 const TRACK_BUTTONS = [
   { label: 'Kick', type: 'kick' as const },
@@ -65,7 +65,8 @@ const QUICK_INTERVALS = [
   { label: '+8va', semitones: 12 },
 ] as const;
 const NOTE_OPTIONS = buildNoteOptions(6, 2);
-const STEP_OPTIONS = [16, 24, 32, 48, 64, 96, 128, 160, 192] as const;
+const STEP_OPTIONS = [16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512, 768, 1024, 1536, 2048, 3072, 4096] as const;
+const SEQUENCER_RUNWAY_STEPS = 6;
 const STEP_ZOOM_MIN = 16;
 const STEP_ZOOM_STEP = 2;
 const SUPERSONIC_NOTE_OFFSETS = [4, 3, 2, 1, 0, -1, -2, -3, -4] as const;
@@ -529,7 +530,8 @@ export const MainWorkspace = () => {
     ? (compactLanes ? 188 : 212)
     : compactLanes ? 300 : 340;
   const stepCellWidth = clampNumber(stepZoom, STEP_ZOOM_MIN, stepZoomMax);
-  const stepGridWidth = stepsPerPattern * stepCellWidth;
+  const stepRunwayWidth = Math.max(104, SEQUENCER_RUNWAY_STEPS * stepCellWidth);
+  const stepGridWidth = (stepsPerPattern * stepCellWidth) + stepRunwayWidth;
   const maxGridScrollLeft = Math.max(0, (laneHeaderWidth + stepGridWidth) - gridViewportWidth);
   const visibleStepStart = Math.max(0, Math.floor(Math.max(0, gridScrollLeft - laneHeaderWidth) / stepCellWidth));
   const visibleStepEnd = Math.min(stepsPerPattern, Math.ceil(Math.max(0, (gridScrollLeft + gridViewportWidth - laneHeaderWidth)) / stepCellWidth));
@@ -840,6 +842,22 @@ export const MainWorkspace = () => {
     setSelectedStepIndex(stepIndex);
     setSelectedStepNoteIndex(noteIndex);
   };
+
+  const extendStepsPerPattern = useCallback((stepCount: number) => {
+    const nextStepsPerPattern = clampNumber(
+      Math.max(stepsPerPattern, stepCount),
+      16,
+      MAX_STEPS_PER_PATTERN,
+    );
+
+    if (nextStepsPerPattern !== stepsPerPattern) {
+      setStepsPerPattern(nextStepsPerPattern);
+    }
+  }, [setStepsPerPattern, stepsPerPattern]);
+
+  const extendPatternBy = useCallback((stepDelta: number) => {
+    extendStepsPerPattern(stepsPerPattern + stepDelta);
+  }, [extendStepsPerPattern, stepsPerPattern]);
 
   const handleToggleSelectedTrackLoop = () => {
     if (!selectedTrackPatternSpan || !selectedTrack) {
@@ -1231,18 +1249,32 @@ export const MainWorkspace = () => {
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <div className="surface-panel-strong flex flex-wrap items-center gap-1 p-1">
-                  <span className="px-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Steps 16-192</span>
+                  <span className="px-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Steps 16-4096</span>
                   {STEP_OPTIONS.map((option) => (
                     <button
                       className="control-chip px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
                       data-active={stepsPerPattern === option}
                       key={option}
-                      onClick={() => setStepsPerPattern(option)}
+                      onClick={() => extendStepsPerPattern(option)}
                       type="button"
                     >
                       {option}
                     </button>
                   ))}
+                  <button
+                    className="control-chip px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                    onClick={() => extendPatternBy(16)}
+                    type="button"
+                  >
+                    +1 bar
+                  </button>
+                  <button
+                    className="control-chip px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                    onClick={() => extendPatternBy(32)}
+                    type="button"
+                  >
+                    +2 bars
+                  </button>
                 </div>
                 <div className="surface-panel-strong flex items-center gap-2 p-1">
                   <span className="px-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Zoom</span>
@@ -1286,29 +1318,29 @@ export const MainWorkspace = () => {
                   ))}
                 </div>
                 {!isMobileViewport && (
-                <div className="surface-panel-strong min-w-[196px] px-3 py-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="section-label">Load watch</span>
-                    <span
-                      className="font-mono text-[10px] uppercase tracking-[0.14em]"
-                      style={{ color: loadWatchStyle.text }}
-                    >
-                      {loadWatchSummary.label}
-                    </span>
+                  <div className="surface-panel-strong min-w-[196px] px-3 py-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="section-label">Load watch</span>
+                      <span
+                        className="font-mono text-[10px] uppercase tracking-[0.14em]"
+                        style={{ color: loadWatchStyle.text }}
+                      >
+                        {loadWatchSummary.label}
+                      </span>
+                    </div>
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-[2px] bg-black/20">
+                      <div
+                        className="h-full rounded-[2px]"
+                        style={{
+                          background: loadWatchStyle.bar,
+                          width: `${Math.max(6, loadWatchSummary.score)}%`,
+                        }}
+                      />
+                    </div>
+                    <div className="mt-2 text-[10px] uppercase tracking-[0.12em] text-[var(--text-secondary)]">
+                      {loadWatchSummary.activeLaneCount} lanes · {loadWatchSummary.totalNotes} notes · peak {loadWatchSummary.peakNotes}
+                    </div>
                   </div>
-                  <div className="mt-2 h-1.5 overflow-hidden rounded-[2px] bg-black/20">
-                    <div
-                      className="h-full rounded-[2px]"
-                      style={{
-                        background: loadWatchStyle.bar,
-                        width: `${Math.max(6, loadWatchSummary.score)}%`,
-                      }}
-                    />
-                  </div>
-                  <div className="mt-2 text-[10px] uppercase tracking-[0.12em] text-[var(--text-secondary)]">
-                    {loadWatchSummary.activeLaneCount} lanes · {loadWatchSummary.totalNotes} notes · peak {loadWatchSummary.peakNotes}
-                  </div>
-                </div>
                 )}
                 {superSonicMode && superSonicPreferences.guidanceBadges && (
                   <div className="surface-panel-strong flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--accent-strong)]">
@@ -1548,6 +1580,15 @@ export const MainWorkspace = () => {
                         </span>
                       </button>
                     ))}
+                    <button
+                      className="group relative flex shrink-0 flex-col items-center justify-center border-l border-dashed border-[var(--border-soft)] bg-[linear-gradient(90deg,rgba(255,255,255,0.03),rgba(114,217,255,0.08))]"
+                      onClick={() => extendPatternBy(16)}
+                      style={{ width: `${stepRunwayWidth}px` }}
+                      type="button"
+                    >
+                      <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-secondary)]">More room</span>
+                      <span className="mt-1 text-[10px] text-[var(--text-tertiary)]">extend +16</span>
+                    </button>
                   </div>
                 </div>
 
@@ -1807,6 +1848,21 @@ export const MainWorkspace = () => {
                               </button>
                             );
                           })}
+                          <button
+                            className="group relative shrink-0 border border-dashed border-[var(--border-soft)] bg-[linear-gradient(90deg,rgba(255,255,255,0.025),rgba(114,217,255,0.08))] text-left transition-colors hover:border-[rgba(114,217,255,0.28)] hover:bg-[linear-gradient(90deg,rgba(255,255,255,0.04),rgba(114,217,255,0.12))]"
+                            onClick={() => {
+                              setSelectedTrackId(track.id);
+                              extendPatternBy(16);
+                              window.requestAnimationFrame(() => jumpToStep(stepsPerPattern, track.id));
+                            }}
+                            style={{ width: `${stepRunwayWidth - 2}px` }}
+                            type="button"
+                          >
+                            <div className="flex h-full min-h-[38px] flex-col items-start justify-center px-3">
+                              <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-secondary)]">Keep writing</span>
+                              <span className="mt-1 text-[10px] text-[var(--text-tertiary)]">extend this pattern</span>
+                            </div>
+                          </button>
                         </div>
                       </div>
                     );
@@ -1856,6 +1912,9 @@ export const MainWorkspace = () => {
                   >
                     Right
                   </button>
+                  <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+                    tail stays open
+                  </span>
                 </div>
               </div>
             </div>

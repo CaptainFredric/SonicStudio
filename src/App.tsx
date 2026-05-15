@@ -56,10 +56,10 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchp
       icon: (
         <span className="studio-icon-shell">
           <svg aria-hidden="true" className="h-5 w-5 studio-arrange-icon" viewBox="0 0 20 20">
-            <rect className="studio-arrange-top-fill" height="4.2" rx="1" width="11" x="4.5" y="2.8" />
-            <rect className="studio-arrange-outline" height="4.2" rx="1" width="11" x="4.5" y="2.8" />
-            <rect className="studio-arrange-outline" height="4.2" rx="1" width="13" x="3.5" y="8.1" />
-            <rect className="studio-arrange-outline" height="4.2" rx="1" width="15" x="2.5" y="13.4" />
+            <rect className="studio-arrange-top-fill" height="4" rx="1" width="12" x="4" y="2.5" />
+            <rect className="studio-arrange-outline" height="4" rx="1" width="12" x="4" y="2.5" />
+            <rect className="studio-arrange-outline" height="4" rx="1" width="14" x="3" y="8" />
+            <rect className="studio-arrange-outline" height="4" rx="1" width="16" x="2" y="13.5" />
           </svg>
         </span>
       ),
@@ -116,11 +116,11 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchp
           <div className="flex items-center justify-center gap-2 md:flex-col">
             <span className="studio-icon-shell text-[var(--danger)]">
               <svg aria-hidden="true" className="h-5 w-5 studio-mic-icon" viewBox="0 0 20 20">
-                <rect className="studio-mic-capsule-fill" height="10" rx="4" width="8" x="6" y="2.5" />
-                <rect className="studio-mic-outline" height="10" rx="4" width="8" x="6" y="2.5" />
-                <path className="studio-mic-outline" d="M4.5 8.5a5.5 5.5 0 0 0 11 0" />
+                <rect className="studio-mic-capsule-fill" height="10" rx="3" width="6" x="7" y="2.5" />
+                <rect className="studio-mic-outline" height="10" rx="3" width="6" x="7" y="2.5" />
+                <path className="studio-mic-outline" d="M5.5 8.5a4.5 4.5 0 0 0 9 0" />
                 <line className="studio-mic-outline" x1="10" x2="10" y1="13.5" y2="16.8" />
-                <line className="studio-mic-outline" x1="7.2" x2="12.8" y1="16.8" y2="16.8" />
+                <line className="studio-mic-outline" x1="7.4" x2="12.6" y1="16.8" y2="16.8" />
               </svg>
             </span>
             <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Capture</span>

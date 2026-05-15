@@ -231,10 +231,12 @@ export interface StudioSession {
 export const DEFAULT_PATTERN_COUNT = 4;
 export const DEFAULT_STEPS_PER_PATTERN = 16;
 export const MAX_PATTERN_COUNT = 16;
-export const MAX_STEPS_PER_PATTERN = 192;
+export const MAX_STEPS_PER_PATTERN = 4096;
 export const MIN_PATTERN_COUNT = 1;
 export const MIN_STEPS_PER_PATTERN = 8;
 export const PROJECT_SCHEMA_VERSION = 12;
+
+const MAX_ARRANGER_BEAT_POSITION = 99999;
 
 export const INITIAL_MASTER: MasterSettings = {
   glueCompression: 0.42,
@@ -1222,7 +1224,7 @@ const normalizeArrangerClips = (
         beatLength: clamp(
           typeof candidate.beatLength === 'number' ? Math.round(candidate.beatLength) : 16,
           4,
-          128,
+          99999,
         ),
         id: typeof candidate.id === 'string' && candidate.id ? candidate.id : createId('clip'),
         patternIndex: clamp(
@@ -1233,7 +1235,7 @@ const normalizeArrangerClips = (
         startBeat: clamp(
           typeof candidate.startBeat === 'number' ? Math.round(candidate.startBeat) : 0,
           0,
-          4096,
+          MAX_ARRANGER_BEAT_POSITION,
         ),
         trackId,
       } satisfies ArrangementClip;
@@ -1330,10 +1332,10 @@ export const createArrangerClip = (
   transport: TransportSettings,
   options: Partial<Omit<ArrangementClip, 'trackId'>> = {},
 ): ArrangementClip => ({
-  beatLength: clamp(Math.round(options.beatLength ?? transport.stepsPerPattern), 4, 128),
+  beatLength: clamp(Math.round(options.beatLength ?? transport.stepsPerPattern), 4, MAX_ARRANGER_BEAT_POSITION),
   id: options.id ?? createId('clip'),
   patternIndex: clamp(Math.round(options.patternIndex ?? transport.currentPattern), 0, transport.patternCount - 1),
-  startBeat: clamp(Math.round(options.startBeat ?? 0), 0, 4096),
+  startBeat: clamp(Math.round(options.startBeat ?? 0), 0, MAX_ARRANGER_BEAT_POSITION),
   trackId,
 });
 
