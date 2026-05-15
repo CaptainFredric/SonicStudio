@@ -401,33 +401,35 @@ export const TopBar = ({
 
             <div className="grid gap-2 md:hidden">
               <div
-                className="surface-panel-muted flex items-center gap-1 p-1"
+                className="surface-panel-muted flex items-center justify-between gap-1 p-1"
                 style={{
                   opacity: compactStart ? 0.42 : 1,
                   transition: 'opacity 230ms cubic-bezier(0.22,1,0.36,1)',
                 }}
               >
-                <UtilityBtn label="Save" onClick={saveProject} shortcut="⌘S">
-                  <Save className="h-3.5 w-3.5" />
-                </UtilityBtn>
-                <UtilityBtn disabled={!canUndo} label="Undo" onClick={undo} shortcut="⌘Z">
-                  <Undo2 className="h-3.5 w-3.5" />
-                </UtilityBtn>
-                <UtilityBtn disabled={!canRedo} label="Redo" onClick={redo} shortcut="⇧⌘Z">
-                  <Redo2 className="h-3.5 w-3.5" />
-                </UtilityBtn>
-                <UtilityBtn
-                  armed={isRestartArmed}
-                  armedLabel="Confirm"
-                  label="Restart"
-                  onClick={handleRestartSession}
-                  shortcut="Double click"
-                  uiSound="danger"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </UtilityBtn>
+                <div className="flex items-center gap-1">
+                  <UtilityBtn label="Save" onClick={saveProject} shortcut="⌘S">
+                    <Save className="h-3.5 w-3.5" />
+                  </UtilityBtn>
+                  <UtilityBtn disabled={!canUndo} label="Undo" onClick={undo} shortcut="⌘Z">
+                    <Undo2 className="h-3.5 w-3.5" />
+                  </UtilityBtn>
+                  <UtilityBtn disabled={!canRedo} label="Redo" onClick={redo} shortcut="⇧⌘Z">
+                    <Redo2 className="h-3.5 w-3.5" />
+                  </UtilityBtn>
+                  <UtilityBtn
+                    armed={isRestartArmed}
+                    armedLabel="Confirm"
+                    label="Restart"
+                    onClick={handleRestartSession}
+                    shortcut="Double click"
+                    uiSound="danger"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </UtilityBtn>
+                </div>
               </div>
-              <div className="flex flex-wrap items-center justify-end gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 {onOpenCapture && (
                   <button
                     className="control-chip capture-action flex h-9 items-center gap-2 px-3.5 text-[10px] font-semibold uppercase tracking-[0.14em]"

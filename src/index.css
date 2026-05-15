@@ -775,8 +775,8 @@ html[data-supersonic="true"] .pattern-toggle-chip[data-active="true"] {
     border-color 240ms cubic-bezier(0.22, 1, 0.36, 1),
     background-color 240ms cubic-bezier(0.22, 1, 0.36, 1),
     color 180ms cubic-bezier(0.22, 1, 0.36, 1) 90ms,
-    transform 240ms cubic-bezier(0.22, 1, 0.36, 1),
     box-shadow 240ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: box-shadow, color, background-color;
 }
 
 .control-chip[data-super="true"]::before {
@@ -788,6 +788,7 @@ html[data-supersonic="true"] .pattern-toggle-chip[data-active="true"] {
   transform: scaleX(0);
   transform-origin: left center;
   transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
 }
 
 .control-chip[data-super="true"] > * {
@@ -2102,11 +2103,13 @@ html[data-supersonic="true"] .session-player-deck-chip[data-role="intro"] {
     justify-content: center;
     gap: 0.35rem;
     min-height: 2.85rem;
-    padding-inline: 0.45rem;
+    padding-inline: 0.65rem;
     font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.14em;
+    flex: 1;
+    min-width: 0;
   }
 
   .mobile-transport-btn[data-primary="true"] {
