@@ -458,6 +458,14 @@ export const MainWorkspace = () => {
   const currentPatternLabel = `Pattern ${String.fromCharCode(65 + currentPattern)}`;
   const playbackStep = stepsPerPattern > 0 ? currentStep % stepsPerPattern : 0;
   const selectedStep = selectedTrackPattern[selectedStepIndex] ?? [];
+  const activeStepIndices = useMemo(() => (
+    selectedTrackPattern.reduce<number[]>((indices, step, stepIndex) => {
+      if (step.length > 0) {
+        indices.push(stepIndex);
+      }
+      return indices;
+    }, [])
+  ), [selectedTrackPattern]);
   const selectedLeadEvent = selectedStep[0] ?? null;
   const selectedStepNote = selectedStep[selectedStepNoteIndex] ?? selectedLeadEvent;
   const normalizedSelectedStepNoteIndex = selectedStepNote
@@ -816,6 +824,22 @@ export const MainWorkspace = () => {
     setTransportMode('PATTERN');
     setLoopRange(selectedTrackPatternSpan.startStep, selectedTrackPatternSpan.endStep);
     jumpToStep(selectedTrackPatternSpan.startStep, selectedTrack.id);
+  };
+
+  const handleClearLoopRange = () => {
+    setLoopRange(null, null);
+  };
+
+  const jumpToAdjacentActiveStep = (direction: 'next' | 'previous') => {
+    if (!selectedTrack || activeStepIndices.length === 0) {
+      return;
+    }
+
+    const nextStep = direction === 'next'
+      ? activeStepIndices.find((stepIndex) => stepIndex > selectedStepIndex) ?? activeStepIndices[0]
+      : [...activeStepIndices].reverse().find((stepIndex) => stepIndex < selectedStepIndex) ?? activeStepIndices[activeStepIndices.length - 1];
+
+    jumpToStep(nextStep, selectedTrack.id);
   };
 
   const handleClearSelectedTrackNotes = () => {
@@ -1228,6 +1252,7 @@ export const MainWorkspace = () => {
                     </button>
                   ))}
                 </div>
+                {!isMobileViewport && (
                 <div className="surface-panel-strong min-w-[196px] px-3 py-2">
                   <div className="flex items-center justify-between gap-3">
                     <span className="section-label">Load watch</span>
@@ -1251,6 +1276,7 @@ export const MainWorkspace = () => {
                     {loadWatchSummary.activeLaneCount} lanes · {loadWatchSummary.totalNotes} notes · peak {loadWatchSummary.peakNotes}
                   </div>
                 </div>
+                )}
                 {superSonicMode && superSonicPreferences.guidanceBadges && (
                   <div className="surface-panel-strong flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--accent-strong)]">
                     <Zap className="h-3.5 w-3.5 text-[var(--accent)]" />
@@ -1281,16 +1307,18 @@ export const MainWorkspace = () => {
                       <Play className="h-3.5 w-3.5" />
                       Audition
                     </button>
-                    <button
-                      className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                      data-active={isSelectedTrackLoopActive}
-                      disabled={!selectedTrackPatternSpan}
-                      onClick={handleToggleSelectedTrackLoop}
-                      type="button"
-                    >
-                      <Music2 className="h-3.5 w-3.5" />
-                      {isSelectedTrackLoopActive ? 'Looping notes' : 'Loop notes'}
-                    </button>
+                    {!isMobileViewport && (
+                      <button
+                        className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                        data-active={isSelectedTrackLoopActive}
+                        disabled={!selectedTrackPatternSpan}
+                        onClick={handleToggleSelectedTrackLoop}
+                        type="button"
+                      >
+                        <Music2 className="h-3.5 w-3.5" />
+                        {isSelectedTrackLoopActive ? 'Looping notes' : 'Loop notes'}
+                      </button>
+                    )}
                     <button
                       className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
                       onClick={() => setActiveView(isSelectedTrackDrum ? 'ARRANGER' : 'PIANO_ROLL')}
@@ -1862,6 +1890,16 @@ export const MainWorkspace = () => {
                     {isSelectedTrackLoopActive ? 'Looping notes' : 'Loop active notes'}
                   </button>
                   <button
+                    className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                    data-active={hasExplicitLoopRange && !isSelectedTrackLoopActive ? 'true' : 'false'}
+                    disabled={!hasExplicitLoopRange}
+                    onClick={handleClearLoopRange}
+                    type="button"
+                  >
+                    <Play className="h-3.5 w-3.5" />
+                    Full pattern
+                  </button>
+                  <button
                     className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--danger)]"
                     onClick={handleClearSelectedTrackNotes}
                     type="button"
@@ -2259,6 +2297,43 @@ export const MainWorkspace = () => {
                     {selectedStep.length} note{selectedStep.length === 1 ? '' : 's'}
                   </div>
                 </div>
+                {activeStepIndices.length > 0 && (
+                  <div className="mt-3 rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-2.5">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="section-label">Active steps</span>
+                      <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+                        {activeStepIndices.length} filled
+                      </span>
+                    </div>
+                    <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
+                      Jump between filled steps to edit notes faster, or switch the loop back to the full pattern when a short phrase keeps repeating.
+                    </div>
+                    <div className="mt-3 grid gap-2 sm:grid-cols-3">
+                      <button
+                        className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                        onClick={() => jumpToAdjacentActiveStep('previous')}
+                        type="button"
+                      >
+                        Previous active
+                      </button>
+                      <button
+                        className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                        onClick={() => jumpToAdjacentActiveStep('next')}
+                        type="button"
+                      >
+                        Next active
+                      </button>
+                      <button
+                        className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                        disabled={!hasExplicitLoopRange}
+                        onClick={handleClearLoopRange}
+                        type="button"
+                      >
+                        Play full pattern
+                      </button>
+                    </div>
+                  </div>
+                )}
                 <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
                   {selectedStepNote
                     ? `${selectedStepNote.note} · velocity ${Math.round(selectedStepNote.velocity * 100)} · gate ${selectedStepNote.gate.toFixed(2)}`

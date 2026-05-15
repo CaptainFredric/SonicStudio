@@ -180,42 +180,43 @@ class UiSoundEngine {
     const air = context.createBufferSource();
     const airEnvelope = context.createGain();
     const airFilter = context.createBiquadFilter();
+    const swapEnabled = !enabled;
 
     filter.type = 'bandpass';
-    filter.Q.value = enabled ? 1.15 : 1.35;
-    filter.frequency.setValueAtTime(enabled ? 180 : 2200, now);
-    filter.frequency.exponentialRampToValueAtTime(enabled ? 4200 : 220, now + 0.29);
+    filter.Q.value = swapEnabled ? 1.15 : 1.35;
+    filter.frequency.setValueAtTime(swapEnabled ? 180 : 2200, now);
+    filter.frequency.exponentialRampToValueAtTime(swapEnabled ? 4200 : 220, now + 0.29);
 
     envelope.gain.setValueAtTime(0.0001, now);
-    envelope.gain.exponentialRampToValueAtTime(enabled ? 0.056 : 0.041, now + 0.016);
+    envelope.gain.exponentialRampToValueAtTime(swapEnabled ? 0.056 : 0.041, now + 0.016);
     envelope.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
 
     shimmerEnvelope.gain.setValueAtTime(0.0001, now);
-    shimmerEnvelope.gain.exponentialRampToValueAtTime(enabled ? 0.022 : 0.014, now + 0.014);
+    shimmerEnvelope.gain.exponentialRampToValueAtTime(swapEnabled ? 0.022 : 0.014, now + 0.014);
     shimmerEnvelope.gain.exponentialRampToValueAtTime(0.0001, now + 0.21);
 
     air.buffer = this.getNoiseBuffer(context);
-    airFilter.type = enabled ? 'bandpass' : 'highpass';
-    airFilter.Q.value = enabled ? 0.92 : 0.74;
-    airFilter.frequency.setValueAtTime(enabled ? 420 : 2200, now);
-    airFilter.frequency.exponentialRampToValueAtTime(enabled ? 5200 : 300, now + 0.27);
+    airFilter.type = swapEnabled ? 'bandpass' : 'highpass';
+    airFilter.Q.value = swapEnabled ? 0.92 : 0.74;
+    airFilter.frequency.setValueAtTime(swapEnabled ? 420 : 2200, now);
+    airFilter.frequency.exponentialRampToValueAtTime(swapEnabled ? 5200 : 300, now + 0.27);
     airEnvelope.gain.setValueAtTime(0.0001, now);
-    airEnvelope.gain.exponentialRampToValueAtTime(enabled ? 0.025 : 0.018, now + 0.02);
+    airEnvelope.gain.exponentialRampToValueAtTime(swapEnabled ? 0.025 : 0.018, now + 0.02);
     airEnvelope.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
 
-    carrier.type = enabled ? 'sawtooth' : 'triangle';
-    body.type = enabled ? 'triangle' : 'sine';
-    shimmer.type = enabled ? 'triangle' : 'sine';
+    carrier.type = swapEnabled ? 'sawtooth' : 'triangle';
+    body.type = swapEnabled ? 'triangle' : 'sine';
+    shimmer.type = swapEnabled ? 'triangle' : 'sine';
 
-    carrier.frequency.setValueAtTime(enabled ? 96 : 840, now);
-    carrier.frequency.exponentialRampToValueAtTime(enabled ? 720 : 118, now + 0.26);
-    body.frequency.setValueAtTime(enabled ? 210 : 620, now);
-    body.frequency.exponentialRampToValueAtTime(enabled ? 1320 : 150, now + 0.3);
-    shimmer.frequency.setValueAtTime(enabled ? 780 : 2100, now);
-    shimmer.frequency.exponentialRampToValueAtTime(enabled ? 2600 : 240, now + 0.18);
+    carrier.frequency.setValueAtTime(swapEnabled ? 96 : 840, now);
+    carrier.frequency.exponentialRampToValueAtTime(swapEnabled ? 720 : 118, now + 0.26);
+    body.frequency.setValueAtTime(swapEnabled ? 210 : 620, now);
+    body.frequency.exponentialRampToValueAtTime(swapEnabled ? 1320 : 150, now + 0.3);
+    shimmer.frequency.setValueAtTime(swapEnabled ? 780 : 2100, now);
+    shimmer.frequency.exponentialRampToValueAtTime(swapEnabled ? 2600 : 240, now + 0.18);
 
-    body.detune.value = enabled ? 11 : -8;
-    shimmer.detune.value = enabled ? 22 : -20;
+    body.detune.value = swapEnabled ? 11 : -8;
+    shimmer.detune.value = swapEnabled ? 22 : -20;
 
     carrier.connect(filter);
     body.connect(filter);
