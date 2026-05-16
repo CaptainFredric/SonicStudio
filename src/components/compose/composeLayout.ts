@@ -32,7 +32,10 @@ export const STORAGE = {
 
 export const MIN_TOP_RATIO = 0.12;
 export const MAX_TOP_RATIO = 0.88;
-export const DEFAULT_TOP_RATIO = 0.5;
+// Favour the lower pane by default: it usually holds the Piano Roll, where
+// the detailed note work happens, while the upper Arranger reads as an
+// overview and needs less height.
+export const DEFAULT_TOP_RATIO = 0.42;
 
 export const MIN_SIDE_WIDTH = 220;
 export const MAX_SIDE_WIDTH = 880;
