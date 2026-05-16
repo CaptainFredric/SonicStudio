@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeftRight,
+  ChevronDown,
+  ChevronUp,
   Eraser,
   LayoutGrid,
   Layers3,
@@ -165,6 +167,12 @@ export const PianoRoll = () => {
   const [chordKey, setChordKey] = useState<KeyName>('C');
   const [chordMode, setChordMode] = useState<'major' | 'minor'>('major');
   const [chordPaletteOpen, setChordPaletteOpen] = useState(false);
+  // The control rack collapses by default so the note grid leads the view.
+  // It opens automatically on roomy desktops where the space is there.
+  const [controlsExpanded, setControlsExpanded] = useState(() => (
+    typeof window !== 'undefined'
+    && window.matchMedia('(min-width: 1280px) and (min-height: 900px)').matches
+  ));
   const gridViewportRef = useRef<HTMLDivElement | null>(null);
   const gridOverviewRef = useRef<HTMLDivElement | null>(null);
   const gridOverviewDragRef = useRef(false);
@@ -789,7 +797,7 @@ export const PianoRoll = () => {
   };
 
   return (
-    <section className="surface-panel flex min-h-0 flex-1 flex-col overflow-auto xl:overflow-hidden">
+    <section className="surface-panel flex min-h-0 flex-1 flex-col overflow-auto">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-soft)] px-4 py-2.5">
         <div className="flex min-w-0 flex-wrap items-center gap-3">
           <div className="section-label whitespace-nowrap">Piano roll</div>
@@ -826,6 +834,20 @@ export const PianoRoll = () => {
           </div>
         </div>
 
+        <button
+          aria-expanded={controlsExpanded}
+          className="control-chip flex h-8 shrink-0 items-center gap-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
+          data-ui-sound="tab"
+          onClick={() => setControlsExpanded((current) => !current)}
+          title={controlsExpanded ? 'Hide step, zoom, and edit tools' : 'Step length, zoom, and edit tools'}
+          type="button"
+        >
+          <SlidersHorizontal className="h-3.5 w-3.5" />
+          <span>{controlsExpanded ? 'Hide tools' : 'Tools'}</span>
+          {controlsExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+        </button>
+
+        {controlsExpanded && (
         <div className="flex w-full flex-col gap-2 xl:flex-row xl:flex-wrap xl:items-center">
           <div className="flex max-w-full flex-wrap items-center gap-2">
             <div className="surface-panel-muted flex max-w-full flex-wrap items-center gap-2 p-1">
@@ -957,6 +979,7 @@ export const PianoRoll = () => {
             </div>
           </div>
         </div>
+        )}
       </div>
 
       {chordPaletteOpen && !isDrum && (
@@ -1024,8 +1047,8 @@ export const PianoRoll = () => {
         </div>
       )}
 
-      <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 xl:flex-row">
-        <div className="min-h-[420px] min-w-0 flex-1 overflow-hidden xl:min-h-0">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 xl:flex-row xl:items-stretch">
+        <div className="min-h-[min(62vh,560px)] min-w-0 flex-1 overflow-hidden">
           <div
             className="sequencer-grid-scroll h-full overflow-auto"
             ref={gridViewportRef}

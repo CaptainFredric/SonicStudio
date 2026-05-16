@@ -3,6 +3,8 @@ import {
   ArrowDown,
   ArrowLeftRight,
   ArrowUp,
+  ChevronDown,
+  ChevronUp,
   Copy,
   Eraser,
   Focus,
@@ -482,6 +484,12 @@ export const MainWorkspace = () => {
     updateStepEvent,
   } = useAudio();
   const [editorMode, setEditorMode] = useState<ComposeEditorMode>('edit');
+  // The compose rack and track map collapse by default so the step grid
+  // leads the view; roomy desktops open them automatically.
+  const [composeToolsExpanded, setComposeToolsExpanded] = useState(() => (
+    typeof window !== 'undefined'
+    && window.matchMedia('(min-width: 1280px) and (min-height: 900px)').matches
+  ));
   const [masterLevel, setMasterLevel] = useState(-100);
   const [uiFrameDriftMs, setUiFrameDriftMs] = useState(0);
   const [audioBaseLatencyMs, setAudioBaseLatencyMs] = useState<number | null>(() => {
@@ -1385,11 +1393,13 @@ export const MainWorkspace = () => {
 
   return (
     <section className="surface-panel flex min-h-0 flex-1 flex-col overflow-visible">
-      <div className="flex flex-col gap-3 border-b border-[var(--border-soft)] px-5 py-4 md:flex-row md:items-center md:justify-between md:gap-4">
+      <div className="flex flex-col gap-3 border-b border-[var(--border-soft)] px-5 py-3 md:flex-row md:items-center md:justify-between md:gap-4">
         <div className="min-w-0 shrink-0">
-          <div className="section-label">Sequencer</div>
-          <h2 className="mt-2 text-lg font-semibold tracking-tight text-[var(--text-primary)]">Pattern grid</h2>
-          <p className="mt-2 text-sm text-[var(--text-secondary)]">Build the current pattern here before you move it into Song view.</p>
+          <div className="flex items-baseline gap-2">
+            <div className="section-label">Sequencer</div>
+            <h2 className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">Pattern grid</h2>
+          </div>
+          <p className="mt-1 hidden text-sm text-[var(--text-secondary)] xl:block">Build the current pattern here before you move it into Song view.</p>
         </div>
         <div className="surface-panel-muted w-full min-w-0 p-2 md:flex-1 sm:max-w-full md:max-w-[700px]">
           <div className="flex items-center justify-between gap-3">
@@ -1459,7 +1469,7 @@ export const MainWorkspace = () => {
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-visible p-4 xl:flex-row xl:items-start">
-        <div className="flex min-h-[340px] min-w-0 flex-1 flex-col overflow-visible lg:min-h-[380px] xl:min-h-0">
+        <div className="flex min-h-[min(58vh,520px)] min-w-0 flex-1 flex-col overflow-visible">
           <div className="surface-panel-muted mb-3 px-4 py-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -1473,6 +1483,19 @@ export const MainWorkspace = () => {
                     : `${tracks.length} total tracks · ${melodicTrackCount} melodic lanes`}
                 </div>
               </div>
+              <button
+                aria-expanded={composeToolsExpanded}
+                className="control-chip flex h-8 shrink-0 items-center gap-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                data-ui-sound="tab"
+                onClick={() => setComposeToolsExpanded((current) => !current)}
+                title={composeToolsExpanded ? 'Hide step, zoom, lane, and map tools' : 'Step length, zoom, lane, and map tools'}
+                type="button"
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                <span>{composeToolsExpanded ? 'Hide tools' : 'Tools'}</span>
+                {composeToolsExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+              </button>
+              {composeToolsExpanded && (
               <div className="flex flex-wrap items-center gap-2">
                 <div className="surface-panel-strong flex flex-wrap items-center gap-1 p-1">
                   <span className="px-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Steps 16-4096</span>
@@ -1694,10 +1717,11 @@ export const MainWorkspace = () => {
                   </>
                 )}
               </div>
+              )}
             </div>
           </div>
 
-          {visibleTracks.length > 0 && (
+          {visibleTracks.length > 0 && composeToolsExpanded && (
             <div className="surface-panel-muted mb-3 px-4 py-3">
               {isMobileViewport ? (
                 <div className="mb-3 flex items-center justify-between gap-2 border-b border-[var(--border-soft)] pb-3">
