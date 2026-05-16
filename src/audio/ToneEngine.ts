@@ -358,7 +358,7 @@ export class ToneEngine {
     };
   }
 
-  private applyAutomationStep(graph: TrackGraph, track: Track, patternIndex: number, stepIndex: number) {
+  private applyAutomationStep(graph: TrackGraph, track: Track, patternIndex: number, stepIndex: number, time: number) {
     const automation = this.getAutomationStep(track, patternIndex, stepIndex);
     const volumeOffset = (automation.level - 0.5) * 18;
     const toneFactor = 0.35 + automation.tone * 1.3;
@@ -366,12 +366,12 @@ export class ToneEngine {
     const automatedCutoff = Math.max(80, Math.min(18_000, track.params.cutoff * toneFactor));
 
     if (graph.lastAutomationVolume === null || Math.abs(graph.lastAutomationVolume - automatedVolume) > 0.02) {
-      graph.channel.volume.rampTo(automatedVolume, 0.02);
+      graph.channel.volume.rampTo(automatedVolume, 0.02, time);
       graph.lastAutomationVolume = automatedVolume;
     }
 
     if (graph.lastAutomationCutoff === null || Math.abs(graph.lastAutomationCutoff - automatedCutoff) > 12) {
-      graph.filter.frequency.rampTo(automatedCutoff, 0.02);
+      graph.filter.frequency.rampTo(automatedCutoff, 0.02, time);
       graph.lastAutomationCutoff = automatedCutoff;
     }
   }
@@ -427,7 +427,7 @@ export class ToneEngine {
         if (resolved) {
           const graph = this.trackGraphs[track.id];
           if (graph) {
-            this.applyAutomationStep(graph, track, resolved.patternIndex, resolved.stepIndex);
+            this.applyAutomationStep(graph, track, resolved.patternIndex, resolved.stepIndex, time);
           }
         }
         return;
@@ -439,7 +439,7 @@ export class ToneEngine {
         return;
       }
 
-      this.applyAutomationStep(graph, track, resolved.patternIndex, resolved.stepIndex);
+      this.applyAutomationStep(graph, track, resolved.patternIndex, resolved.stepIndex, time);
 
       resolved.note.forEach((event) => {
         this.triggerTrack(graph, track, event, time);
@@ -537,8 +537,11 @@ export class ToneEngine {
       return;
     }
 
-    const graph = this.ensureTrackGraph(track);
-    this.applyTrackGraphState(graph, track);
+    // Use a dedicated preview graph keyed by 'preview-{id}' so preview notes
+    // do not share the PolySynth voice pool with the running transport.
+    const previewTrackClone = { ...track, id: `preview-${track.id}` };
+    const graph = this.ensureTrackGraph(previewTrackClone);
+    this.applyTrackGraphState(graph, previewTrackClone);
     const previewNote: NoteEvent = {
       gate: track.source.engine === 'sample' ? 2 : track.type === 'pad' ? 2.5 : 1.25,
       note,
@@ -546,7 +549,7 @@ export class ToneEngine {
       velocity,
     };
 
-    this.triggerTrack(graph, track, previewNote, Tone.now() + 0.02);
+    this.triggerTrack(graph, previewTrackClone, previewNote, Tone.now() + 0.02);
   }
 
   public previewMetronomeTick(accent: boolean = false) {
@@ -1055,7 +1058,9 @@ export class ToneEngine {
     });
 
     Object.keys(this.trackGraphs).forEach((trackId) => {
-      if (!activeTrackIds.has(trackId)) {
+      // Preserve preview graphs as long as their base transport track is still active.
+      const baseId = trackId.startsWith('preview-') ? trackId.slice('preview-'.length) : trackId;
+      if (!activeTrackIds.has(baseId)) {
         this.disposeTrackGraph(trackId);
       }
     });
