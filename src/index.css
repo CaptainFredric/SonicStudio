@@ -2327,6 +2327,116 @@ html[data-supersonic="true"] .session-player-deck-chip[data-role="intro"] {
   }
 }
 
+/* Compact transport bar — shown below the xl breakpoint so the core
+   controls stay reachable while the heavier TopBar detail panel collapses. */
+.compact-transport-bar {
+  position: sticky;
+  top: 0.35rem;
+  z-index: 48;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.35rem 0.75rem 0;
+  padding: 0.5rem;
+  border: 1px solid rgba(190, 208, 228, 0.18);
+  border-radius: 3px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02) 32%, rgba(0,0,0,0.1)),
+    color-mix(in srgb, var(--bg-panel-strong) 92%, transparent);
+  backdrop-filter: blur(14px);
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.24);
+}
+
+.compact-transport-group {
+  display: flex;
+  gap: 0.4rem;
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.compact-transport-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  flex: 1;
+  min-width: 0;
+  min-height: 2.6rem;
+  padding-inline: 0.6rem;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.13em;
+}
+
+.compact-transport-btn[data-primary="true"] {
+  border-color: color-mix(in srgb, var(--accent) 42%, transparent);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 22%, white 12%), color-mix(in srgb, var(--accent) 12%, rgba(255,255,255,0.06)) 38%, rgba(8, 12, 16, 0.5)),
+    rgba(10, 14, 19, 0.96);
+  color: var(--accent-strong);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.16),
+    inset 0 -1px 0 rgba(0,0,0,0.18),
+    0 10px 20px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.compact-transport-btn[data-primary="true"][data-active="true"] {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 44%, white 12%), color-mix(in srgb, var(--accent) 22%, rgba(255,255,255,0.08)) 38%, rgba(8, 12, 16, 0.44)),
+    rgba(10, 14, 19, 0.98);
+}
+
+.compact-transport-btn[data-record="true"][data-active="true"] {
+  border-color: rgba(240, 143, 134, 0.45);
+  background: rgba(240, 143, 134, 0.16);
+  color: var(--danger);
+}
+
+.compact-transport-tempo {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.compact-tempo-step {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 2.6rem;
+  width: 2.1rem;
+  padding: 0;
+}
+
+.compact-tempo-input {
+  height: 2.6rem;
+  width: 3.6rem;
+  text-align: center;
+  font-size: 12px;
+  padding-inline: 0.2rem;
+}
+
+.compact-tempo-unit {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--accent-strong);
+}
+
+.compact-transport-super {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  height: 2.6rem;
+  padding-inline: 0.85rem;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.13em;
+}
+
 @media (max-width: 1279px) {
   .arranger-surface {
     overflow-x: hidden;
@@ -2361,64 +2471,6 @@ html[data-supersonic="true"] .session-player-deck-chip[data-role="intro"] {
     gap: 0.7rem;
     padding-inline: 0.65rem;
     padding-bottom: 0.8rem;
-  }
-
-  .mobile-transport-strip {
-    position: sticky;
-    top: 0.35rem;
-    z-index: 48;
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 0.45rem;
-    margin-inline: 0.55rem;
-    margin-top: 0.35rem;
-    padding: 0.5rem;
-    border: 1px solid rgba(190, 208, 228, 0.18);
-    border-radius: 2px;
-    background:
-      linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02) 32%, rgba(0,0,0,0.1)),
-      color-mix(in srgb, var(--bg-panel-strong) 92%, transparent);
-    backdrop-filter: blur(14px);
-    box-shadow: 0 12px 26px rgba(0, 0, 0, 0.24);
-  }
-
-  .mobile-transport-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.35rem;
-    min-height: 2.85rem;
-    padding-inline: 0.65rem;
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.14em;
-    flex: 1;
-    min-width: 0;
-  }
-
-  .mobile-transport-btn[data-primary="true"] {
-    border-color: color-mix(in srgb, var(--accent) 42%, transparent);
-    background:
-      linear-gradient(180deg, color-mix(in srgb, var(--accent) 22%, white 12%), color-mix(in srgb, var(--accent) 12%, rgba(255,255,255,0.06)) 38%, rgba(8, 12, 16, 0.5)),
-      rgba(10, 14, 19, 0.96);
-    color: var(--accent-strong);
-    box-shadow:
-      inset 0 1px 0 rgba(255,255,255,0.16),
-      inset 0 -1px 0 rgba(0,0,0,0.18),
-      0 10px 20px color-mix(in srgb, var(--accent) 14%, transparent);
-  }
-
-  .mobile-transport-btn[data-primary="true"][data-active="true"] {
-    background:
-      linear-gradient(180deg, color-mix(in srgb, var(--accent) 44%, white 12%), color-mix(in srgb, var(--accent) 22%, rgba(255,255,255,0.08)) 38%, rgba(8, 12, 16, 0.44)),
-      rgba(10, 14, 19, 0.98);
-  }
-
-  .mobile-transport-btn[data-record="true"][data-active="true"] {
-    border-color: rgba(240, 143, 134, 0.45);
-    background: rgba(240, 143, 134, 0.16);
-    color: var(--danger);
   }
 
   .studio-rail {

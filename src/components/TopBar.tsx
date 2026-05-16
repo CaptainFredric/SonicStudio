@@ -128,8 +128,13 @@ export const TopBar = ({
   const [showSessionDetail, setShowSessionDetail] = useState(false);
   const [mobileHeaderExpanded, setMobileHeaderExpanded] = useState(false);
   const [tapTempoLabel, setTapTempoLabel] = useState<string | null>(null);
-  const isMobileViewport = useMediaQuery('(max-width: 767px)');
-  const headerSectionVisible = !isMobileViewport || mobileHeaderExpanded;
+  // On anything short of a roomy desktop the header collapses to a compact bar
+  // so the work surface stays dominant on laptops and split-screen windows.
+  // The transport itself lives in the always-visible CompactTransportBar, so
+  // collapsing never hides it. Only a wide AND tall viewport keeps the full
+  // header expanded by default.
+  const isCompactHeader = useMediaQuery('(max-width: 1279px), (max-height: 899px)');
+  const headerSectionVisible = !isCompactHeader || mobileHeaderExpanded;
   const [audioRuntime, setAudioRuntime] = useState<{
     baseLatencyMs: number | null;
     contextState: AudioContextState;
@@ -407,8 +412,8 @@ export const TopBar = ({
   };
 
   return (
-    <header className="surface-panel px-3 py-3 sm:px-5 sm:py-4 md:max-h-[44vh] md:overflow-y-auto">
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(320px,372px)] xl:items-start" data-first-impression={isFirstImpression}>
+    <header className="surface-panel px-3 py-3 sm:px-5 sm:py-4">
+      <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(296px,352px)] md:items-start" data-first-impression={isFirstImpression}>
         <div className="grid min-w-0 content-start gap-4">
           <div className={`flex min-w-0 items-center gap-3 ${headerSectionVisible ? 'border-b border-[var(--border-soft)] pb-3' : ''}`}>
             <div className="surface-panel-strong flex h-11 w-11 items-center justify-center" style={{ borderRadius: '4px' }}>
@@ -421,16 +426,21 @@ export const TopBar = ({
               <h1 className="text-[18px] font-semibold tracking-tight text-[var(--text-primary)]">{brandName}</h1>
               <p className="mt-1 truncate text-xs text-[var(--text-secondary)]">{brandTagline}</p>
             </div>
-            <button
-              aria-expanded={mobileHeaderExpanded}
-              aria-label={mobileHeaderExpanded ? 'Collapse studio details' : 'Expand studio details'}
-              className="ghost-icon-button flex h-9 w-9 shrink-0 items-center justify-center md:hidden"
-              onClick={() => setMobileHeaderExpanded((current) => !current)}
-              title={mobileHeaderExpanded ? 'Collapse' : 'Project, focus, and view tabs'}
-              type="button"
-            >
-              {mobileHeaderExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-            </button>
+            {isCompactHeader && (
+              <button
+                aria-expanded={mobileHeaderExpanded}
+                aria-label={mobileHeaderExpanded ? 'Collapse studio details' : 'Expand studio details'}
+                className="ghost-icon-button flex h-9 shrink-0 items-center justify-center gap-1.5 px-2.5"
+                onClick={() => setMobileHeaderExpanded((current) => !current)}
+                title={mobileHeaderExpanded ? 'Collapse studio details' : 'Project, tempo, and session tools'}
+                type="button"
+              >
+                <span className="hidden text-[10px] font-semibold uppercase tracking-[0.14em] sm:inline">
+                  {mobileHeaderExpanded ? 'Less' : 'Details'}
+                </span>
+                {mobileHeaderExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+              </button>
+            )}
           </div>
 
           <div className={`${headerSectionVisible ? 'grid' : 'hidden'} min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_260px] lg:items-start`}>
@@ -483,14 +493,14 @@ export const TopBar = ({
               </div>
               {!isFirstImpression && (
                 <>
-                  <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2">
+                  <div className="mt-3 hidden flex-wrap gap-x-5 gap-y-2 xl:flex">
                     <MiniStat label="Track" value={selectedTrack ? selectedTrack.name : 'None'} />
                     <MiniStat label="Pattern" value={String.fromCharCode(65 + currentPattern)} />
                     <MiniStat label="Clip" value={selectedArrangerClipId ? 'Selected' : 'None'} />
                     <MiniStat label="Profile" value={activeMasterPreset ? activeMasterPreset.label : 'Custom'} />
                     <MiniStat label="Master" value={`${master.outputGain.toFixed(1)} dB`} />
                   </div>
-                  <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">{focusMeta}</div>
+                  <div className="mt-2 hidden text-[11px] leading-5 text-[var(--text-secondary)] xl:block">{focusMeta}</div>
                 </>
               )}
             </div>
@@ -518,7 +528,7 @@ export const TopBar = ({
           </div>
         </div>
 
-        <div className={`${headerSectionVisible ? 'grid' : 'hidden'} gap-3 border-t border-[var(--border-soft)] pt-3 xl:self-stretch xl:border-l xl:border-t-0 xl:pl-4 xl:pt-0`}>
+        <div className={`${headerSectionVisible ? 'grid' : 'hidden'} gap-3 border-t border-[var(--border-soft)] pt-3 md:self-stretch md:border-l md:border-t-0 md:pl-4 md:pt-0`}>
           <div className="grid gap-3 border-b border-[var(--border-soft)]/70 pb-3">
             <div className="hidden md:grid md:justify-items-stretch xl:justify-items-end">
               <div className="grid w-full max-w-none gap-2 xl:max-w-[372px]">

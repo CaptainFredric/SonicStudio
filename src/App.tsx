@@ -20,8 +20,9 @@ import { ToastStack, type ToastItem } from './components/ToastStack';
 import { resolveStudioRoute, type StudioRouteState } from './app/routeController';
 import type { SessionTemplateId } from './project/schema';
 import { markOnboardingCompleted, markOnboardingSkipped, shouldAutoOpenOnboarding } from './services/onboardingState';
+import { useMediaQuery } from './utils/useMediaQuery';
 import { AudioWaveform, LayoutGrid, Volume2, Settings, Sparkles, Rows2, Share2, Coffee } from 'lucide-react';
-import { Circle, Pause, Play, Square } from 'lucide-react';
+import { Circle, Minus, Pause, Play, Plus, Square, Zap } from 'lucide-react';
 
 const SUPPORT_URL = 'https://buymeacoffee.com/captainarm1';
 
@@ -217,14 +218,24 @@ const ViewRouter = () => {
   );
 };
 
-const MobileTransportStrip = () => {
+// Always-visible transport bar shown below the xl breakpoint. It keeps the
+// core controls — play, stop, record, tempo, SuperSonic — within reach while
+// the heavier TopBar detail panel stays collapsed, so laptops and split-screen
+// windows give the editing surface the room it needs.
+const CompactTransportBar = () => {
   const {
     isPlaying,
     isRecording,
     togglePlay,
     stop,
     toggleRecording,
+    bpm,
+    setBpm,
+    superSonicMode,
+    setSuperSonicMode,
   } = useAudio();
+  const isCompactViewport = useMediaQuery('(max-width: 1279px), (max-height: 899px)');
+  const isMobile = useMediaQuery('(max-width: 767px)');
   const playTogglePendingRef = useRef(false);
   const recordingTogglePendingRef = useRef(false);
 
@@ -254,39 +265,102 @@ const MobileTransportStrip = () => {
     }
   };
 
+  const nudgeBpm = (delta: number) => {
+    setBpm(Math.max(40, Math.min(220, Math.round(bpm + delta))));
+  };
+
+  if (!isCompactViewport) {
+    return null;
+  }
+
   return (
-    <div className="mobile-transport-strip md:hidden" role="group" aria-label="Transport controls">
-      <button
-        aria-label={isPlaying ? 'Pause playback' : 'Play'}
-        className="control-chip mobile-transport-btn"
-        data-active={isPlaying ? 'true' : 'false'}
-        data-primary="true"
-        onClick={() => void handleTogglePlay()}
-        type="button"
-      >
-        {isPlaying ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
-        {isPlaying ? 'Pause' : 'Play'}
-      </button>
-      <button
-        aria-label="Stop"
-        className="control-chip mobile-transport-btn"
-        onClick={stop}
-        type="button"
-      >
-        <Square className="h-4 w-4 fill-current" />
-        Stop
-      </button>
-      <button
-        aria-label={isRecording ? 'Stop recording' : 'Record'}
-        className="control-chip mobile-transport-btn"
-        data-active={isRecording ? 'true' : 'false'}
-        data-record="true"
-        onClick={() => void handleToggleRecording()}
-        type="button"
-      >
-        <Circle className="h-4 w-4 fill-current" />
-        {isRecording ? 'Recording' : 'Record'}
-      </button>
+    <div className="compact-transport-bar" role="group" aria-label="Transport controls">
+      <div className="compact-transport-group">
+        <button
+          aria-label={isPlaying ? 'Pause playback' : 'Play'}
+          className="control-chip compact-transport-btn"
+          data-active={isPlaying ? 'true' : 'false'}
+          data-primary="true"
+          onClick={() => void handleTogglePlay()}
+          type="button"
+        >
+          {isPlaying ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
+          {isPlaying ? 'Pause' : 'Play'}
+        </button>
+        <button
+          aria-label="Stop"
+          className="control-chip compact-transport-btn"
+          onClick={stop}
+          type="button"
+        >
+          <Square className="h-4 w-4 fill-current" />
+          Stop
+        </button>
+        <button
+          aria-label={isRecording ? 'Stop recording' : 'Record'}
+          className="control-chip compact-transport-btn"
+          data-active={isRecording ? 'true' : 'false'}
+          data-record="true"
+          onClick={() => void handleToggleRecording()}
+          type="button"
+        >
+          <Circle className="h-4 w-4 fill-current" />
+          {isRecording ? 'Rec' : 'Record'}
+        </button>
+      </div>
+      {/* Tempo and SuperSonic stay off the phone bar — mobile keeps the
+          philosophy light, with those controls tucked into header Details. */}
+      {!isMobile && (
+        <>
+          <div className="compact-transport-tempo" role="group" aria-label="Tempo">
+            <button
+              aria-label="Slower by one BPM"
+              className="control-chip compact-tempo-step"
+              onClick={() => nudgeBpm(-1)}
+              type="button"
+            >
+              <Minus className="h-3.5 w-3.5" />
+            </button>
+            <input
+              aria-label="Tempo in BPM"
+              className="control-field compact-tempo-input"
+              inputMode="numeric"
+              max={220}
+              min={40}
+              onChange={(event) => {
+                const next = Number(event.target.value);
+                if (Number.isFinite(next)) {
+                  setBpm(Math.max(40, Math.min(220, Math.round(next))));
+                }
+              }}
+              type="number"
+              value={bpm}
+            />
+            <span className="compact-tempo-unit">BPM</span>
+            <button
+              aria-label="Faster by one BPM"
+              className="control-chip compact-tempo-step"
+              onClick={() => nudgeBpm(1)}
+              type="button"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          <button
+            aria-label={superSonicMode ? 'Turn off SuperSonic mode' : 'Turn on SuperSonic mode'}
+            aria-pressed={superSonicMode}
+            className="control-chip compact-transport-super"
+            data-active={superSonicMode ? 'true' : 'false'}
+            data-super="true"
+            onClick={() => setSuperSonicMode(!superSonicMode)}
+            title="SuperSonic mode keeps the common edits one tap away"
+            type="button"
+          >
+            <Zap className="h-3.5 w-3.5" />
+            <span className="compact-super-label">{superSonicMode ? 'SuperSonic on' : 'SuperSonic'}</span>
+          </button>
+        </>
+      )}
     </div>
   );
 };
@@ -537,7 +611,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
         <div className="px-3 pt-3">
           <TopBar firstImpression={isFirstImpression} isCaptureOpen={isRecordOpen} onOpenCapture={openCapture} />
         </div>
-        <MobileTransportStrip />
+        <CompactTransportBar />
         <div className="studio-shell-grid flex min-w-0 flex-col gap-3 px-3 pb-3 md:min-h-0 md:flex-1 md:flex-row">
           <SideNav
             onOpenLaunchpad={() => setLaunchpadOpen(true)}
