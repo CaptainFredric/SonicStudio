@@ -91,9 +91,9 @@ export const SuperSonicAssistBar = () => {
       <div className="flex flex-wrap items-center gap-1.5">
         <AssistButton
           icon={<Wand2 className="h-3.5 w-3.5" />}
-          label="Humanize"
-          title="Nudge note velocities for a less mechanical feel"
-          onClick={() => run('Humanized', () => humanizePattern(track.id))}
+          label="Vary volume"
+          title="Add a touch of random loudness to each note so the pattern feels less mechanical"
+          onClick={() => run('Volume varied', () => humanizePattern(track.id))}
         />
         <AssistButton
           icon={<ArrowLeftRight className="h-3.5 w-3.5 -scale-x-100" />}

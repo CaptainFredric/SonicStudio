@@ -58,12 +58,12 @@ const GUIDE_STEPS: GuideStep[] = [
     title: 'Capture turns sounds into reusable note starts.',
   },
   {
-    action: 'Use SuperSonic for tighter, precision-focused editing passes.',
-    body: 'SuperSonic switches to a sharper workflow with faster note targeting and more deliberate controls for detail work.',
+    action: 'Turn on SuperSonic when you want the common edits one tap away.',
+    body: 'SuperSonic adds an assist bar above the keyboard — vary volume, shift, octave, and clear — plus hover guidance. Normal mode keeps the same tools in their panels.',
     eyebrow: 'SuperSonic',
-    payoff: 'Same song, faster precision when you are refining details.',
+    payoff: 'Pick the pace that fits. Nothing is locked behind either mode.',
     target: 'supersonic',
-    title: 'SuperSonic is your precision editing mode.',
+    title: 'SuperSonic puts quick edits within reach.',
   },
   {
     action: 'Use Share for links or portable files. Use Library for local recall.',

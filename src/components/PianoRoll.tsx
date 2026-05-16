@@ -943,7 +943,7 @@ export const PianoRoll = () => {
                 </ToolButton>
               </>
             )}
-            <ToolButton label="Humanize velocities" onClick={() => humanizePattern(track.id)}>
+            <ToolButton label="Vary note volume — add a touch of random loudness so the pattern feels less mechanical" onClick={() => humanizePattern(track.id)}>
               <Shuffle className="h-4 w-4" />
             </ToolButton>
             {!isDrum && (

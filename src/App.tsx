@@ -412,7 +412,16 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
     loadSessionTemplate(templateId);
     setActiveView('SEQUENCER');
     setLaunchpadOpen(false);
-    setGuideOpen(autoGuidePendingRef.current);
+    // The guide auto-opens at most once. Picking another template later
+    // should not keep reopening it.
+    const willAutoOpenGuide = autoGuidePendingRef.current;
+    autoGuidePendingRef.current = false;
+    if (willAutoOpenGuide) {
+      // Record that the guide has been shown so a reload mid-tour does not
+      // surface it again. Completing it later upgrades the status.
+      markOnboardingSkipped();
+    }
+    setGuideOpen(willAutoOpenGuide);
     void initAudio();
   };
 
@@ -438,7 +447,12 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
       const ok = await importMidiSession(file);
       if (ok) {
         setLaunchpadOpen(false);
-        setGuideOpen(autoGuidePendingRef.current);
+        const willAutoOpenGuide = autoGuidePendingRef.current;
+        autoGuidePendingRef.current = false;
+        if (willAutoOpenGuide) {
+          markOnboardingSkipped();
+        }
+        setGuideOpen(willAutoOpenGuide);
       }
     }
     event.target.value = '';

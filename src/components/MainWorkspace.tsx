@@ -1670,7 +1670,7 @@ export const MainWorkspace = () => {
                         type="button"
                       >
                         <Music2 className="h-3.5 w-3.5" />
-                        {isSelectedTrackLoopActive ? 'Loop phrase on' : 'Loop active phrase'}
+                        {isSelectedTrackLoopActive ? 'Loop on' : 'Loop phrase'}
                       </button>
                     )}
                     <button
@@ -2302,17 +2302,17 @@ export const MainWorkspace = () => {
                 )}
                 <div className="mt-3 grid gap-2 sm:grid-cols-2">
                   <button
-                    className="control-chip flex h-9 items-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                    className="control-chip flex min-h-9 items-center justify-center gap-2 px-3 py-1.5 text-center leading-tight text-[10px] font-semibold uppercase tracking-[0.14em]"
                     data-active={isSelectedTrackLoopActive}
                     disabled={!selectedTrackPatternSpan}
                     onClick={handleToggleSelectedTrackLoop}
                     type="button"
                   >
                     <Music2 className="h-3.5 w-3.5" />
-                    {isSelectedTrackLoopActive ? 'Loop phrase on' : 'Loop active phrase'}
+                    {isSelectedTrackLoopActive ? 'Loop on' : 'Loop phrase'}
                   </button>
                   <button
-                    className="control-chip flex h-9 items-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                    className="control-chip flex min-h-9 items-center justify-center gap-2 px-3 py-1.5 text-center leading-tight text-[10px] font-semibold uppercase tracking-[0.14em]"
                     data-active={hasExplicitLoopRange && !isSelectedTrackLoopActive ? 'true' : 'false'}
                     disabled={!hasExplicitLoopRange}
                     onClick={handleClearLoopRange}
@@ -2322,7 +2322,7 @@ export const MainWorkspace = () => {
                     Full pattern
                   </button>
                   <button
-                    className="control-chip flex h-9 items-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--danger)]"
+                    className="control-chip flex min-h-9 items-center justify-center gap-2 px-3 py-1.5 text-center leading-tight text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--danger)]"
                     onClick={handleClearSelectedTrackNotes}
                     type="button"
                   >
@@ -2334,7 +2334,7 @@ export const MainWorkspace = () => {
                   {selectedTrackPatternSpan
                     ? isSelectedTrackLoopActive
                       ? `Phrase loop is on for steps ${selectedTrackPatternSpan.startStep + 1}-${selectedTrackPatternSpan.endStep} in ${currentPatternLabel}. Delete all notes clears this lane in ${currentPatternLabel}.`
-                      : `Loop active phrase sets playback to steps ${selectedTrackPatternSpan.startStep + 1}-${selectedTrackPatternSpan.endStep} in ${currentPatternLabel}.`
+                      : `Loop phrase sets playback to steps ${selectedTrackPatternSpan.startStep + 1}-${selectedTrackPatternSpan.endStep} in ${currentPatternLabel}.`
                     : hasExplicitLoopRange
                       ? `A loop window is active from step ${loopRangeStartBeat! + 1} to ${loopRangeEndBeat}. Add notes here to define a lane phrase, or choose Full pattern.`
                       : 'Add a few notes, then loop the active span or clear this lane without hunting through row controls.'}
@@ -2345,14 +2345,14 @@ export const MainWorkspace = () => {
                 <div className="section-label">Pattern actions</div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button
-                    className="control-chip flex h-9 items-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                    className="control-chip flex min-h-9 items-center justify-center gap-2 px-3 py-1.5 text-center leading-tight text-[10px] font-semibold uppercase tracking-[0.14em]"
                     onClick={() => shiftPattern(selectedTrack.id, 'left')}
                   >
                     <ArrowLeftRight className="h-3.5 w-3.5 rotate-180" />
                     Shift left
                   </button>
                   <button
-                    className="control-chip flex h-9 items-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                    className="control-chip flex min-h-9 items-center justify-center gap-2 px-3 py-1.5 text-center leading-tight text-[10px] font-semibold uppercase tracking-[0.14em]"
                     onClick={() => shiftPattern(selectedTrack.id, 'right')}
                   >
                     <ArrowLeftRight className="h-3.5 w-3.5" />
@@ -2732,26 +2732,26 @@ export const MainWorkspace = () => {
                     </div>
                     <div className="mt-3 grid gap-2 sm:grid-cols-3">
                       <button
-                        className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                        className="control-chip px-2 py-2 text-center text-[10px] font-semibold uppercase leading-tight tracking-[0.1em]"
                         onClick={() => jumpToAdjacentActiveStep('previous')}
                         type="button"
                       >
-                        Previous active
+                        Prev step
                       </button>
                       <button
-                        className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                        className="control-chip px-2 py-2 text-center text-[10px] font-semibold uppercase leading-tight tracking-[0.1em]"
                         onClick={() => jumpToAdjacentActiveStep('next')}
                         type="button"
                       >
-                        Next active
+                        Next step
                       </button>
                       <button
-                        className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                        className="control-chip px-2 py-2 text-center text-[10px] font-semibold uppercase leading-tight tracking-[0.1em]"
                         disabled={!hasExplicitLoopRange}
                         onClick={handleClearLoopRange}
                         type="button"
                       >
-                        Play full pattern
+                        Full pattern
                       </button>
                     </div>
                   </div>
