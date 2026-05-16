@@ -122,6 +122,11 @@ const WORKSPACE_TO_VIEW: Record<string, AppView> = {
 
 const readDefaultWorkspaceView = (): AppView => {
   if (typeof window === 'undefined') return 'PIANO_ROLL';
+  // On phones, start in the Sequencer — it is the most thumb-friendly surface
+  // and keeps the step grid close to the top of the page.
+  const isMobileViewport = typeof window.matchMedia === 'function'
+    && window.matchMedia('(max-width: 767px)').matches;
+  if (isMobileViewport) return 'SEQUENCER';
   try {
     const raw = window.localStorage.getItem('sonicstudio:preferences:v1');
     if (!raw) return 'PIANO_ROLL';

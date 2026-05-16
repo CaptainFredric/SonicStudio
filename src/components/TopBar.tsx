@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  ChevronDown,
+  ChevronUp,
   Circle,
   Compass,
   Layers3,
@@ -14,6 +16,8 @@ import {
   Undo2,
   Zap,
 } from 'lucide-react';
+
+import { useMediaQuery } from '../utils/useMediaQuery';
 
 import { engine } from '../audio/ToneEngine';
 import { playSupersonicToggleSound } from '../audio/uiSounds';
@@ -122,7 +126,10 @@ export const TopBar = ({
   const [showSupersonicOffPreview, setShowSupersonicOffPreview] = useState(false);
   const [showAudioNerdStats, setShowAudioNerdStats] = useState(false);
   const [showSessionDetail, setShowSessionDetail] = useState(false);
+  const [mobileHeaderExpanded, setMobileHeaderExpanded] = useState(false);
   const [tapTempoLabel, setTapTempoLabel] = useState<string | null>(null);
+  const isMobileViewport = useMediaQuery('(max-width: 767px)');
+  const headerSectionVisible = !isMobileViewport || mobileHeaderExpanded;
   const [audioRuntime, setAudioRuntime] = useState<{
     baseLatencyMs: number | null;
     contextState: AudioContextState;
@@ -403,20 +410,30 @@ export const TopBar = ({
     <header className="surface-panel px-3 py-3 sm:px-5 sm:py-4 md:max-h-[44vh] md:overflow-y-auto">
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(320px,372px)] xl:items-start" data-first-impression={isFirstImpression}>
         <div className="grid min-w-0 content-start gap-4">
-          <div className="flex min-w-0 items-center gap-3 border-b border-[var(--border-soft)] pb-3">
-            <div className="surface-panel-strong flex h-11 w-11 items-center justify-center" style={{ borderRadius: '14px' }}>
+          <div className={`flex min-w-0 items-center gap-3 ${headerSectionVisible ? 'border-b border-[var(--border-soft)] pb-3' : ''}`}>
+            <div className="surface-panel-strong flex h-11 w-11 items-center justify-center" style={{ borderRadius: '4px' }}>
               <BrandMark
                 className={superSonicMode ? 'h-5 w-5 text-[rgb(176,31,55)]' : 'h-5 w-5 text-[var(--accent)]'}
                 speed={isPlaying ? 1.4 : 1}
               />
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <h1 className="text-[18px] font-semibold tracking-tight text-[var(--text-primary)]">{brandName}</h1>
-              <p className="mt-1 text-xs text-[var(--text-secondary)]">{brandTagline}</p>
+              <p className="mt-1 truncate text-xs text-[var(--text-secondary)]">{brandTagline}</p>
             </div>
+            <button
+              aria-expanded={mobileHeaderExpanded}
+              aria-label={mobileHeaderExpanded ? 'Collapse studio details' : 'Expand studio details'}
+              className="ghost-icon-button flex h-9 w-9 shrink-0 items-center justify-center md:hidden"
+              onClick={() => setMobileHeaderExpanded((current) => !current)}
+              title={mobileHeaderExpanded ? 'Collapse' : 'Project, focus, and view tabs'}
+              type="button"
+            >
+              {mobileHeaderExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+            </button>
           </div>
 
-          <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_260px] lg:items-start">
+          <div className={`${headerSectionVisible ? 'grid' : 'hidden'} min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_260px] lg:items-start`}>
             <label className="grid gap-2 self-start">
               <span className="section-label">Project</span>
               <input
@@ -458,7 +475,7 @@ export const TopBar = ({
             )}
           </div>
 
-          <div className="grid gap-3 border-t border-[var(--border-soft)] pt-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
+          <div className={`${headerSectionVisible ? 'grid' : 'hidden'} gap-3 border-t border-[var(--border-soft)] pt-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end`}>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-3">
                 <span className="section-label">Current focus</span>
@@ -501,7 +518,7 @@ export const TopBar = ({
           </div>
         </div>
 
-        <div className="grid gap-3 border-t border-[var(--border-soft)] pt-3 xl:self-stretch xl:border-l xl:border-t-0 xl:pl-4 xl:pt-0">
+        <div className={`${headerSectionVisible ? 'grid' : 'hidden'} gap-3 border-t border-[var(--border-soft)] pt-3 xl:self-stretch xl:border-l xl:border-t-0 xl:pl-4 xl:pt-0`}>
           <div className="grid gap-3 border-b border-[var(--border-soft)]/70 pb-3">
             <div className="hidden md:grid md:justify-items-stretch xl:justify-items-end">
               <div className="grid w-full max-w-none gap-2 xl:max-w-[372px]">
