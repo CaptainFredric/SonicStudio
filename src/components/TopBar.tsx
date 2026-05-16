@@ -1393,7 +1393,7 @@ const getAudioHealthSummary = ({
   }
 
   const latencyLabel = baseLatencyMs === null ? 'unknown latency' : `${Math.round(baseLatencyMs)} ms latency`;
-  const levelLabel = Number.isFinite(masterDb) ? `${masterDb.toFixed(1)} dB` : 'stable output';
+  const levelLabel = !Number.isFinite(masterDb) ? 'stable output' : masterDb <= -60 ? 'idle output' : `${masterDb.toFixed(1)} dB`;
   return {
     detail: `Engine running with ${latencyLabel} and current output around ${levelLabel}.`,
     label: 'Audio healthy',

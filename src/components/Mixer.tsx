@@ -28,11 +28,15 @@ const getMixerGroup = (track: Track): Exclude<MixerGroupKey, 'PINNED'> => {
   return 'MUSICAL';
 };
 
-const VUChannel: React.FC<{ selected: boolean; track: Track }> = ({ selected, track }) => {
+const VUChannel: React.FC<{ isPlaying: boolean; selected: boolean; track: Track }> = ({ isPlaying, selected, track }) => {
   const { setSelectedTrackId, updateTrackPan, updateTrackVolume, toggleMute, toggleSolo } = useAudio();
   const [level, setLevel] = useState(-100);
 
   useEffect(() => {
+    if (!isPlaying) {
+      setLevel(-100);
+      return;
+    }
     const interval = window.setInterval(() => {
       setLevel(engine.getMeterValue(track.id));
     }, 50);
@@ -40,7 +44,7 @@ const VUChannel: React.FC<{ selected: boolean; track: Track }> = ({ selected, tr
     return () => {
       window.clearInterval(interval);
     };
-  }, [track.id]);
+  }, [isPlaying, track.id]);
 
   const levelHeight = Math.max(0, Math.min(100, ((level + 60) / 60) * 100));
 
@@ -120,7 +124,7 @@ const VUChannel: React.FC<{ selected: boolean; track: Track }> = ({ selected, tr
 };
 
 export const Mixer = () => {
-  const { master, pinnedTrackIds, selectedTrackId, setMasterSettings, tracks } = useAudio();
+  const { isPlaying, master, pinnedTrackIds, selectedTrackId, setMasterSettings, tracks } = useAudio();
   const [masterLevel, setMasterLevel] = useState(-100);
   const [mixerScope, setMixerScope] = useState<MixerScope>('ALL');
   const [collapsedGroups, setCollapsedGroups] = useState<Record<MixerGroupKey, boolean>>({
@@ -135,6 +139,10 @@ export const Mixer = () => {
   const [mixerScrollWidth, setMixerScrollWidth] = useState(0);
 
   useEffect(() => {
+    if (!isPlaying) {
+      setMasterLevel(-100);
+      return;
+    }
     const interval = window.setInterval(() => {
       setMasterLevel(engine.getMasterMeterValue());
     }, 50);
@@ -142,7 +150,7 @@ export const Mixer = () => {
     return () => {
       window.clearInterval(interval);
     };
-  }, []);
+  }, [isPlaying]);
 
   const masterLevelHeight = Math.max(0, Math.min(100, ((masterLevel + 60) / 60) * 100));
   const visibleTracks = useMemo(() => tracks.filter((track) => {
@@ -458,7 +466,7 @@ export const Mixer = () => {
                   <div className="mt-3 flex h-full min-h-[360px] gap-3 md:min-h-[500px] md:gap-4">
                     {sectionTracks.map((track) => (
                       <div key={track.id} className="scroll-snap-align-start">
-                        <VUChannel selected={selectedTrackId === track.id} track={track} />
+                        <VUChannel isPlaying={isPlaying} selected={selectedTrackId === track.id} track={track} />
                       </div>
                     ))}
                   </div>

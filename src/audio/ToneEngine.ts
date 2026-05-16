@@ -52,7 +52,7 @@ interface TrackGraph {
 const SAMPLE_VOICE_POOL_SIZE = 8;
 const MAX_SAMPLE_VOICE_POOL_SIZE = 20;
 const PLAYBACK_STABILITY_LOOKAHEAD_SECONDS = 0.18;
-const DEFAULT_SYNTH_MAX_POLYPHONY = 12;
+const DEFAULT_SYNTH_MAX_POLYPHONY = 16;
 const FX_MAX_POLYPHONY = 8;
 const PAD_MAX_POLYPHONY = 10;
 
@@ -456,9 +456,20 @@ export class ToneEngine {
       }, time);
     }
 
+    const isLooping = songStep + 1 >= loopBounds.endBeat && this.transportLoopEnabled;
     this.currentStep = songStep + 1 >= loopBounds.endBeat
       ? this.transportLoopEnabled ? loopBounds.startBeat : loopBounds.endBeat
       : songStep + 1;
+
+    // On loop restart, silence any voices still ringing from the previous
+    // iteration so they don't bleed into the next cycle.
+    if (isLooping) {
+      Object.values(this.trackGraphs).forEach((graph) => {
+        if (graph.instrument instanceof Tone.PolySynth) {
+          graph.instrument.releaseAll(time);
+        }
+      });
+    }
   }
 
   public togglePlayback() {
@@ -491,6 +502,12 @@ export class ToneEngine {
   public stop() {
     const loopBounds = this.getLoopBounds();
     this.stopActiveVoices();
+    // Release WebAudio nodes accumulated by TapToPlay preview calls.
+    Object.keys(this.trackGraphs).forEach((trackId) => {
+      if (trackId.startsWith('preview-')) {
+        this.disposeTrackGraph(trackId);
+      }
+    });
     Tone.Transport.stop();
     Tone.Transport.position = loopBounds.startBeat * Tone.Time('16n').toSeconds();
     this.currentStep = loopBounds.startBeat;
