@@ -2409,8 +2409,9 @@ html[data-supersonic="true"] .session-player-deck-chip[data-role="intro"] {
   }
 
   .studio-nav-button {
-    min-width: 72px;
-    padding-block: 0.62rem;
+    min-width: 0;
+    padding-block: 0.55rem;
+    padding-inline: 0.3rem;
   }
 
   .toast-stack {

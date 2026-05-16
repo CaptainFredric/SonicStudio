@@ -1385,13 +1385,13 @@ export const MainWorkspace = () => {
 
   return (
     <section className="surface-panel flex min-h-0 flex-1 flex-col overflow-visible">
-      <div className="flex items-center justify-between gap-4 border-b border-[var(--border-soft)] px-5 py-4">
-        <div>
+      <div className="flex flex-col gap-3 border-b border-[var(--border-soft)] px-5 py-4 md:flex-row md:items-center md:justify-between md:gap-4">
+        <div className="min-w-0 shrink-0">
           <div className="section-label">Sequencer</div>
           <h2 className="mt-2 text-lg font-semibold tracking-tight text-[var(--text-primary)]">Pattern grid</h2>
           <p className="mt-2 text-sm text-[var(--text-secondary)]">Build the current pattern here before you move it into Song view.</p>
         </div>
-        <div className="surface-panel-muted min-w-0 flex-1 p-2 sm:max-w-[700px]">
+        <div className="surface-panel-muted w-full min-w-0 p-2 md:flex-1 sm:max-w-full md:max-w-[700px]">
           <div className="flex items-center justify-between gap-3">
             <span className="section-label shrink-0">Add lane</span>
             <div className="flex items-center gap-1.5">

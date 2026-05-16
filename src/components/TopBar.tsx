@@ -719,6 +719,7 @@ export const TopBar = ({
               </div>
             </div>
 
+            {showSessionDetail && (
             <div className="grid gap-2 md:hidden">
               <div
                 className="surface-panel-muted flex items-center justify-between gap-1 p-1"
@@ -891,6 +892,7 @@ export const TopBar = ({
                 ) : null}
               </div>
             </div>
+            )}
           </div>
 
           {!compactStart && (
