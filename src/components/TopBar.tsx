@@ -561,47 +561,51 @@ export const TopBar = ({
                   </UtilityBtn>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2">
-                  <TransportBtn
-                    active={isPlaying}
-                    className="w-full min-w-0 justify-center"
-                    data-tour-target="play"
-                    emphasize={showPlayPulse}
-                    label={isPlaying ? 'Pause' : 'Play'}
-                    onClick={togglePlay}
-                    onPointerDown={() => {
-                      if (!isInitialized) {
-                        void initAudio();
-                      }
-                    }}
-                    shortcut="Space"
-                    supersonicMode={superSonicMode}
-                    tone="play"
-                  >
-                    {isPlaying ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
-                  </TransportBtn>
-                  <TransportBtn className="w-full min-w-0 justify-center" label="Stop" onClick={stop} tone="neutral">
-                    <Square className="h-4 w-4 fill-current" />
-                  </TransportBtn>
-                  <TransportBtn
-                    active={isRecording}
-                    className="w-full min-w-0 justify-center"
-                    label={isRecording ? 'Armed' : 'Record'}
-                    onClick={toggleRecording}
-                    onPointerDown={() => {
-                      if (!isInitialized) {
-                        void initAudio();
-                      }
-                    }}
-                    style={{
-                      opacity: compactStart ? 0.42 : 1,
-                      transition: 'opacity 230ms cubic-bezier(0.22,1,0.36,1)',
-                    }}
-                    tone="record"
-                  >
-                    <Circle className="h-4 w-4 fill-current" />
-                  </TransportBtn>
-                </div>
+                {/* Below a roomy desktop the CompactTransportBar owns the
+                    transport, so the header skips it to avoid two play rows. */}
+                {!isCompactHeader && (
+                  <div className="grid grid-cols-3 gap-2">
+                    <TransportBtn
+                      active={isPlaying}
+                      className="w-full min-w-0 justify-center"
+                      data-tour-target="play"
+                      emphasize={showPlayPulse}
+                      label={isPlaying ? 'Pause' : 'Play'}
+                      onClick={togglePlay}
+                      onPointerDown={() => {
+                        if (!isInitialized) {
+                          void initAudio();
+                        }
+                      }}
+                      shortcut="Space"
+                      supersonicMode={superSonicMode}
+                      tone="play"
+                    >
+                      {isPlaying ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
+                    </TransportBtn>
+                    <TransportBtn className="w-full min-w-0 justify-center" label="Stop" onClick={stop} tone="neutral">
+                      <Square className="h-4 w-4 fill-current" />
+                    </TransportBtn>
+                    <TransportBtn
+                      active={isRecording}
+                      className="w-full min-w-0 justify-center"
+                      label={isRecording ? 'Armed' : 'Record'}
+                      onClick={toggleRecording}
+                      onPointerDown={() => {
+                        if (!isInitialized) {
+                          void initAudio();
+                        }
+                      }}
+                      style={{
+                        opacity: compactStart ? 0.42 : 1,
+                        transition: 'opacity 230ms cubic-bezier(0.22,1,0.36,1)',
+                      }}
+                      tone="record"
+                    >
+                      <Circle className="h-4 w-4 fill-current" />
+                    </TransportBtn>
+                  </div>
+                )}
 
                 <div className="grid gap-2">
                   {onOpenCapture && (
