@@ -2341,7 +2341,7 @@ export const MainWorkspace = () => {
                 </div>
               </div>
 
-              <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+              <div className="loop-browser-panel rounded-[4px] border border-[var(--border-soft)] px-3 py-3">
                 <div className="section-label">Pattern actions</div>
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button
@@ -2377,7 +2377,7 @@ export const MainWorkspace = () => {
                 </div>
               </div>
 
-              <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+              <div className="loop-browser-panel rounded-[4px] border border-[var(--border-soft)] px-3 py-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <div className="section-label">Loop browser</div>
@@ -2711,7 +2711,7 @@ export const MainWorkspace = () => {
                 </div>
               </div>
 
-              <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
+              <div className="loop-browser-panel rounded-[4px] border border-[var(--border-soft)] px-3 py-3">
                 <div className="section-label">Selected step</div>
                 <div className="mt-2 flex items-center justify-between gap-3">
                   <div className="text-sm font-medium text-[var(--text-primary)]">Step {selectedStepIndex + 1}</div>

@@ -121,6 +121,7 @@ export const TopBar = ({
   const [isRestartDisarming, setIsRestartDisarming] = useState(false);
   const [showSupersonicOffPreview, setShowSupersonicOffPreview] = useState(false);
   const [showAudioNerdStats, setShowAudioNerdStats] = useState(false);
+  const [showSessionDetail, setShowSessionDetail] = useState(false);
   const [tapTempoLabel, setTapTempoLabel] = useState<string | null>(null);
   const [audioRuntime, setAudioRuntime] = useState<{
     baseLatencyMs: number | null;
@@ -893,6 +894,18 @@ export const TopBar = ({
           </div>
 
           {!compactStart && (
+            <button
+              aria-expanded={showSessionDetail}
+              className="control-chip flex h-8 w-full items-center justify-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
+              data-ui-sound="tab"
+              onClick={() => setShowSessionDetail((current) => !current)}
+              type="button"
+            >
+              {showSessionDetail ? 'Hide session controls' : 'Session controls'}
+            </button>
+          )}
+
+          {!compactStart && showSessionDetail && (
             <div className="grid gap-3 border-t border-[var(--border-soft)] pt-3 sm:grid-cols-[minmax(0,1fr)_120px] sm:items-end">
               <div className="flex flex-wrap items-center gap-2">
                 <ModeButton
@@ -926,7 +939,7 @@ export const TopBar = ({
             </div>
           )}
 
-          {!compactStart && (
+          {!compactStart && showSessionDetail && (
           <div className="grid gap-3 border-t border-[var(--border-soft)] pt-3 sm:grid-cols-2 xl:grid-cols-4">
             <div className="min-w-0">
               <div className="section-label mb-1">Tempo</div>
