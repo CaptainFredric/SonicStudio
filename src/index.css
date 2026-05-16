@@ -1268,39 +1268,62 @@ html[data-motion-mode="still"] .status-dot {
 input[type=range] {
   -webkit-appearance: none;
   @apply bg-transparent w-full;
-  height: 18px;
+  height: 20px;
   cursor: pointer;
   touch-action: pan-y;
 }
 
 input[type=range]::-webkit-slider-thumb {
   -webkit-appearance: none;
-  @apply h-4 w-4 cursor-pointer shadow-md;
-  background: var(--accent-strong);
+  @apply h-5 w-5 cursor-pointer;
+  background: radial-gradient(circle at 50% 35%, #ffffff 0%, var(--accent-strong) 62%);
   border-radius: 9999px;
-  border: 1px solid rgba(255,255,255,0.22);
-  margin-top: -5px;
+  border: 1px solid rgba(255,255,255,0.3);
+  box-shadow:
+    0 1px 2px rgba(0,0,0,0.45),
+    0 0 0 3px rgba(124, 211, 252, 0.1);
+  margin-top: -6px;
+  transition: box-shadow var(--motion-fast) var(--motion-ease);
 }
 
 input[type=range]::-webkit-slider-runnable-track {
-  @apply w-full h-1.5 rounded-full;
+  @apply w-full rounded-full;
+  height: 8px;
   background: rgba(151, 163, 180, 0.16);
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.32);
 }
 
 input[type=range]::-moz-range-thumb {
-  @apply h-4 w-4 cursor-pointer shadow-md;
-  background: var(--accent-strong);
+  @apply h-5 w-5 cursor-pointer;
+  background: radial-gradient(circle at 50% 35%, #ffffff 0%, var(--accent-strong) 62%);
   border-radius: 9999px;
-  border: 1px solid rgba(255,255,255,0.22);
+  border: 1px solid rgba(255,255,255,0.3);
+  box-shadow:
+    0 1px 2px rgba(0,0,0,0.45),
+    0 0 0 3px rgba(124, 211, 252, 0.1);
 }
 
 input[type=range]::-moz-range-track {
-  @apply h-1.5 rounded-full;
+  @apply rounded-full;
+  height: 8px;
   background: rgba(151, 163, 180, 0.16);
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.32);
 }
 
 input[type=range]:focus {
   outline: none;
+}
+
+input[type=range]:focus-visible::-webkit-slider-thumb {
+  box-shadow:
+    0 1px 2px rgba(0,0,0,0.45),
+    0 0 0 4px rgba(124, 211, 252, 0.32);
+}
+
+input[type=range]:focus-visible::-moz-range-thumb {
+  box-shadow:
+    0 1px 2px rgba(0,0,0,0.45),
+    0 0 0 4px rgba(124, 211, 252, 0.32);
 }
 
 .app-shell {

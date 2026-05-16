@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ArrowRight,
+  AudioWaveform,
   BookOpen,
   Coffee,
   Disc3,
@@ -28,6 +29,7 @@ interface LaunchpadProps {
   onImportMidi: () => void;
   onSelectTemplate: (templateId: SessionTemplateId) => void;
   onStartGuide: () => void;
+  onTranscribeSong: () => void;
   onWakeAudio: () => void;
 }
 
@@ -198,6 +200,7 @@ export const Launchpad = ({
   onImportMidi,
   onSelectTemplate,
   onStartGuide,
+  onTranscribeSong,
   onWakeAudio,
 }: LaunchpadProps) => {
   const {
@@ -335,6 +338,13 @@ export const Launchpad = ({
                 icon={<FileInput className="h-4 w-4" />}
                 onClick={onImportMidi}
                 title="Import MIDI"
+              />
+              <SecondaryStartCard
+                actionLabel="Transcribe audio"
+                body="Hum, sing, or upload a song. The studio writes the melody onto the grid."
+                icon={<AudioWaveform className="h-4 w-4" />}
+                onClick={onTranscribeSong}
+                title="Transcribe a song"
               />
               <SecondaryStartCard
                 actionLabel="Start tour"

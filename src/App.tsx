@@ -15,16 +15,17 @@ import { ShareDialog } from './components/ShareDialog';
 import { AudioCapture } from './components/AudioCapture';
 import { SuperSonicAssistBar } from './components/SuperSonicAssistBar';
 import { OnboardingGuide } from './components/OnboardingGuide';
+import { SongTranscriber } from './components/SongTranscriber';
 import { ToastStack, type ToastItem } from './components/ToastStack';
 import { resolveStudioRoute, type StudioRouteState } from './app/routeController';
 import type { SessionTemplateId } from './project/schema';
 import { markOnboardingCompleted, markOnboardingSkipped, shouldAutoOpenOnboarding } from './services/onboardingState';
-import { LayoutGrid, Volume2, Settings, Sparkles, Rows2, Share2, Coffee } from 'lucide-react';
+import { AudioWaveform, LayoutGrid, Volume2, Settings, Sparkles, Rows2, Share2, Coffee } from 'lucide-react';
 import { Circle, Pause, Play, Square } from 'lucide-react';
 
 const SUPPORT_URL = 'https://buymeacoffee.com/captainarm1';
 
-const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchpad: () => void; onOpenShare: () => void; onOpenRecord: () => void }) => {
+const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe }: { onOpenLaunchpad: () => void; onOpenShare: () => void; onOpenRecord: () => void; onOpenTranscribe: () => void }) => {
   const { activeView, isSettingsOpen, setActiveView, toggleSettings } = useAudio();
   const withSuperFill = (icon: React.ReactNode, fillClass = 'studio-icon-fill-core') => (
     <span className="studio-icon-shell">
@@ -93,7 +94,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchp
   return (
     <aside className="studio-rail w-full shrink-0 px-2 py-2 md:w-[88px] md:py-3" data-tour-target="views">
       <div className="section-label hidden md:block">Views</div>
-      <div className="grid grid-cols-2 gap-2 md:mb-2 md:grid-cols-1">
+      <div className="grid grid-cols-3 gap-2 md:mb-2 md:grid-cols-1">
         <button
           className="studio-nav-button w-full"
           data-tour-target="sessions"
@@ -127,6 +128,18 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord }: { onOpenLaunchp
               </svg>
             </span>
             <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Capture</span>
+          </div>
+        </button>
+        <button
+          className="studio-nav-button w-full"
+          data-ui-sound="action"
+          onClick={onOpenTranscribe}
+          title="Transcribe a recording or song into editable notes"
+          type="button"
+        >
+          <div className="flex items-center justify-center gap-2 md:flex-col">
+            {withSuperFill(<AudioWaveform size={20} className="text-[var(--accent)]" />, 'studio-icon-fill-spark-core')}
+            <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Transcribe</span>
           </div>
         </button>
       </div>
@@ -343,6 +356,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
   const [isGuideOpen, setGuideOpen] = useState<boolean>(() => routeState.showGuide);
   const [isShareOpen, setShareOpen] = useState(false);
   const [isRecordOpen, setRecordOpen] = useState(false);
+  const [isTranscribeOpen, setTranscribeOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const autoGuidePendingRef = useRef(!routeState.showGuide && shouldAutoOpenOnboarding());
@@ -440,6 +454,11 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
     setGuideOpen(false);
     setRecordOpen(true);
   }, []);
+  const openTranscribe = useCallback(() => {
+    setGuideOpen(false);
+    setLaunchpadOpen(false);
+    setTranscribeOpen(true);
+  }, []);
 
   const handleFileChosen = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -472,11 +491,12 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
           markOnboardingSkipped();
           setGuideOpen(false);
         }}
-        open={isGuideOpen && !isLaunchpadOpen && !isShareOpen && !isRecordOpen}
+        open={isGuideOpen && !isLaunchpadOpen && !isShareOpen && !isRecordOpen && !isTranscribeOpen}
       />
       <ShortcutOverlay />
       <ShareDialog open={isShareOpen} onClose={() => setShareOpen(false)} onNotify={pushToast} />
       <AudioCapture open={isRecordOpen} onClose={() => setRecordOpen(false)} />
+      <SongTranscriber open={isTranscribeOpen} onClose={() => setTranscribeOpen(false)} onNotify={pushToast} />
       <input
         ref={fileInputRef}
         type="file"
@@ -494,6 +514,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
             onImportMidi={handleImportMidi}
             onSelectTemplate={handleSelectTemplate}
             onStartGuide={handleStartGuide}
+            onTranscribeSong={openTranscribe}
             onWakeAudio={() => void initAudio()}
           />
         </div>
@@ -521,6 +542,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
           <SideNav
             onOpenLaunchpad={() => setLaunchpadOpen(true)}
             onOpenRecord={openCapture}
+            onOpenTranscribe={openTranscribe}
             onOpenShare={() => {
               setGuideOpen(false);
               setShareOpen(true);

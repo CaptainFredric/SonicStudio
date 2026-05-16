@@ -137,6 +137,16 @@ export const createSessionController = ({
     return true;
   };
 
+  const loadTranscribedSession = (session: StudioSession) => {
+    saveCheckpoint('Before transcription');
+    applyHydratedSession(session, {
+      dispatchHydrateSession,
+      resetTransportState,
+      setLastSavedAt,
+      setSaveStatus,
+    });
+  };
+
   const restoreCheckpoint = (checkpointId: string) => {
     const session = restoreStudioCheckpoint(checkpointId);
     if (!session) {
@@ -162,6 +172,7 @@ export const createSessionController = ({
     importMidiSession,
     importSession,
     loadSessionTemplate,
+    loadTranscribedSession,
     newSession,
     restoreCheckpoint,
     saveCheckpoint,

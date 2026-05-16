@@ -152,6 +152,7 @@ interface AudioContextType {
   loopRangeEndBeat: number | null;
   loopRangeStartBeat: number | null;
   loadSessionTemplate: (templateId: SessionTemplateId) => void;
+  loadTranscribedSession: (session: StudioSession) => void;
   newSession: () => void;
   metronomeEnabled: boolean;
   patternCount: number;
@@ -515,6 +516,7 @@ export const AudioProvider = ({
     importMidiSession: importMidiSessionFromController,
     importSession: importSessionFromController,
     loadSessionTemplate,
+    loadTranscribedSession,
     newSession,
     restoreCheckpoint,
     saveCheckpoint,
@@ -632,6 +634,7 @@ export const AudioProvider = ({
     lastSavedAt,
     latestNotice,
     loadSessionTemplate,
+    loadTranscribedSession,
     loopRangeEndBeat,
     loopRangeStartBeat,
     master: project.master,
@@ -753,6 +756,7 @@ export const AudioProvider = ({
     lastSavedAt,
     latestNotice,
     loadSessionTemplate,
+    loadTranscribedSession,
     loopRangeEndBeat,
     loopRangeStartBeat,
     newSession,
