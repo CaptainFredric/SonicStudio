@@ -61,7 +61,7 @@ export const DeviceRackSidebar = ({
       <div className="mt-4 flex items-center gap-3">
         <div
           className="flex h-11 w-11 items-center justify-center border"
-          style={{ background: `${track.color}12`, borderColor: `${track.color}44`, borderRadius: '14px', color: track.color }}
+          style={{ background: `${track.color}12`, borderColor: `${track.color}44`, borderRadius: '2px', color: track.color }}
         >
           <TrackIcon type={track.type} className="h-5 w-5" />
         </div>

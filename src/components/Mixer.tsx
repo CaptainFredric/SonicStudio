@@ -262,10 +262,10 @@ export const Mixer = () => {
 
   return (
     <section className="surface-panel flex flex-1 min-h-0 flex-col overflow-hidden">
-      <div className="flex items-center justify-between gap-4 border-b border-[var(--border-soft)] px-5 py-4">
-        <div>
+      <div className="flex items-center justify-between gap-4 border-b border-[var(--border-soft)] px-5 py-3">
+        <div className="flex items-baseline gap-2">
           <div className="section-label">Mixer</div>
-          <h2 className="mt-2 text-lg font-semibold tracking-tight text-[var(--text-primary)]">Channel strips</h2>
+          <h2 className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">Channel strips</h2>
         </div>
         <div className="hidden md:flex items-center gap-2 text-sm text-[var(--text-secondary)]">
           <SlidersHorizontal className="h-4 w-4 text-[var(--accent)]" />
@@ -295,7 +295,7 @@ export const Mixer = () => {
       </div>
 
       <div
-        className="flex-1 overflow-x-auto overflow-y-hidden p-5 [scroll-behavior:smooth] [-webkit-overflow-scrolling:touch]"
+        className="flex-1 overflow-auto p-5 [scroll-behavior:smooth] [-webkit-overflow-scrolling:touch]"
         ref={mixerViewportRef}
       >
         <div className="flex h-full min-h-[360px] gap-4 scroll-snap-x-mandatory md:min-h-[560px] md:gap-6">

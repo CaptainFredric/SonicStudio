@@ -82,7 +82,7 @@ export const SuperSonicAssistBar = () => {
       <span className="section-label">Assist</span>
       <div
         className="flex h-6 items-center gap-1.5 px-1.5"
-        style={{ borderRadius: '3px', border: `1px solid ${track.color}55`, background: `${track.color}1a`, color: track.color }}
+        style={{ borderRadius: '2px', border: `1px solid ${track.color}55`, background: `${track.color}1a`, color: track.color }}
       >
         <TrackIcon type={track.type} className="h-3 w-3" />
         <span className="text-[11px] font-medium text-[var(--text-primary)]">{track.name}</span>

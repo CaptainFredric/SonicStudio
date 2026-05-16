@@ -1969,7 +1969,7 @@ export const MainWorkspace = () => {
                           <div className="flex min-w-0 items-center gap-2">
                             <div
                               className="shrink-0 flex h-7 w-7 items-center justify-center"
-                              style={{ borderRadius: '3px', border: `1px solid ${track.color}55`, background: `${track.color}1a`, color: track.color }}
+                              style={{ borderRadius: '2px', border: `1px solid ${track.color}55`, background: `${track.color}1a`, color: track.color }}
                               title={getTrackPersonality(track.type).blurb}
                             >
                               <TrackIcon type={track.type} className="h-3.5 w-3.5" />
