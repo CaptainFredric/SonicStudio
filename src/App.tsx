@@ -13,6 +13,7 @@ import { ShortcutOverlay } from './components/ShortcutOverlay';
 import { ComposeView } from './components/ComposeView';
 import { ShareDialog } from './components/ShareDialog';
 import { AudioCapture } from './components/AudioCapture';
+import { SuperSonicAssistBar } from './components/SuperSonicAssistBar';
 import { OnboardingGuide } from './components/OnboardingGuide';
 import { ToastStack, type ToastItem } from './components/ToastStack';
 import { resolveStudioRoute, type StudioRouteState } from './app/routeController';
@@ -199,7 +200,7 @@ const ViewRouter = () => {
     return <ComposeView />;
   }
   return (
-    <main className="relative flex min-h-[44vh] flex-col md:min-h-[38vh] md:min-w-0 md:flex-1 xl:min-h-[34vh]">
+    <main className="relative flex min-h-[44vh] flex-col md:min-h-0 md:min-w-0 md:flex-1 md:overflow-hidden">
       {activeView === 'SEQUENCER' && <Sequencer />}
       {activeView === 'PIANO_ROLL' && <PianoRoll />}
       {activeView === 'MIXER' && <Mixer />}
@@ -449,7 +450,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
   };
 
   return (
-    <div className="app-shell min-h-screen w-full antialiased text-[var(--text-primary)]">
+    <div className="app-shell min-h-screen w-full antialiased text-[var(--text-primary)] md:h-screen md:min-h-0 md:overflow-hidden">
       <ToastStack toasts={toasts} onDismiss={dismissToast} />
       <OnboardingGuide
         onComplete={() => {
@@ -502,7 +503,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
           </div>
         </>
       ) : null}
-      <div className="flex min-h-screen min-w-0 flex-col">
+      <div className="flex min-h-screen min-w-0 flex-col md:h-full md:min-h-0 md:overflow-hidden">
         <div className="px-3 pt-3">
           <TopBar firstImpression={isFirstImpression} isCaptureOpen={isRecordOpen} onOpenCapture={openCapture} />
         </div>
@@ -520,6 +521,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
             <div className="flex flex-col md:flex-row md:min-h-0 md:flex-1 gap-3">
               <ViewRouter />
             </div>
+            <SuperSonicAssistBar />
             <TapToPlay />
             <DeviceRack />
           </div>

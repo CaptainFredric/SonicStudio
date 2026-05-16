@@ -22,20 +22,21 @@ const RACK_COLLAPSED_KEY = 'sonicstudio:deviceRack:collapsed';
 const RACK_HEIGHT_KEY = 'sonicstudio:deviceRack:height';
 const RACK_VIEW_KEY = 'sonicstudio:deviceRack:view';
 const RACK_SOURCE_VIEW_KEY = 'sonicstudio:deviceRack:sourceView';
-const RACK_MIN_HEIGHT = 240;
+const RACK_MIN_HEIGHT = 150;
 const RACK_MAX_HEIGHT = 660;
-const RACK_DEFAULT_HEIGHT = 360;
+const RACK_DEFAULT_HEIGHT = 260;
 
 const isRackView = (value: unknown): value is RackView => (
   value === 'SOURCE' || value === 'SHAPE' || value === 'SPACE'
 );
 
 const readInitialCollapsed = () => {
-  if (typeof window === 'undefined') return false;
+  if (typeof window === 'undefined') return true;
   try {
-    return window.localStorage.getItem(RACK_COLLAPSED_KEY) === '1';
+    const raw = window.localStorage.getItem(RACK_COLLAPSED_KEY);
+    return raw === null ? true : raw === '1';
   } catch {
-    return false;
+    return true;
   }
 };
 

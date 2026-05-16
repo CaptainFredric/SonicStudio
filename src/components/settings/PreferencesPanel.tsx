@@ -121,7 +121,7 @@ export const PreferencesPanel = ({
 
     <PanelCard icon={<Zap className="h-4 w-4 text-[var(--accent)]" />} title="SuperSonic mode">
       <p className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
-        Turns on the brighter advanced workspace: macro zoom, precision hover ladders in Sequencer and Roll, and stitch-ready track map tools.
+        SuperSonic puts a one-tap assist bar above the keyboard — Humanize, shift, octave, and clear for the focused lane — and turns on hover guidance and a brighter look. Normal mode keeps the same tools, just tucked in their panels. Toggle whenever; staying in either is fine. Shortcut: Alt+S.
       </p>
       <div className="mt-3 flex gap-2">
         <button
