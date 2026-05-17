@@ -24,7 +24,9 @@ const RACK_VIEW_KEY = 'sonicstudio:deviceRack:view';
 const RACK_SOURCE_VIEW_KEY = 'sonicstudio:deviceRack:sourceView';
 const RACK_MIN_HEIGHT = 150;
 const RACK_MAX_HEIGHT = 660;
-const RACK_DEFAULT_HEIGHT = 260;
+// Kept modest so the view above keeps a usable height by default; the rack
+// scrolls internally and stays drag-resizable up to RACK_MAX_HEIGHT.
+const RACK_DEFAULT_HEIGHT = 210;
 
 const isRackView = (value: unknown): value is RackView => (
   value === 'SOURCE' || value === 'SHAPE' || value === 'SPACE'

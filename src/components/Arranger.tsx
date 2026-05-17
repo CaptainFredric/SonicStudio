@@ -424,7 +424,7 @@ export const Arranger = () => {
     : null;
 
   return (
-    <section className="surface-panel arranger-surface flex min-h-0 flex-1 flex-col overflow-hidden">
+    <section className="surface-panel arranger-surface flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto">
       <ArrangerHeader
         addClip={() => addArrangerClip(selectedTrackId ?? undefined)}
         onAddMarkerAtPlayhead={() => createSongMarker(currentStep)}

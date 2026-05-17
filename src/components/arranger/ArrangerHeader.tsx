@@ -1,5 +1,5 @@
-import React from 'react';
-import { Flag, Plus, Zap } from 'lucide-react';
+import React, { useState } from 'react';
+import { ChevronDown, ChevronUp, Flag, Plus, SlidersHorizontal, Zap } from 'lucide-react';
 
 import { SONG_FORM_DEFINITIONS, type SongFormId } from '../../context/editor/songFormDefinitions';
 import type { ArrangementClip, SongMarker, Track } from '../../project/schema';
@@ -98,7 +98,15 @@ export const ArrangerHeader = ({
   zoomPreset,
   showSuperSonicGuidance,
   superSonicMode,
-}: ArrangerHeaderProps) => (
+}: ArrangerHeaderProps) => {
+  // The overview, minimap, and view controls collapse by default so the
+  // timeline leads the view; roomy desktops open them automatically.
+  const [detailsExpanded, setDetailsExpanded] = useState(() => (
+    typeof window !== 'undefined'
+    && window.matchMedia('(min-width: 1280px) and (min-height: 900px)').matches
+  ));
+
+  return (
   <div className="border-b border-[var(--border-soft)] px-5 py-4">
     <div className="flex flex-col gap-4 md:flex-row md:flex-wrap md:items-start md:justify-between">
       <div>
@@ -132,9 +140,22 @@ export const ArrangerHeader = ({
           <Plus className="h-4 w-4" />
           Add clip lane
         </button>
+        <button
+          aria-expanded={detailsExpanded}
+          className="control-chip flex h-9 items-center gap-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
+          data-ui-sound="tab"
+          onClick={() => setDetailsExpanded((current) => !current)}
+          title={detailsExpanded ? 'Hide overview, minimap, and view controls' : 'Song overview, minimap, and view controls'}
+          type="button"
+        >
+          <SlidersHorizontal className="h-3.5 w-3.5" />
+          <span>{detailsExpanded ? 'Hide tools' : 'Tools'}</span>
+          {detailsExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+        </button>
       </div>
     </div>
 
+    {detailsExpanded && (
     <div className="mt-4 grid gap-4 border-t border-[var(--border-soft)] pt-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,0.95fr)]">
       <div className="min-w-0 xl:border-r xl:border-[var(--border-soft)] xl:pr-5">
         <div className="section-label">Song overview</div>
@@ -373,8 +394,10 @@ export const ArrangerHeader = ({
         </div>
       </div>
     </div>
+    )}
   </div>
-);
+  );
+};
 
 const ControlToggle = ({
   active,
