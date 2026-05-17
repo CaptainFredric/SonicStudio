@@ -1432,20 +1432,18 @@ html[data-supersonic="true"] .studio-nav-button:hover {
 }
 
 html[data-supersonic="true"] .studio-nav-button {
-  color: rgba(255, 245, 244, 0.92);
-  border-color: rgba(176, 31, 55, 0.18);
+  color: var(--text-secondary);
+  border-color: rgba(176, 31, 55, 0.16);
   background:
-    linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02) 34%, rgba(0,0,0,0.14)),
-    rgba(18, 21, 27, 0.94);
+    linear-gradient(180deg, rgba(255,255,255,0.95), rgba(253,242,239,0.84) 36%, rgba(247,234,229,0.92));
   box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.06),
-    inset 0 -1px 0 rgba(0,0,0,0.28),
-    0 2px 0 rgba(41, 10, 17, 0.16),
-    0 8px 18px rgba(41, 10, 17, 0.12);
+    inset 0 1px 0 rgba(255,255,255,0.75),
+    0 2px 0 rgba(109, 36, 48, 0.06),
+    0 8px 16px rgba(109, 36, 48, 0.08);
 }
 
 html[data-supersonic="true"] .studio-nav-button svg {
-  color: #ffe8e3;
+  color: var(--text-tertiary);
   fill: none;
   stroke-width: 2;
   opacity: 0.94;
