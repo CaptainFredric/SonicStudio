@@ -642,8 +642,8 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
               <ViewRouter />
             </div>
             <SuperSonicAssistBar />
-            <TapToPlay />
             <DeviceRack />
+            <TapToPlay />
           </div>
         </div>
       </div>
