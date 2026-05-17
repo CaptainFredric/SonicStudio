@@ -2487,13 +2487,9 @@ html[data-supersonic="true"] .session-player-deck-chip[data-role="intro"] {
   }
 
   .studio-rail {
-    position: sticky;
-    top: 3.6rem;
-    z-index: 40;
     margin-inline: 0;
     border-left: 0;
     border-right: 0;
-    backdrop-filter: blur(16px);
   }
 
   .studio-nav-button {

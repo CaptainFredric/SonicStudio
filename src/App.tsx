@@ -614,7 +614,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
         <>
           <button
             aria-hidden="true"
-            className="fixed inset-0 z-[64] bg-[rgba(5,8,12,0.62)] backdrop-blur-[2px] md:hidden"
+            className="fixed inset-0 z-[64] bg-[rgba(4,7,11,0.72)] backdrop-blur-[2px] md:hidden"
             onClick={() => setSettingsOpen(false)}
             tabIndex={-1}
             type="button"

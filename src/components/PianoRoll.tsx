@@ -797,7 +797,7 @@ export const PianoRoll = () => {
   };
 
   return (
-    <section className="surface-panel flex min-h-0 flex-1 flex-col overflow-auto">
+    <section className="surface-panel flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-soft)] px-4 py-2.5">
         <div className="flex min-w-0 flex-wrap items-center gap-3">
           <div className="section-label whitespace-nowrap">Piano roll</div>

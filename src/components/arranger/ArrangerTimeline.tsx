@@ -320,7 +320,7 @@ export const ArrangerTimeline = ({
             </div>
           ) : laneSections.map(({ key, label, lanes }) => (
             <React.Fragment key={key}>
-              <div className="sticky left-0 z-10 border-b border-r border-[var(--border-soft)] bg-[rgba(12,16,22,0.98)] px-4 py-3" style={{ width: `${laneLabelWidth}px` }}>
+              <div className="sticky left-0 z-10 border-b border-r border-[var(--border-soft)] bg-[var(--bg-panel-strong)] px-4 py-3" style={{ width: `${laneLabelWidth}px` }}>
                 <div className="flex items-center justify-between gap-3">
                   <span className="section-label">{label}</span>
                   <button
