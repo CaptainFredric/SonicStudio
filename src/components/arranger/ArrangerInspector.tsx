@@ -150,7 +150,7 @@ export const ArrangerInspector = ({
 
   return (
     <div className="sonic-sidebar min-h-0 overflow-y-auto border-b border-[var(--border-soft)] p-4 xl:border-b-0 xl:border-r xl:pr-4">
-      <div className="sticky top-0 z-10 -mx-4 -mt-4 border-b border-[var(--border-soft)] bg-[rgba(8,12,17,0.96)] px-4 py-4 backdrop-blur">
+      <div className="sticky top-0 z-10 -mx-4 -mt-4 border-b border-[var(--border-soft)] bg-[var(--bg-panel-strong)] px-4 py-4 backdrop-blur">
         <div className="flex items-center gap-2">
           <Layers3 className="h-4 w-4 text-[var(--accent)]" />
           <div className="section-label">Clip editor</div>

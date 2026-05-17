@@ -266,7 +266,7 @@ export const ArrangerTimeline = ({
     >
       <div className="min-h-full p-4" style={{ minWidth: `${timelineWidth}px` }}>
         <div className="grid" style={{ gridTemplateColumns: `${laneLabelWidth}px minmax(0, 1fr)` }}>
-          <div className="sticky left-0 z-10 border-b border-r border-[var(--border-soft)] bg-[rgba(8,12,17,0.96)] px-4 py-3 backdrop-blur" style={{ width: `${laneLabelWidth}px` }}>
+          <div className="sticky left-0 z-10 border-b border-r border-[var(--border-soft)] bg-[var(--bg-panel-strong)] px-4 py-3 backdrop-blur" style={{ width: `${laneLabelWidth}px` }}>
             <div className="section-label">Track lanes</div>
           </div>
           <div
@@ -343,7 +343,7 @@ export const ArrangerTimeline = ({
                 return (
                   <React.Fragment key={track.id}>
                     <div
-                      className={`group/lane sticky left-0 z-10 flex items-center gap-2 border-b border-r border-[var(--border-soft)] px-3 py-4 text-left transition-colors ${isSelectedTrack ? 'bg-[rgba(124,211,252,0.09)]' : 'bg-[rgba(8,12,17,0.96)] hover:bg-[rgba(255,255,255,0.03)]'}`}
+                      className={`group/lane sticky left-0 z-10 flex items-center gap-2 border-b border-r border-[var(--border-soft)] px-3 py-4 text-left transition-colors ${isSelectedTrack ? 'bg-[rgba(124,211,252,0.09)]' : 'bg-[var(--bg-panel-strong)] hover:bg-[rgba(255,255,255,0.03)]'}`}
                       onClick={() => onSetSelectedTrackId(track.id)}
                       onKeyDown={(event) => {
                         if (event.key === 'Enter' || event.key === ' ') {

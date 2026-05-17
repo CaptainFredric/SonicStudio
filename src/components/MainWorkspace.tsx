@@ -1889,7 +1889,7 @@ export const MainWorkspace = () => {
               ref={gridViewportRef}
             >
               <div style={{ minWidth: `${laneHeaderWidth + stepGridWidth}px` }}>
-                <div className="sticky top-0 z-10 flex h-12 border-b border-[var(--border-soft)] bg-[rgba(8,12,17,0.96)] backdrop-blur">
+                <div className="sticky top-0 z-10 flex h-12 border-b border-[var(--border-soft)] bg-[var(--bg-panel-strong)] backdrop-blur">
                   <div className="shrink-0 border-r border-[var(--border-soft)] px-5 py-3" style={{ width: `${laneHeaderWidth}px` }}>
                     <div className="flex items-center gap-2">
                       <Music2 className="h-4 w-4 text-[var(--accent)]" />

@@ -26,10 +26,17 @@ export const Visualizer = () => {
       const height = canvas.height;
       const values = engine.analyzer.getValue();
 
-      ctx.fillStyle = '#0c1116';
+      // Keep the scope readable in both themes: a dark screen in Normal mode,
+      // a warm light screen in SuperSonic mode.
+      const superSonic = document.documentElement.dataset.supersonic === 'true';
+      const screenFill = superSonic ? '#efe2dc' : '#0c1116';
+      const gridStroke = superSonic ? 'rgba(121, 22, 36, 0.14)' : 'rgba(151, 163, 180, 0.12)';
+      const traceStroke = superSonic ? '#b01f37' : '#82c9bb';
+
+      ctx.fillStyle = screenFill;
       ctx.fillRect(0, 0, width, height);
 
-      ctx.strokeStyle = 'rgba(151, 163, 180, 0.12)';
+      ctx.strokeStyle = gridStroke;
       ctx.lineWidth = 1;
 
       for (let gridIndex = 1; gridIndex < 4; gridIndex += 1) {
@@ -49,7 +56,7 @@ export const Visualizer = () => {
       }
 
       ctx.beginPath();
-      ctx.strokeStyle = '#82c9bb';
+      ctx.strokeStyle = traceStroke;
       ctx.lineWidth = 2;
 
       if (viewMode === 'fft') {
@@ -91,7 +98,7 @@ export const Visualizer = () => {
   }, [viewMode]);
 
   return (
-    <div className="relative flex h-full w-full flex-col overflow-hidden border border-[var(--border-soft)] bg-[#0c1116]">
+    <div className="relative flex h-full w-full flex-col overflow-hidden border border-[var(--border-soft)] bg-[var(--bg-panel-strong)]">
       <div className="absolute left-3 top-3 z-10 flex gap-2">
         <ModeButton
           active={viewMode === 'fft'}
