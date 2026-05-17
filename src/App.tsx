@@ -21,6 +21,7 @@ import { resolveStudioRoute, type StudioRouteState } from './app/routeController
 import type { SessionTemplateId } from './project/schema';
 import { markOnboardingCompleted, markOnboardingSkipped, shouldAutoOpenOnboarding } from './services/onboardingState';
 import { useMediaQuery } from './utils/useMediaQuery';
+import { playSupersonicToggleSound } from './audio/uiSounds';
 import { AudioWaveform, LayoutGrid, Volume2, Settings, Sparkles, Rows2, Share2, Coffee } from 'lucide-react';
 import { Circle, Minus, Pause, Play, Plus, Square, Zap } from 'lucide-react';
 
@@ -233,6 +234,7 @@ const CompactTransportBar = () => {
     setBpm,
     superSonicMode,
     setSuperSonicMode,
+    uiSoundsEnabled,
   } = useAudio();
   const isCompactViewport = useMediaQuery('(max-width: 1279px), (max-height: 899px)');
   const isMobile = useMediaQuery('(max-width: 767px)');
@@ -269,6 +271,14 @@ const CompactTransportBar = () => {
     setBpm(Math.max(40, Math.min(220, Math.round(bpm + delta))));
   };
 
+  const handleToggleSupersonic = () => {
+    const next = !superSonicMode;
+    if (uiSoundsEnabled) {
+      playSupersonicToggleSound(next);
+    }
+    setSuperSonicMode(next);
+  };
+
   if (!isCompactViewport) {
     return null;
   }
@@ -281,6 +291,7 @@ const CompactTransportBar = () => {
           className="control-chip compact-transport-btn"
           data-active={isPlaying ? 'true' : 'false'}
           data-primary="true"
+          data-ui-sound="transport"
           onClick={() => void handleTogglePlay()}
           type="button"
         >
@@ -290,6 +301,7 @@ const CompactTransportBar = () => {
         <button
           aria-label="Stop"
           className="control-chip compact-transport-btn"
+          data-ui-sound="transport"
           onClick={stop}
           type="button"
         >
@@ -301,6 +313,7 @@ const CompactTransportBar = () => {
           className="control-chip compact-transport-btn"
           data-active={isRecording ? 'true' : 'false'}
           data-record="true"
+          data-ui-sound="record"
           onClick={() => void handleToggleRecording()}
           type="button"
         >
@@ -316,6 +329,7 @@ const CompactTransportBar = () => {
             <button
               aria-label="Slower by one BPM"
               className="control-chip compact-tempo-step"
+              data-ui-sound="tab"
               onClick={() => nudgeBpm(-1)}
               type="button"
             >
@@ -340,6 +354,7 @@ const CompactTransportBar = () => {
             <button
               aria-label="Faster by one BPM"
               className="control-chip compact-tempo-step"
+              data-ui-sound="tab"
               onClick={() => nudgeBpm(1)}
               type="button"
             >
@@ -352,7 +367,7 @@ const CompactTransportBar = () => {
             className="control-chip compact-transport-super"
             data-active={superSonicMode ? 'true' : 'false'}
             data-super="true"
-            onClick={() => setSuperSonicMode(!superSonicMode)}
+            onClick={handleToggleSupersonic}
             title="SuperSonic mode keeps the common edits one tap away"
             type="button"
           >

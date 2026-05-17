@@ -431,6 +431,7 @@ export const TopBar = ({
                 aria-expanded={mobileHeaderExpanded}
                 aria-label={mobileHeaderExpanded ? 'Collapse studio details' : 'Expand studio details'}
                 className="ghost-icon-button flex h-9 shrink-0 items-center justify-center gap-1.5 px-2.5"
+                data-ui-sound="tab"
                 onClick={() => setMobileHeaderExpanded((current) => !current)}
                 title={mobileHeaderExpanded ? 'Collapse studio details' : 'Project, tempo, and session tools'}
                 type="button"

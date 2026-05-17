@@ -224,6 +224,7 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
           <button
             aria-label="Close transcriber"
             className="ghost-icon-button flex h-9 w-9 shrink-0 items-center justify-center"
+            data-ui-sound="nav"
             onClick={onClose}
             type="button"
           >
@@ -235,6 +236,7 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <button
             className="control-chip flex items-center justify-center gap-2 px-3 py-3 text-[11px] font-semibold uppercase tracking-[0.14em]"
+            data-ui-sound="action"
             disabled={status === 'working'}
             onClick={() => fileInputRef.current?.click()}
             type="button"
@@ -246,6 +248,7 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
             <button
               className="control-chip flex items-center justify-center gap-2 px-3 py-3 text-[11px] font-semibold uppercase tracking-[0.14em]"
               data-active="true"
+              data-ui-sound="record"
               onClick={stopRecording}
               type="button"
             >
@@ -255,6 +258,7 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
           ) : (
             <button
               className="control-chip flex items-center justify-center gap-2 px-3 py-3 text-[11px] font-semibold uppercase tracking-[0.14em]"
+              data-ui-sound="record"
               disabled={status === 'working'}
               onClick={startRecording}
               type="button"
@@ -347,6 +351,7 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
           {status === 'ready' && result ? (
             <button
               className="control-chip px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em]"
+              data-ui-sound="tab"
               onClick={resetState}
               type="button"
             >
@@ -356,6 +361,7 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
           <button
             className="control-chip flex items-center gap-2 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em]"
             data-active={status === 'ready' && result && result.notes.length > 0 ? 'true' : 'false'}
+            data-ui-sound="action"
             disabled={status !== 'ready' || !result || result.notes.length === 0}
             onClick={applyToStudio}
             type="button"
