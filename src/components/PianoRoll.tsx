@@ -1048,9 +1048,9 @@ export const PianoRoll = () => {
       )}
 
       <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 xl:flex-row xl:items-stretch">
-        <div className="min-h-[min(62vh,560px)] min-w-0 flex-1 overflow-hidden">
+        <div className="flex min-h-[min(80vh,680px)] min-w-0 flex-1 flex-col overflow-hidden">
           <div
-            className="sequencer-grid-scroll h-full overflow-auto"
+            className="sequencer-grid-scroll min-h-0 flex-1 overflow-auto"
             ref={gridViewportRef}
           >
           <div className="inline-flex min-w-max flex-col overflow-hidden rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
@@ -1245,7 +1245,7 @@ export const PianoRoll = () => {
             })}
           </div>
           </div>
-          <div className="mt-3 rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)] px-4 py-3">
+          <div className="mt-3 shrink-0 rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)] px-4 py-3">
             <div>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
