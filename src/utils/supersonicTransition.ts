@@ -1,6 +1,6 @@
 let clearTimer: number | null = null;
 
-const transitionDuration = (transition: 'in' | 'out') => (transition === 'in' ? 420 : 360);
+const transitionDuration = (transition: 'in' | 'out') => (transition === 'in' ? 480 : 420);
 
 const clearTransitionState = (transition: 'in' | 'out') => {
   if (typeof window === 'undefined' || typeof document === 'undefined') {

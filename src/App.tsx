@@ -22,6 +22,7 @@ import type { SessionTemplateId } from './project/schema';
 import { markOnboardingCompleted, markOnboardingSkipped, shouldAutoOpenOnboarding } from './services/onboardingState';
 import { useMediaQuery } from './utils/useMediaQuery';
 import { playSupersonicToggleSound } from './audio/uiSounds';
+import { getSupersonicTransitionOrigin, runSupersonicTransition } from './utils/supersonicTransition';
 import { AudioWaveform, LayoutGrid, Volume2, Settings, Sparkles, Rows2, Share2, Coffee } from 'lucide-react';
 import { Circle, Minus, Pause, Play, Plus, Square, Zap } from 'lucide-react';
 
@@ -271,11 +272,12 @@ const CompactTransportBar = () => {
     setBpm(Math.max(40, Math.min(220, Math.round(bpm + delta))));
   };
 
-  const handleToggleSupersonic = () => {
+  const handleToggleSupersonic = (event: React.MouseEvent<HTMLButtonElement>) => {
     const next = !superSonicMode;
     if (uiSoundsEnabled) {
       playSupersonicToggleSound(next);
     }
+    runSupersonicTransition(next, getSupersonicTransitionOrigin(event.currentTarget));
     setSuperSonicMode(next);
   };
 
@@ -643,8 +645,10 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
             </div>
             <SuperSonicAssistBar />
             <DeviceRack />
-            <TapToPlay />
           </div>
+        </div>
+        <div className="shrink-0 px-3 pb-3">
+          <TapToPlay />
         </div>
       </div>
     </div>
