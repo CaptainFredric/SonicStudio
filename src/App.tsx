@@ -637,8 +637,8 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
               setShareOpen(true);
             }}
           />
-          <div className="studio-workbench flex min-w-0 flex-col gap-3 md:min-h-0 md:flex-1">
-            <div className="flex flex-col md:flex-row md:min-h-0 md:flex-1 gap-3">
+          <div className="studio-workbench flex min-w-0 flex-col gap-3 md:min-h-0 md:flex-1 md:overflow-y-auto">
+            <div className="flex flex-col gap-3 md:min-h-[300px] md:flex-row md:flex-1">
               <ViewRouter />
             </div>
             <SuperSonicAssistBar />
