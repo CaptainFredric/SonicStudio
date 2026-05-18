@@ -2456,6 +2456,7 @@ html[data-supersonic="true"] .session-player-deck-chip[data-role="intro"] {
 .compact-transport-super {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.35rem;
   height: 2.6rem;
   padding-inline: 0.85rem;
@@ -2463,6 +2464,14 @@ html[data-supersonic="true"] .session-player-deck-chip[data-role="intro"] {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.13em;
+}
+
+/* On phones the SuperSonic toggle sits alone on its row, so it fills the
+   whole row rather than floating as a half-width button. */
+@media (max-width: 767px) {
+  .compact-transport-super {
+    flex: 1 1 100%;
+  }
 }
 
 @media (max-width: 1279px) {
