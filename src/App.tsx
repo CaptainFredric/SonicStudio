@@ -24,11 +24,11 @@ import { useMediaQuery } from './utils/useMediaQuery';
 import { playSupersonicToggleSound } from './audio/uiSounds';
 import { getSupersonicTransitionOrigin, runSupersonicTransition } from './utils/supersonicTransition';
 import { AudioWaveform, LayoutGrid, Volume2, Settings, Sparkles, Rows2, Share2, Coffee } from 'lucide-react';
-import { Circle, Minus, Pause, Play, Plus, Square, Zap } from 'lucide-react';
+import { Circle, Maximize2, Minimize2, Minus, Pause, Play, Plus, Square, Zap } from 'lucide-react';
 
 const SUPPORT_URL = 'https://buymeacoffee.com/captainarm1';
 
-const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe }: { onOpenLaunchpad: () => void; onOpenShare: () => void; onOpenRecord: () => void; onOpenTranscribe: () => void }) => {
+const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe, onToggleFocus }: { onOpenLaunchpad: () => void; onOpenShare: () => void; onOpenRecord: () => void; onOpenTranscribe: () => void; onToggleFocus: () => void }) => {
   const { activeView, isSettingsOpen, setActiveView, toggleSettings } = useAudio();
   const withSuperFill = (icon: React.ReactNode, fillClass = 'studio-icon-fill-core') => (
     <span className="studio-icon-shell">
@@ -172,7 +172,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe 
         {navItems.map(renderViewButton)}
       </div>
 
-      <div className="grid grid-cols-2 gap-2 border-t border-[var(--border-soft)] pt-3 md:mt-auto md:grid-cols-1 md:gap-2">
+      <div className="grid grid-cols-3 gap-2 border-t border-[var(--border-soft)] pt-3 md:mt-auto md:grid-cols-1 md:gap-2">
         <button
           className="studio-nav-button w-full"
           data-tour-target="share"
@@ -184,6 +184,20 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe 
           <div className="flex items-center justify-center gap-2 md:flex-col">
             {withSuperFill(<Share2 size={20} className="text-[var(--accent)]" />, 'studio-icon-fill-share-core')}
             <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Share</span>
+          </div>
+        </button>
+        <button
+          className="studio-nav-button w-full"
+          data-ui-sound="settings"
+          onClick={onToggleFocus}
+          title="Focus mode: hide the chrome and fill the screen with the workspace"
+          type="button"
+        >
+          <div className="flex items-center justify-center gap-2 md:flex-col">
+            <span className="studio-icon-shell">
+              <Maximize2 size={20} className="text-[var(--accent)]" />
+            </span>
+            <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Focus</span>
           </div>
         </button>
         <a
@@ -224,7 +238,7 @@ const ViewRouter = () => {
 // core controls — play, stop, record, tempo, SuperSonic — within reach while
 // the heavier TopBar detail panel stays collapsed, so laptops and split-screen
 // windows give the editing surface the room it needs.
-const CompactTransportBar = () => {
+const CompactTransportBar = ({ forceVisible = false }: { forceVisible?: boolean }) => {
   const {
     isPlaying,
     isRecording,
@@ -281,7 +295,7 @@ const CompactTransportBar = () => {
     setSuperSonicMode(next);
   };
 
-  if (!isCompactViewport) {
+  if (!isCompactViewport && !forceVisible) {
     return null;
   }
 
@@ -448,6 +462,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
   const [isShareOpen, setShareOpen] = useState(false);
   const [isRecordOpen, setRecordOpen] = useState(false);
   const [isTranscribeOpen, setTranscribeOpen] = useState(false);
+  const [focusMode, setFocusMode] = useState(false);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const autoGuidePendingRef = useRef(!routeState.showGuide && shouldAutoOpenOnboarding());
@@ -551,6 +566,20 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
     setTranscribeOpen(true);
   }, []);
 
+  // Focus mode hides the chrome so the workspace fills the screen; Esc leaves.
+  useEffect(() => {
+    if (!focusMode) {
+      return undefined;
+    }
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setFocusMode(false);
+      }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [focusMode]);
+
   const handleFileChosen = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -625,20 +654,25 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
         </>
       ) : null}
       <div className="flex min-h-screen min-w-0 flex-col md:h-full md:min-h-0 md:overflow-hidden">
-        <div className="px-3 pt-3">
-          <TopBar firstImpression={isFirstImpression} isCaptureOpen={isRecordOpen} onOpenCapture={openCapture} />
-        </div>
-        <CompactTransportBar />
+        {!focusMode && (
+          <div className="px-3 pt-3">
+            <TopBar firstImpression={isFirstImpression} isCaptureOpen={isRecordOpen} onOpenCapture={openCapture} />
+          </div>
+        )}
+        <CompactTransportBar forceVisible={focusMode} />
         <div className="studio-shell-grid flex min-w-0 flex-col gap-3 px-3 pb-3 md:min-h-0 md:flex-1 md:flex-row">
-          <SideNav
-            onOpenLaunchpad={() => setLaunchpadOpen(true)}
-            onOpenRecord={openCapture}
-            onOpenTranscribe={openTranscribe}
-            onOpenShare={() => {
-              setGuideOpen(false);
-              setShareOpen(true);
-            }}
-          />
+          {!focusMode && (
+            <SideNav
+              onOpenLaunchpad={() => setLaunchpadOpen(true)}
+              onOpenRecord={openCapture}
+              onOpenTranscribe={openTranscribe}
+              onToggleFocus={() => setFocusMode(true)}
+              onOpenShare={() => {
+                setGuideOpen(false);
+                setShareOpen(true);
+              }}
+            />
+          )}
           <div className="studio-workbench flex min-w-0 flex-col gap-3 md:min-h-0 md:flex-1 md:overflow-y-auto">
             <div className="flex flex-col gap-3 md:min-h-[300px] md:flex-row md:flex-1">
               <ViewRouter />
@@ -646,11 +680,26 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
             <DeviceRack />
           </div>
         </div>
-        <div className="shrink-0 flex flex-col gap-3 px-3 pb-3">
-          <SuperSonicAssistBar />
-          <TapToPlay />
-        </div>
+        {!focusMode && (
+          <div className="shrink-0 flex flex-col gap-3 px-3 pb-3">
+            <SuperSonicAssistBar />
+            <TapToPlay />
+          </div>
+        )}
       </div>
+      {focusMode && (
+        <button
+          aria-label="Exit focus mode"
+          className="control-chip fixed right-3 top-3 z-[70] flex items-center gap-1.5 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+          data-ui-sound="nav"
+          onClick={() => setFocusMode(false)}
+          title="Exit focus mode (Esc)"
+          type="button"
+        >
+          <Minimize2 className="h-3.5 w-3.5" />
+          Exit focus
+        </button>
+      )}
     </div>
   );
 };
