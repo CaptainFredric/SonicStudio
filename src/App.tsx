@@ -643,11 +643,11 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
             <div className="flex flex-col gap-3 md:min-h-[300px] md:flex-row md:flex-1">
               <ViewRouter />
             </div>
-            <SuperSonicAssistBar />
             <DeviceRack />
           </div>
         </div>
-        <div className="shrink-0 px-3 pb-3">
+        <div className="shrink-0 flex flex-col gap-3 px-3 pb-3">
+          <SuperSonicAssistBar />
           <TapToPlay />
         </div>
       </div>

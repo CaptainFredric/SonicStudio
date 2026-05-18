@@ -136,7 +136,15 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
 
   const startRecording = useCallback(async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Raw signal — the browser's speech DSP (noise suppression, auto gain)
+      // distorts sustained tones and hurts transcription accuracy.
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          autoGainControl: false,
+          echoCancellation: false,
+          noiseSuppression: false,
+        },
+      });
       streamRef.current = stream;
       recordedChunksRef.current = [];
       const recorder = new MediaRecorder(stream);

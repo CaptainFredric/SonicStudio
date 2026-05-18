@@ -952,12 +952,15 @@ const buildPitchWindows = (samples: Float32Array, start: number, end: number) =>
   }
 
   const windowSize = Math.min(trimmedLength, Math.max(2048, Math.min(8192, Math.floor(trimmedLength * 0.6))));
-  const offsets = Array.from(new Set([
-    start,
-    Math.max(start, start + Math.floor((trimmedLength - windowSize) * 0.25)),
-    Math.max(start, start + Math.floor((trimmedLength - windowSize) * 0.5)),
-    Math.max(start, end - windowSize + 1),
-  ])).sort((left, right) => left - right);
+  const span = trimmedLength - windowSize;
+  const lastOffset = end - windowSize + 1;
+  // Sample more points along the take so a single shaky window can't sway
+  // the clustered pitch — six overlapping windows vote instead of four.
+  const offsets = Array.from(new Set(
+    [0, 0.2, 0.4, 0.6, 0.8, 1].map((fraction) => (
+      Math.max(start, Math.min(lastOffset, start + Math.floor(span * fraction)))
+    )),
+  )).sort((left, right) => left - right);
 
   return offsets.map((offset) => samples.subarray(offset, Math.min(samples.length, offset + windowSize)));
 };
@@ -1119,7 +1122,17 @@ export class AudioRecorder {
     if (!this.isSupported()) {
       throw new Error('Recording is not supported in this browser.');
     }
-    this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    // Disable the browser's speech-tuned processing. Noise suppression and
+    // auto gain mangle sustained musical tones and pump the level, both of
+    // which throw off pitch and loudness analysis. A raw signal is captured
+    // far more accurately.
+    this.stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        autoGainControl: false,
+        echoCancellation: false,
+        noiseSuppression: false,
+      },
+    });
     this.chunks = [];
     const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
       ? 'audio/webm;codecs=opus'
