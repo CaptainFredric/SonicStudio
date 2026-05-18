@@ -38,7 +38,6 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe 
   );
 
   const navItems = [
-    { id: 'COMPOSE', icon: withSuperFill(<Rows2 size={20} />, 'studio-icon-fill-compose-core'), label: 'Compose', title: 'Compose: sketch ideas and audition quickly' },
     {
       id: 'SEQUENCER',
       icon: (
@@ -55,6 +54,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe 
       label: 'Sequencer',
       title: 'Sequencer: build step timing and groove',
     },
+    { id: 'COMPOSE', icon: withSuperFill(<Rows2 size={20} />, 'studio-icon-fill-compose-core'), label: 'Compose', title: 'Compose: sketch ideas and audition quickly' },
     { id: 'PIANO_ROLL', icon: withSuperFill(<LayoutGrid size={20} />, 'studio-icon-fill-grid-core'), label: 'Piano Roll', title: 'Piano Roll: edit pitch, velocity, and phrasing' },
     { id: 'MIXER', icon: withSuperFill(<Volume2 size={20} />, 'studio-icon-fill-mixer-core'), label: 'Mixer', title: 'Mixer: balance levels, pan, and tone' },
     {
@@ -97,7 +97,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe 
   return (
     <aside className="studio-rail w-full shrink-0 px-2 py-2 md:w-[88px] md:py-3" data-tour-target="views">
       <div className="section-label hidden md:block">Views</div>
-      <div className="grid grid-cols-3 gap-2 md:mb-2 md:grid-cols-1">
+      <div className="grid grid-cols-4 gap-2 md:mb-2 md:grid-cols-1">
         <button
           className="studio-nav-button w-full"
           data-tour-target="sessions"
@@ -145,30 +145,6 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe 
             <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Transcribe</span>
           </div>
         </button>
-      </div>
-
-      <div className="mt-2 grid grid-cols-5 gap-1.5 md:mt-0 md:hidden">
-        {navItems.map(renderViewButton)}
-      </div>
-
-      <div className="hidden md:grid md:w-full md:gap-2.5">
-        {navItems.map(renderViewButton)}
-      </div>
-
-      <div className="grid grid-cols-3 gap-2 border-t border-[var(--border-soft)] pt-3 md:mt-auto md:grid-cols-1 md:gap-2">
-        <button
-          className="studio-nav-button w-full"
-          data-tour-target="share"
-          data-ui-sound="action"
-          onClick={onOpenShare}
-          title="Share this session"
-          type="button"
-        >
-          <div className="flex items-center justify-center gap-2 md:flex-col">
-            {withSuperFill(<Share2 size={20} className="text-[var(--accent)]" />, 'studio-icon-fill-share-core')}
-            <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Share</span>
-          </div>
-        </button>
         <button
           className="studio-nav-button w-full"
           data-active={isSettingsOpen}
@@ -184,6 +160,30 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe 
               <span className="studio-icon-fill studio-icon-fill-gear-core" />
             </span>
             <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Options</span>
+          </div>
+        </button>
+      </div>
+
+      <div className="mt-2 grid grid-cols-5 gap-1.5 md:mt-0 md:hidden">
+        {navItems.map(renderViewButton)}
+      </div>
+
+      <div className="hidden md:grid md:w-full md:gap-2.5">
+        {navItems.map(renderViewButton)}
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 border-t border-[var(--border-soft)] pt-3 md:mt-auto md:grid-cols-1 md:gap-2">
+        <button
+          className="studio-nav-button w-full"
+          data-tour-target="share"
+          data-ui-sound="action"
+          onClick={onOpenShare}
+          title="Share this session"
+          type="button"
+        >
+          <div className="flex items-center justify-center gap-2 md:flex-col">
+            {withSuperFill(<Share2 size={20} className="text-[var(--accent)]" />, 'studio-icon-fill-share-core')}
+            <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Share</span>
           </div>
         </button>
         <a

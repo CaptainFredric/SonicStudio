@@ -2098,6 +2098,17 @@ html[data-supersonic="true"] .loop-browser-tag {
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.42);
 }
 
+/* The base panels layer a dark fill that reads as a muddy gray slab on
+   SuperSonic's light theme — give them a cream fill instead. */
+html[data-supersonic="true"] .loop-browser-panel,
+html[data-supersonic="true"] .session-player-panel,
+html[data-supersonic="true"] .loop-browser-card,
+html[data-supersonic="true"] .session-player-card {
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--accent) 12%, transparent), transparent 32%),
+    rgba(255, 251, 249, 0.7);
+}
+
 html[data-supersonic="true"] .session-player-panel {
   border-color: rgba(176, 31, 55, 0.16);
   background:
@@ -2435,7 +2446,7 @@ html[data-supersonic="true"] .session-player-deck-chip[data-role="intro"] {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.14em;
-  color: var(--accent-strong);
+  color: var(--text-secondary);
 }
 
 .compact-transport-super {
