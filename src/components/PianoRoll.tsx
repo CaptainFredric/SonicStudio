@@ -800,7 +800,7 @@ export const PianoRoll = () => {
   };
 
   return (
-    <section className="surface-panel flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto">
+    <section className="surface-panel flex flex-col overflow-x-hidden md:min-h-0 md:flex-1 md:overflow-y-auto">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-soft)] px-4 py-2.5">
         <div className="flex min-w-0 flex-wrap items-center gap-3">
           <div className="section-label whitespace-nowrap">Piano roll</div>
@@ -1050,10 +1050,10 @@ export const PianoRoll = () => {
         </div>
       )}
 
-      <div className="flex min-h-0 flex-1 flex-col gap-4 p-4 xl:flex-row xl:items-stretch">
-        <div className="flex min-h-[min(80vh,680px)] min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="flex flex-col gap-4 p-4 md:min-h-0 md:flex-1 xl:flex-row xl:items-stretch">
+        <div className="flex min-w-0 flex-col md:min-h-[min(80vh,680px)] md:flex-1 md:overflow-hidden">
           <div
-            className="sequencer-grid-scroll min-h-0 flex-1 overflow-auto"
+            className="sequencer-grid-scroll overflow-auto md:min-h-0 md:flex-1"
             ref={gridViewportRef}
           >
           <div className="inline-flex min-w-max flex-col overflow-hidden rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">

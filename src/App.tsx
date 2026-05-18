@@ -97,7 +97,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe,
   return (
     <aside className="studio-rail w-full shrink-0 px-2 py-2 md:w-[88px] md:py-3" data-tour-target="views">
       <div className="section-label hidden md:block">Views</div>
-      <div className="grid grid-cols-4 gap-2 md:mb-2 md:grid-cols-1">
+      <div className="grid grid-cols-2 gap-2 md:mb-2 md:grid-cols-1">
         <button
           className="studio-nav-button w-full"
           data-tour-target="sessions"
@@ -337,61 +337,59 @@ const CompactTransportBar = ({ forceVisible = false }: { forceVisible?: boolean 
           {isRecording ? 'Rec' : 'Record'}
         </button>
       </div>
-      {/* Tempo and SuperSonic stay off the phone bar — mobile keeps the
-          philosophy light, with those controls tucked into header Details. */}
+      {/* Tempo stays off the phone bar to keep it light, but the SuperSonic
+          toggle shows at every size so the mode is always one tap away. */}
       {!isMobile && (
-        <>
-          <div className="compact-transport-tempo" role="group" aria-label="Tempo">
-            <button
-              aria-label="Slower by one BPM"
-              className="control-chip compact-tempo-step"
-              data-ui-sound="tab"
-              onClick={() => nudgeBpm(-1)}
-              type="button"
-            >
-              <Minus className="h-3.5 w-3.5" />
-            </button>
-            <input
-              aria-label="Tempo in BPM"
-              className="control-field compact-tempo-input"
-              inputMode="numeric"
-              max={220}
-              min={40}
-              onChange={(event) => {
-                const next = Number(event.target.value);
-                if (Number.isFinite(next)) {
-                  setBpm(Math.max(40, Math.min(220, Math.round(next))));
-                }
-              }}
-              type="number"
-              value={bpm}
-            />
-            <span className="compact-tempo-unit">BPM</span>
-            <button
-              aria-label="Faster by one BPM"
-              className="control-chip compact-tempo-step"
-              data-ui-sound="tab"
-              onClick={() => nudgeBpm(1)}
-              type="button"
-            >
-              <Plus className="h-3.5 w-3.5" />
-            </button>
-          </div>
+        <div className="compact-transport-tempo" role="group" aria-label="Tempo">
           <button
-            aria-label={superSonicMode ? 'Turn off SuperSonic mode' : 'Turn on SuperSonic mode'}
-            aria-pressed={superSonicMode}
-            className="control-chip compact-transport-super"
-            data-active={superSonicMode ? 'true' : 'false'}
-            data-super="true"
-            onClick={handleToggleSupersonic}
-            title="SuperSonic mode keeps the common edits one tap away"
+            aria-label="Slower by one BPM"
+            className="control-chip compact-tempo-step"
+            data-ui-sound="tab"
+            onClick={() => nudgeBpm(-1)}
             type="button"
           >
-            <Zap className="h-3.5 w-3.5" />
-            <span className="compact-super-label">{superSonicMode ? 'SuperSonic on' : 'SuperSonic'}</span>
+            <Minus className="h-3.5 w-3.5" />
           </button>
-        </>
+          <input
+            aria-label="Tempo in BPM"
+            className="control-field compact-tempo-input"
+            inputMode="numeric"
+            max={220}
+            min={40}
+            onChange={(event) => {
+              const next = Number(event.target.value);
+              if (Number.isFinite(next)) {
+                setBpm(Math.max(40, Math.min(220, Math.round(next))));
+              }
+            }}
+            type="number"
+            value={bpm}
+          />
+          <span className="compact-tempo-unit">BPM</span>
+          <button
+            aria-label="Faster by one BPM"
+            className="control-chip compact-tempo-step"
+            data-ui-sound="tab"
+            onClick={() => nudgeBpm(1)}
+            type="button"
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </button>
+        </div>
       )}
+      <button
+        aria-label={superSonicMode ? 'Turn off SuperSonic mode' : 'Turn on SuperSonic mode'}
+        aria-pressed={superSonicMode}
+        className="control-chip compact-transport-super"
+        data-active={superSonicMode ? 'true' : 'false'}
+        data-super="true"
+        onClick={handleToggleSupersonic}
+        title="SuperSonic mode keeps the common edits one tap away"
+        type="button"
+      >
+        <Zap className="h-3.5 w-3.5" />
+        <span className="compact-super-label">{superSonicMode ? 'SuperSonic on' : 'SuperSonic'}</span>
+      </button>
     </div>
   );
 };

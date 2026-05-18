@@ -1826,6 +1826,10 @@ html[data-supersonic="true"] .sonic-scroll-strip::-moz-range-track {
   overscroll-behavior-x: contain;
   overscroll-behavior-y: auto;
   scrollbar-gutter: stable;
+  /* Let a touch swipe scroll the grid on both axes. Without pan-x a
+     horizontal swipe was captured as a drag-paint gesture instead of
+     scrolling to later steps. Notes are still placed by tapping a cell. */
+  touch-action: pan-x pan-y;
 }
 
 .compose-workspace {

@@ -1401,7 +1401,7 @@ export const MainWorkspace = () => {
   }, [applySessionPlayerProfile, buildSessionPlayerSong, pendingSessionPlayerRequest, sessionPlayerSegments, tracks]);
 
   return (
-    <section className="surface-panel flex min-h-0 flex-1 flex-col overflow-visible">
+    <section className="surface-panel flex flex-col overflow-visible md:min-h-0 md:flex-1">
       <div className="flex flex-col gap-3 border-b border-[var(--border-soft)] px-5 py-3 md:flex-row md:items-center md:justify-between md:gap-4">
         <div className="min-w-0 shrink-0">
           <div className="flex items-baseline gap-2">
@@ -1495,8 +1495,8 @@ export const MainWorkspace = () => {
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-visible p-4 xl:flex-row xl:items-start">
-        <div className="flex min-h-[min(58vh,520px)] min-w-0 flex-1 flex-col overflow-visible">
+      <div className="flex flex-col gap-3 overflow-visible p-4 md:min-h-0 md:flex-1 xl:flex-row xl:items-start">
+        <div className="flex min-w-0 flex-col overflow-visible md:min-h-[min(58vh,520px)] md:flex-1">
           <div className="surface-panel-muted mb-3 px-4 py-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -1910,9 +1910,9 @@ export const MainWorkspace = () => {
             </div>
           )}
 
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div className="flex flex-col md:min-h-0 md:flex-1 md:overflow-hidden">
             <div
-              className="sequencer-grid-scroll flex-1 overflow-auto touch-pan-y rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]"
+              className="sequencer-grid-scroll overflow-auto rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] md:min-h-0 md:flex-1"
               ref={gridViewportRef}
             >
               <div style={{ minWidth: `${laneHeaderWidth + stepGridWidth}px` }}>
