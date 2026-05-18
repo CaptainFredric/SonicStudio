@@ -529,6 +529,7 @@ export const MainWorkspace = () => {
   const addLaneStripRef = useRef<HTMLDivElement | null>(null);
   const [addLaneMaxScrollLeft, setAddLaneMaxScrollLeft] = useState(0);
   const [addLaneScrollLeft, setAddLaneScrollLeft] = useState(0);
+  const [addLaneOpen, setAddLaneOpen] = useState(true);
   const [gridScrollLeft, setGridScrollLeft] = useState(0);
   const [gridViewportWidth, setGridViewportWidth] = useState(0);
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
@@ -1121,6 +1122,10 @@ export const MainWorkspace = () => {
     const mode: 'add' | 'remove' = hasTargetNote ? 'remove' : 'add';
     paintStateRef.current = { trackId, mode, note, visited: new Set([`${stepIndex}`]) };
     toggleStep(trackId, stepIndex, note);
+    // Sound the note as it lands, so placing a step gives instant feedback.
+    if (mode === 'add') {
+      void previewTrack(trackId, note);
+    }
   };
 
   const handleSeqCellPointerEnter = (
@@ -1141,8 +1146,12 @@ export const MainWorkspace = () => {
     const hasTargetNote = state.note
       ? stepEvents.some((entry) => entry.note === state.note)
       : stepEvents.length > 0;
-    if (state.mode === 'add' && !hasTargetNote) toggleStep(trackId, stepIndex, state.note);
-    else if (state.mode === 'remove' && hasTargetNote) toggleStep(trackId, stepIndex, state.note);
+    if (state.mode === 'add' && !hasTargetNote) {
+      toggleStep(trackId, stepIndex, state.note);
+      void previewTrack(trackId, state.note);
+    } else if (state.mode === 'remove' && hasTargetNote) {
+      toggleStep(trackId, stepIndex, state.note);
+    }
   };
 
   const updateSelectedStepNote = (noteIndex: number, updates: Parameters<typeof updateStepEvent>[3]) => {
@@ -1405,24 +1414,40 @@ export const MainWorkspace = () => {
           <div className="flex items-center justify-between gap-3">
             <span className="section-label shrink-0">Add lane</span>
             <div className="flex items-center gap-1.5">
+              {addLaneOpen && (
+                <>
+                  <button
+                    className="control-chip flex h-8 w-8 items-center justify-center"
+                    disabled={addLaneScrollLeft <= 2}
+                    onClick={() => scrollAddLaneStrip(-1)}
+                    type="button"
+                  >
+                    <ArrowUp className="h-3.5 w-3.5 -rotate-90" />
+                  </button>
+                  <button
+                    className="control-chip flex h-8 w-8 items-center justify-center"
+                    disabled={addLaneScrollLeft >= (addLaneMaxScrollLeft - 2)}
+                    onClick={() => scrollAddLaneStrip(1)}
+                    type="button"
+                  >
+                    <ArrowDown className="h-3.5 w-3.5 -rotate-90" />
+                  </button>
+                </>
+              )}
               <button
+                aria-expanded={addLaneOpen}
                 className="control-chip flex h-8 w-8 items-center justify-center"
-                disabled={addLaneScrollLeft <= 2}
-                onClick={() => scrollAddLaneStrip(-1)}
+                data-ui-sound="tab"
+                onClick={() => setAddLaneOpen((current) => !current)}
+                title={addLaneOpen ? 'Minimise the add-lane strip' : 'Show the add-lane strip'}
                 type="button"
               >
-                <ArrowUp className="h-3.5 w-3.5 -rotate-90" />
-              </button>
-              <button
-                className="control-chip flex h-8 w-8 items-center justify-center"
-                disabled={addLaneScrollLeft >= (addLaneMaxScrollLeft - 2)}
-                onClick={() => scrollAddLaneStrip(1)}
-                type="button"
-              >
-                <ArrowDown className="h-3.5 w-3.5 -rotate-90" />
+                {addLaneOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
               </button>
             </div>
           </div>
+          {addLaneOpen && (
+          <>
           <div
             className="add-lane-strip mt-2 flex items-stretch gap-2 overflow-x-auto pb-1"
             ref={addLaneStripRef}
@@ -1465,6 +1490,8 @@ export const MainWorkspace = () => {
             />
             <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">{addLaneScrollProgress}</span>
           </div>
+          </>
+          )}
         </div>
       </div>
 

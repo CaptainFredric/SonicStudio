@@ -135,6 +135,7 @@ export const PianoRoll = () => {
     setTrackParams,
     setTrackSource,
     setLoopRange,
+    previewTrack,
     setStepsPerPattern,
     shiftPattern,
     stampChord,
@@ -366,6 +367,8 @@ export const PianoRoll = () => {
         createPreviewEvent(note, selectedNote ?? currentStepNotes.at(-1)),
       ]);
       setSelectedNoteIndex(nextStep.findIndex((event) => event.note === note));
+      // Sound the note as it lands, so placing it gives instant feedback.
+      void previewTrack(track.id, note);
     }
 
     toggleStep(track.id, stepIndex, note);

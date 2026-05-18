@@ -295,7 +295,7 @@ export const DeviceRack = () => {
 
   if (collapsed) {
     return (
-      <section className="surface-panel device-rack-panel px-4 py-3 md:shrink-0">
+      <section className="surface-panel device-rack-panel px-4 py-2 md:shrink-0">
         <div className="flex flex-wrap items-start gap-3">
           <button
             aria-expanded="false"
@@ -308,15 +308,14 @@ export const DeviceRack = () => {
             <ChevronUp className="h-4 w-4" />
           </button>
           <div className="min-w-0 flex-1">
-            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+            {/* Collapsed: a single compact line. The Voice/Filter/Mode chips
+                live in the expanded desk so the minimised state stays slim. */}
+            <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
               <span className="section-label">Sound desk</span>
               <span className="text-sm font-medium leading-5 text-[var(--text-primary)]">{track.name}</span>
-            </div>
-            <div className="mt-2 flex flex-wrap gap-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
-              <span className="rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.025)] px-2 py-1">Voice <span className="text-[var(--text-secondary)]">{voiceLabel}</span></span>
-              <span className="rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.025)] px-2 py-1">Filter <span className="text-[var(--text-secondary)]">{filterLabel(track.params.filterMode)}</span></span>
-              <span className="rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.025)] px-2 py-1">Mode <span className="text-[var(--text-secondary)]">{motionSummary}</span></span>
-              <span className="rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.025)] px-2 py-1">Vol <span className="text-[var(--text-secondary)]">{track.volume.toFixed(0)}</span></span>
+              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+                {voiceLabel} · Vol {track.volume.toFixed(0)}
+              </span>
             </div>
           </div>
           <div className="ml-auto flex flex-wrap gap-2">
