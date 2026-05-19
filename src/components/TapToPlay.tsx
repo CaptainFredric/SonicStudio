@@ -98,6 +98,8 @@ const getOctaveRangeForType = (type: string): Octave => {
   if (type === 'pad') return { startOctave: 3, totalOctaves: 2 };
   if (type === 'pluck' || type === 'fx') return { startOctave: 4, totalOctaves: 2 };
   if (type === 'violin') return { startOctave: 3, totalOctaves: 3 };
+  if (type === 'piano') return { startOctave: 2, totalOctaves: 4 };
+  if (type === 'bell') return { startOctave: 4, totalOctaves: 3 };
   return { startOctave: 3, totalOctaves: 2 };
 };
 

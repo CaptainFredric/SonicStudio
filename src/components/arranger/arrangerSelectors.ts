@@ -3,11 +3,13 @@ import type { LaneData, LaneGroupKey, LaneScope, LaneSection, LaneSectionKey, Se
 
 export const DRUM_ROW_LABELS: Record<Track['type'], string> = {
   bass: 'Bass',
+  bell: 'Bell',
   fx: 'FX',
   hihat: 'Hat',
   kick: 'Kick',
   lead: 'Lead',
   pad: 'Pad',
+  piano: 'Piano',
   pluck: 'Pluck',
   snare: 'Snare',
   violin: 'Violin',

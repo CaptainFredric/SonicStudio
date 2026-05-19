@@ -400,7 +400,7 @@ export class ToneEngine {
       default:
         (graph.instrument as Tone.PolySynth).triggerAttackRelease(
           step.note || 'C4',
-          track.type === 'pad' || track.type === 'violin' ? duration * 1.5 : duration,
+          track.type === 'pad' || track.type === 'violin' || track.type === 'bell' ? duration * 1.5 : duration,
           time,
           step.velocity,
         );
@@ -852,6 +852,30 @@ export class ToneEngine {
           instrument.maxPolyphony = FX_MAX_POLYPHONY;
           return instrument;
         }
+      case 'piano':
+        {
+          // Warm FM electric piano: a low harmonic ratio with a quick
+          // modulation decay gives the struck-tine attack and mellow body.
+          const instrument = new Tone.PolySynth(Tone.FMSynth, {
+            harmonicity: 2,
+            modulationIndex: 5.5,
+            modulationEnvelope: { attack: 0.002, decay: 0.32, sustain: 0, release: 0.4 },
+          });
+          instrument.maxPolyphony = DEFAULT_SYNTH_MAX_POLYPHONY;
+          return instrument;
+        }
+      case 'bell':
+        {
+          // Bright FM bell: an inharmonic ratio and deep modulation give
+          // the metallic clang; the long modulation tail lets it ring.
+          const instrument = new Tone.PolySynth(Tone.FMSynth, {
+            harmonicity: 3.01,
+            modulationIndex: 16,
+            modulationEnvelope: { attack: 0.001, decay: 0.7, sustain: 0.08, release: 1.4 },
+          });
+          instrument.maxPolyphony = DEFAULT_SYNTH_MAX_POLYPHONY;
+          return instrument;
+        }
       default:
         {
           const instrument = new Tone.PolySynth(Tone.Synth);
@@ -987,7 +1011,7 @@ export class ToneEngine {
       return;
     }
 
-    if (track.type === 'lead' || track.type === 'pad' || track.type === 'pluck' || track.type === 'fx' || track.type === 'violin') {
+    if (track.type === 'lead' || track.type === 'pad' || track.type === 'pluck' || track.type === 'fx' || track.type === 'violin' || track.type === 'piano' || track.type === 'bell') {
       const instrument = graph.instrument as Tone.PolySynth;
       instrument.set({
         detune: noteDetune,

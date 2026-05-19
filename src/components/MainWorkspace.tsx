@@ -57,8 +57,10 @@ const TRACK_BUTTONS = [
   { label: 'Bass', type: 'bass' as const, family: 'Low end' },
   { label: 'Lead', type: 'lead' as const, family: 'Melody' },
   { label: 'Violin', type: 'violin' as const, family: 'Melody' },
+  { label: 'Piano', type: 'piano' as const, family: 'Melody' },
   { label: 'Pad', type: 'pad' as const, family: 'Harmony' },
   { label: 'Pluck', type: 'pluck' as const, family: 'Accent' },
+  { label: 'Bell', type: 'bell' as const, family: 'Accent' },
   { label: 'FX', type: 'fx' as const, family: 'Texture' },
 ];
 

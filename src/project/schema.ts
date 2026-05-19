@@ -1,7 +1,7 @@
 import { NOTE_GATE_MAX, NOTE_GATE_MIN, clampNoteGate } from '../utils/noteEditing';
 
 export type AppView = 'SEQUENCER' | 'PIANO_ROLL' | 'MIXER' | 'ARRANGER' | 'COMPOSE';
-export type InstrumentType = 'kick' | 'snare' | 'hihat' | 'bass' | 'lead' | 'pad' | 'pluck' | 'fx' | 'violin';
+export type InstrumentType = 'kick' | 'snare' | 'hihat' | 'bass' | 'lead' | 'pad' | 'pluck' | 'fx' | 'violin' | 'piano' | 'bell';
 export type TransportMode = 'PATTERN' | 'SONG';
 export type OscillatorShape = 'sine' | 'triangle' | 'sawtooth' | 'square';
 export type FilterMode = 'lowpass' | 'bandpass' | 'highpass';
@@ -397,6 +397,20 @@ const TRACK_PRESETS: Record<
     source: { octaveShift: 0, portamento: 0.04, samplePreset: 'lead-glass', waveform: 'sawtooth' },
     volume: -13,
   },
+  piano: {
+    color: '#83c995',
+    name: 'Felt Piano',
+    params: { attack: 0.006, chorusSend: 0.08, decay: 0.9, release: 0.85, reverbSend: 0.22, sustain: 0.2 },
+    source: { octaveShift: 0, portamento: 0, samplePreset: 'lead-glass', waveform: 'sine' },
+    volume: -11,
+  },
+  bell: {
+    color: '#b9c2da',
+    name: 'Crystal Bell',
+    params: { attack: 0.002, decay: 0.7, delaySend: 0.18, release: 1.6, reverbSend: 0.42, sustain: 0.12 },
+    source: { octaveShift: 0, portamento: 0, samplePreset: 'lead-glass', waveform: 'sine' },
+    volume: -14,
+  },
 };
 
 const DEMO_TRACK_ORDER: InstrumentType[] = ['kick', 'snare', 'hihat', 'bass', 'lead', 'pad'];
@@ -698,6 +712,8 @@ const isInstrumentType = (value: unknown): value is InstrumentType => (
   || value === 'pluck'
   || value === 'fx'
   || value === 'violin'
+  || value === 'piano'
+  || value === 'bell'
 );
 
 const isOscillatorShape = (value: unknown): value is OscillatorShape => (
@@ -2256,6 +2272,10 @@ export const defaultNoteForTrack = (track: Track): string => {
       return 'G4';
     case 'violin':
       return 'A4';
+    case 'piano':
+      return 'C4';
+    case 'bell':
+      return 'C5';
     default:
       return 'C4';
   }

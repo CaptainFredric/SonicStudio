@@ -1,11 +1,13 @@
 import React from 'react';
 import {
   Activity,
+  Bell,
   CircleDot,
   Cloud,
   Drum,
   Music2,
   Music4,
+  Piano,
   Sparkles,
   Waves,
   Zap,
@@ -64,6 +66,16 @@ const PERSONALITIES: Record<InstrumentType, TrackPersonality> = {
     icon: Music4,
     blurb: 'A bowed string voice for long, singing melodic lines.',
     family: 'voice',
+  },
+  piano: {
+    icon: Piano,
+    blurb: 'Warm struck keys for chords, comping, and melody.',
+    family: 'voice',
+  },
+  bell: {
+    icon: Bell,
+    blurb: 'Bright metallic chimes for accents and sparkle.',
+    family: 'air',
   },
 };
 
