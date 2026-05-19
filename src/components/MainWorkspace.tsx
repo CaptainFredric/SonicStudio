@@ -1523,7 +1523,7 @@ export const MainWorkspace = () => {
               {addLaneOpen && (
                 <>
                   <button
-                    className="control-chip flex h-8 w-8 items-center justify-center"
+                    className="control-chip flex h-8 w-8 shrink-0 items-center justify-center"
                     disabled={addLaneScrollLeft <= 2}
                     onClick={() => scrollAddLaneStrip(-1)}
                     type="button"
@@ -1531,7 +1531,7 @@ export const MainWorkspace = () => {
                     <ArrowUp className="h-3.5 w-3.5 -rotate-90" />
                   </button>
                   <button
-                    className="control-chip flex h-8 w-8 items-center justify-center"
+                    className="control-chip flex h-8 w-8 shrink-0 items-center justify-center"
                     disabled={addLaneScrollLeft >= (addLaneMaxScrollLeft - 2)}
                     onClick={() => scrollAddLaneStrip(1)}
                     type="button"
@@ -1542,7 +1542,7 @@ export const MainWorkspace = () => {
               )}
               <button
                 aria-expanded={addLaneOpen}
-                className="control-chip flex h-8 w-8 items-center justify-center"
+                className="control-chip flex h-8 w-8 shrink-0 items-center justify-center"
                 data-ui-sound="tab"
                 onClick={() => setAddLaneOpen((current) => !current)}
                 title={addLaneOpen ? 'Minimise the add-lane strip' : 'Show the add-lane strip'}
@@ -1679,10 +1679,10 @@ export const MainWorkspace = () => {
                     </button>
                   </div>
                 ) : null}
-                <div className="surface-panel-strong flex items-center gap-2 p-1">
+                <div className="surface-panel-strong flex flex-wrap items-center gap-2 p-1">
                   <span className="px-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Zoom</span>
                   <button
-                    className="control-chip flex h-8 w-8 items-center justify-center"
+                    className="control-chip flex h-8 w-8 shrink-0 items-center justify-center"
                     onClick={() => updateStepZoom(stepCellWidth - 6)}
                     type="button"
                   >
@@ -1698,7 +1698,7 @@ export const MainWorkspace = () => {
                     value={stepCellWidth}
                   />
                   <button
-                    className="control-chip flex h-8 w-8 items-center justify-center"
+                    className="control-chip flex h-8 w-8 shrink-0 items-center justify-center"
                     onClick={() => updateStepZoom(stepCellWidth + 6)}
                     type="button"
                   >
