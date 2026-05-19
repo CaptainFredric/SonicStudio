@@ -1120,6 +1120,38 @@ export const MainWorkspace = () => {
     );
   }, [laneColumnCollapsed]);
 
+  // Adding a lane: route every "new lane" action through here so the
+  // fresh lane announces itself — it auditions its voice and scrolls
+  // into view — rather than appearing silently off-screen.
+  const laneJustAddedRef = useRef(false);
+  const prevTrackCountRef = useRef(tracks.length);
+  const handleCreateLane = useCallback((trackType: InstrumentType) => {
+    laneJustAddedRef.current = true;
+    createTrack(trackType);
+  }, [createTrack]);
+
+  useEffect(() => {
+    const grew = tracks.length > prevTrackCountRef.current;
+    prevTrackCountRef.current = tracks.length;
+    if (!grew || !laneJustAddedRef.current) {
+      return;
+    }
+    laneJustAddedRef.current = false;
+    const newest = tracks[tracks.length - 1];
+    if (!newest) {
+      return;
+    }
+    void previewTrack(newest.id);
+    window.requestAnimationFrame(() => {
+      const scrollEl = gridViewportRef.current;
+      if (!scrollEl) {
+        return;
+      }
+      const newLaneHeader = scrollEl.querySelector('.grid-freeze-col[data-selected="true"]');
+      newLaneHeader?.closest('.flex.border-b')?.scrollIntoView({ block: 'nearest' });
+    });
+  }, [tracks, previewTrack]);
+
   const handleSeqCellPointerDown = (
     trackId: string,
     stepIndex: number,
@@ -1530,7 +1562,7 @@ export const MainWorkspace = () => {
               <button
                 className="control-chip add-lane-pill shrink-0 px-2.5 py-2 text-left"
                 key={button.type}
-                onClick={() => createTrack(button.type)}
+                onClick={() => handleCreateLane(button.type)}
                 type="button"
               >
                 <div className="flex items-center gap-2">
@@ -2181,7 +2213,7 @@ export const MainWorkspace = () => {
                             </RowActionBtn>}
                             <RowActionBtn label="Add same lane type at bottom" onClick={(event) => {
                               event.stopPropagation();
-                              createTrack(track.type);
+                              handleCreateLane(track.type);
                             }}>
                               <Plus className="h-3.5 w-3.5" />
                             </RowActionBtn>
