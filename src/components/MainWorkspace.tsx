@@ -5,6 +5,8 @@ import {
   ArrowUp,
   ChevronDown,
   ChevronUp,
+  ChevronsLeft,
+  ChevronsRight,
   Copy,
   Eraser,
   Focus,
@@ -511,6 +513,7 @@ export const MainWorkspace = () => {
   const [compactLanes, setCompactLanes] = useState(() => (
     typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
   ));
+  const [laneColumnCollapsed, setLaneColumnCollapsed] = useState(false);
   const [patternSegments, setPatternSegments] = useState<PatternSegment[]>(() => loadPatternSegments());
   const [stepZoom, setStepZoom] = useState(() => (
     typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches ? 40 : 54
@@ -625,9 +628,11 @@ export const MainWorkspace = () => {
     ? (compactLanes ? 'px-1.5 py-1.5' : 'px-2 py-1.5')
     : compactLanes ? 'px-2 py-1.5' : 'px-2 py-2';
   const stepZoomMax = isMobileViewport ? 52 : 82;
-  const laneHeaderWidth = isMobileViewport
-    ? (compactLanes ? 188 : 212)
-    : compactLanes ? 300 : 340;
+  const laneHeaderWidth = laneColumnCollapsed
+    ? 38
+    : isMobileViewport
+      ? (compactLanes ? 188 : 212)
+      : compactLanes ? 300 : 340;
   const stepCellWidth = clampNumber(stepZoom, STEP_ZOOM_MIN, stepZoomMax);
   const stepRunwayWidth = Math.max(104, SEQUENCER_RUNWAY_STEPS * stepCellWidth);
   const stepGridWidth = (stepsPerPattern * stepCellWidth) + stepRunwayWidth;
@@ -1918,11 +1923,39 @@ export const MainWorkspace = () => {
             >
               <div style={{ minWidth: `${laneHeaderWidth + stepGridWidth}px` }}>
                 <div className="sticky top-0 z-10 flex h-12 border-b border-[var(--border-soft)] bg-[var(--bg-panel-strong)] backdrop-blur">
-                  <div className="grid-freeze-col shrink-0 border-r border-[var(--border-soft)] px-5 py-3" style={{ width: `${laneHeaderWidth}px` }}>
-                    <div className="flex items-center gap-2">
-                      <Music2 className="h-4 w-4 text-[var(--accent)]" />
-                      <span className="section-label">Tracks</span>
-                    </div>
+                  <div
+                    className={`grid-freeze-col flex h-full shrink-0 items-center border-r border-[var(--border-soft)] ${laneColumnCollapsed ? 'justify-center' : 'justify-between px-3'}`}
+                    style={{ width: `${laneHeaderWidth}px` }}
+                  >
+                    {laneColumnCollapsed ? (
+                      <button
+                        aria-label="Show lane labels"
+                        className="ghost-icon-button flex h-7 w-7 shrink-0 items-center justify-center"
+                        data-ui-sound="tab"
+                        onClick={() => setLaneColumnCollapsed(false)}
+                        title="Show the lane labels and controls"
+                        type="button"
+                      >
+                        <ChevronsRight className="h-4 w-4" />
+                      </button>
+                    ) : (
+                      <>
+                        <div className="flex min-w-0 items-center gap-2">
+                          <Music2 className="h-4 w-4 shrink-0 text-[var(--accent)]" />
+                          <span className="section-label truncate">Tracks</span>
+                        </div>
+                        <button
+                          aria-label="Hide lane labels"
+                          className="ghost-icon-button flex h-7 w-7 shrink-0 items-center justify-center"
+                          data-ui-sound="tab"
+                          onClick={() => setLaneColumnCollapsed(true)}
+                          title="Collapse the lane labels to free up grid space"
+                          type="button"
+                        >
+                          <ChevronsLeft className="h-4 w-4" />
+                        </button>
+                      </>
+                    )}
                   </div>
                   <div className="flex" style={{ width: `${stepGridWidth}px` }}>
                     {Array.from({ length: stepsPerPattern }, (_, stepIndex) => stepIndex).map((stepIndex) => (
@@ -1981,7 +2014,7 @@ export const MainWorkspace = () => {
                         key={track.id}
                       >
                         <div
-                          className={`group grid-freeze-col shrink-0 overflow-hidden border-r border-[var(--border-soft)] ${laneHeaderPaddingClass} text-left cursor-pointer`}
+                          className={`group grid-freeze-col shrink-0 overflow-hidden border-r border-[var(--border-soft)] text-left cursor-pointer ${laneColumnCollapsed ? 'flex items-center justify-center py-2' : laneHeaderPaddingClass}`}
                           data-selected={selected ? 'true' : undefined}
                           onClick={() => setSelectedTrackId(track.id)}
                           onKeyDown={(event) => {
@@ -1995,6 +2028,16 @@ export const MainWorkspace = () => {
                           tabIndex={0}
                         >
                           {selected && <div className="absolute left-0 top-3 bottom-3 w-[2px] rounded-full" style={{ backgroundColor: track.color }} />}
+                          {laneColumnCollapsed ? (
+                            <div
+                              className="flex h-7 w-7 items-center justify-center"
+                              style={{ borderRadius: '2px', border: `1px solid ${track.color}55`, background: `${track.color}1a`, color: track.color }}
+                              title={`${track.name} — ${track.type} lane`}
+                            >
+                              <TrackIcon type={track.type} className="h-3.5 w-3.5" />
+                            </div>
+                          ) : (
+                          <>
                           <div className="flex min-w-0 items-center gap-2">
                             <div
                               className="shrink-0 flex h-7 w-7 items-center justify-center"
@@ -2083,6 +2126,8 @@ export const MainWorkspace = () => {
                               <Trash2 className="h-3.5 w-3.5" />
                             </RowActionBtn>
                           </div>
+                          </>
+                          )}
                         </div>
 
                         <div className={`flex gap-[2px] ${laneGridPaddingClass}`} style={{ width: `${stepGridWidth}px` }}>
