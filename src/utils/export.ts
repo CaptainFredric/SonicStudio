@@ -445,6 +445,9 @@ const inferTrackType = (track: ParsedMidiTrack): InstrumentType => {
   if (averageDuration < 180) {
     return 'pluck';
   }
+  if (averageNote > 84) {
+    return 'violin';
+  }
   return averageNote > 72 ? 'lead' : 'pad';
 };
 

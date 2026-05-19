@@ -1,7 +1,7 @@
 import { NOTE_GATE_MAX, NOTE_GATE_MIN, clampNoteGate } from '../utils/noteEditing';
 
 export type AppView = 'SEQUENCER' | 'PIANO_ROLL' | 'MIXER' | 'ARRANGER' | 'COMPOSE';
-export type InstrumentType = 'kick' | 'snare' | 'hihat' | 'bass' | 'lead' | 'pad' | 'pluck' | 'fx';
+export type InstrumentType = 'kick' | 'snare' | 'hihat' | 'bass' | 'lead' | 'pad' | 'pluck' | 'fx' | 'violin';
 export type TransportMode = 'PATTERN' | 'SONG';
 export type OscillatorShape = 'sine' | 'triangle' | 'sawtooth' | 'square';
 export type FilterMode = 'lowpass' | 'bandpass' | 'highpass';
@@ -390,6 +390,13 @@ const TRACK_PRESETS: Record<
     source: { detune: 18, octaveShift: 1, portamento: 0.07, samplePlayback: 'oneshot', samplePreset: 'fx-rise', sampleTriggerMode: 'step-mapped', waveform: 'sawtooth' },
     volume: -18,
   },
+  violin: {
+    color: '#e0a86b',
+    name: 'Velvet Violin',
+    params: { attack: 0.085, chorusSend: 0.12, decay: 0.22, release: 0.7, reverbSend: 0.34, sustain: 0.88, vibratoDepth: 0.13, vibratoRate: 5.6 },
+    source: { octaveShift: 0, portamento: 0.04, samplePreset: 'lead-glass', waveform: 'sawtooth' },
+    volume: -13,
+  },
 };
 
 const DEMO_TRACK_ORDER: InstrumentType[] = ['kick', 'snare', 'hihat', 'bass', 'lead', 'pad'];
@@ -690,6 +697,7 @@ const isInstrumentType = (value: unknown): value is InstrumentType => (
   || value === 'pad'
   || value === 'pluck'
   || value === 'fx'
+  || value === 'violin'
 );
 
 const isOscillatorShape = (value: unknown): value is OscillatorShape => (
@@ -2246,6 +2254,8 @@ export const defaultNoteForTrack = (track: Track): string => {
       return 'E4';
     case 'fx':
       return 'G4';
+    case 'violin':
+      return 'A4';
     default:
       return 'C4';
   }

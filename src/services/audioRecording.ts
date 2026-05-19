@@ -232,6 +232,20 @@ const TRACK_CAPTURE_PROFILES: TrackCaptureProfile[] = [
     transient: 0.46,
     type: 'fx',
   },
+  {
+    baseCutoff: 5800,
+    basePortamento: 0.04,
+    baseResonance: 1.3,
+    baseReverb: 0.4,
+    brightness: 0.56,
+    duration: 0.82,
+    loudness: 0.46,
+    pitchCenter: 540,
+    pitchSpread: 1.5,
+    pitchedAffinity: 0.97,
+    transient: 0.12,
+    type: 'violin',
+  },
 ];
 
 const frequencyToNote = (hz: number): { note: string; octave: number; midi: number } | null => {
@@ -881,7 +895,8 @@ const detectPitchInWindow = (samples: Float32Array, sampleRate: number): WindowP
     return null;
   }
 
-  const minLag = Math.floor(sampleRate / 2000);
+  // Reach ~2500 Hz so the violin's upper register lands inside capture.
+  const minLag = Math.floor(sampleRate / 2500);
   const maxLag = Math.min(Math.floor(sampleRate / 50), buffer.length - 2);
   if (maxLag <= minLag) {
     return null;

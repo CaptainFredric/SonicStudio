@@ -5,6 +5,7 @@ import {
   Cloud,
   Drum,
   Music2,
+  Music4,
   Sparkles,
   Waves,
   Zap,
@@ -58,6 +59,11 @@ const PERSONALITIES: Record<InstrumentType, TrackPersonality> = {
     icon: Zap,
     blurb: 'Risers, sweeps, and transitions.',
     family: 'spark',
+  },
+  violin: {
+    icon: Music4,
+    blurb: 'A bowed string voice for long, singing melodic lines.',
+    family: 'voice',
   },
 };
 

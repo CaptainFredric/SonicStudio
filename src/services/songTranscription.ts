@@ -33,16 +33,18 @@ import {
 
 // --- Tunable analysis constants -------------------------------------------
 
-/** Mono analysis rate. 8 kHz keeps autocorrelation cheap while still
- *  resolving every pitch a voice or lead instrument is likely to produce. */
-const TARGET_RATE = 8000;
-/** Analysis window length in samples (~128 ms at 8 kHz). */
-const WINDOW = 1024;
-/** Hop between analysis frames in samples (~40 ms at 8 kHz). */
-const HOP = 320;
-/** Lowest / highest fundamentals the tracker will report. */
+/** Mono analysis rate. 12 kHz stays cheap for autocorrelation while
+ *  resolving the higher register a violin or whistled line reaches —
+ *  8 kHz could not track a clean fundamental that far up. */
+const TARGET_RATE = 12000;
+/** Analysis window length in samples (~128 ms at 12 kHz). */
+const WINDOW = 1536;
+/** Hop between analysis frames in samples (~40 ms at 12 kHz). */
+const HOP = 480;
+/** Lowest / highest fundamentals the tracker will report. MAX_HZ ~1760
+ *  reaches A6, covering the violin's working range. */
 const MIN_HZ = 65;
-const MAX_HZ = 1200;
+const MAX_HZ = 1760;
 /** RMS below this is treated as silence (no pitch). */
 const SILENCE_RMS = 0.012;
 /** Longest input we will analyze, to keep the pass interactive. */
@@ -473,6 +475,7 @@ const inferMelodyTrackType = (notes: TranscriptionNote[]): InstrumentType => {
   if (notes.length === 0) return 'lead';
   const averageMidi = notes.reduce((sum, note) => sum + note.midi, 0) / notes.length;
   if (averageMidi < 48) return 'bass';
+  if (averageMidi > 84) return 'violin';
   if (averageMidi > 74) return 'lead';
   return 'pluck';
 };

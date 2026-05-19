@@ -400,7 +400,7 @@ export class ToneEngine {
       default:
         (graph.instrument as Tone.PolySynth).triggerAttackRelease(
           step.note || 'C4',
-          track.type === 'pad' ? duration * 1.5 : duration,
+          track.type === 'pad' || track.type === 'violin' ? duration * 1.5 : duration,
           time,
           step.velocity,
         );
@@ -987,7 +987,7 @@ export class ToneEngine {
       return;
     }
 
-    if (track.type === 'lead' || track.type === 'pad' || track.type === 'pluck' || track.type === 'fx') {
+    if (track.type === 'lead' || track.type === 'pad' || track.type === 'pluck' || track.type === 'fx' || track.type === 'violin') {
       const instrument = graph.instrument as Tone.PolySynth;
       instrument.set({
         detune: noteDetune,

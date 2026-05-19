@@ -42,7 +42,7 @@ export const SAMPLE_LIBRARY: Record<SamplePreset, SamplePresetMeta> = {
     label: 'Lead Glass',
     path: 'samples/lead-glass.wav',
     rootNote: 'C4',
-    trackTypes: ['lead'],
+    trackTypes: ['lead', 'violin'],
   },
   'pad-haze': {
     description: 'Soft layered pad source for long held chords.',

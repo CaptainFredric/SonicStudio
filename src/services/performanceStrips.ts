@@ -36,7 +36,7 @@ export const INPUT_CHANNEL_STRIP_DEFINITIONS: InputChannelStripDefinition[] = [
       portamento: 0.01,
       waveform: 'triangle',
     },
-    trackTypes: ['lead', 'pluck', 'pad'],
+    trackTypes: ['lead', 'pluck', 'pad', 'violin'],
   },
   {
     description: 'Crunchier amp chain for doubled riffs, synth-guitar stabs, and wider chorus guitars.',
@@ -61,7 +61,7 @@ export const INPUT_CHANNEL_STRIP_DEFINITIONS: InputChannelStripDefinition[] = [
       portamento: 0,
       waveform: 'sawtooth',
     },
-    trackTypes: ['lead', 'pluck', 'fx'],
+    trackTypes: ['lead', 'pluck', 'fx', 'violin'],
   },
   {
     description: 'Airy vocal chain for guide takes, doubled hooks, and melodic ideas that need width more than bite.',
@@ -87,7 +87,7 @@ export const INPUT_CHANNEL_STRIP_DEFINITIONS: InputChannelStripDefinition[] = [
       portamento: 0.02,
       waveform: 'triangle',
     },
-    trackTypes: ['lead', 'pad', 'fx'],
+    trackTypes: ['lead', 'pad', 'fx', 'violin'],
   },
   {
     description: 'More focused vocal strip for spoken ideas, lead lines, and tighter phrase work that needs presence.',
@@ -115,7 +115,7 @@ export const INPUT_CHANNEL_STRIP_DEFINITIONS: InputChannelStripDefinition[] = [
       portamento: 0.03,
       waveform: 'sawtooth',
     },
-    trackTypes: ['lead', 'pad', 'fx'],
+    trackTypes: ['lead', 'pad', 'fx', 'violin'],
   },
 ];
 

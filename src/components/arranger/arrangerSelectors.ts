@@ -10,6 +10,7 @@ export const DRUM_ROW_LABELS: Record<Track['type'], string> = {
   pad: 'Pad',
   pluck: 'Pluck',
   snare: 'Snare',
+  violin: 'Violin',
 };
 
 export const LANE_GROUP_LABELS: Record<LaneGroupKey, string> = {
