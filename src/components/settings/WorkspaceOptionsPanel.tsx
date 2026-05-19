@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Coffee, Mic, RotateCcw, Settings2, Volume2, Waves, Zap } from 'lucide-react';
+import { Coffee, Mic, Pin, RotateCcw, Settings2, Volume2, Waves, Zap } from 'lucide-react';
 
 import type { CaptureAnalysisProfile, CaptureSuggestionCount, MotionMode, SuperSonicWaveIntensity } from '../../project/preferences';
 import { hasSeenUiReminder, markUiReminderSeen } from '../../services/uiReminders';
@@ -23,7 +23,9 @@ interface WorkspaceOptionsPanelProps {
   onSuperSonicModeChange: (enabled: boolean) => void;
   onSuperSonicGuidanceBadgesChange: (enabled: boolean) => void;
   onSuperSonicWaveIntensityChange: (intensity: SuperSonicWaveIntensity) => void;
+  onStickyMobileTransportChange: (enabled: boolean) => void;
   onUiSoundsEnabledChange: (enabled: boolean) => void;
+  stickyMobileTransport: boolean;
   superSonicGuidanceBadges: boolean;
   superSonicMode: boolean;
   superSonicWaveIntensity: SuperSonicWaveIntensity;
@@ -46,7 +48,9 @@ export const WorkspaceOptionsPanel = ({
   onSuperSonicModeChange,
   onSuperSonicGuidanceBadgesChange,
   onSuperSonicWaveIntensityChange,
+  onStickyMobileTransportChange,
   onUiSoundsEnabledChange,
+  stickyMobileTransport,
   superSonicGuidanceBadges,
   superSonicMode,
   superSonicWaveIntensity,
@@ -68,6 +72,9 @@ export const WorkspaceOptionsPanel = ({
       <Settings2 className="h-4 w-4 text-[var(--accent)]" />
       <span className="section-label">Studio options</span>
     </div>
+    <p className="mt-1.5 text-[11px] leading-5 text-[var(--text-secondary)]">
+      How the studio behaves while you work. Theme color and density live under Preferences.
+    </p>
 
     <div className="mt-4 space-y-4">
       <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
@@ -232,6 +239,22 @@ export const WorkspaceOptionsPanel = ({
         <div className="mt-3 flex gap-2">
           <StateButton active={uiSoundsEnabled} label="On" onClick={() => onUiSoundsEnabledChange(true)} />
           <StateButton active={!uiSoundsEnabled} label="Off" onClick={() => onUiSoundsEnabledChange(false)} />
+        </div>
+      </div>
+
+      <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
+        <div className="flex items-center gap-2">
+          <Pin className="h-4 w-4 text-[var(--accent)]" />
+          <div>
+            <div className="text-sm font-medium text-[var(--text-primary)]">Transport bar on phones</div>
+            <div className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
+              Keep Play, Stop, Record, and SuperSonic pinned to the top while you scroll, or let the bar scroll away for a little more grid room.
+            </div>
+          </div>
+        </div>
+        <div className="mt-3 flex gap-2">
+          <StateButton active={stickyMobileTransport} label="Pinned" onClick={() => onStickyMobileTransportChange(true)} />
+          <StateButton active={!stickyMobileTransport} label="Scrolls away" onClick={() => onStickyMobileTransportChange(false)} />
         </div>
       </div>
 

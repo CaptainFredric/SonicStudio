@@ -250,6 +250,7 @@ const CompactTransportBar = ({ forceVisible = false }: { forceVisible?: boolean 
     superSonicMode,
     setSuperSonicMode,
     uiSoundsEnabled,
+    stickyMobileTransport,
   } = useAudio();
   const isCompactViewport = useMediaQuery('(max-width: 1279px), (max-height: 899px)');
   const isMobile = useMediaQuery('(max-width: 767px)');
@@ -300,7 +301,12 @@ const CompactTransportBar = ({ forceVisible = false }: { forceVisible?: boolean 
   }
 
   return (
-    <div className="compact-transport-bar" role="group" aria-label="Transport controls">
+    <div
+      className="compact-transport-bar"
+      data-sticky={stickyMobileTransport ? undefined : 'off'}
+      role="group"
+      aria-label="Transport controls"
+    >
       <div className="compact-transport-group">
         <button
           aria-label={isPlaying ? 'Pause playback' : 'Play'}

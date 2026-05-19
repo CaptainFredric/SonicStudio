@@ -1333,9 +1333,12 @@ input[type=range]:focus-visible::-moz-range-thumb {
     linear-gradient(180deg, transparent 0%, rgba(255,255,255,0.004) 100%),
     linear-gradient(90deg, rgba(255,255,255,0.012), transparent 18%, transparent 82%, rgba(255,255,255,0.01));
   animation: app-shell-in var(--motion-slow) var(--motion-ease);
-  overflow-x: hidden;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  /* Clip horizontally (not hidden): `overflow-x: hidden` would force
+     overflow-y to `auto`, turning the shell into a scroll container that
+     traps the sticky transport bar and stops it from pinning. `clip`
+     contains stray horizontal overflow without that side effect. */
+  overflow-x: clip;
+  overflow-y: visible;
 }
 
 .app-shell::after {
@@ -2407,6 +2410,12 @@ html[data-supersonic="true"] .session-player-deck-chip[data-role="intro"] {
     color-mix(in srgb, var(--bg-panel-strong) 92%, transparent);
   backdrop-filter: blur(14px);
   box-shadow: 0 12px 26px rgba(0, 0, 0, 0.24);
+}
+
+/* Studio options can unpin the transport bar for users who would rather
+   scroll it away and keep every pixel of workspace. */
+.compact-transport-bar[data-sticky="off"] {
+  position: static;
 }
 
 .compact-transport-group {

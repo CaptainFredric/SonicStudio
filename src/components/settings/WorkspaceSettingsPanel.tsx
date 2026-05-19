@@ -68,8 +68,10 @@ export const WorkspaceSettingsPanel = () => {
     setSuperSonicGuidanceBadges,
     setSuperSonicWaveIntensity,
     setStepsPerPattern,
+    setStickyMobileTransport,
     setTransportMode,
     setUiSoundsEnabled,
+    stickyMobileTransport,
     songLengthInBeats,
     songMarkers,
     stepsPerPattern,
@@ -219,7 +221,9 @@ export const WorkspaceSettingsPanel = () => {
         onSuperSonicModeChange={setSuperSonicMode}
         onSuperSonicGuidanceBadgesChange={setSuperSonicGuidanceBadges}
         onSuperSonicWaveIntensityChange={setSuperSonicWaveIntensity}
+        onStickyMobileTransportChange={setStickyMobileTransport}
         onUiSoundsEnabledChange={setUiSoundsEnabled}
+        stickyMobileTransport={stickyMobileTransport}
         superSonicGuidanceBadges={superSonicPreferences.guidanceBadges}
         superSonicMode={superSonicMode}
         superSonicWaveIntensity={superSonicPreferences.waveIntensity}

@@ -25,6 +25,7 @@ export interface StudioPreferences {
   density: Density;
   defaultWorkspace: DefaultWorkspace;
   superSonicMode: boolean;
+  stickyMobileTransport: boolean;
   capture: CapturePreferences;
   superSonic: SuperSonicPreferences;
 }
@@ -38,6 +39,7 @@ export const DEFAULT_STUDIO_PREFERENCES: StudioPreferences = {
   density: 'comfortable',
   defaultWorkspace: 'piano-roll',
   superSonicMode: false,
+  stickyMobileTransport: true,
   capture: {
     analysisProfile: 'balanced',
     autoPreviewMatch: false,
@@ -144,6 +146,9 @@ export const normalizeStudioPreferences = (value: unknown): StudioPreferences =>
     density: isDensity(candidate.density) ? candidate.density : 'comfortable',
     defaultWorkspace: isDefaultWorkspace(candidate.defaultWorkspace) ? candidate.defaultWorkspace : 'piano-roll',
     superSonicMode: typeof candidate.superSonicMode === 'boolean' ? candidate.superSonicMode : false,
+    stickyMobileTransport: typeof candidate.stickyMobileTransport === 'boolean'
+      ? candidate.stickyMobileTransport
+      : DEFAULT_STUDIO_PREFERENCES.stickyMobileTransport,
     capture: {
       analysisProfile: isCaptureAnalysisProfile(captureCandidate.analysisProfile)
         ? captureCandidate.analysisProfile

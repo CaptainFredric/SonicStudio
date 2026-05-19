@@ -193,6 +193,7 @@ interface AudioContextType {
   setTrackSource: (id: string, source: Partial<TrackSource>) => void;
   setMotionMode: (mode: MotionMode) => void;
   setUiSoundsEnabled: (enabled: boolean) => void;
+  setStickyMobileTransport: (enabled: boolean) => void;
   setMetronomeEnabled: (enabled: boolean) => void;
   songMarkers: SongMarker[];
   setClipPatternStepSlice: (clipId: string, stepIndex: number, sliceIndex: number | null, note?: string) => void;
@@ -244,6 +245,7 @@ interface AudioContextType {
   saveTrackSnapshot: (trackId: string, snapshotId?: string | null) => void;
   trackSnapshots: TrackSnapshot[];
   uiSoundsEnabled: boolean;
+  stickyMobileTransport: boolean;
 }
 
 const AudioContext = createContext<AudioContextType | null>(null);
@@ -676,6 +678,7 @@ export const AudioProvider = ({
     trackSnapshots: project.trackSnapshots,
     transportMode: project.transport.mode,
     uiSoundsEnabled: preferences.uiSoundsEnabled,
+    stickyMobileTransport: preferences.stickyMobileTransport,
     deleteCheckpoint,
     ...dispatchers,
     setMotionMode: (motionMode) => setPreferences((current) => ({ ...current, motionMode })),
@@ -709,6 +712,7 @@ export const AudioProvider = ({
     })),
     setSettingsOpen: (open) => dispatch({ type: 'SET_SETTINGS_OPEN', open }),
     setUiSoundsEnabled: (uiSoundsEnabled) => setPreferences((current) => ({ ...current, uiSoundsEnabled })),
+    setStickyMobileTransport: (stickyMobileTransport) => setPreferences((current) => ({ ...current, stickyMobileTransport })),
     setAccentColor: (accentColor) => setPreferences((current) => ({ ...current, accentColor })),
     setDensity: (density) => setPreferences((current) => ({ ...current, density })),
     setDefaultWorkspace: (defaultWorkspace) => setPreferences((current) => ({ ...current, defaultWorkspace })),
@@ -769,6 +773,7 @@ export const AudioProvider = ({
     preferences.superSonic,
     preferences.superSonicMode,
     preferences.uiSoundsEnabled,
+    preferences.stickyMobileTransport,
     previewTrack,
     project,
     projectCheckpoints,
