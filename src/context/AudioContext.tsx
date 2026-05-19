@@ -330,10 +330,17 @@ export const AudioProvider = ({
     const tokens = ACCENT_PRESETS[preferences.accentColor];
     document.documentElement.dataset.accent = preferences.accentColor;
     document.documentElement.style.setProperty('--accent', tokens.accent);
-    document.documentElement.style.setProperty('--accent-strong', tokens.accentStrong);
     document.documentElement.style.setProperty('--accent-muted', tokens.accentMuted);
     document.documentElement.style.setProperty('--chrome-line', tokens.chromeLine);
-  }, [preferences.accentColor]);
+    // accent-strong is the brightest accent — near-white, tuned for the
+    // dark theme. On SuperSonic's cream surfaces that reads as illegible
+    // pale text, so let the light theme's own dark accent-strong stand.
+    if (preferences.superSonicMode) {
+      document.documentElement.style.removeProperty('--accent-strong');
+    } else {
+      document.documentElement.style.setProperty('--accent-strong', tokens.accentStrong);
+    }
+  }, [preferences.accentColor, preferences.superSonicMode]);
 
   useEffect(() => {
     if (typeof document === 'undefined') {
