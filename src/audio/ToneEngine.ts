@@ -1094,8 +1094,14 @@ export class ToneEngine {
     const activeTrackIds = new Set(this.tracksState.map((track) => track.id));
 
     this.tracksState.forEach((track) => {
-      const graph = this.ensureTrackGraph(track);
-      this.applyTrackGraphState(graph, track);
+      // Isolate each lane: if one instrument fails to build, the rest of
+      // the mix still plays rather than the whole engine going silent.
+      try {
+        const graph = this.ensureTrackGraph(track);
+        this.applyTrackGraphState(graph, track);
+      } catch (error) {
+        console.warn(`SonicStudio: could not build the audio graph for "${track.name}" — other lanes keep playing.`, error);
+      }
     });
 
     Object.keys(this.trackGraphs).forEach((trackId) => {
