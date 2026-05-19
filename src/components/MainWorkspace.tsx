@@ -514,7 +514,10 @@ export const MainWorkspace = () => {
   const [compactLanes, setCompactLanes] = useState(() => (
     typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
   ));
-  const [laneColumnCollapsed, setLaneColumnCollapsed] = useState(false);
+  const [laneColumnCollapsed, setLaneColumnCollapsed] = useState(() => (
+    typeof window !== 'undefined'
+    && window.localStorage.getItem('sonicstudio:lane-column-collapsed') === 'true'
+  ));
   const [patternSegments, setPatternSegments] = useState<PatternSegment[]>(() => loadPatternSegments());
   const [stepZoom, setStepZoom] = useState(() => (
     typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches ? 40 : 54
@@ -1104,6 +1107,16 @@ export const MainWorkspace = () => {
       window.removeEventListener('pointercancel', endPaint);
     };
   }, []);
+
+  // Remember whether the lane column is collapsed so a returning session
+  // keeps the workspace the way it was left.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(
+      'sonicstudio:lane-column-collapsed',
+      laneColumnCollapsed ? 'true' : 'false',
+    );
+  }, [laneColumnCollapsed]);
 
   const handleSeqCellPointerDown = (
     trackId: string,
