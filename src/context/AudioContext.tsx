@@ -328,17 +328,23 @@ export const AudioProvider = ({
       return;
     }
     const tokens = ACCENT_PRESETS[preferences.accentColor];
-    document.documentElement.dataset.accent = preferences.accentColor;
-    document.documentElement.style.setProperty('--accent', tokens.accent);
-    document.documentElement.style.setProperty('--accent-muted', tokens.accentMuted);
-    document.documentElement.style.setProperty('--chrome-line', tokens.chromeLine);
-    // accent-strong is the brightest accent — near-white, tuned for the
-    // dark theme. On SuperSonic's cream surfaces that reads as illegible
-    // pale text, so let the light theme's own dark accent-strong stand.
+    const root = document.documentElement;
+    root.dataset.accent = preferences.accentColor;
+    // SuperSonic ships its own cream-and-red accent theme (the
+    // data-supersonic block in index.css). The accent presets are tuned
+    // for the dark theme — painting them over SuperSonic leaves a cool
+    // accent fighting the warm surfaces and a near-white accent-strong
+    // that is illegible on cream. So in SuperSonic let the theme stand.
     if (preferences.superSonicMode) {
-      document.documentElement.style.removeProperty('--accent-strong');
+      root.style.removeProperty('--accent');
+      root.style.removeProperty('--accent-strong');
+      root.style.removeProperty('--accent-muted');
+      root.style.removeProperty('--chrome-line');
     } else {
-      document.documentElement.style.setProperty('--accent-strong', tokens.accentStrong);
+      root.style.setProperty('--accent', tokens.accent);
+      root.style.setProperty('--accent-strong', tokens.accentStrong);
+      root.style.setProperty('--accent-muted', tokens.accentMuted);
+      root.style.setProperty('--chrome-line', tokens.chromeLine);
     }
   }, [preferences.accentColor, preferences.superSonicMode]);
 

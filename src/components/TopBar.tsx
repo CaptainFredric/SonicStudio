@@ -1282,7 +1282,7 @@ const TransportBtn = ({
     ? {
         background: supersonicMode
           ? 'linear-gradient(180deg, rgba(255,255,255,0.24), rgba(255,255,255,0.04) 32%, rgba(8,82,88,0.2) 100%)'
-          : 'linear-gradient(180deg, rgba(255,255,255,0.46), rgba(255,255,255,0.16) 28%, rgba(125,211,252,0.9) 100%)',
+          : 'linear-gradient(180deg, rgba(255,255,255,0.46), rgba(255,255,255,0.16) 28%, color-mix(in srgb, var(--accent) 92%, transparent) 100%)',
         boxShadow: supersonicMode
           ? '0 0 0 1px rgba(12,109,112,0.42), 0 10px 26px rgba(8,82,88,0.2), inset 0 1px 0 rgba(255,255,255,0.26)'
           : '0 0 0 1px color-mix(in srgb, var(--accent) 58%, transparent), 0 10px 32px color-mix(in srgb, var(--accent) 38%, transparent), inset 0 1px 0 rgba(255,255,255,0.5)',
