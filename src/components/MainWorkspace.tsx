@@ -1091,6 +1091,9 @@ export const MainWorkspace = () => {
   };
 
   const paintStateRef = useRef<{ trackId: string; mode: 'add' | 'remove' | 'select'; visited: Set<string>; note?: string } | null>(null);
+  // SuperSonic touch placement: a preview cell that tracks the finger so a
+  // note can be aimed before it commits on release.
+  const [placementCursor, setPlacementCursor] = useState<{ trackId: string; stepIndex: number } | null>(null);
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
     const endPaint = () => { paintStateRef.current = null; };
@@ -1111,6 +1114,22 @@ export const MainWorkspace = () => {
   ) => {
     if (event.button !== 0) return;
     const isTouchPointer = event.pointerType === 'touch';
+    // SuperSonic + touch: deliberate drag-to-place. Pressing an empty cell
+    // opens a placement preview that follows the finger and commits the
+    // note on release; pressing a filled cell still removes it at once.
+    if (superSonicMode && isTouchPointer && editorMode !== 'select') {
+      const targetHasNote = note
+        ? stepEvents.some((entry) => entry.note === note)
+        : stepEvents.length > 0;
+      if (!targetHasNote) {
+        event.preventDefault();
+        setSelectedTrackId(trackId);
+        selectStep(stepIndex);
+        setPlacementCursor({ trackId, stepIndex });
+        void previewTrack(trackId, note);
+        return;
+      }
+    }
     if (!isTouchPointer || editorMode === 'edit') {
       event.preventDefault();
     }
@@ -1158,6 +1177,40 @@ export const MainWorkspace = () => {
     } else if (state.mode === 'remove' && hasTargetNote) {
       toggleStep(trackId, stepIndex, state.note);
     }
+  };
+
+  // While a SuperSonic touch placement is open, move the preview to the
+  // cell under the finger. Uses elementFromPoint so it works through the
+  // touch pointer-capture that stops onPointerEnter firing on siblings.
+  const handlePlacementMove = (event: React.PointerEvent<HTMLElement>) => {
+    if (!placementCursor) return;
+    const under = document.elementFromPoint(event.clientX, event.clientY);
+    const cell = under instanceof Element ? under.closest('[data-seq-cell="true"]') : null;
+    if (!(cell instanceof HTMLElement)) return;
+    const trackId = cell.dataset.trackId;
+    const stepRaw = cell.dataset.stepIndex;
+    if (!trackId || stepRaw === undefined) return;
+    const stepIndex = Number(stepRaw);
+    if (placementCursor.trackId === trackId && placementCursor.stepIndex === stepIndex) return;
+    setPlacementCursor({ trackId, stepIndex });
+    setSelectedTrackId(trackId);
+    selectStep(stepIndex);
+    void previewTrack(trackId);
+  };
+
+  // Release commits the previewed note. Lifting off the grid cancels it.
+  const handlePlacementCommit = (event: React.PointerEvent<HTMLElement>) => {
+    const target = placementCursor;
+    if (!target) return;
+    setPlacementCursor(null);
+    const released = document.elementFromPoint(event.clientX, event.clientY);
+    const overCell = released instanceof Element ? released.closest('[data-seq-cell="true"]') : null;
+    if (!overCell) return;
+    const track = tracks.find((entry) => entry.id === target.trackId);
+    const existing = track?.patterns[currentPattern]?.[target.stepIndex];
+    if (existing && existing.length > 0) return;
+    toggleStep(target.trackId, target.stepIndex);
+    void previewTrack(target.trackId);
   };
 
   const updateSelectedStepNote = (noteIndex: number, updates: Parameters<typeof updateStepEvent>[3]) => {
@@ -1920,6 +1973,9 @@ export const MainWorkspace = () => {
             <div
               className="sequencer-grid-scroll overflow-auto rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] md:min-h-0 md:flex-1"
               data-scrolled={gridScrollLeft > 1 ? 'true' : undefined}
+              onPointerCancel={() => setPlacementCursor(null)}
+              onPointerMove={handlePlacementMove}
+              onPointerUp={handlePlacementCommit}
               ref={gridViewportRef}
             >
               <div style={{ minWidth: `${laneHeaderWidth + stepGridWidth}px` }}>
@@ -2145,7 +2201,10 @@ export const MainWorkspace = () => {
 
                             return (
                               <button
-                                className={`group relative shrink-0 touch-none border transition-colors ${editorMode === 'select' ? 'cursor-pointer' : 'cursor-crosshair'} ${compactLanes ? 'min-h-[38px]' : 'min-h-[48px]'} ${isActive ? 'border-transparent' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.05)]'} ${isCurrent ? 'ring-1 ring-inset ring-[rgba(255,255,255,0.08)]' : ''} ${isSelectedStep ? 'outline outline-1 outline-offset-0 outline-[rgba(125,211,252,0.26)]' : ''}`}
+                                className={`group relative shrink-0 touch-none border transition-colors ${editorMode === 'select' ? 'cursor-pointer' : 'cursor-crosshair'} ${compactLanes ? 'min-h-[38px]' : 'min-h-[48px]'} ${isActive ? 'border-transparent' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.05)]'} ${isCurrent ? 'ring-1 ring-inset ring-[rgba(255,255,255,0.08)]' : ''} ${isSelectedStep ? 'outline outline-1 outline-offset-0 outline-[rgba(125,211,252,0.26)]' : ''} ${placementCursor && placementCursor.trackId === track.id && placementCursor.stepIndex === stepIndex ? 'seq-place-cursor' : ''}`}
+                                data-seq-cell="true"
+                                data-step-index={stepIndex}
+                                data-track-id={track.id}
                                 key={`${track.id}-${stepIndex}`}
                                 onPointerDown={(event) => {
                                   if (queuedSegment) {
