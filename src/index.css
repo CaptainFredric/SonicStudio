@@ -1832,6 +1832,39 @@ html[data-supersonic="true"] .sonic-scroll-strip::-moz-range-track {
   touch-action: pan-x pan-y;
 }
 
+/* Frozen left column for the step grids. The lane labels (Sequencer) and
+   note labels (Piano Roll) stay pinned to the left edge while the steps
+   scroll sideways, so a row never loses its identity mid-scroll. Matters
+   most on phones, where the labels would otherwise scroll clean off. */
+.grid-freeze-col {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background-color: #0a0e13;
+}
+
+html[data-supersonic="true"] .grid-freeze-col {
+  background-color: #fffcf9;
+}
+
+/* Selected lane keeps its tint inside the now-opaque frozen header. */
+.grid-freeze-col[data-selected="true"] {
+  background-image: linear-gradient(
+    rgba(125, 211, 252, 0.07),
+    rgba(125, 211, 252, 0.07)
+  );
+}
+
+/* Once the grid is scrolled, lift the frozen column with a soft edge so
+   it reads as a layer above the steps rather than a flat seam. */
+.sequencer-grid-scroll[data-scrolled="true"] .grid-freeze-col {
+  box-shadow: 12px 0 18px -12px rgba(0, 0, 0, 0.7);
+}
+
+html[data-supersonic="true"] .sequencer-grid-scroll[data-scrolled="true"] .grid-freeze-col {
+  box-shadow: 12px 0 18px -12px rgba(74, 38, 22, 0.24);
+}
+
 .compose-workspace {
   gap: 0.75rem;
 }

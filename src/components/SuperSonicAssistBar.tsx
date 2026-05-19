@@ -85,7 +85,7 @@ export const SuperSonicAssistBar = () => {
       >
         <button
           aria-label="Show SuperSonic assist tools"
-          className="ghost-icon-button flex h-7 w-7 items-center justify-center"
+          className="ghost-icon-button flex h-9 w-9 items-center justify-center md:h-7 md:w-7"
           data-ui-sound="tab"
           onClick={() => setOpen(true)}
           title="Show assist tools"
@@ -109,7 +109,7 @@ export const SuperSonicAssistBar = () => {
       <div className="flex flex-wrap items-center gap-2">
         <button
           aria-label="Hide SuperSonic assist tools"
-          className="ghost-icon-button flex h-7 w-7 items-center justify-center"
+          className="ghost-icon-button flex h-9 w-9 items-center justify-center md:h-7 md:w-7"
           data-ui-sound="tab"
           onClick={() => setOpen(false)}
           title="Hide assist tools"
@@ -218,7 +218,7 @@ const AssistButton = ({
   onClick: () => void;
 }) => (
   <button
-    className="control-chip flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
+    className="control-chip flex min-h-[42px] items-center justify-center gap-1.5 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] md:min-h-0 md:px-2.5"
     data-ui-sound="tab"
     onClick={onClick}
     style={tone === 'danger' ? { color: 'var(--danger)' } : undefined}

@@ -1913,11 +1913,12 @@ export const MainWorkspace = () => {
           <div className="flex flex-col md:min-h-0 md:flex-1 md:overflow-hidden">
             <div
               className="sequencer-grid-scroll overflow-auto rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] md:min-h-0 md:flex-1"
+              data-scrolled={gridScrollLeft > 1 ? 'true' : undefined}
               ref={gridViewportRef}
             >
               <div style={{ minWidth: `${laneHeaderWidth + stepGridWidth}px` }}>
                 <div className="sticky top-0 z-10 flex h-12 border-b border-[var(--border-soft)] bg-[var(--bg-panel-strong)] backdrop-blur">
-                  <div className="shrink-0 border-r border-[var(--border-soft)] px-5 py-3" style={{ width: `${laneHeaderWidth}px` }}>
+                  <div className="grid-freeze-col shrink-0 border-r border-[var(--border-soft)] px-5 py-3" style={{ width: `${laneHeaderWidth}px` }}>
                     <div className="flex items-center gap-2">
                       <Music2 className="h-4 w-4 text-[var(--accent)]" />
                       <span className="section-label">Tracks</span>
@@ -1980,7 +1981,8 @@ export const MainWorkspace = () => {
                         key={track.id}
                       >
                         <div
-                          className={`group relative shrink-0 overflow-hidden border-r border-[var(--border-soft)] ${laneHeaderPaddingClass} text-left cursor-pointer`}
+                          className={`group grid-freeze-col shrink-0 overflow-hidden border-r border-[var(--border-soft)] ${laneHeaderPaddingClass} text-left cursor-pointer`}
+                          data-selected={selected ? 'true' : undefined}
                           onClick={() => setSelectedTrackId(track.id)}
                           onKeyDown={(event) => {
                             if (event.key === 'Enter' || event.key === ' ') {

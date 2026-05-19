@@ -1053,12 +1053,13 @@ export const PianoRoll = () => {
       <div className="flex flex-col gap-4 p-4 md:min-h-0 md:flex-1 xl:flex-row xl:items-stretch">
         <div className="flex min-w-0 flex-col md:min-h-[min(80vh,680px)] md:flex-1 md:overflow-hidden">
           <div
-            className="sequencer-grid-scroll overflow-auto md:min-h-0 md:flex-1"
+            className="sequencer-grid-scroll overflow-auto rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] md:min-h-0 md:flex-1"
+            data-scrolled={gridScrollLeft > 1 ? 'true' : undefined}
             ref={gridViewportRef}
           >
-          <div className="inline-flex min-w-max flex-col overflow-hidden rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-            <div className="flex h-10 border-b border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)]">
-              <div className="shrink-0 border-r border-[var(--border-soft)]" style={{ width: `${noteLabelWidth}px` }} />
+          <div className="inline-flex min-w-max flex-col shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+            <div className="sticky top-0 z-10 flex h-10 border-b border-[var(--border-soft)] bg-[var(--bg-panel-strong)] backdrop-blur">
+              <div className="grid-freeze-col shrink-0 border-r border-[var(--border-soft)]" style={{ width: `${noteLabelWidth}px` }} />
               {Array.from({ length: stepsPerPattern }, (_, stepIndex) => {
                 const noteCount = patternSteps[stepIndex]?.length ?? 0;
 
@@ -1086,7 +1087,13 @@ export const PianoRoll = () => {
 
               return (
                 <div className="flex border-b border-[var(--border-soft)]/80 last:border-b-0" key={note} style={{ height: `${rowHeight}px` }}>
-                  <div className={`flex shrink-0 items-center justify-between border-r border-[var(--border-soft)] px-3 font-mono text-[10px] ${isBlackKey ? 'bg-[rgba(255,255,255,0.02)] text-[var(--text-tertiary)]' : 'bg-[rgba(255,255,255,0.05)] text-[var(--text-primary)]'}`} style={{ width: `${noteLabelWidth}px` }}>
+                  <div
+                    className={`grid-freeze-col flex shrink-0 items-center justify-between border-r border-[var(--border-soft)] px-3 font-mono text-[10px] ${isBlackKey ? 'text-[var(--text-tertiary)]' : 'text-[var(--text-primary)]'}`}
+                    style={{
+                      width: `${noteLabelWidth}px`,
+                      backgroundImage: `linear-gradient(rgba(255,255,255,${isBlackKey ? '0.02' : '0.05'}),rgba(255,255,255,${isBlackKey ? '0.02' : '0.05'}))`,
+                    }}
+                  >
                     <span>{isDrum ? 'HIT' : note}</span>
                     {!isDrum && note.startsWith('C') && (
                       <span className="text-[9px] text-[var(--text-tertiary)]">oct</span>
