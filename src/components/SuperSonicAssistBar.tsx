@@ -28,7 +28,11 @@ export const SuperSonicAssistBar = () => {
     previewTrack,
   } = useAudio();
   const track = tracks.find((candidate) => candidate.id === selectedTrackId) ?? null;
-  const [open, setOpen] = useState(true);
+  // Start collapsed on phones so the assist bar does not dominate the
+  // lower half of the workspace; it expands to its full tool row on tap.
+  const [open, setOpen] = useState(() => (
+    typeof window === 'undefined' ? true : !window.matchMedia('(max-width: 767px)').matches
+  ));
   const [flash, setFlash] = useState<string | null>(null);
 
   useEffect(() => {
