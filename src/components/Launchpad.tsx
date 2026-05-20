@@ -20,7 +20,7 @@ import type { SessionTemplateId } from '../project/schema';
 import { loadRecordedNotePresets, subscribeRecordedNotePresets, type RecordedNotePreset } from '../services/recordedNoteLibrary';
 
 const SUPPORT_URL = 'https://buymeacoffee.com/captainarm1';
-type LibraryFilterId = 'featured' | 'all' | 'club' | 'hooks' | 'drift' | 'clean';
+type LibraryFilterId = 'featured' | 'all' | 'club' | 'hooks' | 'drift' | 'acoustic' | 'clean';
 
 interface LaunchpadProps {
   isInitialized: boolean;
@@ -125,9 +125,29 @@ const START_OPTIONS: StartOption[] = [
     swatch: ['#9eb3c8', '#74899e', '#9eb3c8'],
     mark: 'BG',
   },
+  {
+    body: 'A chamber sketch — held bass, piano triads, a soft pad bed, and a singing violin line over I-vi-IV-V.',
+    focus: 'Strings and piano',
+    genre: 'Chamber',
+    bpm: 86,
+    id: 'velvet-suite',
+    label: 'Velvet Suite',
+    swatch: ['#e0a86b', '#83c995', '#67e8f9'],
+    mark: 'VS',
+  },
+  {
+    body: 'A bright I-IV-V loop — soft kick anchor, piano stabs, wide pad, and a bell sparkling on the offbeats.',
+    focus: 'Bell-led sparkle',
+    genre: 'Sparkle',
+    bpm: 92,
+    id: 'crystal-garden',
+    label: 'Crystal Garden',
+    swatch: ['#b9c2da', '#83c995', '#67e8f9'],
+    mark: 'CG',
+  },
 ];
 
-const FEATURED_IDS: SessionTemplateId[] = ['night-transit', 'club-horizon', 'starlight-parade', 'lofi-sunday'];
+const FEATURED_IDS: SessionTemplateId[] = ['night-transit', 'club-horizon', 'starlight-parade', 'velvet-suite', 'lofi-sunday'];
 
 const LIBRARY_FILTERS: Array<{ id: LibraryFilterId; label: string }> = [
   { id: 'featured', label: 'Featured' },
@@ -135,6 +155,7 @@ const LIBRARY_FILTERS: Array<{ id: LibraryFilterId; label: string }> = [
   { id: 'club', label: 'Club' },
   { id: 'hooks', label: 'Hooks' },
   { id: 'drift', label: 'Drift' },
+  { id: 'acoustic', label: 'Acoustic' },
   { id: 'clean', label: 'Clean start' },
 ];
 
@@ -145,9 +166,11 @@ const matchesLibraryFilter = (option: StartOption, filterId: LibraryFilterId) =>
     case 'club':
       return option.id === 'club-horizon' || option.id === 'beat-lab';
     case 'hooks':
-      return option.id === 'night-transit' || option.id === 'starlight-parade' || option.id === 'synthwave-drive';
+      return option.id === 'night-transit' || option.id === 'starlight-parade' || option.id === 'synthwave-drive' || option.id === 'crystal-garden';
     case 'drift':
-      return option.id === 'lofi-sunday' || option.id === 'ambient-drift';
+      return option.id === 'lofi-sunday' || option.id === 'ambient-drift' || option.id === 'velvet-suite';
+    case 'acoustic':
+      return option.id === 'velvet-suite' || option.id === 'crystal-garden';
     case 'clean':
       return option.id === 'blank-grid';
     case 'all':

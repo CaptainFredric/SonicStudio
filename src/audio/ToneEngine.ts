@@ -117,6 +117,22 @@ export class ToneEngine {
         await Tone.start();
         Tone.getContext().lookAhead = PLAYBACK_STABILITY_LOOKAHEAD_SECONDS;
         this.optimizeAudioBuffer();
+        // Safety net: make sure the final destination isn't sitting muted
+        // or at a near-silent volume from a stray earlier state. The
+        // master chain has its own gain stage; this only guards against
+        // the global output being silenced by something outside the app.
+        try {
+          const destination = Tone.getDestination();
+          if (destination.mute) {
+            destination.mute = false;
+          }
+          if (destination.volume.value < -20) {
+            destination.volume.value = 0;
+          }
+        } catch {
+          // Tone may throw if the destination isn't reachable yet; if so,
+          // master chain settings on the next sync still take care of it.
+        }
       }
 
       if (this.isInitialized) {

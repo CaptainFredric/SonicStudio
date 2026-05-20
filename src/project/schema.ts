@@ -9,7 +9,7 @@ export type SourceEngine = 'synth' | 'sample';
 export type SamplePlaybackMode = 'pitched' | 'oneshot';
 export type SampleTriggerMode = 'active-slice' | 'full-source' | 'step-mapped';
 export type SamplePreset = 'kick-thud' | 'snare-crack' | 'hat-air' | 'bass-pluck' | 'lead-glass' | 'pad-haze' | 'pluck-mallet' | 'fx-rise';
-export type SessionTemplateId = 'blank-grid' | 'night-transit' | 'beat-lab' | 'ambient-drift' | 'lofi-sunday' | 'synthwave-drive' | 'club-horizon' | 'starlight-parade';
+export type SessionTemplateId = 'blank-grid' | 'night-transit' | 'beat-lab' | 'ambient-drift' | 'lofi-sunday' | 'synthwave-drive' | 'club-horizon' | 'starlight-parade' | 'velvet-suite' | 'crystal-garden';
 
 export interface SessionTemplateDefinition {
   description: string;
@@ -421,6 +421,8 @@ const LOFI_TRACK_ORDER: InstrumentType[] = ['kick', 'snare', 'hihat', 'bass', 'p
 const SYNTHWAVE_TRACK_ORDER: InstrumentType[] = ['kick', 'snare', 'hihat', 'bass', 'lead', 'pad'];
 const CLUB_TRACK_ORDER: InstrumentType[] = ['kick', 'snare', 'hihat', 'bass', 'pluck', 'pad', 'fx'];
 const STARLIGHT_TRACK_ORDER: InstrumentType[] = ['kick', 'snare', 'hihat', 'bass', 'lead', 'pad', 'pluck'];
+const VELVET_SUITE_TRACK_ORDER: InstrumentType[] = ['bass', 'piano', 'pad', 'violin'];
+const CRYSTAL_GARDEN_TRACK_ORDER: InstrumentType[] = ['kick', 'bass', 'piano', 'pad', 'bell'];
 
 export const SESSION_TEMPLATE_DEFINITIONS: SessionTemplateDefinition[] = [
   {
@@ -470,6 +472,18 @@ export const SESSION_TEMPLATE_DEFINITIONS: SessionTemplateDefinition[] = [
     focus: 'Bright pop motion',
     id: 'starlight-parade',
     label: 'Starlight Parade',
+  },
+  {
+    description: 'A chamber sketch in C: held bass, piano triads, a soft pad bed, and a singing violin line. No drums, just air.',
+    focus: 'Strings and piano',
+    id: 'velvet-suite',
+    label: 'Velvet Suite',
+  },
+  {
+    description: 'A bright I-IV-V loop with a soft kick anchor, piano stabs, a wide pad, and a bell sparkling on the offbeats.',
+    focus: 'Bell-led sparkle',
+    id: 'crystal-garden',
+    label: 'Crystal Garden',
   },
 ];
 
@@ -2191,6 +2205,182 @@ export const createStarlightParadeProject = (projectName: string = 'Starlight Pa
   ]);
 };
 
+export const createVelvetSuiteProject = (projectName: string = 'Velvet Suite'): Project => {
+  const { buildProject, tracks, transport } = createProjectFrame(projectName, {
+    bpm: 86,
+    mode: 'SONG',
+    trackOrder: VELVET_SUITE_TRACK_ORDER,
+  });
+  const [bassTrack, pianoTrack, padTrack, violinTrack] = tracks;
+
+  // I – vi – IV – V in C major: one held bass note per bar.
+  [
+    { step: 0, note: 'C2' },
+    { step: 4, note: 'A1' },
+    { step: 8, note: 'F1' },
+    { step: 12, note: 'G1' },
+  ].forEach(({ step, note }) => {
+    putStep(bassTrack, 0, step, note, { gate: 3.5, velocity: 0.62 });
+  });
+
+  // Piano triads on each downbeat.
+  stackStep(pianoTrack, 0, 0, [
+    { note: 'C4', options: { gate: 2.5, velocity: 0.6 } },
+    { note: 'E4', options: { gate: 2.5, velocity: 0.5 } },
+    { note: 'G4', options: { gate: 2.5, velocity: 0.5 } },
+  ]);
+  stackStep(pianoTrack, 0, 4, [
+    { note: 'A3', options: { gate: 2.5, velocity: 0.58 } },
+    { note: 'C4', options: { gate: 2.5, velocity: 0.5 } },
+    { note: 'E4', options: { gate: 2.5, velocity: 0.5 } },
+  ]);
+  stackStep(pianoTrack, 0, 8, [
+    { note: 'F3', options: { gate: 2.5, velocity: 0.6 } },
+    { note: 'A3', options: { gate: 2.5, velocity: 0.5 } },
+    { note: 'C4', options: { gate: 2.5, velocity: 0.5 } },
+  ]);
+  stackStep(pianoTrack, 0, 12, [
+    { note: 'G3', options: { gate: 2.5, velocity: 0.6 } },
+    { note: 'B3', options: { gate: 2.5, velocity: 0.5 } },
+    { note: 'D4', options: { gate: 2.5, velocity: 0.5 } },
+  ]);
+
+  // Pad — same chords, lower octave, held long for the bed.
+  stackStep(padTrack, 0, 0, [
+    { note: 'C3', options: { gate: 4, velocity: 0.34 } },
+    { note: 'G3', options: { gate: 4, velocity: 0.32 } },
+  ]);
+  stackStep(padTrack, 0, 4, [
+    { note: 'A2', options: { gate: 4, velocity: 0.34 } },
+    { note: 'E3', options: { gate: 4, velocity: 0.32 } },
+  ]);
+  stackStep(padTrack, 0, 8, [
+    { note: 'F2', options: { gate: 4, velocity: 0.36 } },
+    { note: 'C3', options: { gate: 4, velocity: 0.32 } },
+  ]);
+  stackStep(padTrack, 0, 12, [
+    { note: 'G2', options: { gate: 4, velocity: 0.36 } },
+    { note: 'D3', options: { gate: 4, velocity: 0.32 } },
+  ]);
+
+  // Violin — a lyrical line floating over the changes.
+  [
+    { step: 0, note: 'E5', gate: 1.4 },
+    { step: 2, note: 'G5', gate: 1.2 },
+    { step: 4, note: 'A5', gate: 1.4 },
+    { step: 6, note: 'E5', gate: 1.2 },
+    { step: 8, note: 'F5', gate: 1.4 },
+    { step: 10, note: 'A5', gate: 1.2 },
+    { step: 12, note: 'G5', gate: 1.4 },
+    { step: 14, note: 'B4', gate: 1.6 },
+  ].forEach(({ step, note, gate }) => {
+    putStep(violinTrack, 0, step, note, { gate, velocity: 0.66 });
+  });
+
+  padTrack.params.reverbSend = 0.56;
+  padTrack.params.chorusSend = 0.22;
+  violinTrack.params.reverbSend = 0.42;
+  violinTrack.params.chorusSend = 0.18;
+  pianoTrack.params.reverbSend = 0.28;
+
+  return buildProject([
+    createArrangerClip(bassTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(pianoTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(padTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(violinTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+  ], [
+    { beat: 0, id: createId('marker'), name: 'Suite' },
+  ]);
+};
+
+export const createCrystalGardenProject = (projectName: string = 'Crystal Garden'): Project => {
+  const { buildProject, tracks, transport } = createProjectFrame(projectName, {
+    bpm: 92,
+    mode: 'SONG',
+    trackOrder: CRYSTAL_GARDEN_TRACK_ORDER,
+  });
+  const [kickTrack, bassTrack, pianoTrack, padTrack, bellTrack] = tracks;
+
+  // Soft anchor kick on the two downbeats only — keeps it gentle.
+  putStep(kickTrack, 0, 0, 'C1', { velocity: 0.68 });
+  putStep(kickTrack, 0, 8, 'C1', { velocity: 0.7 });
+
+  // I – IV – V – I in C: C, F, G, C.
+  [
+    { step: 0, note: 'C2' },
+    { step: 4, note: 'F2' },
+    { step: 8, note: 'G2' },
+    { step: 12, note: 'C2' },
+  ].forEach(({ step, note }) => {
+    putStep(bassTrack, 0, step, note, { gate: 1.8, velocity: 0.6 });
+  });
+
+  stackStep(pianoTrack, 0, 0, [
+    { note: 'C4', options: { gate: 2.2, velocity: 0.6 } },
+    { note: 'E4', options: { gate: 2.2, velocity: 0.5 } },
+    { note: 'G4', options: { gate: 2.2, velocity: 0.5 } },
+  ]);
+  stackStep(pianoTrack, 0, 4, [
+    { note: 'F4', options: { gate: 2.2, velocity: 0.6 } },
+    { note: 'A4', options: { gate: 2.2, velocity: 0.5 } },
+    { note: 'C5', options: { gate: 2.2, velocity: 0.5 } },
+  ]);
+  stackStep(pianoTrack, 0, 8, [
+    { note: 'G3', options: { gate: 2.2, velocity: 0.6 } },
+    { note: 'B3', options: { gate: 2.2, velocity: 0.5 } },
+    { note: 'D4', options: { gate: 2.2, velocity: 0.5 } },
+  ]);
+  stackStep(pianoTrack, 0, 12, [
+    { note: 'C4', options: { gate: 2.2, velocity: 0.6 } },
+    { note: 'E4', options: { gate: 2.2, velocity: 0.5 } },
+    { note: 'G4', options: { gate: 2.2, velocity: 0.5 } },
+  ]);
+
+  stackStep(padTrack, 0, 0, [
+    { note: 'C3', options: { gate: 4, velocity: 0.34 } },
+    { note: 'G3', options: { gate: 4, velocity: 0.3 } },
+  ]);
+  stackStep(padTrack, 0, 4, [
+    { note: 'F3', options: { gate: 4, velocity: 0.34 } },
+    { note: 'C4', options: { gate: 4, velocity: 0.3 } },
+  ]);
+  stackStep(padTrack, 0, 8, [
+    { note: 'G3', options: { gate: 4, velocity: 0.34 } },
+    { note: 'D4', options: { gate: 4, velocity: 0.3 } },
+  ]);
+  stackStep(padTrack, 0, 12, [
+    { note: 'C3', options: { gate: 4, velocity: 0.34 } },
+    { note: 'G3', options: { gate: 4, velocity: 0.3 } },
+  ]);
+
+  // Bell — bright accents on the offbeats and downbeats.
+  [
+    { step: 0, note: 'C6' },
+    { step: 6, note: 'E6' },
+    { step: 8, note: 'G6' },
+    { step: 11, note: 'F6' },
+    { step: 14, note: 'D6' },
+  ].forEach(({ step, note }) => {
+    putStep(bellTrack, 0, step, note, { gate: 1, velocity: 0.6 });
+  });
+
+  padTrack.params.reverbSend = 0.52;
+  padTrack.params.chorusSend = 0.26;
+  pianoTrack.params.reverbSend = 0.3;
+  bellTrack.params.reverbSend = 0.46;
+  bellTrack.params.delaySend = 0.28;
+
+  return buildProject([
+    createArrangerClip(kickTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(bassTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(pianoTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(padTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(bellTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+  ], [
+    { beat: 0, id: createId('marker'), name: 'Garden' },
+  ]);
+};
+
 export const createProjectFromTemplate = (
   templateId: SessionTemplateId,
 ): Project => {
@@ -2209,6 +2399,10 @@ export const createProjectFromTemplate = (
       return createClubHorizonProject();
     case 'starlight-parade':
       return createStarlightParadeProject();
+    case 'velvet-suite':
+      return createVelvetSuiteProject();
+    case 'crystal-garden':
+      return createCrystalGardenProject();
     case 'night-transit':
     default:
       return createNightTransitProject();
