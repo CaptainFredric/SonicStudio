@@ -51,7 +51,16 @@ interface TrackGraph {
 
 const SAMPLE_VOICE_POOL_SIZE = 8;
 const MAX_SAMPLE_VOICE_POOL_SIZE = 20;
-const PLAYBACK_STABILITY_LOOKAHEAD_SECONDS = 0.18;
+// Phones and tablets need more scheduling headroom to stay glitch-free
+// under their stricter audio thread; desktops can afford a tighter
+// lookahead for lower latency. iOS Safari is especially prone to dropouts
+// when the lookahead is too small.
+const isLikelyMobile = (): boolean => {
+  if (typeof navigator === 'undefined') return false;
+  if (navigator.maxTouchPoints > 1 && /Mobi|Android|iPad|iPhone|iPod/i.test(navigator.userAgent)) return true;
+  return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+};
+const getPlaybackStabilityLookahead = (): number => (isLikelyMobile() ? 0.35 : 0.18);
 const DEFAULT_SYNTH_MAX_POLYPHONY = 16;
 const FX_MAX_POLYPHONY = 8;
 const PAD_MAX_POLYPHONY = 10;
@@ -102,7 +111,7 @@ export class ToneEngine {
     if (this.isInitialized) {
       if (!offlineMode) {
         await Tone.start();
-        Tone.getContext().lookAhead = PLAYBACK_STABILITY_LOOKAHEAD_SECONDS;
+        Tone.getContext().lookAhead = getPlaybackStabilityLookahead();
       }
       return;
     }
@@ -115,8 +124,7 @@ export class ToneEngine {
     this.initPromise = (async () => {
       if (!offlineMode) {
         await Tone.start();
-        Tone.getContext().lookAhead = PLAYBACK_STABILITY_LOOKAHEAD_SECONDS;
-        this.optimizeAudioBuffer();
+        Tone.getContext().lookAhead = getPlaybackStabilityLookahead();
         // Safety net: make sure the final destination isn't sitting muted
         // or at a near-silent volume from a stray earlier state. The
         // master chain has its own gain stage; this only guards against
@@ -203,19 +211,6 @@ export class ToneEngine {
       return Tone.getContext().rawContext.state;
     } catch {
       return 'suspended';
-    }
-  }
-
-  private optimizeAudioBuffer() {
-    try {
-      const ctx = Tone.getContext().rawContext as AudioContext;
-      if ('createScriptProcessor' in ctx && !this.offlineMode) {
-        const bufferSize = Math.max(256, Math.min(4096, ctx.sampleRate > 44100 ? 512 : 256));
-        const processor = ctx.createScriptProcessor(bufferSize, 1, 1);
-        processor.disconnect();
-      }
-    } catch {
-      // Fallback: audio context buffer optimization not available
     }
   }
 
