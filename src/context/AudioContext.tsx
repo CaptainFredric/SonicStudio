@@ -392,16 +392,29 @@ export const AudioProvider = ({
       }
 
       const trigger = target.closest<HTMLElement>('[data-ui-sound]');
-      if (!trigger || trigger.hasAttribute('disabled') || trigger.getAttribute('aria-disabled') === 'true') {
+      if (trigger && !trigger.hasAttribute('disabled') && trigger.getAttribute('aria-disabled') !== 'true') {
+        const variant = trigger.dataset.uiSound;
+        if (variant) {
+          playInterfaceSound(variant);
+        }
         return;
       }
 
-      const variant = trigger.dataset.uiSound;
-      if (!variant) {
+      // Default tick for any non-note button so the whole interface
+      // ticks back. Note grid cells (inside .sequencer-grid-scroll) have
+      // their own instrument feedback, and anything can opt out with
+      // data-no-ui-sound.
+      const button = target.closest<HTMLElement>('button, [role="button"]');
+      if (!button) {
         return;
       }
-
-      playInterfaceSound(variant);
+      if (button.hasAttribute('disabled') || button.getAttribute('aria-disabled') === 'true') {
+        return;
+      }
+      if (button.closest('.sequencer-grid-scroll, [data-no-ui-sound]')) {
+        return;
+      }
+      playInterfaceSound('tab');
     };
 
     document.addEventListener('click', handleClick, true);

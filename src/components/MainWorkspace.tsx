@@ -3115,6 +3115,7 @@ const RowActionBtn = ({
   <button
     aria-label={label}
     className="ghost-icon-button flex h-8 w-8 items-center justify-center"
+    data-ui-sound="tab"
     onClick={onClick}
   >
     {children}
@@ -3153,6 +3154,7 @@ const StateActionBtn = ({
   <button
     aria-label={label}
     className={`ghost-icon-button flex h-9 w-9 items-center justify-center ${active ? 'border-[rgba(124,211,252,0.3)] bg-[rgba(124,211,252,0.1)] text-[var(--accent-strong)]' : ''}`}
+    data-ui-sound="tab"
     onClick={onClick}
   >
     {children}
