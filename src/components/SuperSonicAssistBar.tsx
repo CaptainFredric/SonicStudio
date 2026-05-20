@@ -82,25 +82,25 @@ export const SuperSonicAssistBar = () => {
 
   if (!open) {
     return (
-      <section
-        className="surface-panel md:shrink-0 flex items-center gap-2 px-3 py-1.5"
+      <button
+        aria-label="Show SuperSonic assist tools"
+        className="surface-panel md:shrink-0 flex w-full items-center gap-2 px-3 py-2 text-left"
         data-supersonic-assist
+        data-ui-sound="tab"
+        onClick={() => setOpen(true)}
         style={{ borderTop: '2px solid var(--accent)' }}
+        title="Show assist tools"
+        type="button"
       >
-        <button
-          aria-label="Show SuperSonic assist tools"
-          className="ghost-icon-button flex h-9 w-9 items-center justify-center md:h-7 md:w-7"
-          data-ui-sound="tab"
-          onClick={() => setOpen(true)}
-          title="Show assist tools"
-          type="button"
-        >
-          <ChevronUp className="h-4 w-4" />
-        </button>
-        <Sparkles className="h-3.5 w-3.5 text-[var(--accent)]" />
-        <span className="section-label">SuperSonic assist</span>
-        <span className="hidden truncate sm:inline text-[11px] text-[var(--text-secondary)]">{insight?.tip ?? 'One-tap edits for the focused lane.'}</span>
-      </section>
+        <ChevronUp className="h-4 w-4 shrink-0 text-[var(--text-secondary)]" />
+        <Sparkles className="h-3.5 w-3.5 shrink-0 text-[var(--accent)]" />
+        <span className="section-label shrink-0">SuperSonic assist</span>
+        {track && (
+          <span className="min-w-0 truncate text-[11px] text-[var(--text-secondary)]">
+            {track.name}
+          </span>
+        )}
+      </button>
     );
   }
 
