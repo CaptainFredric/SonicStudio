@@ -12,6 +12,7 @@ interface TransportEngine {
   stopRecording: () => Promise<unknown>;
   syncProject: (project: Project) => void;
   togglePlayback: () => boolean;
+  wakeContext: () => void;
 }
 
 interface CreateTransportControllerOptions {
@@ -48,6 +49,11 @@ export const createTransportController = ({
   tracks,
 }: CreateTransportControllerOptions) => {
   const ensureAudioReady = async () => {
+    // Resume Tone's context synchronously inside the user gesture before
+    // any await — uiSounds use a separate context that auto-resumes, so
+    // without this kick Tone could stay suspended and music goes silent
+    // while UI clicks still play.
+    engine.wakeContext();
     await initAudio();
     engine.syncProject(currentProject);
 

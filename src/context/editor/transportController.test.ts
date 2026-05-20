@@ -29,6 +29,7 @@ describe('transportController', () => {
       stopRecording: vi.fn(),
       syncProject: vi.fn(),
       togglePlayback: vi.fn(() => true),
+      wakeContext: vi.fn(),
     };
 
     const setCountInActive = vi.fn();
@@ -81,6 +82,7 @@ describe('transportController', () => {
       stopRecording: vi.fn(),
       syncProject: vi.fn(),
       togglePlayback: vi.fn(() => true),
+      wakeContext: vi.fn(),
     };
 
     const setIsPlaying = vi.fn();
@@ -128,6 +130,7 @@ describe('transportController', () => {
       stopRecording: vi.fn(),
       syncProject: vi.fn(),
       togglePlayback: vi.fn(() => true),
+      wakeContext: vi.fn(),
     };
     const initAudio = vi.fn();
 
@@ -173,6 +176,7 @@ describe('transportController', () => {
       stopRecording: vi.fn(),
       syncProject: vi.fn(),
       togglePlayback: vi.fn(() => true),
+      wakeContext: vi.fn(),
     };
     const initAudio = vi.fn();
     const setIsPlaying = vi.fn();
@@ -216,6 +220,7 @@ describe('transportController', () => {
       stopRecording: vi.fn(),
       syncProject: vi.fn(),
       togglePlayback: vi.fn(() => true),
+      wakeContext: vi.fn(),
     };
     const initAudio = vi.fn();
     const setIsPlaying = vi.fn();
@@ -270,6 +275,7 @@ describe('transportController', () => {
       stopRecording: vi.fn(),
       syncProject: vi.fn(),
       togglePlayback: vi.fn(() => true),
+      wakeContext: vi.fn(),
     };
     const initAudio = vi.fn();
 
@@ -314,6 +320,7 @@ describe('transportController', () => {
       stopRecording: vi.fn(),
       syncProject: vi.fn(),
       togglePlayback: vi.fn(() => true),
+      wakeContext: vi.fn(),
     };
 
     const setCountInActive = vi.fn();
@@ -360,6 +367,7 @@ describe('transportController', () => {
       stopRecording: vi.fn(),
       syncProject: vi.fn(),
       togglePlayback: vi.fn(() => false),
+      wakeContext: vi.fn(),
     };
 
     const setCountInActive = vi.fn();

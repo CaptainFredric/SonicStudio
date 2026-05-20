@@ -219,6 +219,22 @@ export class ToneEngine {
     }
   }
 
+  // Synchronous, idempotent resume — call from inside a user gesture to
+  // ensure Tone's audio context wakes alongside the uiSounds context.
+  // Some browsers leave Tone's context suspended even though uiSounds
+  // resumes itself on every click; the result is "buttons make sound but
+  // music doesn't." This kick fixes that path.
+  public wakeContext(): void {
+    try {
+      const raw = Tone.getContext().rawContext as AudioContext;
+      if (raw && typeof raw.resume === 'function' && raw.state !== 'running') {
+        void raw.resume();
+      }
+    } catch {
+      // ignore — if Tone hasn't created a context yet, init() will.
+    }
+  }
+
   public getBaseLatencySeconds(): number | null {
     if (this.offlineMode) {
       return null;
