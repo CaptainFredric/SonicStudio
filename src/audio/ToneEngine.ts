@@ -57,8 +57,13 @@ const MAX_SAMPLE_VOICE_POOL_SIZE = 20;
 // when the lookahead is too small.
 const isLikelyMobile = (): boolean => {
   if (typeof navigator === 'undefined') return false;
-  if (navigator.maxTouchPoints > 1 && /Mobi|Android|iPad|iPhone|iPod/i.test(navigator.userAgent)) return true;
-  return /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const ua = navigator.userAgent || '';
+  if (/Mobi|Android|iPhone|iPad|iPod/i.test(ua)) return true;
+  // iPadOS Safari now reports a "Macintosh" UA by default, so the UA
+  // check alone misses tablets. A touch device with more than one touch
+  // point is a strong phone/tablet signal beyond a precision pointer.
+  if (typeof navigator.maxTouchPoints === 'number' && navigator.maxTouchPoints > 1) return true;
+  return false;
 };
 const getPlaybackStabilityLookahead = (): number => (isLikelyMobile() ? 0.35 : 0.18);
 const DEFAULT_SYNTH_MAX_POLYPHONY = 16;
