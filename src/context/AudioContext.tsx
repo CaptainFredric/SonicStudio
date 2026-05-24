@@ -45,6 +45,7 @@ import {
   type Density,
   type MotionMode,
   type SuperSonicPreferences,
+  type AudioStabilityMode,
   type SuperSonicWaveIntensity,
   loadStudioPreferences,
   persistStudioPreferences,
@@ -194,6 +195,7 @@ interface AudioContextType {
   setMotionMode: (mode: MotionMode) => void;
   setUiSoundsEnabled: (enabled: boolean) => void;
   setStickyMobileTransport: (enabled: boolean) => void;
+  setAudioStabilityMode: (mode: AudioStabilityMode) => void;
   setMetronomeEnabled: (enabled: boolean) => void;
   songMarkers: SongMarker[];
   setClipPatternStepSlice: (clipId: string, stepIndex: number, sliceIndex: number | null, note?: string) => void;
@@ -246,6 +248,7 @@ interface AudioContextType {
   trackSnapshots: TrackSnapshot[];
   uiSoundsEnabled: boolean;
   stickyMobileTransport: boolean;
+  audioStabilityMode: AudioStabilityMode;
 }
 
 const AudioContext = createContext<AudioContextType | null>(null);
@@ -371,6 +374,10 @@ export const AudioProvider = ({
     document.documentElement.dataset.supersonicWaveIntensity = preferences.superSonic.waveIntensity;
     document.documentElement.dataset.supersonicGuidance = preferences.superSonic.guidanceBadges ? 'true' : 'false';
   }, [preferences.superSonic.guidanceBadges, preferences.superSonic.waveIntensity]);
+
+  useEffect(() => {
+    engine.setAudioStabilityMode(preferences.audioStabilityMode);
+  }, [preferences.audioStabilityMode]);
 
   const playInterfaceSound = useEffectEvent((variant: string) => {
     if (!preferences.uiSoundsEnabled || !isUiSoundVariant(variant)) {
@@ -705,6 +712,7 @@ export const AudioProvider = ({
     transportMode: project.transport.mode,
     uiSoundsEnabled: preferences.uiSoundsEnabled,
     stickyMobileTransport: preferences.stickyMobileTransport,
+    audioStabilityMode: preferences.audioStabilityMode,
     deleteCheckpoint,
     ...dispatchers,
     setMotionMode: (motionMode) => setPreferences((current) => ({ ...current, motionMode })),
@@ -739,6 +747,7 @@ export const AudioProvider = ({
     setSettingsOpen: (open) => dispatch({ type: 'SET_SETTINGS_OPEN', open }),
     setUiSoundsEnabled: (uiSoundsEnabled) => setPreferences((current) => ({ ...current, uiSoundsEnabled })),
     setStickyMobileTransport: (stickyMobileTransport) => setPreferences((current) => ({ ...current, stickyMobileTransport })),
+    setAudioStabilityMode: (audioStabilityMode) => setPreferences((current) => ({ ...current, audioStabilityMode })),
     setAccentColor: (accentColor) => setPreferences((current) => ({ ...current, accentColor })),
     setDensity: (density) => setPreferences((current) => ({ ...current, density })),
     setDefaultWorkspace: (defaultWorkspace) => setPreferences((current) => ({ ...current, defaultWorkspace })),
@@ -800,6 +809,7 @@ export const AudioProvider = ({
     preferences.superSonicMode,
     preferences.uiSoundsEnabled,
     preferences.stickyMobileTransport,
+    preferences.audioStabilityMode,
     previewTrack,
     project,
     projectCheckpoints,

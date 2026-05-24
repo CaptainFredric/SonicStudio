@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Coffee, Mic, Pin, RotateCcw, Settings2, Volume2, Waves, Zap } from 'lucide-react';
 
-import type { CaptureAnalysisProfile, CaptureSuggestionCount, MotionMode, SuperSonicWaveIntensity } from '../../project/preferences';
+import type { AudioStabilityMode, CaptureAnalysisProfile, CaptureSuggestionCount, MotionMode, SuperSonicWaveIntensity } from '../../project/preferences';
 import { hasSeenUiReminder, markUiReminderSeen } from '../../services/uiReminders';
 import { SegmentButton, StateButton } from './SettingsPrimitives';
 
@@ -24,8 +24,10 @@ interface WorkspaceOptionsPanelProps {
   onSuperSonicGuidanceBadgesChange: (enabled: boolean) => void;
   onSuperSonicWaveIntensityChange: (intensity: SuperSonicWaveIntensity) => void;
   onStickyMobileTransportChange: (enabled: boolean) => void;
+  onAudioStabilityModeChange: (mode: AudioStabilityMode) => void;
   onUiSoundsEnabledChange: (enabled: boolean) => void;
   stickyMobileTransport: boolean;
+  audioStabilityMode: AudioStabilityMode;
   superSonicGuidanceBadges: boolean;
   superSonicMode: boolean;
   superSonicWaveIntensity: SuperSonicWaveIntensity;
@@ -49,8 +51,10 @@ export const WorkspaceOptionsPanel = ({
   onSuperSonicGuidanceBadgesChange,
   onSuperSonicWaveIntensityChange,
   onStickyMobileTransportChange,
+  onAudioStabilityModeChange,
   onUiSoundsEnabledChange,
   stickyMobileTransport,
+  audioStabilityMode,
   superSonicGuidanceBadges,
   superSonicMode,
   superSonicWaveIntensity,
@@ -255,6 +259,24 @@ export const WorkspaceOptionsPanel = ({
         <div className="mt-3 flex gap-2">
           <StateButton active={stickyMobileTransport} label="Pinned" onClick={() => onStickyMobileTransportChange(true)} />
           <StateButton active={!stickyMobileTransport} label="Scrolls away" onClick={() => onStickyMobileTransportChange(false)} />
+        </div>
+      </div>
+
+      <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
+        <div className="flex items-center gap-2">
+          <Zap className="h-4 w-4 text-[var(--accent)]" />
+          <div>
+            <div className="text-sm font-medium text-[var(--text-primary)]">Audio scheduling</div>
+            <div className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
+              How far ahead the engine schedules notes. Auto picks for your device. Tight has the lowest latency but can glitch on slow phones; Resilient adds headroom if audio drops mid-pattern.
+            </div>
+          </div>
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <SegmentButton active={audioStabilityMode === 'auto'} label="Auto" onClick={() => onAudioStabilityModeChange('auto')} />
+          <SegmentButton active={audioStabilityMode === 'tight'} label="Tight" onClick={() => onAudioStabilityModeChange('tight')} />
+          <SegmentButton active={audioStabilityMode === 'stable'} label="Stable" onClick={() => onAudioStabilityModeChange('stable')} />
+          <SegmentButton active={audioStabilityMode === 'resilient'} label="Resilient" onClick={() => onAudioStabilityModeChange('resilient')} />
         </div>
       </div>
 

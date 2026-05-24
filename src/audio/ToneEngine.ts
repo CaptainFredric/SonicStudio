@@ -2,6 +2,7 @@ import * as Tone from 'tone';
 
 import { getSamplePresetMeta, getSampleUrl } from './sampleLibrary';
 import { findFirstPlayableStepInLoop, hasPlayableStepAt, resolvePatternStepForPlayback } from './playbackResolver';
+import type { AudioStabilityMode } from '../project/preferences';
 import type {
   ArrangementClip,
   MasterSettings,
@@ -65,7 +66,19 @@ const isLikelyMobile = (): boolean => {
   if (typeof navigator.maxTouchPoints === 'number' && navigator.maxTouchPoints > 1) return true;
   return false;
 };
-const getPlaybackStabilityLookahead = (): number => (isLikelyMobile() ? 0.35 : 0.18);
+
+const STABILITY_LOOKAHEAD_SECONDS: Record<Exclude<AudioStabilityMode, 'auto'>, number> = {
+  tight: 0.18,
+  stable: 0.35,
+  resilient: 0.6,
+};
+
+const lookaheadForMode = (mode: AudioStabilityMode): number => {
+  if (mode === 'auto') {
+    return isLikelyMobile() ? STABILITY_LOOKAHEAD_SECONDS.stable : STABILITY_LOOKAHEAD_SECONDS.tight;
+  }
+  return STABILITY_LOOKAHEAD_SECONDS[mode];
+};
 const DEFAULT_SYNTH_MAX_POLYPHONY = 16;
 const FX_MAX_POLYPHONY = 8;
 const PAD_MAX_POLYPHONY = 10;
@@ -73,6 +86,7 @@ const PAD_MAX_POLYPHONY = 10;
 export class ToneEngine {
   private arrangerClips: ArrangementClip[] = [];
   private arrangerClipsByTrack: Record<string, ArrangementClip[]> = {};
+  private audioStabilityMode: AudioStabilityMode = 'auto';
   private initPromise: Promise<void> | null = null;
   private isInitialized = false;
   private loopRange: { endBeat: number; startBeat: number } | null = null;
@@ -116,7 +130,7 @@ export class ToneEngine {
     if (this.isInitialized) {
       if (!offlineMode) {
         await Tone.start();
-        Tone.getContext().lookAhead = getPlaybackStabilityLookahead();
+        Tone.getContext().lookAhead = lookaheadForMode(this.audioStabilityMode);
       }
       return;
     }
@@ -129,7 +143,7 @@ export class ToneEngine {
     this.initPromise = (async () => {
       if (!offlineMode) {
         await Tone.start();
-        Tone.getContext().lookAhead = getPlaybackStabilityLookahead();
+        Tone.getContext().lookAhead = lookaheadForMode(this.audioStabilityMode);
         // Safety net: make sure the final destination isn't sitting muted
         // or at a near-silent volume from a stray earlier state. The
         // master chain has its own gain stage; this only guards against
@@ -216,6 +230,19 @@ export class ToneEngine {
       return Tone.getContext().rawContext.state;
     } catch {
       return 'suspended';
+    }
+  }
+
+  // Override how far ahead Tone schedules events. 'auto' picks based on
+  // device, 'tight' minimises latency, 'resilient' adds headroom for
+  // slow audio threads. Applied immediately if the context is up.
+  public setAudioStabilityMode(mode: AudioStabilityMode): void {
+    this.audioStabilityMode = mode;
+    if (this.offlineMode) return;
+    try {
+      Tone.getContext().lookAhead = lookaheadForMode(mode);
+    } catch {
+      // Context may not exist yet; init() will use the stored mode.
     }
   }
 

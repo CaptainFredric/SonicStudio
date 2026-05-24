@@ -16,6 +16,7 @@ import { AudioCapture } from './components/AudioCapture';
 import { SuperSonicAssistBar } from './components/SuperSonicAssistBar';
 import { OnboardingGuide } from './components/OnboardingGuide';
 import { SongTranscriber } from './components/SongTranscriber';
+import { AudioHealthDot } from './components/AudioHealthDot';
 import { ToastStack, type ToastItem } from './components/ToastStack';
 import { resolveStudioRoute, type StudioRouteState } from './app/routeController';
 import type { SessionTemplateId } from './project/schema';
@@ -307,6 +308,7 @@ const CompactTransportBar = ({ forceVisible = false }: { forceVisible?: boolean 
       role="group"
       aria-label="Transport controls"
     >
+      <AudioHealthDot className="ml-1" />
       <div className="compact-transport-group">
         <button
           aria-label={isPlaying ? 'Pause playback' : 'Play'}

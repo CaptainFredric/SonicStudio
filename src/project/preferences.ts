@@ -5,6 +5,7 @@ export type DefaultWorkspace = 'compose' | 'arranger' | 'piano-roll' | 'mixer' |
 export type CaptureAnalysisProfile = 'quick' | 'balanced' | 'steady';
 export type CaptureSuggestionCount = 1 | 2 | 3;
 export type SuperSonicWaveIntensity = 'off' | 'faint' | 'flow';
+export type AudioStabilityMode = 'auto' | 'tight' | 'stable' | 'resilient';
 
 export interface CapturePreferences {
   analysisProfile: CaptureAnalysisProfile;
@@ -26,6 +27,7 @@ export interface StudioPreferences {
   defaultWorkspace: DefaultWorkspace;
   superSonicMode: boolean;
   stickyMobileTransport: boolean;
+  audioStabilityMode: AudioStabilityMode;
   capture: CapturePreferences;
   superSonic: SuperSonicPreferences;
 }
@@ -40,6 +42,7 @@ export const DEFAULT_STUDIO_PREFERENCES: StudioPreferences = {
   defaultWorkspace: 'piano-roll',
   superSonicMode: false,
   stickyMobileTransport: true,
+  audioStabilityMode: 'auto',
   capture: {
     analysisProfile: 'balanced',
     autoPreviewMatch: false,
@@ -149,6 +152,9 @@ export const normalizeStudioPreferences = (value: unknown): StudioPreferences =>
     stickyMobileTransport: typeof candidate.stickyMobileTransport === 'boolean'
       ? candidate.stickyMobileTransport
       : DEFAULT_STUDIO_PREFERENCES.stickyMobileTransport,
+    audioStabilityMode: (candidate.audioStabilityMode === 'tight' || candidate.audioStabilityMode === 'stable' || candidate.audioStabilityMode === 'resilient' || candidate.audioStabilityMode === 'auto')
+      ? candidate.audioStabilityMode
+      : DEFAULT_STUDIO_PREFERENCES.audioStabilityMode,
     capture: {
       analysisProfile: isCaptureAnalysisProfile(captureCandidate.analysisProfile)
         ? captureCandidate.analysisProfile

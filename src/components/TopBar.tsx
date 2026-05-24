@@ -21,6 +21,7 @@ import { useMediaQuery } from '../utils/useMediaQuery';
 
 import { engine } from '../audio/ToneEngine';
 import { playSupersonicToggleSound } from '../audio/uiSounds';
+import { AudioHealthDot } from './AudioHealthDot';
 import { useAudio } from '../context/AudioContext';
 import {
   MASTER_PRESET_DEFINITIONS,
@@ -565,6 +566,11 @@ export const TopBar = ({
                 {/* Below a roomy desktop the CompactTransportBar owns the
                     transport, so the header skips it to avoid two play rows. */}
                 {!isCompactHeader && (
+                  <>
+                  <div className="flex items-center justify-between gap-2 px-1 pb-1 text-[9px] font-mono uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+                    <span>Transport</span>
+                    <AudioHealthDot />
+                  </div>
                   <div className="grid grid-cols-3 gap-2">
                     <TransportBtn
                       active={isPlaying}
@@ -606,6 +612,7 @@ export const TopBar = ({
                       <Circle className="h-4 w-4 fill-current" />
                     </TransportBtn>
                   </div>
+                  </>
                 )}
 
                 <div className="grid gap-2">
