@@ -288,7 +288,7 @@ export const WorkspaceOptionsPanel = ({
           <div>
             <div className="text-sm font-medium text-[var(--text-primary)]">AI training corpus</div>
             <div className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
-              Export this session as a normalized JSON — tempo, tracks, notes, song structure, and markers — in a shape an AI music pipeline can read. Skeleton for future training workflows.
+              Export this session as a normalized JSON. Covers tempo, tracks, notes, song structure, markers, and pre-rolled per-track and per-pattern stats so a downstream music model can train against it without re-walking the raw notes.
             </div>
           </div>
         </div>

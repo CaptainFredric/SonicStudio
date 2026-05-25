@@ -16,6 +16,14 @@
 //
 // All fields are versioned. Bump COR_VERSION when the shape changes
 // so downstream loaders can branch safely.
+//
+// V2 adds pre-rolled stats:
+//   - tracks[].stats: per-track aggregates (note_count, mean_velocity,
+//     octave_low/high, density_per_step) so trainers can filter or
+//     weight tracks without re-scanning the flat notes array.
+//   - pattern_stats[]: per-pattern aggregates (note_count, active
+//     track count, which track IDs are live) for pattern-level
+//     conditioning.
 
 import type {
   ArrangementClip,
@@ -25,7 +33,15 @@ import type {
   Track,
 } from '../project/schema';
 
-const COR_VERSION = 1;
+const COR_VERSION = 2;
+
+export interface TrainingTrackStats {
+  note_count: number;
+  mean_velocity: number; // 0..1, rounded to 3dp
+  octave_low: number | null; // null if the track has no notes
+  octave_high: number | null;
+  density_per_step: number; // notes / (pattern_count * steps_per_pattern), rounded
+}
 
 export interface TrainingTrack {
   id: string;
@@ -36,6 +52,7 @@ export interface TrainingTrack {
   muted: boolean;
   source_engine: 'synth' | 'sample';
   waveform: string;
+  stats: TrainingTrackStats;
 }
 
 export interface TrainingNote {
@@ -59,7 +76,13 @@ export interface TrainingMarker {
   beat: number;
 }
 
-export interface TrainingCorpusV1 {
+export interface TrainingPatternStats {
+  pattern_index: number;
+  note_count: number;
+  active_track_ids: string[];
+}
+
+export interface TrainingCorpusV2 {
   version: typeof COR_VERSION;
   source: 'sonicstudio';
   exported_at: string;
@@ -70,22 +93,23 @@ export interface TrainingCorpusV1 {
   transport_mode: 'PATTERN' | 'SONG';
   tracks: TrainingTrack[];
   notes: TrainingNote[];
+  pattern_stats: TrainingPatternStats[];
   song: TrainingClip[];
   markers: TrainingMarker[];
 }
 
-const describeTrack = (track: Track): TrainingTrack => ({
-  id: track.id,
-  instrument: track.type,
-  display_name: track.name,
-  color: track.color,
-  volume_db: track.volume,
-  muted: track.muted,
-  source_engine: track.source.engine,
-  waveform: track.source.waveform,
-});
+// Notes look like 'C4', 'D#5', 'Eb3', 'A-1'. The octave is just the
+// trailing signed integer.
+const parseOctave = (note: string): number | null => {
+  const match = note.match(/-?\d+$/);
+  if (!match) return null;
+  const value = Number.parseInt(match[0], 10);
+  return Number.isFinite(value) ? value : null;
+};
 
-const collectNotes = (track: Track): TrainingNote[] => {
+const round3 = (value: number) => Number(value.toFixed(3));
+
+const collectTrackNotes = (track: Track): TrainingNote[] => {
   const notes: TrainingNote[] = [];
   Object.entries(track.patterns).forEach(([patternKey, pattern]) => {
     const patternIndex = Number(patternKey);
@@ -97,13 +121,98 @@ const collectNotes = (track: Track): TrainingNote[] => {
           pattern_index: patternIndex,
           step: stepIndex,
           note: event.note,
-          velocity: Number(event.velocity.toFixed(3)),
-          gate: Number(event.gate.toFixed(3)),
+          velocity: round3(event.velocity),
+          gate: round3(event.gate),
         });
       });
     });
   });
   return notes;
+};
+
+const computeTrackStats = (
+  trackNotes: TrainingNote[],
+  patternCount: number,
+  stepsPerPattern: number,
+): TrainingTrackStats => {
+  if (trackNotes.length === 0) {
+    return {
+      note_count: 0,
+      mean_velocity: 0,
+      octave_low: null,
+      octave_high: null,
+      density_per_step: 0,
+    };
+  }
+
+  let velocitySum = 0;
+  let octaveLow = Number.POSITIVE_INFINITY;
+  let octaveHigh = Number.NEGATIVE_INFINITY;
+  trackNotes.forEach((note) => {
+    velocitySum += note.velocity;
+    const octave = parseOctave(note.note);
+    if (octave !== null) {
+      if (octave < octaveLow) octaveLow = octave;
+      if (octave > octaveHigh) octaveHigh = octave;
+    }
+  });
+
+  const steps = Math.max(1, patternCount * stepsPerPattern);
+  return {
+    note_count: trackNotes.length,
+    mean_velocity: round3(velocitySum / trackNotes.length),
+    octave_low: Number.isFinite(octaveLow) ? octaveLow : null,
+    octave_high: Number.isFinite(octaveHigh) ? octaveHigh : null,
+    density_per_step: round3(trackNotes.length / steps),
+  };
+};
+
+const describeTrack = (
+  track: Track,
+  trackNotes: TrainingNote[],
+  patternCount: number,
+  stepsPerPattern: number,
+): TrainingTrack => ({
+  id: track.id,
+  instrument: track.type,
+  display_name: track.name,
+  color: track.color,
+  volume_db: track.volume,
+  muted: track.muted,
+  source_engine: track.source.engine,
+  waveform: track.source.waveform,
+  stats: computeTrackStats(trackNotes, patternCount, stepsPerPattern),
+});
+
+const computePatternStats = (
+  notes: TrainingNote[],
+  patternCount: number,
+): TrainingPatternStats[] => {
+  const buckets = new Map<number, { count: number; tracks: Set<string> }>();
+  for (let index = 0; index < patternCount; index += 1) {
+    buckets.set(index, { count: 0, tracks: new Set() });
+  }
+  notes.forEach((note) => {
+    const bucket = buckets.get(note.pattern_index);
+    if (!bucket) {
+      // Patterns beyond patternCount are unusual but still summarized.
+      buckets.set(note.pattern_index, {
+        count: 1,
+        tracks: new Set([note.track_id]),
+      });
+      return;
+    }
+    bucket.count += 1;
+    bucket.tracks.add(note.track_id);
+  });
+
+  return Array.from(buckets.entries())
+    .sort(([a], [b]) => a - b)
+    .map(([patternIndex, bucket]) => ({
+      pattern_index: patternIndex,
+      note_count: bucket.count,
+      active_track_ids: Array.from(bucket.tracks),
+    }));
 };
 
 const describeClip = (clip: ArrangementClip): TrainingClip => ({
@@ -122,9 +231,17 @@ const describeMarker = (marker: SongMarker): TrainingMarker => ({
  * Build a normalized training corpus from a Project. Pure function —
  * does not mutate state or touch the audio engine.
  */
-export const buildTrainingCorpus = (project: Project): TrainingCorpusV1 => {
-  const tracks = project.tracks.map(describeTrack);
-  const notes = project.tracks.flatMap(collectNotes);
+export const buildTrainingCorpus = (project: Project): TrainingCorpusV2 => {
+  const { patternCount, stepsPerPattern } = project.transport;
+  const trackNotesByTrack = project.tracks.map((track) => ({
+    track,
+    notes: collectTrackNotes(track),
+  }));
+  const tracks = trackNotesByTrack.map(({ track, notes }) => (
+    describeTrack(track, notes, patternCount, stepsPerPattern)
+  ));
+  const notes = trackNotesByTrack.flatMap((entry) => entry.notes);
+  const pattern_stats = computePatternStats(notes, patternCount);
   const song = project.arrangerClips.map(describeClip);
   const markers = project.markers.map(describeMarker);
 
@@ -134,18 +251,19 @@ export const buildTrainingCorpus = (project: Project): TrainingCorpusV1 => {
     exported_at: new Date().toISOString(),
     session_name: project.metadata.name,
     tempo_bpm: project.transport.bpm,
-    steps_per_pattern: project.transport.stepsPerPattern,
-    pattern_count: project.transport.patternCount,
+    steps_per_pattern: stepsPerPattern,
+    pattern_count: patternCount,
     transport_mode: project.transport.mode,
     tracks,
     notes,
+    pattern_stats,
     song,
     markers,
   };
 };
 
 /** Pretty-printed JSON of a corpus, ready to write to disk. */
-export const serializeTrainingCorpus = (corpus: TrainingCorpusV1): string => (
+export const serializeTrainingCorpus = (corpus: TrainingCorpusV2): string => (
   JSON.stringify(corpus, null, 2)
 );
 
