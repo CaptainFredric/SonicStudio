@@ -39,6 +39,7 @@ import {
   SESSION_PLAYER_PROFILES,
 } from '../services/sessionPlayers';
 import { shiftNote } from './arranger/noteUtils';
+import { CollapsedLaneIcon } from './CollapsedLaneIcon';
 import { TrackMeterBar } from './TrackMeterBar';
 import {
   NOTE_GATE_FINE_STEP,
@@ -2143,13 +2144,9 @@ export const MainWorkspace = () => {
                         >
                           {selected && <div className="absolute left-0 top-3 bottom-3 w-[2px] rounded-full" style={{ backgroundColor: track.color }} />}
                           {laneColumnCollapsed ? (
-                            <div
-                              className="flex h-7 w-7 items-center justify-center"
-                              style={{ borderRadius: '2px', border: `1px solid ${track.color}55`, background: `${track.color}1a`, color: track.color }}
-                              title={`${track.name} — ${track.type} lane`}
-                            >
+                            <CollapsedLaneIcon color={track.color} title={`${track.name} — ${track.type} lane`} trackId={track.id}>
                               <TrackIcon type={track.type} className="h-3.5 w-3.5" />
-                            </div>
+                            </CollapsedLaneIcon>
                           ) : (
                           <>
                           <div className="flex min-w-0 items-center gap-2">
