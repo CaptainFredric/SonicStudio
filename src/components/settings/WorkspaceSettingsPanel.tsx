@@ -78,6 +78,7 @@ export const WorkspaceSettingsPanel = () => {
     songLengthInBeats,
     songMarkers,
     stepsPerPattern,
+    trainingCorpusSummary,
     tracks,
     transportMode,
     motionMode,
@@ -228,6 +229,7 @@ export const WorkspaceSettingsPanel = () => {
         onAudioStabilityModeChange={setAudioStabilityMode}
         onUiSoundsEnabledChange={setUiSoundsEnabled}
         onExportTrainingCorpus={exportTrainingCorpus}
+        trainingCorpusSummary={trainingCorpusSummary}
         stickyMobileTransport={stickyMobileTransport}
         audioStabilityMode={audioStabilityMode}
         superSonicGuidanceBadges={superSonicPreferences.guidanceBadges}

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { createBlankProject, createTwilightFrameProject } from '../project/schema';
-import { buildTrainingCorpus } from './aiTrainingCorpus';
+import { buildTrainingCorpus, summarizeTrainingCorpus } from './aiTrainingCorpus';
 
 describe('aiTrainingCorpus', () => {
   it('emits the V2 envelope and copies session-level metadata from the project', () => {
@@ -62,5 +62,20 @@ describe('aiTrainingCorpus', () => {
       expect(trainingTrack.stats.density_per_step).toBeGreaterThanOrEqual(0);
       expect(trainingTrack.stats.density_per_step).toBeLessThanOrEqual(1);
     });
+  });
+});
+
+describe('summarizeTrainingCorpus', () => {
+  it('agrees with the full builder on track count, note count, and pattern count', () => {
+    const project = createTwilightFrameProject();
+    const summary = summarizeTrainingCorpus(project);
+    const corpus = buildTrainingCorpus(project);
+
+    expect(summary.trackCount).toBe(corpus.tracks.length);
+    expect(summary.noteCount).toBe(corpus.notes.length);
+    expect(summary.patternCount).toBe(corpus.pattern_count);
+    expect(summary.clipCount).toBe(corpus.song.length);
+    expect(summary.markerCount).toBe(corpus.markers.length);
+    expect(summary.bars).toBeGreaterThan(0);
   });
 });

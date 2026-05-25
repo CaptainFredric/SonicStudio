@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Brain, Coffee, Mic, Pin, RotateCcw, Settings2, Volume2, Waves, Zap } from 'lucide-react';
 
 import type { AudioStabilityMode, CaptureAnalysisProfile, CaptureSuggestionCount, MotionMode, SuperSonicWaveIntensity } from '../../project/preferences';
+import type { TrainingCorpusSummary } from '../../services/aiTrainingCorpus';
 import { hasSeenUiReminder, markUiReminderSeen } from '../../services/uiReminders';
 import { SegmentButton, StateButton } from './SettingsPrimitives';
 
@@ -26,6 +27,7 @@ interface WorkspaceOptionsPanelProps {
   onStickyMobileTransportChange: (enabled: boolean) => void;
   onAudioStabilityModeChange: (mode: AudioStabilityMode) => void;
   onExportTrainingCorpus: () => void;
+  trainingCorpusSummary: TrainingCorpusSummary;
   onUiSoundsEnabledChange: (enabled: boolean) => void;
   stickyMobileTransport: boolean;
   audioStabilityMode: AudioStabilityMode;
@@ -54,6 +56,7 @@ export const WorkspaceOptionsPanel = ({
   onStickyMobileTransportChange,
   onAudioStabilityModeChange,
   onExportTrainingCorpus,
+  trainingCorpusSummary,
   onUiSoundsEnabledChange,
   stickyMobileTransport,
   audioStabilityMode,
@@ -291,6 +294,24 @@ export const WorkspaceOptionsPanel = ({
               Export this session as a normalized JSON. Covers tempo, tracks, notes, song structure, markers, and pre-rolled per-track and per-pattern stats so a downstream music model can train against it without re-walking the raw notes.
             </div>
           </div>
+        </div>
+        <div
+          className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-2 text-[10px] font-mono uppercase tracking-[0.16em] text-[var(--text-secondary)]"
+          aria-label="What this corpus contains right now"
+        >
+          <span>Now: {trainingCorpusSummary.trackCount} {trainingCorpusSummary.trackCount === 1 ? 'track' : 'tracks'}</span>
+          <span aria-hidden="true" className="text-[var(--border-soft)]">·</span>
+          <span>{trainingCorpusSummary.noteCount} {trainingCorpusSummary.noteCount === 1 ? 'note' : 'notes'}</span>
+          <span aria-hidden="true" className="text-[var(--border-soft)]">·</span>
+          <span>{trainingCorpusSummary.patternCount} {trainingCorpusSummary.patternCount === 1 ? 'pattern' : 'patterns'}</span>
+          <span aria-hidden="true" className="text-[var(--border-soft)]">·</span>
+          <span>{trainingCorpusSummary.bars} {trainingCorpusSummary.bars === 1 ? 'bar' : 'bars'}</span>
+          {trainingCorpusSummary.markerCount > 0 && (
+            <>
+              <span aria-hidden="true" className="text-[var(--border-soft)]">·</span>
+              <span>{trainingCorpusSummary.markerCount} {trainingCorpusSummary.markerCount === 1 ? 'marker' : 'markers'}</span>
+            </>
+          )}
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           <button

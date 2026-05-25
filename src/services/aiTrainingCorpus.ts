@@ -267,6 +267,45 @@ export const serializeTrainingCorpus = (corpus: TrainingCorpusV2): string => (
   JSON.stringify(corpus, null, 2)
 );
 
+export interface TrainingCorpusSummary {
+  trackCount: number;
+  noteCount: number;
+  patternCount: number;
+  bars: number;
+  markerCount: number;
+  clipCount: number;
+}
+
+/**
+ * Compact "what would I export" preview. Cheap enough to call from a
+ * settings panel render without dragging in the full corpus payload.
+ */
+export const summarizeTrainingCorpus = (project: Project): TrainingCorpusSummary => {
+  const { patternCount, stepsPerPattern } = project.transport;
+  let noteCount = 0;
+  project.tracks.forEach((track) => {
+    Object.values(track.patterns).forEach((pattern) => {
+      pattern.forEach((step) => {
+        noteCount += step.length;
+      });
+    });
+  });
+
+  const songLengthInSteps = project.arrangerClips.reduce(
+    (maxBeat, clip) => Math.max(maxBeat, clip.startBeat + clip.beatLength),
+    stepsPerPattern,
+  );
+
+  return {
+    trackCount: project.tracks.length,
+    noteCount,
+    patternCount,
+    bars: Math.max(1, Math.round(songLengthInSteps / Math.max(1, stepsPerPattern))),
+    markerCount: project.markers.length,
+    clipCount: project.arrangerClips.length,
+  };
+};
+
 const slugify = (input: string): string => (
   input
     .toLowerCase()
