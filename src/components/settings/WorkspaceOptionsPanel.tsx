@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Coffee, Mic, Pin, RotateCcw, Settings2, Volume2, Waves, Zap } from 'lucide-react';
+import { Brain, Coffee, Mic, Pin, RotateCcw, Settings2, Volume2, Waves, Zap } from 'lucide-react';
 
 import type { AudioStabilityMode, CaptureAnalysisProfile, CaptureSuggestionCount, MotionMode, SuperSonicWaveIntensity } from '../../project/preferences';
 import { hasSeenUiReminder, markUiReminderSeen } from '../../services/uiReminders';
@@ -25,6 +25,7 @@ interface WorkspaceOptionsPanelProps {
   onSuperSonicWaveIntensityChange: (intensity: SuperSonicWaveIntensity) => void;
   onStickyMobileTransportChange: (enabled: boolean) => void;
   onAudioStabilityModeChange: (mode: AudioStabilityMode) => void;
+  onExportTrainingCorpus: () => void;
   onUiSoundsEnabledChange: (enabled: boolean) => void;
   stickyMobileTransport: boolean;
   audioStabilityMode: AudioStabilityMode;
@@ -52,6 +53,7 @@ export const WorkspaceOptionsPanel = ({
   onSuperSonicWaveIntensityChange,
   onStickyMobileTransportChange,
   onAudioStabilityModeChange,
+  onExportTrainingCorpus,
   onUiSoundsEnabledChange,
   stickyMobileTransport,
   audioStabilityMode,
@@ -277,6 +279,31 @@ export const WorkspaceOptionsPanel = ({
           <SegmentButton active={audioStabilityMode === 'tight'} label="Tight" onClick={() => onAudioStabilityModeChange('tight')} />
           <SegmentButton active={audioStabilityMode === 'stable'} label="Stable" onClick={() => onAudioStabilityModeChange('stable')} />
           <SegmentButton active={audioStabilityMode === 'resilient'} label="Resilient" onClick={() => onAudioStabilityModeChange('resilient')} />
+        </div>
+      </div>
+
+      <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
+        <div className="flex items-center gap-2">
+          <Brain className="h-4 w-4 text-[var(--accent)]" />
+          <div>
+            <div className="text-sm font-medium text-[var(--text-primary)]">AI training corpus</div>
+            <div className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
+              Export this session as a normalized JSON — tempo, tracks, notes, song structure, and markers — in a shape an AI music pipeline can read. Skeleton for future training workflows.
+            </div>
+          </div>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button
+            className="control-chip inline-flex items-center gap-2 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em]"
+            onClick={onExportTrainingCorpus}
+            type="button"
+          >
+            <Brain className="h-3.5 w-3.5" />
+            Export session JSON
+          </button>
+          <div className="rounded-[3px] border border-[var(--border-soft)] px-3 py-2 text-[11px] leading-5 text-[var(--text-secondary)]">
+            Downloads a *.json file. Read-only on the studio — does not change your session.
+          </div>
         </div>
       </div>
 

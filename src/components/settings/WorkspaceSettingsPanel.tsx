@@ -38,6 +38,7 @@ export const WorkspaceSettingsPanel = () => {
     exportMidi,
     exportTrackStems,
     exportSession,
+    exportTrainingCorpus,
     importMidiSession,
     importSession,
     lastSavedAt,
@@ -226,6 +227,7 @@ export const WorkspaceSettingsPanel = () => {
         onStickyMobileTransportChange={setStickyMobileTransport}
         onAudioStabilityModeChange={setAudioStabilityMode}
         onUiSoundsEnabledChange={setUiSoundsEnabled}
+        onExportTrainingCorpus={exportTrainingCorpus}
         stickyMobileTransport={stickyMobileTransport}
         audioStabilityMode={audioStabilityMode}
         superSonicGuidanceBadges={superSonicPreferences.guidanceBadges}

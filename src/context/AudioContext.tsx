@@ -51,6 +51,7 @@ import {
   persistStudioPreferences,
 } from '../project/preferences';
 import { type PersistedCheckpoint } from '../project/storage';
+import { downloadTrainingCorpus } from '../services/aiTrainingCorpus';
 import { listStudioCheckpoints, persistStudioSession } from '../services/sessionWorkflow';
 import {
   type Scoresheet,
@@ -174,6 +175,7 @@ interface AudioContextType {
   renameTrack: (trackId: string, name: string) => void;
   restoreCheckpoint: (checkpointId: string) => boolean;
   saveProject: () => void;
+  exportTrainingCorpus: () => void;
   saveCheckpoint: (label?: string) => void;
   saveStatus: SaveStatus;
   pinnedTrackIds: string[];
@@ -572,6 +574,10 @@ export const AudioProvider = ({
     persistSessionNow();
   }, [persistSessionNow]);
 
+  const exportTrainingCorpus = useCallback(() => {
+    downloadTrainingCorpus(project);
+  }, [project]);
+
   const importSession = useCallback(async (file: File) => {
     const ok = await importSessionFromController(file);
     publishNotice(
@@ -698,6 +704,7 @@ export const AudioProvider = ({
     restoreCheckpoint,
     saveCheckpoint,
     saveProject,
+    exportTrainingCorpus,
     saveStatus,
     selectedArrangerClipId,
     selectedTrackId,
@@ -818,6 +825,7 @@ export const AudioProvider = ({
     restoreCheckpoint,
     saveCheckpoint,
     saveProject,
+    exportTrainingCorpus,
     saveStatus,
     scoresheets,
     selectedArrangerClipId,
