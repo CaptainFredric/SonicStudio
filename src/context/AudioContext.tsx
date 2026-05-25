@@ -581,6 +581,12 @@ export const AudioProvider = ({
 
   const exportTrainingCorpus = useCallback(() => {
     downloadTrainingCorpus(project);
+    const summary = summarizeTrainingCorpus(project);
+    publishNotice(
+      'success',
+      'Training corpus saved',
+      `${summary.trackCount} ${summary.trackCount === 1 ? 'track' : 'tracks'}, ${summary.noteCount} ${summary.noteCount === 1 ? 'note' : 'notes'}, ${summary.patternCount} ${summary.patternCount === 1 ? 'pattern' : 'patterns'}.`,
+    );
   }, [project]);
 
   const trainingCorpusSummary = useMemo(() => summarizeTrainingCorpus(project), [project]);
