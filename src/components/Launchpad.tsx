@@ -145,9 +145,19 @@ const START_OPTIONS: StartOption[] = [
     swatch: ['#b9c2da', '#83c995', '#67e8f9'],
     mark: 'CG',
   },
+  {
+    body: 'Cinematic A-minor — soft kick, walking bass, piano triads, a held pad, a violin line, and bell sparkles on every change.',
+    focus: 'Cinematic ensemble',
+    genre: 'Cinematic',
+    bpm: 88,
+    id: 'twilight-frame',
+    label: 'Twilight Frame',
+    swatch: ['#e0a86b', '#83c995', '#b9c2da'],
+    mark: 'TF',
+  },
 ];
 
-const FEATURED_IDS: SessionTemplateId[] = ['night-transit', 'club-horizon', 'starlight-parade', 'velvet-suite', 'lofi-sunday'];
+const FEATURED_IDS: SessionTemplateId[] = ['night-transit', 'twilight-frame', 'club-horizon', 'starlight-parade', 'velvet-suite'];
 
 const LIBRARY_FILTERS: Array<{ id: LibraryFilterId; label: string }> = [
   { id: 'featured', label: 'Featured' },
@@ -170,7 +180,7 @@ const matchesLibraryFilter = (option: StartOption, filterId: LibraryFilterId) =>
     case 'drift':
       return option.id === 'lofi-sunday' || option.id === 'ambient-drift' || option.id === 'velvet-suite';
     case 'acoustic':
-      return option.id === 'velvet-suite' || option.id === 'crystal-garden';
+      return option.id === 'velvet-suite' || option.id === 'crystal-garden' || option.id === 'twilight-frame';
     case 'clean':
       return option.id === 'blank-grid';
     case 'all':

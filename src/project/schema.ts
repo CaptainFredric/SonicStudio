@@ -9,7 +9,7 @@ export type SourceEngine = 'synth' | 'sample';
 export type SamplePlaybackMode = 'pitched' | 'oneshot';
 export type SampleTriggerMode = 'active-slice' | 'full-source' | 'step-mapped';
 export type SamplePreset = 'kick-thud' | 'snare-crack' | 'hat-air' | 'bass-pluck' | 'lead-glass' | 'pad-haze' | 'pluck-mallet' | 'fx-rise';
-export type SessionTemplateId = 'blank-grid' | 'night-transit' | 'beat-lab' | 'ambient-drift' | 'lofi-sunday' | 'synthwave-drive' | 'club-horizon' | 'starlight-parade' | 'velvet-suite' | 'crystal-garden';
+export type SessionTemplateId = 'blank-grid' | 'night-transit' | 'beat-lab' | 'ambient-drift' | 'lofi-sunday' | 'synthwave-drive' | 'club-horizon' | 'starlight-parade' | 'velvet-suite' | 'crystal-garden' | 'twilight-frame';
 
 export interface SessionTemplateDefinition {
   description: string;
@@ -423,6 +423,7 @@ const CLUB_TRACK_ORDER: InstrumentType[] = ['kick', 'snare', 'hihat', 'bass', 'p
 const STARLIGHT_TRACK_ORDER: InstrumentType[] = ['kick', 'snare', 'hihat', 'bass', 'lead', 'pad', 'pluck'];
 const VELVET_SUITE_TRACK_ORDER: InstrumentType[] = ['bass', 'piano', 'pad', 'violin'];
 const CRYSTAL_GARDEN_TRACK_ORDER: InstrumentType[] = ['kick', 'bass', 'piano', 'pad', 'bell'];
+const TWILIGHT_FRAME_TRACK_ORDER: InstrumentType[] = ['kick', 'bass', 'piano', 'pad', 'violin', 'bell'];
 
 export const SESSION_TEMPLATE_DEFINITIONS: SessionTemplateDefinition[] = [
   {
@@ -484,6 +485,12 @@ export const SESSION_TEMPLATE_DEFINITIONS: SessionTemplateDefinition[] = [
     focus: 'Bell-led sparkle',
     id: 'crystal-garden',
     label: 'Crystal Garden',
+  },
+  {
+    description: 'Cinematic A-minor loop — a soft kick anchor, walking bass, piano triads, a held pad, a singing violin line, and bell sparkles on the changes.',
+    focus: 'Cinematic strings and bell',
+    id: 'twilight-frame',
+    label: 'Twilight Frame',
   },
 ];
 
@@ -2381,6 +2388,110 @@ export const createCrystalGardenProject = (projectName: string = 'Crystal Garden
   ]);
 };
 
+export const createTwilightFrameProject = (projectName: string = 'Twilight Frame'): Project => {
+  const { buildProject, tracks, transport } = createProjectFrame(projectName, {
+    bpm: 88,
+    mode: 'SONG',
+    trackOrder: TWILIGHT_FRAME_TRACK_ORDER,
+  });
+  const [kickTrack, bassTrack, pianoTrack, padTrack, violinTrack, bellTrack] = tracks;
+
+  // Soft kick anchor — just the downbeats so the cinematic feel stays.
+  putStep(kickTrack, 0, 0, 'C1', { velocity: 0.6 });
+  putStep(kickTrack, 0, 8, 'C1', { velocity: 0.62 });
+
+  // i – VI – III – VII in A minor: Am, F, C, G.
+  [
+    { step: 0, note: 'A1' },
+    { step: 4, note: 'F1' },
+    { step: 8, note: 'C2' },
+    { step: 12, note: 'G1' },
+  ].forEach(({ step, note }) => {
+    putStep(bassTrack, 0, step, note, { gate: 3, velocity: 0.6 });
+  });
+
+  stackStep(pianoTrack, 0, 0, [
+    { note: 'A3', options: { gate: 2.4, velocity: 0.6 } },
+    { note: 'C4', options: { gate: 2.4, velocity: 0.5 } },
+    { note: 'E4', options: { gate: 2.4, velocity: 0.5 } },
+  ]);
+  stackStep(pianoTrack, 0, 4, [
+    { note: 'F3', options: { gate: 2.4, velocity: 0.6 } },
+    { note: 'A3', options: { gate: 2.4, velocity: 0.5 } },
+    { note: 'C4', options: { gate: 2.4, velocity: 0.5 } },
+  ]);
+  stackStep(pianoTrack, 0, 8, [
+    { note: 'C4', options: { gate: 2.4, velocity: 0.6 } },
+    { note: 'E4', options: { gate: 2.4, velocity: 0.5 } },
+    { note: 'G4', options: { gate: 2.4, velocity: 0.5 } },
+  ]);
+  stackStep(pianoTrack, 0, 12, [
+    { note: 'G3', options: { gate: 2.4, velocity: 0.6 } },
+    { note: 'B3', options: { gate: 2.4, velocity: 0.5 } },
+    { note: 'D4', options: { gate: 2.4, velocity: 0.5 } },
+  ]);
+
+  stackStep(padTrack, 0, 0, [
+    { note: 'A2', options: { gate: 4, velocity: 0.34 } },
+    { note: 'E3', options: { gate: 4, velocity: 0.32 } },
+  ]);
+  stackStep(padTrack, 0, 4, [
+    { note: 'F2', options: { gate: 4, velocity: 0.34 } },
+    { note: 'C3', options: { gate: 4, velocity: 0.32 } },
+  ]);
+  stackStep(padTrack, 0, 8, [
+    { note: 'C3', options: { gate: 4, velocity: 0.34 } },
+    { note: 'G3', options: { gate: 4, velocity: 0.32 } },
+  ]);
+  stackStep(padTrack, 0, 12, [
+    { note: 'G2', options: { gate: 4, velocity: 0.34 } },
+    { note: 'D3', options: { gate: 4, velocity: 0.32 } },
+  ]);
+
+  // Violin — singing line through the changes.
+  [
+    { step: 0, note: 'A4', gate: 1.4 },
+    { step: 2, note: 'C5', gate: 1.2 },
+    { step: 4, note: 'F5', gate: 1.4 },
+    { step: 6, note: 'A4', gate: 1.2 },
+    { step: 8, note: 'G5', gate: 1.4 },
+    { step: 10, note: 'E5', gate: 1.2 },
+    { step: 12, note: 'D5', gate: 1.4 },
+    { step: 14, note: 'B4', gate: 1.6 },
+  ].forEach(({ step, note, gate }) => {
+    putStep(violinTrack, 0, step, note, { gate, velocity: 0.62 });
+  });
+
+  // Bell — bright accents on each chord change.
+  [
+    { step: 0, note: 'A5' },
+    { step: 4, note: 'C6' },
+    { step: 8, note: 'E6' },
+    { step: 12, note: 'D6' },
+  ].forEach(({ step, note }) => {
+    putStep(bellTrack, 0, step, note, { gate: 1.2, velocity: 0.5 });
+  });
+
+  padTrack.params.reverbSend = 0.54;
+  padTrack.params.chorusSend = 0.24;
+  violinTrack.params.reverbSend = 0.44;
+  violinTrack.params.chorusSend = 0.18;
+  pianoTrack.params.reverbSend = 0.3;
+  bellTrack.params.reverbSend = 0.46;
+  bellTrack.params.delaySend = 0.24;
+
+  return buildProject([
+    createArrangerClip(kickTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(bassTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(pianoTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(padTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(violinTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(bellTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+  ], [
+    { beat: 0, id: createId('marker'), name: 'Frame' },
+  ]);
+};
+
 export const createProjectFromTemplate = (
   templateId: SessionTemplateId,
 ): Project => {
@@ -2403,6 +2514,8 @@ export const createProjectFromTemplate = (
       return createVelvetSuiteProject();
     case 'crystal-garden':
       return createCrystalGardenProject();
+    case 'twilight-frame':
+      return createTwilightFrameProject();
     case 'night-transit':
     default:
       return createNightTransitProject();
