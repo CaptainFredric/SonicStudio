@@ -115,10 +115,15 @@ export const WorkspaceTransportPanel = ({
       </div>
       <div className="mt-4 grid gap-2 text-sm text-[var(--text-secondary)]">
         <ShortcutRow command="Space" description="Play or pause" />
+        <ShortcutRow command="M" description="Toggle metronome" />
+        <ShortcutRow command="Alt+R" description="Arm or stop recording" />
+        <ShortcutRow command="Alt+S" description="Toggle SuperSonic" />
+        <ShortcutRow command="Alt+1 … 5" description="Sequencer, Notes, Mix, Song, Compose" />
+        <ShortcutRow command="1 … 8" description="Switch pattern bank" />
         <ShortcutRow command="Cmd/Ctrl+S" description="Save session" />
         <ShortcutRow command="Cmd/Ctrl+Z" description="Undo" />
         <ShortcutRow command="Shift+Cmd/Ctrl+Z" description="Redo" />
-        <ShortcutRow command="1-8" description="Switch pattern bank" />
+        <ShortcutRow command="Esc" description="Close Studio settings" />
       </div>
     </section>
   </>
