@@ -612,6 +612,15 @@ export const TopBar = ({
                       <Circle className="h-4 w-4 fill-current" />
                     </TransportBtn>
                   </div>
+                  {compactStart && (
+                    <div
+                      className="px-1 pt-1 text-[9px] font-mono uppercase tracking-[0.18em] text-[var(--accent-strong)] opacity-90"
+                      aria-live="polite"
+                      role="note"
+                    >
+                      Tap play to hear it
+                    </div>
+                  )}
                   </>
                 )}
 

@@ -256,6 +256,7 @@ const CompactTransportBar = ({ forceVisible = false }: { forceVisible?: boolean 
   } = useAudio();
   const isCompactViewport = useMediaQuery('(max-width: 1279px), (max-height: 899px)');
   const isMobile = useMediaQuery('(max-width: 767px)');
+  const isFirstImpression = useFirstImpression();
   const playTogglePendingRef = useRef(false);
   const recordingTogglePendingRef = useRef(false);
 
@@ -311,6 +312,15 @@ const CompactTransportBar = ({ forceVisible = false }: { forceVisible?: boolean 
     >
       <AudioHealthDot className="ml-1" />
       <TransportPositionTag />
+      {isFirstImpression && !isPlaying && (
+        <span
+          aria-live="polite"
+          className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--accent-strong)]"
+          role="note"
+        >
+          Tap play
+        </span>
+      )}
       <div className="compact-transport-group">
         <button
           aria-label={isPlaying ? 'Pause playback' : 'Play'}
