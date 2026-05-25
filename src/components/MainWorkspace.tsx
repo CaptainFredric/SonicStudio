@@ -1524,17 +1524,21 @@ export const MainWorkspace = () => {
               {addLaneOpen && (
                 <>
                   <button
+                    aria-label="Scroll the add-lane palette left"
                     className="control-chip flex h-8 w-8 shrink-0 items-center justify-center"
                     disabled={addLaneScrollLeft <= 2}
                     onClick={() => scrollAddLaneStrip(-1)}
+                    title="Scroll left"
                     type="button"
                   >
                     <ArrowUp className="h-3.5 w-3.5 -rotate-90" />
                   </button>
                   <button
+                    aria-label="Scroll the add-lane palette right"
                     className="control-chip flex h-8 w-8 shrink-0 items-center justify-center"
                     disabled={addLaneScrollLeft >= (addLaneMaxScrollLeft - 2)}
                     onClick={() => scrollAddLaneStrip(1)}
+                    title="Scroll right"
                     type="button"
                   >
                     <ArrowDown className="h-3.5 w-3.5 -rotate-90" />
@@ -1683,13 +1687,16 @@ export const MainWorkspace = () => {
                 <div className="surface-panel-strong flex flex-wrap items-center gap-2 p-1">
                   <span className="px-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Zoom</span>
                   <button
+                    aria-label="Zoom the step grid out"
                     className="control-chip flex h-8 w-8 shrink-0 items-center justify-center"
                     onClick={() => updateStepZoom(stepCellWidth - 6)}
+                    title="Zoom out"
                     type="button"
                   >
                     <Minus className="h-3.5 w-3.5" />
                   </button>
                   <input
+                    aria-label="Step grid zoom"
                     className="sonic-scroll-strip w-24"
                     max={stepZoomMax}
                     min={STEP_ZOOM_MIN}
@@ -1699,8 +1706,10 @@ export const MainWorkspace = () => {
                     value={stepCellWidth}
                   />
                   <button
+                    aria-label="Zoom the step grid in"
                     className="control-chip flex h-8 w-8 shrink-0 items-center justify-center"
                     onClick={() => updateStepZoom(stepCellWidth + 6)}
+                    title="Zoom in"
                     type="button"
                   >
                     <Plus className="h-3.5 w-3.5" />
