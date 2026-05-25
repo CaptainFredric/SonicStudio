@@ -39,6 +39,7 @@ import {
   SESSION_PLAYER_PROFILES,
 } from '../services/sessionPlayers';
 import { shiftNote } from './arranger/noteUtils';
+import { TrackMeterBar } from './TrackMeterBar';
 import {
   NOTE_GATE_FINE_STEP,
   NOTE_GATE_MAX,
@@ -2152,6 +2153,7 @@ export const MainWorkspace = () => {
                             </div>
                             <span className="min-w-0 truncate text-sm font-semibold tracking-tight text-[var(--text-primary)]">{track.name}</span>
                           </div>
+                          <TrackMeterBar className="mt-1.5" color={track.color} trackId={track.id} />
                           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                             <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.type}</span>
                             {pinned && <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--accent-strong)]">Pinned</span>}
