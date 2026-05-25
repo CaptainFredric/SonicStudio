@@ -2,6 +2,7 @@ import type { RefObject } from 'react';
 import { FolderOpen, Layers3, Save, Sparkles } from 'lucide-react';
 
 import { SESSION_TEMPLATE_DEFINITIONS } from '../../project/schema';
+import { getTemplatePreview } from '../../services/templatePreview';
 import { ActionButton, MetricCell } from './SettingsPrimitives';
 
 interface WorkspaceSessionPanelProps {
@@ -42,21 +43,43 @@ export const WorkspaceSessionPanel = ({
     <div className="mt-4">
       <div className="section-label">Starter scenes</div>
       <div className="mt-3 grid gap-3">
-        {SESSION_TEMPLATE_DEFINITIONS.map((template) => (
-          <button
-            key={template.id}
-            className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-4 py-3 text-left transition-colors hover:border-[rgba(114,217,255,0.28)] hover:bg-[rgba(114,217,255,0.05)]"
-            disabled={isRendering}
-            onClick={() => loadSessionTemplate(template.id)}
-            type="button"
-          >
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-sm font-semibold text-[var(--text-primary)]">{template.label}</span>
-              <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--accent-strong)]">{template.focus}</span>
-            </div>
-            <div className="mt-2 text-[12px] leading-5 text-[var(--text-secondary)]">{template.description}</div>
-          </button>
-        ))}
+        {SESSION_TEMPLATE_DEFINITIONS.map((template) => {
+          const preview = getTemplatePreview(template.id);
+          return (
+            <button
+              key={template.id}
+              className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-4 py-3 text-left transition-colors hover:border-[rgba(114,217,255,0.28)] hover:bg-[rgba(114,217,255,0.05)]"
+              disabled={isRendering}
+              onClick={() => loadSessionTemplate(template.id)}
+              type="button"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-semibold text-[var(--text-primary)]">{template.label}</span>
+                <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-[var(--accent-strong)]">{template.focus}</span>
+              </div>
+              <div className="mt-2 text-[12px] leading-5 text-[var(--text-secondary)]">{template.description}</div>
+              <div className="mt-3 flex flex-wrap items-center gap-3 text-[10px] font-mono uppercase tracking-[0.16em] text-[var(--text-secondary)]">
+                <span>{preview.bpm} BPM</span>
+                <span aria-hidden="true" className="text-[var(--border-soft)]">·</span>
+                <span>{preview.bars} {preview.bars === 1 ? 'bar' : 'bars'}</span>
+                <span aria-hidden="true" className="text-[var(--border-soft)]">·</span>
+                <span>{preview.trackCount} {preview.trackCount === 1 ? 'lane' : 'lanes'}</span>
+                {preview.instruments.length > 0 && (
+                  <span className="flex items-center gap-1.5" aria-label={`Lane lineup: ${preview.instruments.map((entry) => entry.name).join(', ')}`}>
+                    {preview.instruments.map((entry, index) => (
+                      <span
+                        key={`${template.id}-instrument-${index}`}
+                        className="inline-block h-1.5 w-1.5 rounded-full"
+                        style={{ backgroundColor: entry.color }}
+                        title={`${entry.name} (${entry.type})`}
+                      />
+                    ))}
+                  </span>
+                )}
+              </div>
+            </button>
+          );
+        })}
       </div>
       <div className="mt-3 text-[11px] leading-5 text-[var(--text-secondary)]">
         These scenes replace the current session immediately. Save a checkpoint first if you want a way back.
