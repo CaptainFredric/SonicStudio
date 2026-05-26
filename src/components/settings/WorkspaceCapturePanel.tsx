@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AudioWaveform, Check, Copy, Download, ListPlus, Mic2, Music, Pencil, Play, Square, Trash2, Upload } from 'lucide-react';
+import { AudioWaveform, Check, ChevronDown, ChevronUp, Copy, Download, ListPlus, Mic2, Music, Pencil, Play, Square, Trash2, Upload } from 'lucide-react';
 
 import { schedulePreview, type PreviewSchedule } from '../../audio/captureStringPreview';
 import { CHORD_STARTERS } from '../../services/chordStarters';
@@ -16,6 +16,7 @@ import {
   serializeCapturedNoteStrings,
   subscribeCapturedNoteStrings,
   summarizeCapturedNoteString,
+  transposeCapturedNoteString,
   type CapturedNoteString,
 } from '../../services/noteStringLibrary';
 import type { NoteEvent, PatternAutomation } from '../../project/schema';
@@ -143,6 +144,10 @@ export const WorkspaceCapturePanel = ({
 
   const handleDuplicate = (entry: CapturedNoteString) => {
     setItems(duplicateCapturedNoteString(entry.id));
+  };
+
+  const handleTranspose = (entry: CapturedNoteString, semitones: number) => {
+    setItems(transposeCapturedNoteString(entry.id, semitones));
   };
 
   const handleAddChordStarter = (starterId: string) => {
@@ -529,6 +534,26 @@ export const WorkspaceCapturePanel = ({
                             {isQueued ? 'Clear queue' : 'Queue'}
                           </button>
                         )}
+                        <button
+                          aria-label={`Transpose ${entry.name} up a semitone (Shift for an octave)`}
+                          className="control-chip flex h-8 min-h-[2rem] min-w-[2rem] items-center justify-center px-2"
+                          disabled={disabled}
+                          onClick={(event) => handleTranspose(entry, event.shiftKey ? 12 : 1)}
+                          title="Transpose up a semitone. Hold Shift for an octave up."
+                          type="button"
+                        >
+                          <ChevronUp className="h-3 w-3" />
+                        </button>
+                        <button
+                          aria-label={`Transpose ${entry.name} down a semitone (Shift for an octave)`}
+                          className="control-chip flex h-8 min-h-[2rem] min-w-[2rem] items-center justify-center px-2"
+                          disabled={disabled}
+                          onClick={(event) => handleTranspose(entry, event.shiftKey ? -12 : -1)}
+                          title="Transpose down a semitone. Hold Shift for an octave down."
+                          type="button"
+                        >
+                          <ChevronDown className="h-3 w-3" />
+                        </button>
                         <button
                           aria-label={`Duplicate ${entry.name}`}
                           className="control-chip flex h-8 min-h-[2rem] min-w-[2rem] items-center justify-center px-2"

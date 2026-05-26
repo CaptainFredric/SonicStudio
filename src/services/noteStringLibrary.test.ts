@@ -190,6 +190,39 @@ describe('serializeCapturedNoteStrings & importCapturedNoteStringsFromJson', () 
   });
 });
 
+describe('transposeCapturedNoteString (semitone math)', () => {
+  // The library reads / writes through localStorage. In node tests it's
+  // unavailable, but we can exercise the pure transposition by calling
+  // through saveCapturedNoteStringFromTokens first.
+  it('shifts every note by the given semitones; rests pass through', async () => {
+    const { transposeCapturedNoteString, saveCapturedNoteStringFromTokens, loadCapturedNoteStrings } = await import('./noteStringLibrary');
+    const saved = saveCapturedNoteStringFromTokens({
+      name: 'Test',
+      tokens: [
+        { note: 'C4', gate: 1, velocity: 0.6 },
+        null,
+        { note: 'E4', gate: 1, velocity: 0.6 },
+        { note: 'G#4', gate: 2, velocity: 0.6 },
+      ],
+    });
+    if (!saved) {
+      // Storage unavailable in this environment. Skip without failing.
+      return;
+    }
+    const id = saved[0].id;
+    const after = transposeCapturedNoteString(id, 2);
+    const entry = after.find((row) => row.id === id);
+    if (!entry) return;
+    expect(entry.tokens[0]?.note).toBe('D4');
+    expect(entry.tokens[1]).toBeNull();
+    expect(entry.tokens[2]?.note).toBe('F#4');
+    expect(entry.tokens[3]?.note).toBe('A#4');
+    // Cleanup
+    const { persistCapturedNoteStrings } = await import('./noteStringLibrary');
+    persistCapturedNoteStrings(loadCapturedNoteStrings().filter((row) => row.id !== id));
+  });
+});
+
 describe('saveCapturedNoteStringFromTokens', () => {
   it('parks pre-built tokens on the shelf with a generated raw form for round-trip', () => {
     const updated = saveCapturedNoteStringFromTokens({

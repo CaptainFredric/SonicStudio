@@ -1323,6 +1323,18 @@ export const MainWorkspace = () => {
 
   const [queuedNoteStringId, setQueuedNoteStringId] = useQueuedNoteStringId();
 
+  // Hover-audition timer for lane headers. A short dwell prevents a
+  // pointer flyby from peppering the engine with previewTrack calls,
+  // while still letting a deliberate hover audition the lane's voice.
+  const laneHoverAuditionRef = useRef<number | null>(null);
+  const clearLaneHoverAudition = () => {
+    if (laneHoverAuditionRef.current !== null) {
+      window.clearTimeout(laneHoverAuditionRef.current);
+      laneHoverAuditionRef.current = null;
+    }
+  };
+  useEffect(() => () => clearLaneHoverAudition(), []);
+
   // Mirror the queued state onto <html> so CSS can light up valid drop
   // surfaces (cells, lane headers, arrangement rows) for touch users
   // who can't see the HTML5-drag drop-target outline.
@@ -2194,6 +2206,7 @@ export const MainWorkspace = () => {
                           className={`group grid-freeze-col shrink-0 overflow-hidden border-r border-[var(--border-soft)] text-left cursor-pointer ${laneColumnCollapsed ? 'flex items-center justify-center py-2' : laneHeaderPaddingClass}`}
                           data-selected={selected ? 'true' : undefined}
                           onClick={() => {
+                            clearLaneHoverAudition();
                             if (queuedNoteStringId) {
                               const applied = handleNoteStringDrop(queuedNoteStringId, track.id);
                               if (applied) {
@@ -2203,6 +2216,15 @@ export const MainWorkspace = () => {
                             }
                             setSelectedTrackId(track.id);
                           }}
+                          onPointerEnter={(event) => {
+                            if (event.pointerType !== 'mouse' && event.pointerType !== 'pen') return;
+                            if (queuedNoteStringId) return;
+                            clearLaneHoverAudition();
+                            laneHoverAuditionRef.current = window.setTimeout(() => {
+                              void previewTrack(track.id);
+                            }, 320);
+                          }}
+                          onPointerLeave={clearLaneHoverAudition}
                           onDragEnter={(event) => {
                             if (event.dataTransfer.types.includes('application/x-sonicstudio-note-string')) {
                               event.preventDefault();

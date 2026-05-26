@@ -12,14 +12,40 @@
 import { useEffect, useState } from 'react';
 
 const EVENT = 'sonicstudio:queue-note-string';
+const STORAGE_KEY = 'sonicstudio:note-string-queue:v1';
 
-let current: string | null = null;
+const readPersisted = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    return raw && raw.length > 0 && raw.length < 256 ? raw : null;
+  } catch {
+    return null;
+  }
+};
+
+const writePersisted = (id: string | null): void => {
+  if (typeof window === 'undefined') return;
+  try {
+    if (id) {
+      window.localStorage.setItem(STORAGE_KEY, id);
+    } else {
+      window.localStorage.removeItem(STORAGE_KEY);
+    }
+  } catch {
+    // Storage may be full or blocked. The in-memory queue still
+    // works for the current session.
+  }
+};
+
+let current: string | null = readPersisted();
 
 export const getQueuedNoteStringId = (): string | null => current;
 
 export const setQueuedNoteStringId = (id: string | null): void => {
   if (current === id) return;
   current = id;
+  writePersisted(id);
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(EVENT));
   }

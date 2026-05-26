@@ -403,6 +403,62 @@ export const removeCapturedNoteString = (id: string): CapturedNoteString[] => {
   return persistCapturedNoteStrings(existing.filter((entry) => entry.id !== id));
 };
 
+// MIDI <-> note-name plumbing used by transposeCapturedNoteString.
+// Kept local to the file so the library has no external dependency
+// just for a semitone shift.
+const PITCH_CLASS_INDEX: Record<string, number> = {
+  C: 0, 'C#': 1, D: 2, 'D#': 3, E: 4, F: 5, 'F#': 6, G: 7, 'G#': 8, A: 9, 'A#': 10, B: 11,
+};
+const NOTE_NAMES_SHARP = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
+const noteNameToMidi = (note: string): number | null => {
+  const match = note.match(/^([A-G])(#?)(-?\d+)$/);
+  if (!match) return null;
+  const pitchClass = `${match[1]}${match[2]}`;
+  const pc = PITCH_CLASS_INDEX[pitchClass];
+  if (pc === undefined) return null;
+  const octave = Number.parseInt(match[3], 10);
+  if (!Number.isFinite(octave)) return null;
+  return (octave + 1) * 12 + pc;
+};
+
+const midiToNoteName = (midi: number): string => {
+  const safeMidi = Math.max(0, Math.min(127, Math.round(midi)));
+  const pc = ((safeMidi % 12) + 12) % 12;
+  const octave = Math.floor(safeMidi / 12) - 1;
+  return `${NOTE_NAMES_SHARP[pc]}${octave}`;
+};
+
+/**
+ * Return a new shelf list with `id` transposed by `semitones`. Notes
+ * that would fall out of MIDI range are clamped, rests pass through.
+ * The raw text form is regenerated so the entry reads cleanly after
+ * an export / import round-trip.
+ */
+export const transposeCapturedNoteString = (id: string, semitones: number): CapturedNoteString[] => {
+  const existing = loadCapturedNoteStrings();
+  if (!Number.isFinite(semitones) || semitones === 0) return existing;
+  const next = existing.map((entry) => {
+    if (entry.id !== id) return entry;
+    const shiftedTokens = entry.tokens.map((token) => {
+      if (token === null) return null;
+      const midi = noteNameToMidi(token.note);
+      if (midi === null) return token;
+      const shifted = midiToNoteName(midi + semitones);
+      return { ...token, note: shifted };
+    });
+    return {
+      ...entry,
+      tokens: shiftedTokens,
+      raw: shiftedTokens
+        .map((token) => (token === null ? '.' : token.gate > 1 ? `${token.note}*${token.gate}` : token.note))
+        .join(' '),
+      updatedAt: new Date().toISOString(),
+    };
+  });
+  return persistCapturedNoteStrings(next);
+};
+
 /**
  * Clone an existing shelf entry under a "(copy)" name. Useful when the
  * user wants to keep an original around while tweaking a variation in
