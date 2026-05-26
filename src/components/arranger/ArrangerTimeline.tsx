@@ -21,9 +21,12 @@ interface ArrangerTimelineProps {
   laneSections: LaneSection[];
   maxTimelineScrollLeft: number;
   onBeginClipDrag: (clip: ArrangementClip, event: React.PointerEvent<HTMLDivElement>, mode: DragMode) => void;
+  onDropNoteString?: (stringId: string, trackId: string) => boolean;
   onMoveTrack: (trackId: string, direction: 'up' | 'down') => void;
   onScrollTimelineByViewport: (direction: -1 | 1) => void;
   onSelectClip: (clipId: string) => void;
+  queuedNoteStringId?: string | null;
+  setQueuedNoteStringId?: (id: string | null) => void;
   onSetInspectorOpen: (value: boolean) => void;
   onSetOpenLaneMenuTrackId: (trackId: string | null) => void;
   onSetSelectedTrackId: (trackId: string) => void;
@@ -64,9 +67,12 @@ export const ArrangerTimeline = ({
   laneSections,
   maxTimelineScrollLeft,
   onBeginClipDrag,
+  onDropNoteString,
   onMoveTrack,
   onScrollTimelineByViewport,
   onSelectClip,
+  queuedNoteStringId = null,
+  setQueuedNoteStringId,
   onSetInspectorOpen,
   onSetOpenLaneMenuTrackId,
   onSetSelectedTrackId,
@@ -386,7 +392,44 @@ export const ArrangerTimeline = ({
                         track={track}
                       />
                     </div>
-                    <div className="relative border-b border-[var(--border-soft)] py-3">
+                    <div
+                      className="relative border-b border-[var(--border-soft)] py-3"
+                      onClick={() => {
+                        if (queuedNoteStringId && onDropNoteString) {
+                          const applied = onDropNoteString(queuedNoteStringId, track.id);
+                          if (applied && setQueuedNoteStringId) {
+                            setQueuedNoteStringId(null);
+                          }
+                        }
+                      }}
+                      onDragEnter={(event) => {
+                        if (!onDropNoteString) return;
+                        if (event.dataTransfer.types.includes('application/x-sonicstudio-note-string')) {
+                          event.preventDefault();
+                          event.currentTarget.dataset.dropTarget = 'note-string';
+                        }
+                      }}
+                      onDragLeave={(event) => {
+                        if (event.currentTarget === event.target) {
+                          delete event.currentTarget.dataset.dropTarget;
+                        }
+                      }}
+                      onDragOver={(event) => {
+                        if (!onDropNoteString) return;
+                        if (event.dataTransfer.types.includes('application/x-sonicstudio-note-string')) {
+                          event.preventDefault();
+                          event.dataTransfer.dropEffect = 'copy';
+                        }
+                      }}
+                      onDrop={(event) => {
+                        if (!onDropNoteString) return;
+                        const stringId = event.dataTransfer.getData('application/x-sonicstudio-note-string');
+                        if (!stringId) return;
+                        event.preventDefault();
+                        delete event.currentTarget.dataset.dropTarget;
+                        onDropNoteString(stringId, track.id);
+                      }}
+                    >
                       <div className="absolute inset-0">
                         {Array.from({ length: timelineSteps }, (_, stepIndex) => (
                           <div

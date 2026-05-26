@@ -2,6 +2,11 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { useAudio, usePlaybackStep } from '../context/AudioContext';
 import { type ArrangementClip } from '../project/schema';
+import {
+  loadCapturedNoteStrings,
+  noteStringToPatternSegment,
+} from '../services/noteStringLibrary';
+import { useQueuedNoteStringId } from '../services/noteStringQueue';
 import { useMediaQuery } from '../utils/useMediaQuery';
 import { ArrangerHeader } from './arranger/ArrangerHeader';
 import { ArrangerInspector } from './arranger/ArrangerInspector';
@@ -47,6 +52,7 @@ export const Arranger = () => {
   const currentStep = usePlaybackStep();
   const {
     addArrangerClip,
+    applyPatternSegment,
     applySongForm,
     arrangerClips,
     bpm,
@@ -91,6 +97,26 @@ export const Arranger = () => {
     updateSongMarker,
     removeSongMarker,
   } = useAudio();
+  const [queuedNoteStringId, setQueuedNoteStringId] = useQueuedNoteStringId();
+
+  // Drop a captured shelf string onto an arranger lane row. Applies it
+  // to the lane's current pattern at step 0 — same semantics as a
+  // header drop in the main workspace.
+  const handleArrangerNoteStringDrop = useCallback((stringId: string, trackId: string): boolean => {
+    if (!stringId) return false;
+    const targetTrack = tracks.find((entry) => entry.id === trackId);
+    if (!targetTrack) return false;
+    const captured = loadCapturedNoteStrings().find((entry) => entry.id === stringId);
+    if (!captured) return false;
+    const segment = noteStringToPatternSegment(captured, targetTrack.name, targetTrack.type);
+    if (segment.stepsPerPattern > stepsPerPattern) {
+      setStepsPerPattern(segment.stepsPerPattern);
+    }
+    applyPatternSegment(trackId, currentPattern, segment.steps, segment.automation);
+    setSelectedTrackId(trackId);
+    return true;
+  }, [applyPatternSegment, currentPattern, setSelectedTrackId, setStepsPerPattern, stepsPerPattern, tracks]);
+
   const [selectedPhraseStepIndex, setSelectedPhraseStepIndex] = useState(0);
   const [selectedPhraseNoteIndex, setSelectedPhraseNoteIndex] = useState<number | null>(null);
   const [snapSize, setSnapSize] = useState<SnapSize>(DEFAULT_SNAP);
@@ -544,9 +570,12 @@ export const Arranger = () => {
           laneSections={laneSections}
           maxTimelineScrollLeft={maxTimelineScrollLeft}
           onBeginClipDrag={beginClipDrag}
+          onDropNoteString={handleArrangerNoteStringDrop}
           onMoveTrack={moveTrack}
           onScrollTimelineByViewport={scrollTimelineByViewport}
           onSelectClip={selectClip}
+          queuedNoteStringId={queuedNoteStringId}
+          setQueuedNoteStringId={setQueuedNoteStringId}
           onSetInspectorOpen={setIsInspectorOpen}
           onSetOpenLaneMenuTrackId={setOpenLaneMenuTrackId}
           onSetSelectedTrackId={setSelectedTrackId}
