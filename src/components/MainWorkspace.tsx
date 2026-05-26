@@ -1323,6 +1323,21 @@ export const MainWorkspace = () => {
 
   const [queuedNoteStringId, setQueuedNoteStringId] = useQueuedNoteStringId();
 
+  // Mirror the queued state onto <html> so CSS can light up valid drop
+  // surfaces (cells, lane headers, arrangement rows) for touch users
+  // who can't see the HTML5-drag drop-target outline.
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (queuedNoteStringId) {
+      document.documentElement.dataset.noteStringQueued = 'true';
+    } else {
+      delete document.documentElement.dataset.noteStringQueued;
+    }
+    return () => {
+      delete document.documentElement.dataset.noteStringQueued;
+    };
+  }, [queuedNoteStringId]);
+
   const handleNoteStringDrop = useCallback((stringId: string, trackId: string) => {
     if (!stringId) return false;
     const targetTrack = tracks.find((entry) => entry.id === trackId);
@@ -2050,6 +2065,19 @@ export const MainWorkspace = () => {
                       setQueuedSegmentId(null);
                       setStitchHover(null);
                     }}
+                    type="button"
+                  >
+                    Clear queue
+                  </button>
+                </div>
+              )}
+              {queuedNoteStringId && (
+                <div className="mt-2 flex flex-wrap items-center gap-2 rounded-[3px] border border-[rgba(114,217,255,0.24)] bg-[rgba(114,217,255,0.09)] px-3 py-2 text-[11px] text-[var(--accent-strong)]">
+                  <Zap className="h-3.5 w-3.5 text-[var(--accent)]" />
+                  Note string queued — tap any cell, lane header, or arrangement row to drop it.
+                  <button
+                    className="control-chip ml-auto min-h-[2rem] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                    onClick={() => setQueuedNoteStringId(null)}
                     type="button"
                   >
                     Clear queue
