@@ -4,6 +4,7 @@ import { useAudio, type BounceNormalizationMode, type BounceTailMode } from '../
 import { type ExportScope } from '../../services/workflowTypes';
 import { type RenderTargetProfileId } from '../../utils/export';
 import { WorkspaceBouncePanel } from './WorkspaceBouncePanel';
+import { WorkspaceCapturePanel } from './WorkspaceCapturePanel';
 import { WorkspaceOptionsPanel } from './WorkspaceOptionsPanel';
 import { WorkspaceRecoveryPanel } from './WorkspaceRecoveryPanel';
 import { WorkspaceSessionPanel } from './WorkspaceSessionPanel';
@@ -30,10 +31,12 @@ const formatSaveLabel = (saveStatus: 'idle' | 'saving' | 'saved' | 'error', last
 
 export const WorkspaceSettingsPanel = () => {
   const {
+    applyPatternSegment,
     arrangerClips,
     bpm,
     bounceHistory,
     capturePreferences,
+    currentPattern,
     exportAudioMix,
     exportMidi,
     exportTrackStems,
@@ -157,6 +160,15 @@ export const WorkspaceSettingsPanel = () => {
         onSaveCheckpoint={() => saveCheckpoint()}
         onSaveProject={saveProject}
         trackCount={tracks.length}
+      />
+
+      <WorkspaceCapturePanel
+        applyPatternSegment={applyPatternSegment}
+        currentPattern={currentPattern}
+        disabled={renderState.active}
+        selectedTrackId={selectedTrackId}
+        setSelectedTrackId={setSelectedTrackId}
+        tracks={tracks.map((track) => ({ id: track.id, name: track.name, type: track.type }))}
       />
 
       <WorkspaceBouncePanel
