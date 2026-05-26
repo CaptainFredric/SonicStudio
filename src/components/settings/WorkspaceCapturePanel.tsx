@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AudioWaveform, Check, Copy, Download, ListPlus, Mic2, Pencil, Play, Square, Trash2, Upload } from 'lucide-react';
+import { AudioWaveform, Check, Copy, Download, ListPlus, Mic2, Music, Pencil, Play, Square, Trash2, Upload } from 'lucide-react';
 
 import { schedulePreview, type PreviewSchedule } from '../../audio/captureStringPreview';
+import { CHORD_STARTERS } from '../../services/chordStarters';
 import {
   captureNoteString,
   clearCapturedNoteStrings,
@@ -11,6 +12,7 @@ import {
   noteStringToPatternSegment,
   removeCapturedNoteString,
   renameCapturedNoteString,
+  saveCapturedNoteStringFromTokens,
   serializeCapturedNoteStrings,
   subscribeCapturedNoteStrings,
   summarizeCapturedNoteString,
@@ -141,6 +143,19 @@ export const WorkspaceCapturePanel = ({
 
   const handleDuplicate = (entry: CapturedNoteString) => {
     setItems(duplicateCapturedNoteString(entry.id));
+  };
+
+  const handleAddChordStarter = (starterId: string) => {
+    const starter = CHORD_STARTERS.find((entry) => entry.id === starterId);
+    if (!starter) return;
+    const updated = saveCapturedNoteStringFromTokens({
+      name: starter.label,
+      tokens: starter.tokens,
+      source: 'typed',
+    });
+    if (updated) {
+      setItems(updated);
+    }
   };
 
   const selectedTrack = useMemo(
@@ -299,6 +314,31 @@ export const WorkspaceCapturePanel = ({
           </div>
         </div>
       )}
+
+      <div className="mt-4">
+        <div className="flex items-center gap-2">
+          <Music className="h-3.5 w-3.5 text-[var(--accent)]" />
+          <span className="section-label">Chord starters</span>
+        </div>
+        <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
+          One-click harmonic frames. Each lands on the shelf as a new string you can drop onto a pad, bass, or piano lane.
+        </div>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {CHORD_STARTERS.map((starter) => (
+            <button
+              aria-label={`Add ${starter.label} to the shelf`}
+              className="control-chip h-8 min-h-[2rem] inline-flex items-center gap-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
+              disabled={disabled}
+              key={starter.id}
+              onClick={() => handleAddChordStarter(starter.id)}
+              title={starter.description}
+              type="button"
+            >
+              {starter.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
         <div className="section-label">Manage</div>

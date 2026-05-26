@@ -357,6 +357,37 @@ export const captureNoteString = (input: CaptureInput): CapturedNoteString[] | n
   return persistCapturedNoteStrings([next, ...existing]);
 };
 
+interface SaveTokensInput {
+  name: string;
+  tokens: Array<CapturedNoteToken | null>;
+  source?: NoteStringSource;
+}
+
+/**
+ * Save a pre-built token sequence to the shelf. Used by surfaces like
+ * the chord-starter picker that compose tokens directly rather than
+ * parsing free-form text.
+ */
+export const saveCapturedNoteStringFromTokens = (input: SaveTokensInput): CapturedNoteString[] | null => {
+  const tokens = input.tokens.slice(0, MAX_NOTES_PER_STRING);
+  if (tokens.length === 0) return null;
+
+  const now = new Date().toISOString();
+  const next: CapturedNoteString = {
+    id: createId(),
+    name: input.name.trim().slice(0, 48) || defaultNameForTokens(tokens),
+    source: input.source ?? 'typed',
+    tokens,
+    raw: tokens
+      .map((token) => (token === null ? '.' : token.gate > 1 ? `${token.note}*${token.gate}` : token.note))
+      .join(' '),
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  return persistCapturedNoteStrings([next, ...loadCapturedNoteStrings()]);
+};
+
 export const renameCapturedNoteString = (id: string, name: string): CapturedNoteString[] => {
   const existing = loadCapturedNoteStrings();
   const next = existing.map((entry) => (

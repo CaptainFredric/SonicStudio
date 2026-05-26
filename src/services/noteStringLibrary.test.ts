@@ -5,6 +5,7 @@ import {
   importCapturedNoteStringsFromJson,
   noteStringToPatternSegment,
   parseNoteString,
+  saveCapturedNoteStringFromTokens,
   serializeCapturedNoteStrings,
   summarizeCapturedNoteString,
   type CapturedNoteString,
@@ -186,6 +187,29 @@ describe('serializeCapturedNoteStrings & importCapturedNoteStringsFromJson', () 
     const result = importCapturedNoteStringsFromJson(payload);
     expect(result.imported).toBe(0);
     expect(result.skipped).toBe(2);
+  });
+});
+
+describe('saveCapturedNoteStringFromTokens', () => {
+  it('parks pre-built tokens on the shelf with a generated raw form for round-trip', () => {
+    const updated = saveCapturedNoteStringFromTokens({
+      name: 'I V vi IV',
+      tokens: [
+        { note: 'C4', gate: 4, velocity: 0.6 },
+        { note: 'G4', gate: 4, velocity: 0.6 },
+        { note: 'A4', gate: 4, velocity: 0.6 },
+        { note: 'F4', gate: 4, velocity: 0.6 },
+      ],
+      source: 'typed',
+    });
+    expect(updated).not.toBeNull();
+    expect(updated![0].name).toBe('I V vi IV');
+    expect(updated![0].tokens).toHaveLength(4);
+    expect(updated![0].raw).toContain('C4*4');
+  });
+
+  it('returns null when given no tokens', () => {
+    expect(saveCapturedNoteStringFromTokens({ name: 'Empty', tokens: [] })).toBeNull();
   });
 });
 
