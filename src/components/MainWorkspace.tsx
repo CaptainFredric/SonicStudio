@@ -1393,6 +1393,21 @@ export const MainWorkspace = () => {
     selectStep(startStep);
   };
 
+  // Drop a captured note string onto a specific cell. Reuses the stitch
+  // path so it composes with whatever notes were already at the target
+  // steps. Defined after handleStitchPatternSegment so the dependency
+  // is resolvable in TypeScript's strict block scope.
+  const handleNoteStringStitch = (stringId: string, trackId: string, stepIndex: number) => {
+    if (!stringId) return false;
+    const targetTrack = tracks.find((entry) => entry.id === trackId);
+    if (!targetTrack) return false;
+    const captured = loadCapturedNoteStrings().find((entry) => entry.id === stringId);
+    if (!captured) return false;
+    const segment = noteStringToPatternSegment(captured, targetTrack.name, targetTrack.type);
+    handleStitchPatternSegment(trackId, segment, stepIndex);
+    return true;
+  };
+
   const handleDeletePatternSegment = (segmentId: string) => {
     setPatternSegments((current) => persistPatternSegments(current.filter((segment) => segment.id !== segmentId)));
   };
@@ -2301,6 +2316,30 @@ export const MainWorkspace = () => {
                                 data-step-index={stepIndex}
                                 data-track-id={track.id}
                                 key={`${track.id}-${stepIndex}`}
+                                onDragEnter={(event) => {
+                                  if (event.dataTransfer.types.includes('application/x-sonicstudio-note-string')) {
+                                    event.preventDefault();
+                                    event.currentTarget.dataset.dropTarget = 'note-string';
+                                  }
+                                }}
+                                onDragLeave={(event) => {
+                                  if (event.currentTarget === event.target) {
+                                    delete event.currentTarget.dataset.dropTarget;
+                                  }
+                                }}
+                                onDragOver={(event) => {
+                                  if (event.dataTransfer.types.includes('application/x-sonicstudio-note-string')) {
+                                    event.preventDefault();
+                                    event.dataTransfer.dropEffect = 'copy';
+                                  }
+                                }}
+                                onDrop={(event) => {
+                                  const stringId = event.dataTransfer.getData('application/x-sonicstudio-note-string');
+                                  if (!stringId) return;
+                                  event.preventDefault();
+                                  delete event.currentTarget.dataset.dropTarget;
+                                  handleNoteStringStitch(stringId, track.id, stepIndex);
+                                }}
                                 onPointerDown={(event) => {
                                   if (queuedSegment) {
                                     if (event.button !== 0) {
