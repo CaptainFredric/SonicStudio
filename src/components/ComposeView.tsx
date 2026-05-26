@@ -541,7 +541,7 @@ const PresetBar = ({
                 className="control-chip flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
                 onClick={() => onApply(preset)}
                 onDoubleClick={() => { setDraft(preset.name); setRenamingIndex(index); }}
-                title={`Apply "${preset.name}" — press ${index + 1} anywhere. Shift+${index + 1} saves the current layout here. Double-click to rename.`}
+                title={`Apply "${preset.name}". Press ${index + 1} anywhere. Shift+${index + 1} saves the current layout here. Double-click to rename.`}
                 type="button"
               >
                 <span className="font-mono text-[9px] opacity-60">{index + 1}</span>

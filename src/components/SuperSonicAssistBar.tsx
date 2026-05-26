@@ -57,13 +57,13 @@ export const SuperSonicAssistBar = () => {
 
     let tip: string;
     if (activeSteps === 0) {
-      tip = 'This lane is empty — paint a few steps, or capture a part to fill it.';
+      tip = 'This lane is empty. Paint a few steps, or capture a part to fill it.';
     } else if (activeSteps / stepCount > 0.7) {
-      tip = 'Dense lane — Vary volume keeps a busy pattern from sounding mechanical.';
+      tip = 'Dense lane. Vary volume keeps a busy pattern from sounding mechanical.';
     } else if (emptyLanes > 0) {
-      tip = `${emptyLanes} lane${emptyLanes === 1 ? '' : 's'} still empty — more layers fill the song out.`;
+      tip = `${emptyLanes} lane${emptyLanes === 1 ? '' : 's'} still empty. More layers fill the song out.`;
     } else {
-      tip = 'Good spread — nudge it with Shift, or try an octave move.';
+      tip = 'Good spread. Nudge it with Shift, or try an octave move.';
     }
 
     return { activeSteps, noteCount, stepCount, tip };

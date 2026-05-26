@@ -1104,10 +1104,10 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
                       <div className="section-label">Live read</div>
                       <div className="mt-3 grid gap-2 text-[12px] leading-5">
                         <Detail label="Level" value={liveFrame ? `${Math.round(liveFrame.signalLevel * 100)}%` : '0%'} />
-                        <Detail label="Brightness" value={liveFrame ? `${Math.round(liveFrame.brightness * 100)}%` : '—'} />
-                        <Detail label="Clarity" value={liveFrame ? `${Math.round(liveFrame.clarity * 100)}%` : '—'} />
-                        <Detail label="Attack" value={liveFrame ? describeAttack(liveFrame.transientDensity) : '—'} />
-                        <Detail label="Pitch" value={liveFrame?.detectedPitchHz ? `${liveFrame.detectedPitchHz.toFixed(1)} Hz` : '—'} />
+                        <Detail label="Brightness" value={liveFrame ? `${Math.round(liveFrame.brightness * 100)}%` : '...'} />
+                        <Detail label="Clarity" value={liveFrame ? `${Math.round(liveFrame.clarity * 100)}%` : '...'} />
+                        <Detail label="Attack" value={liveFrame ? describeAttack(liveFrame.transientDensity) : '...'} />
+                        <Detail label="Pitch" value={liveFrame?.detectedPitchHz ? `${liveFrame.detectedPitchHz.toFixed(1)} Hz` : '...'} />
                       </div>
                       <div className="mt-3 text-[11px] leading-5 text-[var(--text-secondary)]">
                         {liveFrame
@@ -1220,7 +1220,7 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
                     <div className="section-label">What we heard</div>
                     <div className="mt-3 grid gap-2 text-[12px] leading-5">
                       <Detail label="Duration" value={`${result.durationSeconds.toFixed(2)}s`} />
-                      <Detail label="Loudness" value={Number.isFinite(result.rmsDb) ? `${result.rmsDb.toFixed(1)} dB` : '—'} />
+                      <Detail label="Loudness" value={Number.isFinite(result.rmsDb) ? `${result.rmsDb.toFixed(1)} dB` : 'No signal'} />
                       <Detail label="Pitch" value={result.detectedPitchHz ? `${result.detectedPitchHz.toFixed(1)} Hz` : 'Not pitched'} />
                       <Detail label="Clarity" value={`${Math.round(result.clarity * 100)}%`} />
                       <Detail label="Brightness" value={`${Math.round(result.brightness * 100)}%`} />
@@ -1531,7 +1531,7 @@ const PitchCoachCard = ({
           <div className="mt-1 text-[11px] leading-5">{feedback.detail}</div>
         </div>
         <div className="font-mono text-[10px] uppercase tracking-[0.14em]">
-          {feedback.centsOff === null ? '—' : `${Math.round(Math.abs(feedback.centsOff))} cents`}
+          {feedback.centsOff === null ? '...' : `${Math.round(Math.abs(feedback.centsOff))} cents`}
         </div>
       </div>
 

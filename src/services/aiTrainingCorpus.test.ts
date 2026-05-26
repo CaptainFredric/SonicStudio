@@ -17,7 +17,7 @@ describe('aiTrainingCorpus', () => {
     expect(corpus.tracks).toHaveLength(project.tracks.length);
   });
 
-  it('attaches per-track stats — note count, mean velocity, octave range, density', () => {
+  it('attaches per-track stats: note count, mean velocity, octave range, density', () => {
     const project = createTwilightFrameProject();
     const corpus = buildTrainingCorpus(project);
 
@@ -51,7 +51,7 @@ describe('aiTrainingCorpus', () => {
     });
   });
 
-  it('keeps every stat finite — no NaN or Infinity, density bounded between 0 and 1', () => {
+  it('keeps every stat finite, no NaN or Infinity, density bounded between 0 and 1', () => {
     const project = createBlankProject('Sanity Session');
     const corpus = buildTrainingCorpus(project);
 

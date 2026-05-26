@@ -449,7 +449,7 @@ export const transcribeSamples = (
   const summary = notes.length === 0
     ? 'No clear pitched notes were found. Try a louder, cleaner take.'
     : polyphonic
-      ? `Followed the most prominent melody line across a dense mix — ${notes.length} notes.`
+      ? `Followed the most prominent melody line across a dense mix. ${notes.length} notes.`
       : `Transcribed ${notes.length} notes from a clean monophonic take.`;
 
   return {

@@ -126,7 +126,7 @@ const START_OPTIONS: StartOption[] = [
     mark: 'BG',
   },
   {
-    body: 'A chamber sketch — held bass, piano triads, a soft pad bed, and a singing violin line over I-vi-IV-V.',
+    body: 'A chamber sketch with held bass, piano triads, a soft pad bed, and a singing violin line over I-vi-IV-V.',
     focus: 'Strings and piano',
     genre: 'Chamber',
     bpm: 86,
@@ -136,7 +136,7 @@ const START_OPTIONS: StartOption[] = [
     mark: 'VS',
   },
   {
-    body: 'A bright I-IV-V loop — soft kick anchor, piano stabs, wide pad, and a bell sparkling on the offbeats.',
+    body: 'A bright I-IV-V loop with a soft kick anchor, piano stabs, wide pad, and a bell sparkling on the offbeats.',
     focus: 'Bell-led sparkle',
     genre: 'Sparkle',
     bpm: 92,
@@ -146,7 +146,7 @@ const START_OPTIONS: StartOption[] = [
     mark: 'CG',
   },
   {
-    body: 'Cinematic A-minor — soft kick, walking bass, piano triads, a held pad, a violin line, and bell sparkles on every change.',
+    body: 'Cinematic A-minor with soft kick, walking bass, piano triads, a held pad, a violin line, and bell sparkles on every change.',
     focus: 'Cinematic ensemble',
     genre: 'Cinematic',
     bpm: 88,

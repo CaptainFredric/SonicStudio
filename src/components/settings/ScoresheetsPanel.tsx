@@ -57,7 +57,7 @@ export const ScoresheetsPanel = () => {
         <span className="section-label">Scoresheets</span>
       </div>
       <p className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
-        Save many named sessions and switch between them. Each scoresheet is a full snapshot — tracks, arrangement, sounds, and tempo.
+        Save many named sessions and switch between them. Each scoresheet is a full snapshot of tracks, arrangement, sounds, and tempo.
       </p>
 
       <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-stretch">

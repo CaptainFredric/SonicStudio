@@ -487,7 +487,7 @@ export const SESSION_TEMPLATE_DEFINITIONS: SessionTemplateDefinition[] = [
     label: 'Crystal Garden',
   },
   {
-    description: 'Cinematic A-minor loop — a soft kick anchor, walking bass, piano triads, a held pad, a singing violin line, and bell sparkles on the changes.',
+    description: 'Cinematic A-minor loop. Soft kick anchor, walking bass, piano triads, a held pad, a singing violin line, and bell sparkles on the changes.',
     focus: 'Cinematic strings and bell',
     id: 'twilight-frame',
     label: 'Twilight Frame',

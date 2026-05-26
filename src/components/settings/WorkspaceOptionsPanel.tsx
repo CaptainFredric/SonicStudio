@@ -323,7 +323,7 @@ export const WorkspaceOptionsPanel = ({
             Export session JSON
           </button>
           <div className="rounded-[3px] border border-[var(--border-soft)] px-3 py-2 text-[11px] leading-5 text-[var(--text-secondary)]">
-            Downloads a *.json file. Read-only on the studio — does not change your session.
+            Downloads a *.json file. Read-only on the studio. Your session does not change.
           </div>
         </div>
       </div>

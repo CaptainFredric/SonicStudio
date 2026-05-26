@@ -1159,7 +1159,7 @@ export class ToneEngine {
         const graph = this.ensureTrackGraph(track);
         this.applyTrackGraphState(graph, track);
       } catch (error) {
-        console.warn(`SonicStudio: could not build the audio graph for "${track.name}" — other lanes keep playing.`, error);
+        console.warn(`SonicStudio: could not build the audio graph for "${track.name}". Other lanes keep playing.`, error);
       }
     });
 

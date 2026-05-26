@@ -12,7 +12,7 @@ import type { CapturedNoteToken } from '../services/noteStringLibrary';
 export interface PreviewSchedule {
   /** Stop the in-flight preview. Safe to call after natural completion. */
   cancel: () => void;
-  /** Total wall-clock duration in ms — useful for showing a progress UI. */
+  /** Total wall-clock duration in ms, useful for showing a progress UI. */
   durationMs: number;
 }
 

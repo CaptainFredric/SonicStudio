@@ -436,7 +436,7 @@ export const TapToPlay = () => {
         <Hand className="h-3.5 w-3.5 text-[var(--accent)]" />
         <span className="section-label">Tap to play</span>
         <span className="rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.025)] px-2 py-1 text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--text-secondary)]">{track.name}</span>
-        <span className="hidden sm:inline text-[11px] text-[var(--text-secondary)]">Click a key or press A–L to play the selected track.</span>
+        <span className="hidden sm:inline text-[11px] text-[var(--text-secondary)]">Click a key or press A through L to play the selected track.</span>
       </section>
     );
   }

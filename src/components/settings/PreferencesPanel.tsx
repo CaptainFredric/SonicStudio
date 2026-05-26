@@ -121,7 +121,7 @@ export const PreferencesPanel = ({
 
     <PanelCard icon={<Zap className="h-4 w-4 text-[var(--accent)]" />} title="SuperSonic mode">
       <p className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
-        SuperSonic puts a one-tap assist bar above the keyboard — vary volume, shift, octave, and clear for the focused lane — and turns on hover guidance and a brighter look. Normal mode keeps the same tools, just tucked in their panels. Toggle whenever; staying in either is fine. Shortcut: Alt+S.
+        SuperSonic puts a one-tap assist bar above the keyboard with Vary volume, Shift, Octave, and Clear for the focused lane. It also turns on hover guidance and a brighter look. Normal mode keeps the same tools tucked in their panels. Toggle whenever; staying in either is fine. Shortcut: Alt+S.
       </p>
       <div className="mt-3 flex gap-2">
         <button
@@ -172,7 +172,7 @@ export const PreferencesPanel = ({
 
     <PanelCard icon={<HardDrive className="h-4 w-4 text-[var(--accent)]" />} title="Where saves live">
       <p className="mt-1 text-[12px] leading-5 text-[var(--text-secondary)]">
-        SonicStudio saves to <span className="font-mono text-[11px] text-[var(--text-primary)]">localStorage</span> in your browser — not to a server. That means:
+        SonicStudio saves to <span className="font-mono text-[11px] text-[var(--text-primary)]">localStorage</span> in your browser, not to a server. That means:
       </p>
       <ul className="mt-2 grid gap-1 text-[12px] leading-5 text-[var(--text-secondary)]">
         <li>· Sessions stay on this browser profile on this device. Not your IP.</li>

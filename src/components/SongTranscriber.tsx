@@ -31,7 +31,7 @@ type TranscriberStatus = 'idle' | 'recording' | 'working' | 'ready' | 'error';
 
 // A short note to set expectations honestly. Humming and singing transcribe
 // cleanly; a finished, layered song is followed best-effort.
-const INTRO_COPY = 'Record or upload a take — hum a tune, sing, or drop in a song file. '
+const INTRO_COPY = 'Record or upload a take. Hum a tune, sing, or drop in a song file. '
   + 'The studio listens for the melody and lays it onto the note grid so you can edit it like any pattern.';
 
 /** Decode an ArrayBuffer of audio into an AudioBuffer using a temporary context. */
@@ -351,7 +351,7 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
                   <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--accent)]" />
                   <span>
                     This sounds like a full mix. The studio followed the most prominent
-                    melody line — expect to clean up a few notes by hand.
+                    melody line. Expect to clean up a few notes by hand.
                   </span>
                 </div>
               ) : null}

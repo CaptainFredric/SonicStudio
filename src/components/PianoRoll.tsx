@@ -968,7 +968,7 @@ export const PianoRoll = () => {
                 </ToolButton>
               </>
             )}
-            <ToolButton label="Vary note volume — add a touch of random loudness so the pattern feels less mechanical" onClick={() => humanizePattern(track.id)}>
+            <ToolButton label="Vary note volume. Adds a touch of random loudness so the pattern feels less mechanical." onClick={() => humanizePattern(track.id)}>
               <Shuffle className="h-4 w-4" />
             </ToolButton>
             {!isDrum && (
@@ -1262,7 +1262,7 @@ export const PianoRoll = () => {
                   Step overview
                 </div>
                 <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-                  View {visibleStepStart + 1}–{Math.max(visibleStepStart + 1, visibleStepEnd)} of {stepsPerPattern}
+                  View {visibleStepStart + 1} to {Math.max(visibleStepStart + 1, visibleStepEnd)} of {stepsPerPattern}
                 </div>
               </div>
               <div

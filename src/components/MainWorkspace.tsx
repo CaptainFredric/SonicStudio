@@ -2074,7 +2074,7 @@ export const MainWorkspace = () => {
               {queuedNoteStringId && (
                 <div className="mt-2 flex flex-wrap items-center gap-2 rounded-[3px] border border-[rgba(114,217,255,0.24)] bg-[rgba(114,217,255,0.09)] px-3 py-2 text-[11px] text-[var(--accent-strong)]">
                   <Zap className="h-3.5 w-3.5 text-[var(--accent)]" />
-                  Note string queued — tap any cell, lane header, or arrangement row to drop it.
+                  Note string queued. Tap any cell, lane header, or arrangement row to drop it.
                   <button
                     className="control-chip ml-auto min-h-[2rem] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
                     onClick={() => setQueuedNoteStringId(null)}
@@ -2239,7 +2239,7 @@ export const MainWorkspace = () => {
                         >
                           {selected && <div className="absolute left-0 top-3 bottom-3 w-[2px] rounded-full" style={{ backgroundColor: track.color }} />}
                           {laneColumnCollapsed ? (
-                            <CollapsedLaneIcon color={track.color} title={`${track.name} — ${track.type} lane`} trackId={track.id}>
+                            <CollapsedLaneIcon color={track.color} title={`${track.name} · ${track.type} lane`} trackId={track.id}>
                               <TrackIcon type={track.type} className="h-3.5 w-3.5" />
                             </CollapsedLaneIcon>
                           ) : (

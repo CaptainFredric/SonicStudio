@@ -37,7 +37,7 @@ const PresetCard = ({ onClick, onAudition, preset }: PresetCardProps) => {
 
   return (
     <button
-      aria-label={`${preset.label} — ${preset.focus}`}
+      aria-label={`${preset.label}, ${preset.focus}`}
       className="w-full min-h-[3rem] rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3 text-left transition-colors hover:border-[rgba(114,217,255,0.26)] hover:bg-[rgba(114,217,255,0.05)]"
       data-ui-sound="action"
       onClick={() => {

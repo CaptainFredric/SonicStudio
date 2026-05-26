@@ -59,7 +59,7 @@ const GUIDE_STEPS: GuideStep[] = [
   },
   {
     action: 'Turn on SuperSonic when you want the common edits one tap away.',
-    body: 'SuperSonic adds an assist bar above the keyboard — vary volume, shift, octave, and clear — plus hover guidance. Normal mode keeps the same tools in their panels.',
+    body: 'SuperSonic adds an assist bar above the keyboard with Vary volume, Shift, Octave, and Clear, plus hover guidance. Normal mode keeps the same tools in their panels.',
     eyebrow: 'SuperSonic',
     payoff: 'Pick the pace that fits. Nothing is locked behind either mode.',
     target: 'supersonic',

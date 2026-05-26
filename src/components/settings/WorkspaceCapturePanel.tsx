@@ -44,7 +44,7 @@ interface WorkspaceCapturePanelProps {
   tracks: Lane[];
 }
 
-const SYNTAX_HINT = 'C4 E4 G4 B4  ·  use . for rests, *N to hold N steps, @V for velocity 0–1.';
+const SYNTAX_HINT = 'C4 E4 G4 B4  ·  use . for rests, *N to hold N steps, @V for velocity from 0 to 1.';
 const PLACEHOLDER_EXAMPLE = 'C4 E4 G4 B4*2 . F4';
 const NAME_PLACEHOLDER = 'Name this string (optional)';
 
@@ -127,7 +127,7 @@ export const WorkspaceCapturePanel = ({
     }
     const updated = captureNoteString({ name: draftName, raw: draftRaw, source: 'typed' });
     if (!updated) {
-      setDraftError('That didn\'t look like notes — try C4 E4 G4.');
+      setDraftError('That didn\'t look like notes. Try something like C4 E4 G4.');
       return;
     }
     setItems(updated);
@@ -381,7 +381,7 @@ export const WorkspaceCapturePanel = ({
                       </div>
                       {isQueued && (
                         <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--accent-strong)]">
-                          Queued — tap any sequencer cell or lane to drop.
+                          Queued. Tap any sequencer cell or lane to drop.
                         </div>
                       )}
                     </div>
