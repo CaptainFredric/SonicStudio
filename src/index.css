@@ -2763,3 +2763,12 @@ html[data-supersonic="true"] .arranger-timeline-fade {
 .arranger-clip-fade-zone {
   transition: opacity 0.2s ease-out, filter 0.2s ease-out;
 }
+
+/* Lane header reacts when a captured note string is being dragged onto
+   it from the Studio Settings shelf — a dashed accent ring is enough
+   to confirm "drop here will apply" without redrawing the row. */
+[data-drop-target="note-string"] {
+  outline: 2px dashed var(--accent-strong);
+  outline-offset: -3px;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}

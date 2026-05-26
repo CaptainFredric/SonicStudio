@@ -33,6 +33,10 @@ import {
 } from '../services/patternSegments';
 import { FACTORY_LOOP_LIBRARY } from '../services/loopLibrary';
 import {
+  loadCapturedNoteStrings,
+  noteStringToPatternSegment,
+} from '../services/noteStringLibrary';
+import {
   buildSessionPlayerPatternDecks,
   buildSessionPlayerSegments,
   getSessionPlayerTrackTypes,
@@ -1316,6 +1320,18 @@ export const MainWorkspace = () => {
     applyPatternSegment(trackId, currentPattern, segment.steps, segment.automation);
   }, [applyPatternSegment, currentPattern, setStepsPerPattern, stepsPerPattern]);
 
+  const handleNoteStringDrop = useCallback((stringId: string, trackId: string) => {
+    if (!stringId) return false;
+    const targetTrack = tracks.find((entry) => entry.id === trackId);
+    if (!targetTrack) return false;
+    const captured = loadCapturedNoteStrings().find((entry) => entry.id === stringId);
+    if (!captured) return false;
+    const segment = noteStringToPatternSegment(captured, targetTrack.name, targetTrack.type);
+    applySegmentToTrack(trackId, segment);
+    setSelectedTrackId(trackId);
+    return true;
+  }, [applySegmentToTrack, setSelectedTrackId, tracks]);
+
   const handleApplyPatternSegment = (segment: PatternSegment) => {
     if (!selectedTrack) {
       return;
@@ -2132,6 +2148,30 @@ export const MainWorkspace = () => {
                           className={`group grid-freeze-col shrink-0 overflow-hidden border-r border-[var(--border-soft)] text-left cursor-pointer ${laneColumnCollapsed ? 'flex items-center justify-center py-2' : laneHeaderPaddingClass}`}
                           data-selected={selected ? 'true' : undefined}
                           onClick={() => setSelectedTrackId(track.id)}
+                          onDragEnter={(event) => {
+                            if (event.dataTransfer.types.includes('application/x-sonicstudio-note-string')) {
+                              event.preventDefault();
+                              event.currentTarget.dataset.dropTarget = 'note-string';
+                            }
+                          }}
+                          onDragLeave={(event) => {
+                            if (event.currentTarget === event.target) {
+                              delete event.currentTarget.dataset.dropTarget;
+                            }
+                          }}
+                          onDragOver={(event) => {
+                            if (event.dataTransfer.types.includes('application/x-sonicstudio-note-string')) {
+                              event.preventDefault();
+                              event.dataTransfer.dropEffect = 'copy';
+                            }
+                          }}
+                          onDrop={(event) => {
+                            const stringId = event.dataTransfer.getData('application/x-sonicstudio-note-string');
+                            if (!stringId) return;
+                            event.preventDefault();
+                            delete event.currentTarget.dataset.dropTarget;
+                            handleNoteStringDrop(stringId, track.id);
+                          }}
                           onKeyDown={(event) => {
                             if (event.key === 'Enter' || event.key === ' ') {
                               event.preventDefault();
