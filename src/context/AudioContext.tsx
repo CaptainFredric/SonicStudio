@@ -163,6 +163,7 @@ interface AudioContextType {
   metronomeEnabled: boolean;
   patternCount: number;
   previewTrack: (trackId: string, note?: string, sampleSliceIndex?: number, velocity?: number) => Promise<void>;
+  auditionTrackVoicePreset: (trackId: string, presetId: string) => Promise<void>;
   projectName: string;
   projectCheckpoints: PersistedCheckpoint[];
   scoresheets: Scoresheet[];
@@ -530,6 +531,7 @@ export const AudioProvider = ({
   }, [isInitialized]);
 
   const {
+    auditionTrackVoicePreset,
     previewTrack,
     resetTransportState,
     stop,
@@ -705,6 +707,7 @@ export const AudioProvider = ({
     patternCount: project.transport.patternCount,
     pinnedTrackIds,
     previewTrack,
+    auditionTrackVoicePreset,
     projectCheckpoints,
     scoresheets,
     saveScoresheet: handleSaveScoresheet,
@@ -832,6 +835,7 @@ export const AudioProvider = ({
     preferences.stickyMobileTransport,
     preferences.audioStabilityMode,
     previewTrack,
+    auditionTrackVoicePreset,
     project,
     projectCheckpoints,
     renderState,

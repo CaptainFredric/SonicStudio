@@ -98,6 +98,7 @@ export const DeviceRack = () => {
   const {
     applyTrackSnapshot,
     applyTrackVoicePreset,
+    auditionTrackVoicePreset,
     createSampleSlice,
     currentPattern,
     deleteSampleSlice,
@@ -408,6 +409,7 @@ export const DeviceRack = () => {
                 onApplyEvenSplit={applyEvenSplit}
                 onApplyRegionTemplate={applyRegionTemplate}
                 onApplyTrackVoicePreset={(presetId) => applyTrackVoicePreset(track.id, presetId)}
+                onAuditionTrackVoicePreset={(presetId) => { void auditionTrackVoicePreset(track.id, presetId); }}
                 onCreateSampleSlice={(slice) => createSampleSlice(track.id, slice)}
                 onDeleteSampleSlice={(sliceIndex) => deleteSampleSlice(track.id, sliceIndex)}
                 onPreviewTrack={(note, sampleSliceIndex) => previewTrack(track.id, note ?? defaultNoteForTrack(track), sampleSliceIndex)}

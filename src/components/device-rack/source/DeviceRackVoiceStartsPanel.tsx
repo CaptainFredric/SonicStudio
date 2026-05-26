@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { InstrumentType, TrackVoicePresetDefinition } from '../../../project/schema';
 import { type RecordedNotePreset, loadRecordedNotePresets, subscribeRecordedNotePresets } from '../../../services/recordedNoteLibrary';
@@ -6,37 +6,93 @@ import { type RecordedNotePreset, loadRecordedNotePresets, subscribeRecordedNote
 interface DeviceRackVoiceStartsPanelProps {
   onApplyRecordedNotePreset: (preset: RecordedNotePreset) => void;
   onApplyTrackVoicePreset: (presetId: string) => void;
+  onAuditionTrackVoicePreset?: (presetId: string) => void;
   trackType: InstrumentType;
   trackVoicePresets: TrackVoicePresetDefinition[];
 }
 
 const isFoundationPreset = (presetId: string) => presetId.startsWith('foundation-');
+const TOUCH_AUDITION_DELAY_MS = 320;
 
 interface PresetCardProps {
   onClick: () => void;
+  onAudition?: () => void;
   preset: TrackVoicePresetDefinition;
 }
 
-const PresetCard = ({ onClick, preset }: PresetCardProps) => (
-  <button
-    className="rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3 text-left transition-colors hover:border-[rgba(114,217,255,0.26)] hover:bg-[rgba(114,217,255,0.05)]"
-    data-ui-sound="action"
-    onClick={onClick}
-    type="button"
-  >
-    <div className="flex items-center justify-between gap-3">
-      <span className="text-sm font-semibold text-[var(--text-primary)]">{preset.label}</span>
-      <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--accent-strong)]">
-        {preset.focus}
-      </span>
-    </div>
-    <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">{preset.description}</div>
-  </button>
-);
+// Hover-audition (desktop) + long-press audition (touch) fall back
+// gracefully when no audition handler is supplied (the preset still
+// applies on click).
+const PresetCard = ({ onClick, onAudition, preset }: PresetCardProps) => {
+  const lastHoverIdRef = useRef<string | null>(null);
+  const touchTimerRef = useRef<number | null>(null);
+  const longPressFiredRef = useRef(false);
+
+  const clearTouchTimer = () => {
+    if (touchTimerRef.current !== null) {
+      window.clearTimeout(touchTimerRef.current);
+      touchTimerRef.current = null;
+    }
+  };
+
+  return (
+    <button
+      aria-label={`${preset.label} — ${preset.focus}`}
+      className="w-full min-h-[3rem] rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3 text-left transition-colors hover:border-[rgba(114,217,255,0.26)] hover:bg-[rgba(114,217,255,0.05)]"
+      data-ui-sound="action"
+      onClick={() => {
+        // Skip the click if a long-press fired the audition already.
+        if (longPressFiredRef.current) {
+          longPressFiredRef.current = false;
+          return;
+        }
+        onClick();
+      }}
+      onPointerEnter={(event) => {
+        if (!onAudition) return;
+        // Only fire audition on real mouse / pen — touch users will get
+        // the long-press path instead, so we don't double up.
+        if (event.pointerType !== 'mouse' && event.pointerType !== 'pen') return;
+        if (lastHoverIdRef.current === preset.id) return;
+        lastHoverIdRef.current = preset.id;
+        onAudition();
+      }}
+      onPointerLeave={() => {
+        lastHoverIdRef.current = null;
+      }}
+      onPointerDown={(event) => {
+        if (!onAudition || event.pointerType === 'mouse' || event.pointerType === 'pen') return;
+        longPressFiredRef.current = false;
+        clearTouchTimer();
+        touchTimerRef.current = window.setTimeout(() => {
+          longPressFiredRef.current = true;
+          onAudition();
+        }, TOUCH_AUDITION_DELAY_MS);
+      }}
+      onPointerUp={clearTouchTimer}
+      onPointerCancel={clearTouchTimer}
+      type="button"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm font-semibold text-[var(--text-primary)]">{preset.label}</span>
+        <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--accent-strong)]">
+          {preset.focus}
+        </span>
+      </div>
+      <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">{preset.description}</div>
+      {onAudition && (
+        <div className="mt-1.5 font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+          Hover or long-press to audition · tap to apply
+        </div>
+      )}
+    </button>
+  );
+};
 
 export const DeviceRackVoiceStartsPanel = ({
   onApplyRecordedNotePreset,
   onApplyTrackVoicePreset,
+  onAuditionTrackVoicePreset,
   trackType,
   trackVoicePresets,
 }: DeviceRackVoiceStartsPanelProps) => {
@@ -84,6 +140,7 @@ export const DeviceRackVoiceStartsPanel = ({
             {foundationalPresets.map((preset) => (
               <div key={preset.id}>
                 <PresetCard
+                  onAudition={onAuditionTrackVoicePreset ? () => onAuditionTrackVoicePreset(preset.id) : undefined}
                   onClick={() => onApplyTrackVoicePreset(preset.id)}
                   preset={preset}
                 />
@@ -103,6 +160,7 @@ export const DeviceRackVoiceStartsPanel = ({
             {characterPresets.map((preset) => (
               <div key={preset.id}>
                 <PresetCard
+                  onAudition={onAuditionTrackVoicePreset ? () => onAuditionTrackVoicePreset(preset.id) : undefined}
                   onClick={() => onApplyTrackVoicePreset(preset.id)}
                   preset={preset}
                 />

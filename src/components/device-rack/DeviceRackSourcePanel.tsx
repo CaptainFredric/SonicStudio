@@ -22,6 +22,7 @@ interface DeviceRackSourcePanelProps {
   onApplyEvenSplit: (parts: number) => void;
   onApplyRegionTemplate: () => void;
   onApplyTrackVoicePreset: (presetId: string) => void;
+  onAuditionTrackVoicePreset?: (presetId: string) => void;
   onCreateSampleSlice: (slice?: Partial<SampleSliceMemory>) => void;
   onDeleteSampleSlice: (sliceIndex: number) => void;
   onPreviewTrack: (note?: string, sampleSliceIndex?: number) => Promise<void>;
@@ -48,6 +49,7 @@ export const DeviceRackSourcePanel = ({
   onApplyEvenSplit,
   onApplyRegionTemplate,
   onApplyTrackVoicePreset,
+  onAuditionTrackVoicePreset,
   onCreateSampleSlice,
   onDeleteSampleSlice,
   onPreviewTrack,
@@ -93,6 +95,7 @@ export const DeviceRackSourcePanel = ({
             onSetTrackParams(captureSuggestionControlsToTrackParams(preset.controls));
           }}
           onApplyTrackVoicePreset={onApplyTrackVoicePreset}
+          onAuditionTrackVoicePreset={onAuditionTrackVoicePreset}
           trackType={track.type}
           trackVoicePresets={trackVoicePresets}
         />
