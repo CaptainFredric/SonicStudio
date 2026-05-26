@@ -15,6 +15,7 @@ import { ShareDialog } from './components/ShareDialog';
 import { AudioCapture } from './components/AudioCapture';
 import { SuperSonicAssistBar } from './components/SuperSonicAssistBar';
 import { OnboardingGuide } from './components/OnboardingGuide';
+import { QuickCaptureBar } from './components/QuickCaptureBar';
 import { SongTranscriber } from './components/SongTranscriber';
 import { AudioHealthDot } from './components/AudioHealthDot';
 import { TransportPositionTag } from './components/TransportPositionTag';
@@ -480,6 +481,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
   const [isShareOpen, setShareOpen] = useState(false);
   const [isRecordOpen, setRecordOpen] = useState(false);
   const [isTranscribeOpen, setTranscribeOpen] = useState(false);
+  const [isQuickCaptureOpen, setQuickCaptureOpen] = useState(false);
   const [focusMode, setFocusMode] = useState(false);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -593,6 +595,14 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
     return () => window.removeEventListener('sonicstudio:open-transcriber', handler);
   }, [openTranscribe]);
 
+  // Alt+C in the keyboard layer dispatches this event so the quick
+  // capture overlay opens from anywhere in the studio.
+  useEffect(() => {
+    const handler = () => setQuickCaptureOpen(true);
+    window.addEventListener('sonicstudio:open-quick-capture', handler);
+    return () => window.removeEventListener('sonicstudio:open-quick-capture', handler);
+  }, []);
+
   // Focus mode hides the chrome so the workspace fills the screen; Esc leaves.
   useEffect(() => {
     if (!focusMode) {
@@ -644,6 +654,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
       <ShareDialog open={isShareOpen} onClose={() => setShareOpen(false)} onNotify={pushToast} />
       <AudioCapture open={isRecordOpen} onClose={() => setRecordOpen(false)} />
       <SongTranscriber open={isTranscribeOpen} onClose={() => setTranscribeOpen(false)} onNotify={pushToast} />
+      <QuickCaptureBar open={isQuickCaptureOpen} onClose={() => setQuickCaptureOpen(false)} onNotify={pushToast} />
       <input
         ref={fileInputRef}
         type="file"

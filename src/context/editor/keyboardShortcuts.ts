@@ -49,6 +49,14 @@ export const createKeyboardShortcutHandler = ({
     return;
   }
 
+  if (event.altKey && event.code === 'KeyC') {
+    event.preventDefault();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('sonicstudio:open-quick-capture'));
+    }
+    return;
+  }
+
   if (event.altKey && /^Digit[1-5]$/.test(event.code)) {
     event.preventDefault();
     const views = ['SEQUENCER', 'PIANO_ROLL', 'MIXER', 'ARRANGER', 'COMPOSE'] as const;
