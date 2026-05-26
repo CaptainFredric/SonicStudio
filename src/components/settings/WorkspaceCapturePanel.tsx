@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AudioWaveform, ListPlus, Mic2, Play, Square, Trash2 } from 'lucide-react';
+import { AudioWaveform, Download, ListPlus, Mic2, Play, Square, Trash2, Upload } from 'lucide-react';
 
 import { schedulePreview, type PreviewSchedule } from '../../audio/captureStringPreview';
 import {
   captureNoteString,
+  clearCapturedNoteStrings,
+  importCapturedNoteStringsFromJson,
   loadCapturedNoteStrings,
   noteStringToPatternSegment,
   removeCapturedNoteString,
+  serializeCapturedNoteStrings,
   subscribeCapturedNoteStrings,
   summarizeCapturedNoteString,
   type CapturedNoteString,
@@ -151,6 +154,52 @@ export const WorkspaceCapturePanel = ({
     setSelectedTrackId(laneId);
   };
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [managementNotice, setManagementNotice] = useState<string | null>(null);
+
+  const handleClearShelf = () => {
+    if (items.length === 0) return;
+    const confirmed = typeof window !== 'undefined'
+      ? window.confirm(`Remove all ${items.length} captured ${items.length === 1 ? 'string' : 'strings'} from the shelf? This can't be undone.`)
+      : true;
+    if (!confirmed) return;
+    setItems(clearCapturedNoteStrings());
+    if (onQueueNoteString) onQueueNoteString(null);
+    setManagementNotice('Shelf cleared.');
+  };
+
+  const handleExport = () => {
+    if (typeof window === 'undefined' || typeof document === 'undefined') return;
+    if (items.length === 0) return;
+    const json = serializeCapturedNoteStrings(items);
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    anchor.download = `sonicstudio-note-strings-${stamp}.json`;
+    anchor.style.display = 'none';
+    document.body.appendChild(anchor);
+    anchor.click();
+    document.body.removeChild(anchor);
+    window.setTimeout(() => URL.revokeObjectURL(url), 250);
+    setManagementNotice(`Exported ${items.length} ${items.length === 1 ? 'string' : 'strings'}.`);
+  };
+
+  const handleImport = async (file: File) => {
+    try {
+      const text = await file.text();
+      const result = importCapturedNoteStringsFromJson(text);
+      setItems(result.items);
+      const parts = [`Imported ${result.imported}`];
+      if (result.duplicates > 0) parts.push(`skipped ${result.duplicates} duplicate${result.duplicates === 1 ? '' : 's'}`);
+      if (result.skipped > 0) parts.push(`${result.skipped} unreadable`);
+      setManagementNotice(parts.join(' · '));
+    } catch {
+      setManagementNotice('Could not read that file.');
+    }
+  };
+
   return (
     <section className="surface-panel-strong p-4">
       <div className="flex items-center gap-2 text-[var(--text-primary)]">
@@ -220,6 +269,58 @@ export const WorkspaceCapturePanel = ({
               </button>
             ))}
           </div>
+        </div>
+      )}
+
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+        <div className="section-label">Manage</div>
+        <div className="flex flex-wrap gap-1.5">
+          <input
+            accept=".json,application/json"
+            className="hidden"
+            onChange={async (event) => {
+              const file = event.target.files?.[0];
+              event.target.value = '';
+              if (file) await handleImport(file);
+            }}
+            ref={fileInputRef}
+            type="file"
+          />
+          <button
+            aria-label="Import note-strings JSON"
+            className="control-chip h-8 min-h-[2rem] inline-flex items-center gap-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
+            disabled={disabled}
+            onClick={() => fileInputRef.current?.click()}
+            type="button"
+          >
+            <Upload className="h-3 w-3" />
+            Import
+          </button>
+          <button
+            aria-label="Export the shelf as JSON"
+            className="control-chip h-8 min-h-[2rem] inline-flex items-center gap-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
+            disabled={disabled || items.length === 0}
+            onClick={handleExport}
+            type="button"
+          >
+            <Download className="h-3 w-3" />
+            Export
+          </button>
+          <button
+            aria-label="Remove every captured string from the shelf"
+            className="control-chip h-8 min-h-[2rem] inline-flex items-center gap-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
+            disabled={disabled || items.length === 0}
+            onClick={handleClearShelf}
+            type="button"
+          >
+            <Trash2 className="h-3 w-3" />
+            Clear
+          </button>
+        </div>
+      </div>
+      {managementNotice && (
+        <div className="mt-2 text-[10px] uppercase tracking-[0.14em] text-[var(--text-secondary)]" role="status">
+          {managementNotice}
         </div>
       )}
 

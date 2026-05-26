@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import {
   captureNoteStringFromTranscription,
+  importCapturedNoteStringsFromJson,
   noteStringToPatternSegment,
   parseNoteString,
+  serializeCapturedNoteStrings,
   summarizeCapturedNoteString,
   type CapturedNoteString,
 } from './noteStringLibrary';
@@ -143,6 +145,47 @@ describe('captureNoteStringFromTranscription', () => {
     expect(updated).not.toBeNull();
     expect(updated![0].source).toBe('transcribed');
     expect(updated![0].name.length).toBeGreaterThan(0);
+  });
+});
+
+describe('serializeCapturedNoteStrings & importCapturedNoteStringsFromJson', () => {
+  it('wraps items in a versioned envelope and reparses them on import', () => {
+    const sample: CapturedNoteString = {
+      id: 'export-1',
+      name: 'Export Sample',
+      source: 'typed',
+      raw: 'C4 E4 G4',
+      tokens: parseNoteString('C4 E4 G4').tokens,
+      createdAt: '2025-01-01T00:00:00.000Z',
+      updatedAt: '2025-01-01T00:00:00.000Z',
+    };
+    const json = serializeCapturedNoteStrings([sample]);
+    const envelope = JSON.parse(json);
+    expect(envelope.source).toBe('sonicstudio');
+    expect(envelope.kind).toBe('note-strings');
+    expect(envelope.version).toBe(1);
+    expect(envelope.items).toHaveLength(1);
+  });
+
+  it('rejects malformed JSON without throwing', () => {
+    const result = importCapturedNoteStringsFromJson('not really json');
+    expect(result.imported).toBe(0);
+    expect(result.skipped).toBe(0);
+  });
+
+  it('skips items it cannot normalize and counts them as skipped', () => {
+    const payload = JSON.stringify({
+      source: 'sonicstudio',
+      kind: 'note-strings',
+      version: 1,
+      items: [
+        { id: 'bad-1', name: 'No tokens here' },
+        { /* totally empty */ },
+      ],
+    });
+    const result = importCapturedNoteStringsFromJson(payload);
+    expect(result.imported).toBe(0);
+    expect(result.skipped).toBe(2);
   });
 });
 

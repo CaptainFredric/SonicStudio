@@ -372,6 +372,95 @@ export const removeCapturedNoteString = (id: string): CapturedNoteString[] => {
   return persistCapturedNoteStrings(existing.filter((entry) => entry.id !== id));
 };
 
+export const clearCapturedNoteStrings = (): CapturedNoteString[] => (
+  persistCapturedNoteStrings([])
+);
+
+// --- Import / export -----------------------------------------------------
+
+const EXPORT_FORMAT_VERSION = 1;
+
+export interface NoteStringExportEnvelope {
+  source: 'sonicstudio';
+  kind: 'note-strings';
+  exported_at: string;
+  version: typeof EXPORT_FORMAT_VERSION;
+  items: CapturedNoteString[];
+}
+
+/**
+ * Pretty-printed JSON of the full shelf for sharing or backing up.
+ * Includes the schema version so a future import can branch on shape.
+ */
+export const serializeCapturedNoteStrings = (
+  items: CapturedNoteString[] = loadCapturedNoteStrings(),
+): string => {
+  const envelope: NoteStringExportEnvelope = {
+    source: 'sonicstudio',
+    kind: 'note-strings',
+    exported_at: new Date().toISOString(),
+    version: EXPORT_FORMAT_VERSION,
+    items,
+  };
+  return JSON.stringify(envelope, null, 2);
+};
+
+export interface NoteStringImportResult {
+  imported: number;
+  skipped: number;
+  duplicates: number;
+  items: CapturedNoteString[];
+}
+
+/**
+ * Merge an exported JSON payload into the existing shelf. New entries
+ * keep their original id when there's no collision; collisions are
+ * skipped (the existing entry wins so the user can't accidentally clobber
+ * an in-flight idea). Returns counts so the caller can toast usefully.
+ */
+export const importCapturedNoteStringsFromJson = (raw: string): NoteStringImportResult => {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { imported: 0, skipped: 0, duplicates: 0, items: loadCapturedNoteStrings() };
+  }
+
+  const rawItems = isRecord(parsed) && Array.isArray(parsed.items)
+    ? parsed.items
+    : Array.isArray(parsed)
+      ? parsed
+      : [];
+
+  const candidates = rawItems
+    .map((item) => normalizeCapturedString(item))
+    .filter((item): item is CapturedNoteString => item !== null);
+
+  const existing = loadCapturedNoteStrings();
+  const existingIds = new Set(existing.map((entry) => entry.id));
+
+  let duplicates = 0;
+  const next = [...existing];
+  candidates.forEach((entry) => {
+    if (existingIds.has(entry.id)) {
+      duplicates += 1;
+      return;
+    }
+    existingIds.add(entry.id);
+    next.unshift(entry);
+  });
+
+  const skipped = rawItems.length - candidates.length;
+  const persisted = persistCapturedNoteStrings(next);
+
+  return {
+    imported: candidates.length - duplicates,
+    skipped,
+    duplicates,
+    items: persisted,
+  };
+};
+
 export interface TranscriptionNoteLike {
   note: string;
   startStep: number;
