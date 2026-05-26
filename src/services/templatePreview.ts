@@ -13,7 +13,10 @@ import {
   SESSION_TEMPLATE_DEFINITIONS,
   type InstrumentType,
   type SessionTemplateId,
+  type Track,
 } from '../project/schema';
+
+import type { CapturedNoteToken } from './noteStringLibrary';
 
 export interface TemplateInstrumentBadge {
   color: string;
@@ -26,6 +29,10 @@ export interface TemplatePreview {
   bpm: number;
   instruments: TemplateInstrumentBadge[];
   trackCount: number;
+  /** Type of the lane the audition will play through. */
+  auditionType: InstrumentType | null;
+  /** Notes to schedule when the user hovers / long-presses the card. */
+  auditionTokens: CapturedNoteToken[];
 }
 
 const songLengthInSteps = (project: ReturnType<typeof createProjectFromTemplate>) => (
@@ -35,10 +42,59 @@ const songLengthInSteps = (project: ReturnType<typeof createProjectFromTemplate>
   )
 );
 
+// Order matters: the audition picks the first matching lane so the
+// most melodic / characterful voice plays. Drums are deprioritized.
+const AUDITION_LANE_PREFERENCE: InstrumentType[] = [
+  'violin', 'piano', 'lead', 'pluck', 'bell', 'pad', 'bass', 'fx', 'kick', 'snare', 'hihat',
+];
+
+const pickAuditionLane = (tracks: Track[]): Track | null => {
+  for (const type of AUDITION_LANE_PREFERENCE) {
+    const candidate = tracks.find((track) => (
+      track.type === type
+      && Object.values(track.patterns).some((pattern) => pattern.some((step) => step.length > 0))
+    ));
+    if (candidate) return candidate;
+  }
+  // Fall back to any track with content if no preferred type matches.
+  return tracks.find((track) => (
+    Object.values(track.patterns).some((pattern) => pattern.some((step) => step.length > 0))
+  )) ?? null;
+};
+
+const buildAuditionTokens = (track: Track | null, stepsPerPattern: number): CapturedNoteToken[] => {
+  if (!track) return [];
+  const tokens: CapturedNoteToken[] = [];
+  const pattern = track.patterns[0] ?? [];
+  // Limit to one bar's worth of steps and cap total notes so the
+  // audition stays short even for long patterns.
+  const limit = Math.min(stepsPerPattern, 16);
+  let cursor = 0;
+  while (cursor < limit && tokens.length < 8) {
+    const step = pattern[cursor];
+    if (step && step.length > 0) {
+      // Take the highest-pitched event so the audition lands as the
+      // lane's melody line, not a chord stack underneath it.
+      const lead = [...step].sort((a, b) => a.note.localeCompare(b.note)).pop() ?? step[0];
+      tokens.push({
+        note: lead.note,
+        gate: Math.max(1, Math.min(4, Math.round(lead.gate))),
+        velocity: Math.max(0.4, Math.min(0.9, lead.velocity)),
+      });
+      cursor += Math.max(1, Math.round(lead.gate));
+    } else {
+      cursor += 1;
+    }
+  }
+  return tokens;
+};
+
 const computePreview = (templateId: SessionTemplateId): TemplatePreview => {
   const project = createProjectFromTemplate(templateId);
   const lengthSteps = songLengthInSteps(project);
   const bars = Math.max(1, Math.round(lengthSteps / project.transport.stepsPerPattern));
+  const auditionLane = pickAuditionLane(project.tracks);
+  const auditionTokens = buildAuditionTokens(auditionLane, project.transport.stepsPerPattern);
 
   return {
     bars,
@@ -49,6 +105,8 @@ const computePreview = (templateId: SessionTemplateId): TemplatePreview => {
       type: track.type,
     })),
     trackCount: project.tracks.length,
+    auditionType: auditionLane?.type ?? null,
+    auditionTokens,
   };
 };
 

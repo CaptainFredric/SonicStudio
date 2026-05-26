@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AudioWaveform, Check, Download, ListPlus, Mic2, Pencil, Play, Square, Trash2, Upload } from 'lucide-react';
+import { AudioWaveform, Check, Copy, Download, ListPlus, Mic2, Pencil, Play, Square, Trash2, Upload } from 'lucide-react';
 
 import { schedulePreview, type PreviewSchedule } from '../../audio/captureStringPreview';
 import {
   captureNoteString,
   clearCapturedNoteStrings,
+  duplicateCapturedNoteString,
   importCapturedNoteStringsFromJson,
   loadCapturedNoteStrings,
   noteStringToPatternSegment,
@@ -136,6 +137,10 @@ export const WorkspaceCapturePanel = ({
     }
     setItems(renameCapturedNoteString(entry.id, next));
     cancelRename();
+  };
+
+  const handleDuplicate = (entry: CapturedNoteString) => {
+    setItems(duplicateCapturedNoteString(entry.id));
   };
 
   const selectedTrack = useMemo(
@@ -484,6 +489,16 @@ export const WorkspaceCapturePanel = ({
                             {isQueued ? 'Clear queue' : 'Queue'}
                           </button>
                         )}
+                        <button
+                          aria-label={`Duplicate ${entry.name}`}
+                          className="control-chip flex h-8 min-h-[2rem] min-w-[2rem] items-center justify-center px-2"
+                          disabled={disabled}
+                          onClick={() => handleDuplicate(entry)}
+                          title="Duplicate this string under a (copy) name"
+                          type="button"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </button>
                         <button
                           aria-label={`Remove ${entry.name} from the shelf`}
                           className="control-chip flex h-8 min-h-[2rem] min-w-[2rem] items-center justify-center px-2"

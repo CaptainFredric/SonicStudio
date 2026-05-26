@@ -1,6 +1,6 @@
 import type { MutableRefObject, Dispatch, SetStateAction } from 'react';
 
-import { defaultNoteForTrack, getTrackVoicePresetDefinitions, type Project, type Track } from '../../project/schema';
+import { createTrack, defaultNoteForTrack, getTrackVoicePresetDefinitions, type InstrumentType, type Project, type Track } from '../../project/schema';
 
 interface TransportEngine {
   awaitAssetLoad: () => Promise<void>;
@@ -164,6 +164,15 @@ export const createTransportController = ({
     engine.previewTrack(track, note ?? defaultNoteForTrack(track), sampleSliceIndex, velocity);
   };
 
+  // Single-note audition through a default voice of the given type.
+  // Used by the starter-scene cards so reviewers can hear what each
+  // template sounds like without loading it.
+  const auditionInstrumentNote = async (type: InstrumentType, note: string, velocity = 0.78) => {
+    const auditionTrack = createTrack(type, { id: `audition-template-${type}`, name: `Audition ${type}` });
+    await ensureAudioReady();
+    engine.previewTrack(auditionTrack, note, undefined, velocity);
+  };
+
   // Audition a voice preset against a lane without committing the
   // change. Builds an in-memory preview track that merges the preset's
   // params and source onto the lane, then runs it through engine
@@ -185,6 +194,7 @@ export const createTransportController = ({
   };
 
   return {
+    auditionInstrumentNote,
     auditionTrackVoicePreset,
     previewTrack,
     resetTransportState,

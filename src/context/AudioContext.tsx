@@ -164,6 +164,7 @@ interface AudioContextType {
   patternCount: number;
   previewTrack: (trackId: string, note?: string, sampleSliceIndex?: number, velocity?: number) => Promise<void>;
   auditionTrackVoicePreset: (trackId: string, presetId: string) => Promise<void>;
+  auditionInstrumentNote: (type: import('../project/schema').InstrumentType, note: string, velocity?: number) => Promise<void>;
   projectName: string;
   projectCheckpoints: PersistedCheckpoint[];
   scoresheets: Scoresheet[];
@@ -531,6 +532,7 @@ export const AudioProvider = ({
   }, [isInitialized]);
 
   const {
+    auditionInstrumentNote,
     auditionTrackVoicePreset,
     previewTrack,
     resetTransportState,
@@ -707,6 +709,7 @@ export const AudioProvider = ({
     patternCount: project.transport.patternCount,
     pinnedTrackIds,
     previewTrack,
+    auditionInstrumentNote,
     auditionTrackVoicePreset,
     projectCheckpoints,
     scoresheets,
@@ -835,6 +838,7 @@ export const AudioProvider = ({
     preferences.stickyMobileTransport,
     preferences.audioStabilityMode,
     previewTrack,
+    auditionInstrumentNote,
     auditionTrackVoicePreset,
     project,
     projectCheckpoints,

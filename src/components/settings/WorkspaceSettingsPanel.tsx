@@ -34,6 +34,7 @@ export const WorkspaceSettingsPanel = () => {
   const {
     applyPatternSegment,
     arrangerClips,
+    auditionInstrumentNote,
     bpm,
     bounceHistory,
     capturePreferences,
@@ -154,6 +155,7 @@ export const WorkspaceSettingsPanel = () => {
 
       <WorkspaceSessionPanel
         arrangerClipCount={arrangerClips.length}
+        auditionInstrumentNote={auditionInstrumentNote}
         fileInputRef={fileInputRef}
         importMidiInputRef={midiFileInputRef}
         isRendering={renderState.active}

@@ -372,6 +372,37 @@ export const removeCapturedNoteString = (id: string): CapturedNoteString[] => {
   return persistCapturedNoteStrings(existing.filter((entry) => entry.id !== id));
 };
 
+/**
+ * Clone an existing shelf entry under a "(copy)" name. Useful when the
+ * user wants to keep an original around while tweaking a variation in
+ * a session segment, or when they want to apply one string to several
+ * lanes in slightly different forms.
+ */
+export const duplicateCapturedNoteString = (id: string): CapturedNoteString[] => {
+  const existing = loadCapturedNoteStrings();
+  const source = existing.find((entry) => entry.id === id);
+  if (!source) return existing;
+  const now = new Date().toISOString();
+  const baseName = source.name.replace(/\s*\(copy(\s+\d+)?\)\s*$/i, '');
+  // If there is already a "(copy)" of this base, bump the number so we
+  // don't pile up identical labels.
+  const matchingCopies = existing.filter((entry) => (
+    entry.name === `${baseName} (copy)` || /^\(copy\s+\d+\)$/.test(entry.name.replace(baseName, '').trim())
+  )).length;
+  const copyName = matchingCopies === 0
+    ? `${baseName} (copy)`
+    : `${baseName} (copy ${matchingCopies + 1})`;
+  const clone: CapturedNoteString = {
+    ...source,
+    id: createId(),
+    name: copyName.slice(0, 48),
+    tokens: source.tokens.map((token) => (token === null ? null : { ...token })),
+    createdAt: now,
+    updatedAt: now,
+  };
+  return persistCapturedNoteStrings([clone, ...existing]);
+};
+
 export const clearCapturedNoteStrings = (): CapturedNoteString[] => (
   persistCapturedNoteStrings([])
 );
