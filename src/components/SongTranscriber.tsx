@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'reac
 import {
   AlertTriangle,
   AudioWaveform,
+  ListPlus,
   Loader,
   Mic,
   Square,
@@ -11,6 +12,7 @@ import {
 } from 'lucide-react';
 
 import { useAudio } from '../context/AudioContext';
+import { captureNoteStringFromTranscription } from '../services/noteStringLibrary';
 import {
   buildSessionFromTranscription,
   transcribeAudioBuffer,
@@ -199,6 +201,28 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
     onClose();
   }, [result, sourceLabel, loadTranscribedSession, onNotify, resetState, onClose]);
 
+  // Send the transcription to the capture shelf instead of replacing the
+  // session. Useful when the user wants to keep the current arrangement
+  // and just have the hummed phrase parked for a drag-onto-lane later.
+  const saveToShelf = useCallback(() => {
+    if (!result || result.notes.length === 0) {
+      return;
+    }
+    const name = sourceLabel.replace(/\.[a-z0-9]+$/i, '').trim() || 'Transcribed take';
+    const updated = captureNoteStringFromTranscription(result.notes, { name });
+    if (!updated) {
+      onNotify?.('error', 'Nothing to save', 'The transcription didn\'t produce any notes for the shelf.');
+      return;
+    }
+    const saved = updated[0];
+    const noteCount = saved.tokens.filter((token) => token !== null).length;
+    onNotify?.(
+      'success',
+      'Saved to capture shelf',
+      `${noteCount} ${noteCount === 1 ? 'note' : 'notes'} ready to drag onto any lane.`,
+    );
+  }, [result, sourceLabel, onNotify]);
+
   if (!open) {
     return null;
   }
@@ -366,6 +390,17 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
               Start over
             </button>
           ) : null}
+          <button
+            className="control-chip flex items-center gap-2 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em]"
+            data-ui-sound="action"
+            disabled={status !== 'ready' || !result || result.notes.length === 0}
+            onClick={saveToShelf}
+            type="button"
+            title="Park the melody on the capture shelf without replacing the current session"
+          >
+            <ListPlus className="h-3.5 w-3.5" />
+            Save to shelf
+          </button>
           <button
             className="control-chip flex items-center gap-2 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em]"
             data-active={status === 'ready' && result && result.notes.length > 0 ? 'true' : 'false'}

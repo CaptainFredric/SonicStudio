@@ -372,6 +372,71 @@ export const removeCapturedNoteString = (id: string): CapturedNoteString[] => {
   return persistCapturedNoteStrings(existing.filter((entry) => entry.id !== id));
 };
 
+export interface TranscriptionNoteLike {
+  note: string;
+  startStep: number;
+  durationSteps: number;
+  velocity: number;
+}
+
+/**
+ * Take the notes a transcription pass produced (humming, singing, a
+ * song file) and park them on the shelf as a captured string. Walks
+ * notes in start-step order and inserts null rests for any gap so the
+ * timing matches what the user just sang.
+ *
+ * Returns the new list of saved strings, or `null` if there was
+ * nothing worth saving.
+ */
+export const captureNoteStringFromTranscription = (
+  notes: TranscriptionNoteLike[],
+  options: { name?: string; source?: NoteStringSource } = {},
+): CapturedNoteString[] | null => {
+  if (notes.length === 0) return null;
+
+  const ordered = [...notes].sort((left, right) => left.startStep - right.startStep);
+  const tokens: Array<CapturedNoteToken | null> = [];
+  let cursor = 0;
+
+  for (const note of ordered) {
+    if (tokens.length >= MAX_NOTES_PER_STRING) break;
+    const gap = Math.max(0, Math.round(note.startStep - cursor));
+    for (let restIndex = 0; restIndex < gap && tokens.length < MAX_NOTES_PER_STRING; restIndex += 1) {
+      tokens.push(null);
+    }
+    if (tokens.length >= MAX_NOTES_PER_STRING) break;
+
+    const gate = clampStepGate(Math.max(1, Math.round(note.durationSteps)));
+    tokens.push({
+      note: note.note,
+      gate,
+      velocity: clampStepVelocity(note.velocity),
+    });
+    cursor = note.startStep + Math.max(1, Math.round(note.durationSteps));
+  }
+
+  // Strip trailing rests so the shelf preview reads cleanly.
+  while (tokens.length > 0 && tokens[tokens.length - 1] === null) {
+    tokens.pop();
+  }
+  if (tokens.length === 0) return null;
+
+  const now = new Date().toISOString();
+  const next: CapturedNoteString = {
+    id: createId(),
+    name: (options.name ?? '').trim().slice(0, 48) || defaultNameForTokens(tokens),
+    source: options.source ?? 'transcribed',
+    tokens,
+    raw: tokens
+      .map((token) => (token === null ? '.' : token.gate > 1 ? `${token.note}*${token.gate}` : token.note))
+      .join(' '),
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  return persistCapturedNoteStrings([next, ...loadCapturedNoteStrings()]);
+};
+
 export const subscribeCapturedNoteStrings = (
   listener: (items: CapturedNoteString[]) => void,
 ) => {

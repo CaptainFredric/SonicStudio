@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  captureNoteStringFromTranscription,
   noteStringToPatternSegment,
   parseNoteString,
   summarizeCapturedNoteString,
@@ -94,6 +95,54 @@ describe('noteStringToPatternSegment', () => {
     expect(segment.steps[0][0]?.note).toBe('C4');
     expect(segment.steps[1]).toEqual([]);
     expect(segment.steps[2][0]?.note).toBe('E4');
+  });
+});
+
+describe('captureNoteStringFromTranscription', () => {
+  it('parks transcribed notes on the shelf, preserving order and inserting rests for gaps', () => {
+    const updated = captureNoteStringFromTranscription([
+      { note: 'C4', startStep: 0, durationSteps: 1, velocity: 0.8 },
+      { note: 'E4', startStep: 1, durationSteps: 1, velocity: 0.75 },
+      // gap of one step
+      { note: 'G4', startStep: 3, durationSteps: 2, velocity: 0.7 },
+    ], { name: 'Test melody' });
+
+    expect(updated).not.toBeNull();
+    const saved = updated![0];
+    expect(saved.name).toBe('Test melody');
+    expect(saved.source).toBe('transcribed');
+    expect(saved.tokens.map((token) => (token === null ? '.' : token.note))).toEqual([
+      'C4',
+      'E4',
+      '.',
+      'G4',
+    ]);
+    expect(saved.tokens[3]).toMatchObject({ gate: 2 });
+  });
+
+  it('returns null when there are no notes to save', () => {
+    expect(captureNoteStringFromTranscription([])).toBeNull();
+  });
+
+  it('caps the saved string at the per-string note ceiling', () => {
+    const flood = Array.from({ length: 200 }, (_, index) => ({
+      note: 'C4',
+      startStep: index,
+      durationSteps: 1,
+      velocity: 0.7,
+    }));
+    const updated = captureNoteStringFromTranscription(flood);
+    expect(updated).not.toBeNull();
+    expect(updated![0].tokens.length).toBeLessThanOrEqual(64);
+  });
+
+  it('marks the new entry as transcribed even when no name is supplied', () => {
+    const updated = captureNoteStringFromTranscription([
+      { note: 'A4', startStep: 0, durationSteps: 1, velocity: 0.8 },
+    ]);
+    expect(updated).not.toBeNull();
+    expect(updated![0].source).toBe('transcribed');
+    expect(updated![0].name.length).toBeGreaterThan(0);
   });
 });
 
