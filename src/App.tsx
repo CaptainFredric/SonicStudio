@@ -584,6 +584,15 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
     setTranscribeOpen(true);
   }, []);
 
+  // Allow distant components (e.g. the capture-shelf empty state in
+  // Studio Settings) to open the song transcriber without prop-drilling
+  // through MainWorkspace.
+  useEffect(() => {
+    const handler = () => openTranscribe();
+    window.addEventListener('sonicstudio:open-transcriber', handler);
+    return () => window.removeEventListener('sonicstudio:open-transcriber', handler);
+  }, [openTranscribe]);
+
   // Focus mode hides the chrome so the workspace fills the screen; Esc leaves.
   useEffect(() => {
     if (!focusMode) {

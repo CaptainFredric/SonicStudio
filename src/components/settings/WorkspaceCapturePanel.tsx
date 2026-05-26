@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ListPlus, Mic2, Trash2 } from 'lucide-react';
+import { AudioWaveform, ListPlus, Mic2, Trash2 } from 'lucide-react';
 
 import {
   captureNoteString,
@@ -169,7 +169,19 @@ export const WorkspaceCapturePanel = ({
         <div className="section-label">Shelf · {items.length} {items.length === 1 ? 'string' : 'strings'}</div>
         {items.length === 0 ? (
           <div className="mt-3 rounded-[3px] border border-dashed border-[var(--border-soft)] px-3 py-3 text-[11px] leading-5 text-[var(--text-secondary)]">
-            No captures yet. Try saving something like &quot;C4 E4 G4 B4&quot; above.
+            <div>No captures yet. Try saving something like &quot;C4 E4 G4 B4&quot; above, or hum a phrase and let the studio transcribe it.</div>
+            <button
+              className="control-chip mt-2 inline-flex items-center gap-2 px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
+              onClick={() => {
+                if (typeof window !== 'undefined') {
+                  window.dispatchEvent(new CustomEvent('sonicstudio:open-transcriber'));
+                }
+              }}
+              type="button"
+            >
+              <AudioWaveform className="h-3.5 w-3.5" />
+              Capture from a hum
+            </button>
           </div>
         ) : (
           <div className="mt-3 grid gap-2">
