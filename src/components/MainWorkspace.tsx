@@ -36,6 +36,7 @@ import {
   loadCapturedNoteStrings,
   noteStringToPatternSegment,
 } from '../services/noteStringLibrary';
+import { useQueuedNoteStringId } from '../services/noteStringQueue';
 import {
   buildSessionPlayerPatternDecks,
   buildSessionPlayerSegments,
@@ -1320,6 +1321,8 @@ export const MainWorkspace = () => {
     applyPatternSegment(trackId, currentPattern, segment.steps, segment.automation);
   }, [applyPatternSegment, currentPattern, setStepsPerPattern, stepsPerPattern]);
 
+  const [queuedNoteStringId, setQueuedNoteStringId] = useQueuedNoteStringId();
+
   const handleNoteStringDrop = useCallback((stringId: string, trackId: string) => {
     if (!stringId) return false;
     const targetTrack = tracks.find((entry) => entry.id === trackId);
@@ -2162,7 +2165,16 @@ export const MainWorkspace = () => {
                         <div
                           className={`group grid-freeze-col shrink-0 overflow-hidden border-r border-[var(--border-soft)] text-left cursor-pointer ${laneColumnCollapsed ? 'flex items-center justify-center py-2' : laneHeaderPaddingClass}`}
                           data-selected={selected ? 'true' : undefined}
-                          onClick={() => setSelectedTrackId(track.id)}
+                          onClick={() => {
+                            if (queuedNoteStringId) {
+                              const applied = handleNoteStringDrop(queuedNoteStringId, track.id);
+                              if (applied) {
+                                setQueuedNoteStringId(null);
+                                return;
+                              }
+                            }
+                            setSelectedTrackId(track.id);
+                          }}
                           onDragEnter={(event) => {
                             if (event.dataTransfer.types.includes('application/x-sonicstudio-note-string')) {
                               event.preventDefault();
@@ -2341,6 +2353,17 @@ export const MainWorkspace = () => {
                                   handleNoteStringStitch(stringId, track.id, stepIndex);
                                 }}
                                 onPointerDown={(event) => {
+                                  if (queuedNoteStringId) {
+                                    if (event.button !== 0) {
+                                      return;
+                                    }
+                                    event.preventDefault();
+                                    const applied = handleNoteStringStitch(queuedNoteStringId, track.id, stepIndex);
+                                    if (applied) {
+                                      setQueuedNoteStringId(null);
+                                      return;
+                                    }
+                                  }
                                   if (queuedSegment) {
                                     if (event.button !== 0) {
                                       return;

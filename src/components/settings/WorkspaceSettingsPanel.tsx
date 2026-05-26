@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useAudio, type BounceNormalizationMode, type BounceTailMode } from '../../context/AudioContext';
 import { type ExportScope } from '../../services/workflowTypes';
 import { type RenderTargetProfileId } from '../../utils/export';
+import { useQueuedNoteStringId } from '../../services/noteStringQueue';
 import { WorkspaceBouncePanel } from './WorkspaceBouncePanel';
 import { WorkspaceCapturePanel } from './WorkspaceCapturePanel';
 import { WorkspaceOptionsPanel } from './WorkspaceOptionsPanel';
@@ -38,6 +39,7 @@ export const WorkspaceSettingsPanel = () => {
     capturePreferences,
     currentPattern,
     exportAudioMix,
+    previewTrack,
     exportMidi,
     exportTrackStems,
     exportSession,
@@ -91,6 +93,7 @@ export const WorkspaceSettingsPanel = () => {
     deleteCheckpoint,
   } = useAudio();
 
+  const [queuedNoteStringId, setQueuedNoteStringId] = useQueuedNoteStringId();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const midiFileInputRef = useRef<HTMLInputElement>(null);
   const [bounceScope, setBounceScope] = useState<ExportScope>(transportMode === 'SONG' ? 'song' : 'pattern');
@@ -166,6 +169,9 @@ export const WorkspaceSettingsPanel = () => {
         applyPatternSegment={applyPatternSegment}
         currentPattern={currentPattern}
         disabled={renderState.active}
+        onQueueNoteString={setQueuedNoteStringId}
+        previewTrack={previewTrack}
+        queuedNoteStringId={queuedNoteStringId}
         selectedTrackId={selectedTrackId}
         setSelectedTrackId={setSelectedTrackId}
         tracks={tracks.map((track) => ({ id: track.id, name: track.name, type: track.type }))}
