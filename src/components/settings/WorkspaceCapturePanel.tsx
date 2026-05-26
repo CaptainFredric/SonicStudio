@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AudioWaveform, Download, ListPlus, Mic2, Play, Square, Trash2, Upload } from 'lucide-react';
+import { AudioWaveform, Check, Download, ListPlus, Mic2, Pencil, Play, Square, Trash2, Upload } from 'lucide-react';
 
 import { schedulePreview, type PreviewSchedule } from '../../audio/captureStringPreview';
 import {
@@ -9,6 +9,7 @@ import {
   loadCapturedNoteStrings,
   noteStringToPatternSegment,
   removeCapturedNoteString,
+  renameCapturedNoteString,
   serializeCapturedNoteStrings,
   subscribeCapturedNoteStrings,
   summarizeCapturedNoteString,
@@ -65,6 +66,8 @@ export const WorkspaceCapturePanel = ({
   const [draftError, setDraftError] = useState<string | null>(null);
   const [previewingId, setPreviewingId] = useState<string | null>(null);
   const previewRef = useRef<PreviewSchedule | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameDraft, setRenameDraft] = useState('');
 
   useEffect(() => {
     const unsubscribe = subscribeCapturedNoteStrings(setItems);
@@ -113,6 +116,26 @@ export const WorkspaceCapturePanel = ({
   const toggleQueue = (entry: CapturedNoteString) => {
     if (!onQueueNoteString) return;
     onQueueNoteString(queuedNoteStringId === entry.id ? null : entry.id);
+  };
+
+  const startRename = (entry: CapturedNoteString) => {
+    setRenamingId(entry.id);
+    setRenameDraft(entry.name);
+  };
+
+  const cancelRename = () => {
+    setRenamingId(null);
+    setRenameDraft('');
+  };
+
+  const commitRename = (entry: CapturedNoteString) => {
+    const next = renameDraft.trim();
+    if (!next || next === entry.name) {
+      cancelRename();
+      return;
+    }
+    setItems(renameCapturedNoteString(entry.id, next));
+    cancelRename();
   };
 
   const selectedTrack = useMemo(
@@ -368,9 +391,46 @@ export const WorkspaceCapturePanel = ({
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
-                      <div className="text-sm font-medium text-[var(--text-primary)] truncate">
-                        {entry.name}
-                      </div>
+                      {renamingId === entry.id ? (
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            aria-label={`Rename ${entry.name}`}
+                            autoFocus
+                            className="control-field h-7 min-w-0 flex-1 px-2 text-sm"
+                            maxLength={48}
+                            onChange={(event) => setRenameDraft(event.target.value)}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter') {
+                                event.preventDefault();
+                                commitRename(entry);
+                              } else if (event.key === 'Escape') {
+                                event.preventDefault();
+                                cancelRename();
+                              }
+                            }}
+                            value={renameDraft}
+                          />
+                          <button
+                            aria-label="Save name"
+                            className="control-chip flex h-7 min-h-[1.75rem] w-7 items-center justify-center px-1.5"
+                            onClick={() => commitRename(entry)}
+                            type="button"
+                          >
+                            <Check className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          aria-label={`Rename ${entry.name}`}
+                          className="flex w-full min-w-0 items-center gap-1.5 text-left text-sm font-medium text-[var(--text-primary)] hover:text-[var(--accent-strong)]"
+                          onClick={() => startRename(entry)}
+                          title="Click to rename"
+                          type="button"
+                        >
+                          <span className="truncate">{entry.name}</span>
+                          <Pencil className="h-3 w-3 shrink-0 opacity-40" />
+                        </button>
+                      )}
                       <div className="mt-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
                         {stats.noteCount} {stats.noteCount === 1 ? 'note' : 'notes'} · {stats.stepCount} {stats.stepCount === 1 ? 'step' : 'steps'} · {entry.source}
                       </div>

@@ -9,7 +9,7 @@ export type SourceEngine = 'synth' | 'sample';
 export type SamplePlaybackMode = 'pitched' | 'oneshot';
 export type SampleTriggerMode = 'active-slice' | 'full-source' | 'step-mapped';
 export type SamplePreset = 'kick-thud' | 'snare-crack' | 'hat-air' | 'bass-pluck' | 'lead-glass' | 'pad-haze' | 'pluck-mallet' | 'fx-rise';
-export type SessionTemplateId = 'blank-grid' | 'night-transit' | 'beat-lab' | 'ambient-drift' | 'lofi-sunday' | 'synthwave-drive' | 'club-horizon' | 'starlight-parade' | 'velvet-suite' | 'crystal-garden' | 'twilight-frame';
+export type SessionTemplateId = 'blank-grid' | 'night-transit' | 'beat-lab' | 'ambient-drift' | 'lofi-sunday' | 'synthwave-drive' | 'club-horizon' | 'starlight-parade' | 'velvet-suite' | 'crystal-garden' | 'twilight-frame' | 'late-hours';
 
 export interface SessionTemplateDefinition {
   description: string;
@@ -424,6 +424,7 @@ const STARLIGHT_TRACK_ORDER: InstrumentType[] = ['kick', 'snare', 'hihat', 'bass
 const VELVET_SUITE_TRACK_ORDER: InstrumentType[] = ['bass', 'piano', 'pad', 'violin'];
 const CRYSTAL_GARDEN_TRACK_ORDER: InstrumentType[] = ['kick', 'bass', 'piano', 'pad', 'bell'];
 const TWILIGHT_FRAME_TRACK_ORDER: InstrumentType[] = ['kick', 'bass', 'piano', 'pad', 'violin', 'bell'];
+const LATE_HOURS_TRACK_ORDER: InstrumentType[] = ['kick', 'bass', 'pad', 'violin', 'lead', 'bell'];
 
 export const SESSION_TEMPLATE_DEFINITIONS: SessionTemplateDefinition[] = [
   {
@@ -491,6 +492,12 @@ export const SESSION_TEMPLATE_DEFINITIONS: SessionTemplateDefinition[] = [
     focus: 'Cinematic strings and bell',
     id: 'twilight-frame',
     label: 'Twilight Frame',
+  },
+  {
+    description: 'Slow D-minor cycle that leans on the new voice presets: tape-warmed pad, bowed violin, glass bell, whistled lead, and a round sub bass.',
+    focus: 'New voices showcase',
+    id: 'late-hours',
+    label: 'Late Hours',
   },
 ];
 
@@ -2537,6 +2544,116 @@ export const createTwilightFrameProject = (projectName: string = 'Twilight Frame
   ]);
 };
 
+// Late Hours: showcase template for the new voice presets added to
+// TRACK_VOICE_PRESET_DEFINITIONS. Slow D-minor cycle that puts each
+// preset on the lane it was authored for: tape-warmed pad, bowed
+// violin, whistled sine lead, glass bell, round sub bass.
+const applyVoicePresetById = (track: Track, presetId: string): void => {
+  const preset = TRACK_VOICE_PRESET_DEFINITIONS.find((entry) => entry.id === presetId);
+  if (!preset) return;
+  if (preset.params) {
+    track.params = normalizeParams({ ...track.params, ...preset.params }, undefined);
+  }
+  if (preset.source) {
+    track.source = normalizeSource(track.type, { ...track.source, ...preset.source });
+  }
+};
+
+export const createLateHoursProject = (projectName: string = 'Late Hours'): Project => {
+  const { buildProject, tracks, transport } = createProjectFrame(projectName, {
+    bpm: 72,
+    mode: 'SONG',
+    trackOrder: LATE_HOURS_TRACK_ORDER,
+  });
+  const [kickTrack, bassTrack, padTrack, violinTrack, leadTrack, bellTrack] = tracks;
+
+  // Voice presets seed the lanes with the new sounds so a fresh
+  // listener hears them on first play.
+  applyVoicePresetById(bassTrack, 'round-sub');
+  applyVoicePresetById(padTrack, 'tape-warmth');
+  applyVoicePresetById(violinTrack, 'bowed-ribbon');
+  applyVoicePresetById(leadTrack, 'whistle-breath');
+  applyVoicePresetById(bellTrack, 'glass-bell');
+
+  // Soft kick on the downbeats only, just to anchor the pulse.
+  putStep(kickTrack, 0, 0, 'C1', { velocity: 0.5 });
+  putStep(kickTrack, 0, 8, 'C1', { velocity: 0.48 });
+
+  // i, VI, III, VII in D minor: Dm, Bb, F, C.
+  [
+    { step: 0, note: 'D1' },
+    { step: 4, note: 'A#1' },
+    { step: 8, note: 'F1' },
+    { step: 12, note: 'C2' },
+  ].forEach(({ step, note }) => {
+    putStep(bassTrack, 0, step, note, { gate: 4, velocity: 0.62 });
+  });
+
+  // Pad bed holds each chord for the full four steps.
+  stackStep(padTrack, 0, 0, [
+    { note: 'D3', options: { gate: 4, velocity: 0.36 } },
+    { note: 'F3', options: { gate: 4, velocity: 0.32 } },
+    { note: 'A3', options: { gate: 4, velocity: 0.3 } },
+  ]);
+  stackStep(padTrack, 0, 4, [
+    { note: 'A#2', options: { gate: 4, velocity: 0.36 } },
+    { note: 'D3', options: { gate: 4, velocity: 0.32 } },
+    { note: 'F3', options: { gate: 4, velocity: 0.3 } },
+  ]);
+  stackStep(padTrack, 0, 8, [
+    { note: 'F3', options: { gate: 4, velocity: 0.36 } },
+    { note: 'A3', options: { gate: 4, velocity: 0.32 } },
+    { note: 'C4', options: { gate: 4, velocity: 0.3 } },
+  ]);
+  stackStep(padTrack, 0, 12, [
+    { note: 'C3', options: { gate: 4, velocity: 0.36 } },
+    { note: 'E3', options: { gate: 4, velocity: 0.32 } },
+    { note: 'G3', options: { gate: 4, velocity: 0.3 } },
+  ]);
+
+  // Violin sings through the changes with longer gates so the bowed
+  // attack of the Bowed Ribbon preset reads cleanly.
+  [
+    { step: 0, note: 'A4', gate: 2 },
+    { step: 4, note: 'F4', gate: 2 },
+    { step: 8, note: 'A4', gate: 2 },
+    { step: 12, note: 'G4', gate: 2 },
+  ].forEach(({ step, note, gate }) => {
+    putStep(violinTrack, 0, step, note, { gate, velocity: 0.58 });
+  });
+
+  // Whistled lead countermelody, sparser so it sits behind the violin.
+  [
+    { step: 2, note: 'D5', gate: 1 },
+    { step: 6, note: 'F5', gate: 1.4 },
+    { step: 10, note: 'A5', gate: 1.4 },
+    { step: 14, note: 'G5', gate: 1.6 },
+  ].forEach(({ step, note, gate }) => {
+    putStep(leadTrack, 0, step, note, { gate, velocity: 0.5 });
+  });
+
+  // Bell sparkles on each chord change.
+  [
+    { step: 0, note: 'D5' },
+    { step: 4, note: 'A#5' },
+    { step: 8, note: 'F5' },
+    { step: 12, note: 'C6' },
+  ].forEach(({ step, note }) => {
+    putStep(bellTrack, 0, step, note, { gate: 2, velocity: 0.48 });
+  });
+
+  return buildProject([
+    createArrangerClip(kickTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(bassTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(padTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(violinTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(leadTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(bellTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+  ], [
+    { beat: 0, id: createId('marker'), name: 'Hours' },
+  ]);
+};
+
 export const createProjectFromTemplate = (
   templateId: SessionTemplateId,
 ): Project => {
@@ -2561,6 +2678,8 @@ export const createProjectFromTemplate = (
       return createCrystalGardenProject();
     case 'twilight-frame':
       return createTwilightFrameProject();
+    case 'late-hours':
+      return createLateHoursProject();
     case 'night-transit':
     default:
       return createNightTransitProject();
