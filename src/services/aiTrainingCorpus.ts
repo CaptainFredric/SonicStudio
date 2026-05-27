@@ -33,7 +33,9 @@ import type {
   Track,
 } from '../project/schema';
 
-const COR_VERSION = 2;
+import { detectKey, type KeyMode } from './keyDetector';
+
+const COR_VERSION = 3;
 
 export interface TrainingTrackStats {
   note_count: number;
@@ -82,7 +84,16 @@ export interface TrainingPatternStats {
   active_track_ids: string[];
 }
 
-export interface TrainingCorpusV2 {
+export interface TrainingDetectedKey {
+  root: number;
+  root_name: string;
+  mode: KeyMode;
+  label: string;
+  confidence: number;
+  uncertain: boolean;
+}
+
+export interface TrainingCorpusV3 {
   version: typeof COR_VERSION;
   source: 'sonicstudio';
   exported_at: string;
@@ -91,12 +102,16 @@ export interface TrainingCorpusV2 {
   steps_per_pattern: number;
   pattern_count: number;
   transport_mode: 'PATTERN' | 'SONG';
+  detected_key: TrainingDetectedKey;
   tracks: TrainingTrack[];
   notes: TrainingNote[];
   pattern_stats: TrainingPatternStats[];
   song: TrainingClip[];
   markers: TrainingMarker[];
 }
+
+/** @deprecated use TrainingCorpusV3 (V2 lacked `detected_key`). */
+export type TrainingCorpusV2 = TrainingCorpusV3;
 
 // Notes look like 'C4', 'D#5', 'Eb3', 'A-1'. The octave is just the
 // trailing signed integer.
@@ -231,7 +246,7 @@ const describeMarker = (marker: SongMarker): TrainingMarker => ({
  * Build a normalized training corpus from a Project. Pure function —
  * does not mutate state or touch the audio engine.
  */
-export const buildTrainingCorpus = (project: Project): TrainingCorpusV2 => {
+export const buildTrainingCorpus = (project: Project): TrainingCorpusV3 => {
   const { patternCount, stepsPerPattern } = project.transport;
   const trackNotesByTrack = project.tracks.map((track) => ({
     track,
@@ -244,6 +259,7 @@ export const buildTrainingCorpus = (project: Project): TrainingCorpusV2 => {
   const pattern_stats = computePatternStats(notes, patternCount);
   const song = project.arrangerClips.map(describeClip);
   const markers = project.markers.map(describeMarker);
+  const key = detectKey(project.tracks);
 
   return {
     version: COR_VERSION,
@@ -254,6 +270,14 @@ export const buildTrainingCorpus = (project: Project): TrainingCorpusV2 => {
     steps_per_pattern: stepsPerPattern,
     pattern_count: patternCount,
     transport_mode: project.transport.mode,
+    detected_key: {
+      root: key.root,
+      root_name: key.rootName,
+      mode: key.mode,
+      label: key.label,
+      confidence: round3(key.confidence),
+      uncertain: key.uncertain,
+    },
     tracks,
     notes,
     pattern_stats,
@@ -263,7 +287,7 @@ export const buildTrainingCorpus = (project: Project): TrainingCorpusV2 => {
 };
 
 /** Pretty-printed JSON of a corpus, ready to write to disk. */
-export const serializeTrainingCorpus = (corpus: TrainingCorpusV2): string => (
+export const serializeTrainingCorpus = (corpus: TrainingCorpusV3): string => (
   JSON.stringify(corpus, null, 2)
 );
 

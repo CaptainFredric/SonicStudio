@@ -4,17 +4,28 @@ import { createBlankProject, createTwilightFrameProject } from '../project/schem
 import { buildTrainingCorpus, summarizeTrainingCorpus } from './aiTrainingCorpus';
 
 describe('aiTrainingCorpus', () => {
-  it('emits the V2 envelope and copies session-level metadata from the project', () => {
+  it('emits the V3 envelope and copies session-level metadata from the project', () => {
     const project = createTwilightFrameProject();
     const corpus = buildTrainingCorpus(project);
 
-    expect(corpus.version).toBe(2);
+    expect(corpus.version).toBe(3);
     expect(corpus.source).toBe('sonicstudio');
     expect(corpus.session_name).toBe(project.metadata.name);
     expect(corpus.tempo_bpm).toBe(project.transport.bpm);
     expect(corpus.steps_per_pattern).toBe(project.transport.stepsPerPattern);
     expect(corpus.pattern_count).toBe(project.transport.patternCount);
     expect(corpus.tracks).toHaveLength(project.tracks.length);
+  });
+
+  it('attaches the detected key block', () => {
+    const project = createTwilightFrameProject();
+    const corpus = buildTrainingCorpus(project);
+
+    expect(corpus.detected_key.label).toBe('A minor');
+    expect(corpus.detected_key.root_name).toBe('A');
+    expect(corpus.detected_key.mode).toBe('minor');
+    expect(corpus.detected_key.confidence).toBeGreaterThan(0);
+    expect(corpus.detected_key.uncertain).toBe(false);
   });
 
   it('attaches per-track stats: note count, mean velocity, octave range, density', () => {
@@ -55,7 +66,7 @@ describe('aiTrainingCorpus', () => {
     const project = createBlankProject('Sanity Session');
     const corpus = buildTrainingCorpus(project);
 
-    expect(corpus.version).toBe(2);
+    expect(corpus.version).toBe(3);
     corpus.tracks.forEach((trainingTrack) => {
       expect(Number.isFinite(trainingTrack.stats.mean_velocity)).toBe(true);
       expect(Number.isFinite(trainingTrack.stats.density_per_step)).toBe(true);
