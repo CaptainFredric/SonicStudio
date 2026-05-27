@@ -2,7 +2,9 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { AudioWaveform, Check, ChevronDown, ChevronUp, Copy, Download, ListPlus, Mic2, Music, Pencil, Play, Square, Trash2, Upload } from 'lucide-react';
 
 import { schedulePreview, type PreviewSchedule } from '../../audio/captureStringPreview';
-import { CHORD_STARTERS } from '../../services/chordStarters';
+import { CHORD_STARTERS, transposeChordStarterToKey } from '../../services/chordStarters';
+import { detectKey, type DetectedKey } from '../../services/keyDetector';
+import type { Track } from '../../project/schema';
 import {
   captureNoteString,
   clearCapturedNoteStrings,
@@ -37,6 +39,8 @@ interface WorkspaceCapturePanelProps {
     automation?: PatternAutomation,
   ) => void;
   currentPattern: number;
+  /** Full project tracks, used for the live key detector. */
+  fullTracks: Track[];
   disabled?: boolean;
   /** When set, the panel highlights the matching row and shows the cell-tap CTA. */
   queuedNoteStringId?: string | null;
@@ -56,6 +60,7 @@ const NAME_PLACEHOLDER = 'Name this string (optional)';
 export const WorkspaceCapturePanel = ({
   applyPatternSegment,
   currentPattern,
+  fullTracks,
   disabled = false,
   queuedNoteStringId = null,
   onQueueNoteString,
@@ -64,6 +69,13 @@ export const WorkspaceCapturePanel = ({
   setSelectedTrackId,
   tracks,
 }: WorkspaceCapturePanelProps) => {
+  const detectedKey: DetectedKey = useMemo(() => detectKey(fullTracks), [fullTracks]);
+  const [matchKey, setMatchKey] = useState(true);
+  const effectiveStarters = useMemo(() => (
+    matchKey && !detectedKey.uncertain
+      ? CHORD_STARTERS.map((starter) => transposeChordStarterToKey(starter, detectedKey.root, detectedKey.mode))
+      : CHORD_STARTERS
+  ), [matchKey, detectedKey]);
   const [items, setItems] = useState<CapturedNoteString[]>(() => loadCapturedNoteStrings());
   const [draftRaw, setDraftRaw] = useState('');
   const [draftName, setDraftName] = useState('');
@@ -151,7 +163,7 @@ export const WorkspaceCapturePanel = ({
   };
 
   const handleAddChordStarter = (starterId: string) => {
-    const starter = CHORD_STARTERS.find((entry) => entry.id === starterId);
+    const starter = effectiveStarters.find((entry) => entry.id === starterId);
     if (!starter) return;
     const updated = saveCapturedNoteStringFromTokens({
       name: starter.label,
@@ -321,15 +333,30 @@ export const WorkspaceCapturePanel = ({
       )}
 
       <div className="mt-4">
-        <div className="flex items-center gap-2">
-          <Music className="h-3.5 w-3.5 text-[var(--accent)]" />
-          <span className="section-label">Chord starters</span>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <Music className="h-3.5 w-3.5 text-[var(--accent)]" />
+            <span className="section-label">Chord starters</span>
+          </div>
+          {!detectedKey.uncertain && (
+            <button
+              aria-pressed={matchKey}
+              className="control-chip h-7 min-h-[1.75rem] inline-flex items-center gap-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
+              data-active={matchKey ? 'true' : 'false'}
+              disabled={disabled}
+              onClick={() => setMatchKey((current) => !current)}
+              title={`Toggle off to keep starters in their canonical key. Currently retargeted to ${detectedKey.label}.`}
+              type="button"
+            >
+              {matchKey ? `In ${detectedKey.label}` : `Canonical keys`}
+            </button>
+          )}
         </div>
         <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
           One-click harmonic frames. Each lands on the shelf as a new string you can drop onto a pad, bass, or piano lane.
         </div>
         <div className="mt-2 flex flex-wrap gap-1.5">
-          {CHORD_STARTERS.map((starter) => (
+          {effectiveStarters.map((starter) => (
             <button
               aria-label={`Add ${starter.label} to the shelf`}
               className="control-chip h-8 min-h-[2rem] inline-flex items-center gap-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.14em]"

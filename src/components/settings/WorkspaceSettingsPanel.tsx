@@ -171,6 +171,7 @@ export const WorkspaceSettingsPanel = () => {
         applyPatternSegment={applyPatternSegment}
         currentPattern={currentPattern}
         disabled={renderState.active}
+        fullTracks={tracks}
         onQueueNoteString={setQueuedNoteStringId}
         previewTrack={previewTrack}
         queuedNoteStringId={queuedNoteStringId}
