@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useAudio, type BounceNormalizationMode, type BounceTailMode } from '../../context/AudioContext';
 import { type ExportScope } from '../../services/workflowTypes';
 import { type RenderTargetProfileId } from '../../utils/export';
+import { saveCapturedNoteStringFromTokens } from '../../services/noteStringLibrary';
 import { useQueuedNoteStringId } from '../../services/noteStringQueue';
 import { WorkspaceBouncePanel } from './WorkspaceBouncePanel';
 import { WorkspaceCapturePanel } from './WorkspaceCapturePanel';
@@ -183,6 +184,17 @@ export const WorkspaceSettingsPanel = () => {
           if (action.kind === 'apply-preset') {
             applyTrackVoicePreset(action.trackId, action.presetId);
             setSelectedTrackId(action.trackId);
+            return;
+          }
+          if (action.kind === 'save-and-queue-string') {
+            const updated = saveCapturedNoteStringFromTokens({
+              name: action.name,
+              tokens: action.tokens,
+              source: 'typed',
+            });
+            if (updated && updated[0]) {
+              setQueuedNoteStringId(updated[0].id);
+            }
           }
         }}
         onSelectTrack={setSelectedTrackId}

@@ -11,6 +11,8 @@
 
 import type { Track } from '../project/schema';
 import { detectKey, detectPatternKeyDrift } from './keyDetector';
+import { suggestNextChords } from './nextChord';
+import type { CapturedNoteToken } from './noteStringLibrary';
 
 export type SuggestionTone = 'tip' | 'attention';
 
@@ -24,6 +26,11 @@ export type SmartSuggestionAction =
       kind: 'apply-preset';
       trackId: string;
       presetId: string;
+    }
+  | {
+      kind: 'save-and-queue-string';
+      name: string;
+      tokens: CapturedNoteToken[];
     };
 
 export interface SmartSuggestion {
@@ -247,7 +254,25 @@ export const computeSmartSuggestions = (tracks: Track[]): SmartSuggestion[] => {
     });
   }
 
-  // 7. Patterns that wander out of the session's detected key.
+  // 7. Suggested next chords based on the user's last placed root.
+  //    Cap at two so the suggestion list does not get crowded.
+  const nextChords = suggestNextChords(tracks, key);
+  for (const next of nextChords.slice(0, 2)) {
+    suggestions.push({
+      id: `next-chord-${next.id}`,
+      title: `Try ${next.label} next`,
+      detail: `Common move from your current chord. Saves as a single ${next.numeral} string queued for the next tap.`,
+      tone: 'tip',
+      action: {
+        kind: 'save-and-queue-string',
+        name: `${next.label} (next)`,
+        tokens: next.tokens,
+      },
+      actionLabel: 'Save and queue',
+    });
+  }
+
+  // 8. Patterns that wander out of the session's detected key.
   const drift = detectPatternKeyDrift(tracks, key);
   for (const entry of drift) {
     if (!entry.drifts) continue;

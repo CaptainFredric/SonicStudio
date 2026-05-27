@@ -19,6 +19,7 @@ import { QuickCaptureBar } from './components/QuickCaptureBar';
 import { SongTranscriber } from './components/SongTranscriber';
 import { AudioHealthDot } from './components/AudioHealthDot';
 import { KeyTag } from './components/KeyTag';
+import { TransportElapsedTag } from './components/TransportElapsedTag';
 import { TransportPositionTag } from './components/TransportPositionTag';
 import { ToastStack, type ToastItem } from './components/ToastStack';
 import { resolveStudioRoute, type StudioRouteState } from './app/routeController';
@@ -314,6 +315,7 @@ const CompactTransportBar = ({ forceVisible = false }: { forceVisible?: boolean 
     >
       <AudioHealthDot className="ml-1" />
       <TransportPositionTag />
+      <TransportElapsedTag />
       <KeyTag />
       {isFirstImpression && !isPlaying && (
         <span
