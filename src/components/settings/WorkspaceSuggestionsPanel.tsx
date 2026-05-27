@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, X } from 'lucide-react';
 
 import type { Track } from '../../project/schema';
+import { useDismissedSuggestionIds } from '../../services/dismissedSuggestions';
 import { computeSmartSuggestions, type SmartSuggestionAction } from '../../services/smartSuggestions';
 
 interface WorkspaceSuggestionsPanelProps {
@@ -16,18 +17,36 @@ interface WorkspaceSuggestionsPanelProps {
 // pattern-recognition. Hides entirely when there are no actionable
 // tips so the panel does not nag a finished session.
 export const WorkspaceSuggestionsPanel = ({ fullTracks, onApplyAction, onSelectTrack }: WorkspaceSuggestionsPanelProps) => {
-  const suggestions = useMemo(() => computeSmartSuggestions(fullTracks), [fullTracks]);
+  const allSuggestions = useMemo(() => computeSmartSuggestions(fullTracks), [fullTracks]);
+  const [dismissedIds, dismiss, resetDismissed] = useDismissedSuggestionIds();
+  const suggestions = useMemo(
+    () => allSuggestions.filter((entry) => !dismissedIds.has(entry.id)),
+    [allSuggestions, dismissedIds],
+  );
+  const hiddenCount = allSuggestions.length - suggestions.length;
 
-  if (suggestions.length === 0) return null;
+  if (suggestions.length === 0 && hiddenCount === 0) return null;
 
   return (
     <section className="surface-panel-strong p-4">
-      <div className="flex items-center gap-2 text-[var(--text-primary)]">
-        <Sparkles className="h-4 w-4 text-[var(--accent)]" />
-        <span className="section-label">Suggestions</span>
-        <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
-          {suggestions.length} {suggestions.length === 1 ? 'tip' : 'tips'}
-        </span>
+      <div className="flex flex-wrap items-center justify-between gap-2 text-[var(--text-primary)]">
+        <div className="flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-[var(--accent)]" />
+          <span className="section-label">Suggestions</span>
+          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+            {suggestions.length} {suggestions.length === 1 ? 'tip' : 'tips'}
+          </span>
+        </div>
+        {hiddenCount > 0 && (
+          <button
+            aria-label={`Restore ${hiddenCount} dismissed tip${hiddenCount === 1 ? '' : 's'}`}
+            className="control-chip h-7 min-h-[1.75rem] inline-flex items-center gap-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
+            onClick={resetDismissed}
+            type="button"
+          >
+            Restore {hiddenCount} dismissed
+          </button>
+        )}
       </div>
       <div className="mt-3 grid gap-2">
         {suggestions.slice(0, 6).map((entry) => (
@@ -59,16 +78,27 @@ export const WorkspaceSuggestionsPanel = ({ fullTracks, onApplyAction, onSelectT
                   {entry.actionLabel}
                 </button>
               )}
-              {entry.trackId && (
+              <div className="flex items-center gap-1">
+                {entry.trackId && (
+                  <button
+                    aria-label="Open this lane"
+                    className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--accent-strong)]"
+                    onClick={() => entry.trackId && onSelectTrack(entry.trackId)}
+                    type="button"
+                  >
+                    Open
+                  </button>
+                )}
                 <button
-                  aria-label="Open this lane"
-                  className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--accent-strong)]"
-                  onClick={() => entry.trackId && onSelectTrack(entry.trackId)}
+                  aria-label="Dismiss this tip"
+                  className="ghost-icon-button flex h-6 w-6 items-center justify-center text-[var(--text-tertiary)] hover:text-[var(--text-primary)]"
+                  onClick={() => dismiss(entry.id)}
+                  title="Dismiss this tip"
                   type="button"
                 >
-                  Open
+                  <X className="h-3 w-3" />
                 </button>
-              )}
+              </div>
             </div>
           </div>
         ))}
