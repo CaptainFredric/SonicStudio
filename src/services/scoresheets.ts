@@ -1,19 +1,43 @@
 import { type StudioSession } from '../project/schema';
 import { hydrateSessionPayload } from '../project/storage';
+import { detectKey, type KeyMode } from './keyDetector';
 
 const STORAGE_KEY = 'sonicstudio:scoresheets:v1';
 const MAX_SCORESHEETS = 24;
+
+export interface ScoresheetKeySnapshot {
+  rootName: string;
+  mode: KeyMode;
+  label: string;
+  confidence: number;
+  uncertain: boolean;
+}
 
 export interface Scoresheet {
   id: string;
   name: string;
   savedAt: string;
   session: StudioSession;
+  detectedKey?: ScoresheetKeySnapshot;
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> => (
   typeof value === 'object' && value !== null
 );
+
+const normalizeKeySnapshot = (value: unknown): ScoresheetKeySnapshot | undefined => {
+  if (!isRecord(value)) return undefined;
+  if (typeof value.rootName !== 'string') return undefined;
+  if (value.mode !== 'major' && value.mode !== 'minor') return undefined;
+  if (typeof value.label !== 'string') return undefined;
+  return {
+    rootName: value.rootName,
+    mode: value.mode,
+    label: value.label,
+    confidence: typeof value.confidence === 'number' ? value.confidence : 0,
+    uncertain: value.uncertain === true,
+  };
+};
 
 const normalizeScoresheet = (value: unknown): Scoresheet | null => {
   if (!isRecord(value)) return null;
@@ -28,7 +52,13 @@ const normalizeScoresheet = (value: unknown): Scoresheet | null => {
   const savedAt = typeof value.savedAt === 'string' && value.savedAt
     ? value.savedAt
     : new Date().toISOString();
-  return { id, name, savedAt, session };
+  return {
+    id,
+    name,
+    savedAt,
+    session,
+    detectedKey: normalizeKeySnapshot(value.detectedKey),
+  };
 };
 
 export const listScoresheets = (): Scoresheet[] => {
@@ -66,11 +96,20 @@ export const saveScoresheet = (
 ): Scoresheet[] => {
   const sheets = listScoresheets();
   const cleanName = name.trim().slice(0, 48) || 'Untitled scoresheet';
+  const detected = detectKey(session.project.tracks);
+  const detectedKey: ScoresheetKeySnapshot = {
+    rootName: detected.rootName,
+    mode: detected.mode,
+    label: detected.label,
+    confidence: detected.confidence,
+    uncertain: detected.uncertain,
+  };
   const next: Scoresheet = {
     id: options.replaceId ?? `scoresheet_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
     name: cleanName,
     savedAt: new Date().toISOString(),
     session,
+    detectedKey,
   };
   const filtered = options.replaceId ? sheets.filter((sheet) => sheet.id !== options.replaceId) : sheets;
   return persistScoresheets([next, ...filtered]);

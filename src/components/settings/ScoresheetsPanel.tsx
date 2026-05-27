@@ -125,8 +125,14 @@ export const ScoresheetsPanel = () => {
                     {sheet.name}
                   </button>
                 )}
-                <div className="mt-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
-                  Saved {formatRelative(sheet.savedAt)}
+                <div className="mt-0.5 flex flex-wrap items-center gap-x-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+                  <span>Saved {formatRelative(sheet.savedAt)}</span>
+                  {sheet.detectedKey && !sheet.detectedKey.uncertain && (
+                    <>
+                      <span aria-hidden="true" className="text-[var(--border-soft)]">·</span>
+                      <span className="text-[var(--accent-strong)]">{sheet.detectedKey.label}</span>
+                    </>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-1">
