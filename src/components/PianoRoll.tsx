@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 
 import { useAudio, usePlaybackStep } from '../context/AudioContext';
+import { detectKey } from '../services/keyDetector';
 import { MAX_STEPS_PER_PATTERN, type NoteEvent } from '../project/schema';
 import { TrackIcon, getTrackPersonality } from '../utils/trackPersonality';
 import {
@@ -165,8 +166,19 @@ export const PianoRoll = () => {
   const [supersonicHoverCell, setSupersonicHoverCell] = useState<{ note: string; stepIndex: number } | null>(null);
   const [noteResizeState, setNoteResizeState] = useState<NoteResizeState | null>(null);
   const [recordedNoteLibrary, setRecordedNoteLibrary] = useState<RecordedNotePreset[]>([]);
-  const [chordKey, setChordKey] = useState<KeyName>('C');
-  const [chordMode, setChordMode] = useState<'major' | 'minor'>('major');
+  // Seed the chord palette with the session's detected key on mount.
+  // The user can still override via the Key dropdown / Major-Minor
+  // toggle, and re-sync at any time with the "Match session" button.
+  const initialDetected = useMemo(() => detectKey(tracks), [tracks]);
+  const [chordKey, setChordKey] = useState<KeyName>(() => (
+    initialDetected.uncertain ? 'C' : (initialDetected.rootName as KeyName)
+  ));
+  const [chordMode, setChordMode] = useState<'major' | 'minor'>(() => (
+    initialDetected.uncertain ? 'major' : initialDetected.mode
+  ));
+  const liveDetected = useMemo(() => detectKey(tracks), [tracks]);
+  const canMatchSession = !liveDetected.uncertain
+    && (liveDetected.rootName !== chordKey || liveDetected.mode !== chordMode);
   const [chordPaletteOpen, setChordPaletteOpen] = useState(false);
   // The control rack collapses by default so the note grid leads the view.
   // It opens automatically on roomy desktops where the space is there.
@@ -1008,6 +1020,20 @@ export const PianoRoll = () => {
               <WindowButton active={chordMode === 'major'} label="Major" onClick={() => setChordMode('major')} />
               <WindowButton active={chordMode === 'minor'} label="Minor" onClick={() => setChordMode('minor')} />
             </div>
+            {canMatchSession && (
+              <button
+                aria-label={`Match the chord palette to the detected key ${liveDetected.label}`}
+                className="control-chip h-7 min-h-[1.75rem] inline-flex items-center gap-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                onClick={() => {
+                  setChordKey(liveDetected.rootName as KeyName);
+                  setChordMode(liveDetected.mode);
+                }}
+                title={`Set the palette to ${liveDetected.label}`}
+                type="button"
+              >
+                Match session ({liveDetected.label})
+              </button>
+            )}
             <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
               Stamps at {selectedStepIndex !== null ? `step ${selectedStepIndex + 1}` : 'step 1'} · click any chord
             </span>
