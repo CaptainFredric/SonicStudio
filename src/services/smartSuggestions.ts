@@ -14,13 +14,38 @@ import { detectKey, detectPatternKeyDrift } from './keyDetector';
 
 export type SuggestionTone = 'tip' | 'attention';
 
+export type SmartSuggestionAction =
+  | {
+      kind: 'place-steps';
+      trackId: string;
+      steps: Array<{ stepIndex: number; note: string }>;
+    }
+  | {
+      kind: 'apply-preset';
+      trackId: string;
+      presetId: string;
+    };
+
 export interface SmartSuggestion {
   id: string;
   title: string;
   detail: string;
   tone: SuggestionTone;
   trackId?: string;
+  action?: SmartSuggestionAction;
+  actionLabel?: string;
 }
+
+// One-tap voice recommendations for sparse / empty lanes. Pulled from
+// the preset library by id so the suggestion panel does not need to
+// know the preset's internal shape.
+const PRESET_RECOMMENDATIONS: Record<string, { presetId: string; label: string }> = {
+  pad: { presetId: 'tape-warmth', label: 'Try Tape Warmth on this pad' },
+  violin: { presetId: 'bowed-ribbon', label: 'Try Bowed Ribbon on this violin' },
+  bell: { presetId: 'glass-bell', label: 'Try Glass Bell on this bell' },
+  lead: { presetId: 'whistle-breath', label: 'Try Whistle Breath on this lead' },
+  bass: { presetId: 'round-sub', label: 'Try Round Sub on this bass' },
+};
 
 const DRUM_TYPES = new Set<Track['type']>(['kick', 'snare', 'hihat']);
 const MELODIC_TYPES = new Set<Track['type']>(['bass', 'lead', 'pad', 'pluck', 'violin', 'piano', 'bell']);
@@ -62,34 +87,71 @@ export const computeSmartSuggestions = (tracks: Track[]): SmartSuggestion[] => {
   const stats = tracks.map(computeTrackStats);
   const suggestions: SmartSuggestion[] = [];
 
-  // 1. Empty melodic lanes worth filling.
+  // 1. Empty melodic lanes worth filling. When the session has a
+  //    confident key we can offer to drop the tonic on step 0 as a
+  //    starting anchor; otherwise the user just gets the lane focus.
   for (const entry of stats) {
     if (!MELODIC_TYPES.has(entry.track.type)) continue;
     if (entry.noteCount > 0) continue;
+    const octaveByType: Record<string, number> = { bass: 2, pad: 3, piano: 4, violin: 4, lead: 4, pluck: 4, bell: 5 };
+    const octave = octaveByType[entry.track.type] ?? 4;
+    const anchorNote = key.uncertain ? `C${octave}` : `${key.rootName}${octave}`;
     suggestions.push({
       id: `empty-${entry.track.id}`,
       title: `${entry.track.name} is empty`,
       detail: `Try a melody in ${keyHint}.`,
       tone: 'tip',
       trackId: entry.track.id,
+      action: {
+        kind: 'place-steps',
+        trackId: entry.track.id,
+        steps: [
+          { stepIndex: 0, note: anchorNote },
+          { stepIndex: 8, note: anchorNote },
+        ],
+      },
+      actionLabel: 'Place tonic anchor',
     });
   }
 
-  // 2. Drum lanes with no downbeat anchor.
+  // 2. Drum lanes with no downbeat anchor. Each empty drum lane gets
+  //    a tap-to-apply pattern that matches its instrument family.
   for (const entry of stats) {
     if (!DRUM_TYPES.has(entry.track.type)) continue;
     if (entry.noteCount === 0) {
-      suggestions.push({
-        id: `drums-empty-${entry.track.id}`,
-        title: `${entry.track.name} has no hits`,
-        detail: entry.track.type === 'kick'
-          ? 'Try a four-on-the-floor or downbeat anchor.'
-          : entry.track.type === 'snare'
-            ? 'Try backbeats on steps 5 and 13.'
-            : 'Try eighth-note hats for steady motion.',
-        tone: 'tip',
-        trackId: entry.track.id,
-      });
+      const drumPatterns: Record<string, { detail: string; label: string; steps: number[] }> = {
+        kick: {
+          detail: 'Try a four-on-the-floor or downbeat anchor.',
+          label: 'Add four-on-the-floor',
+          steps: [0, 4, 8, 12],
+        },
+        snare: {
+          detail: 'Try backbeats on steps 5 and 13.',
+          label: 'Add backbeats',
+          steps: [4, 12],
+        },
+        hihat: {
+          detail: 'Try eighth-note hats for steady motion.',
+          label: 'Add eighth-note hats',
+          steps: [0, 2, 4, 6, 8, 10, 12, 14],
+        },
+      };
+      const recipe = drumPatterns[entry.track.type];
+      if (recipe) {
+        suggestions.push({
+          id: `drums-empty-${entry.track.id}`,
+          title: `${entry.track.name} has no hits`,
+          detail: recipe.detail,
+          tone: 'tip',
+          trackId: entry.track.id,
+          action: {
+            kind: 'place-steps',
+            trackId: entry.track.id,
+            steps: recipe.steps.map((stepIndex) => ({ stepIndex, note: 'C1' })),
+          },
+          actionLabel: recipe.label,
+        });
+      }
     } else if (!entry.hasDownbeat) {
       suggestions.push({
         id: `drums-no-downbeat-${entry.track.id}`,
@@ -97,6 +159,12 @@ export const computeSmartSuggestions = (tracks: Track[]): SmartSuggestion[] => {
         detail: 'A hit on step 1 anchors the bar.',
         tone: 'attention',
         trackId: entry.track.id,
+        action: {
+          kind: 'place-steps',
+          trackId: entry.track.id,
+          steps: [{ stepIndex: 0, note: 'C1' }],
+        },
+        actionLabel: 'Add step 1 hit',
       });
     }
   }
@@ -120,6 +188,7 @@ export const computeSmartSuggestions = (tracks: Track[]): SmartSuggestion[] => {
   if (!hasBass && stats.some((entry) => entry.track.type === 'bass')) {
     const bassLane = stats.find((entry) => entry.track.type === 'bass');
     if (bassLane) {
+      const anchor = key.uncertain ? 'C2' : `${key.rootName}2`;
       suggestions.push({
         id: `bass-anchor-${bassLane.track.id}`,
         title: 'Bass is silent',
@@ -128,6 +197,15 @@ export const computeSmartSuggestions = (tracks: Track[]): SmartSuggestion[] => {
           : `Try ${key.rootName}1 or ${key.rootName}2 to anchor each chord.`,
         tone: 'tip',
         trackId: bassLane.track.id,
+        action: {
+          kind: 'place-steps',
+          trackId: bassLane.track.id,
+          steps: [
+            { stepIndex: 0, note: anchor },
+            { stepIndex: 8, note: anchor },
+          ],
+        },
+        actionLabel: `Anchor on ${anchor}`,
       });
     }
   }
@@ -145,7 +223,31 @@ export const computeSmartSuggestions = (tracks: Track[]): SmartSuggestion[] => {
     });
   }
 
-  // 6. Patterns that wander out of the session's detected key.
+  // 6. Sparse melodic lanes that haven't been color-shaped yet: offer
+  //    a fitting voice preset. Skip lanes that already have a custom
+  //    preset (heuristic: non-default waveform or any sample setup).
+  for (const entry of stats) {
+    const recommendation = PRESET_RECOMMENDATIONS[entry.track.type];
+    if (!recommendation) continue;
+    // Only nudge when the lane has a few notes but feels sparse.
+    if (entry.noteCount < 1 || entry.noteCount > 8) continue;
+    if (entry.track.source.engine === 'sample') continue;
+    suggestions.push({
+      id: `voice-${entry.track.id}-${recommendation.presetId}`,
+      title: `${entry.track.name} could use a voice`,
+      detail: `${recommendation.label}.`,
+      tone: 'tip',
+      trackId: entry.track.id,
+      action: {
+        kind: 'apply-preset',
+        trackId: entry.track.id,
+        presetId: recommendation.presetId,
+      },
+      actionLabel: 'Apply voice',
+    });
+  }
+
+  // 7. Patterns that wander out of the session's detected key.
   const drift = detectPatternKeyDrift(tracks, key);
   for (const entry of drift) {
     if (!entry.drifts) continue;

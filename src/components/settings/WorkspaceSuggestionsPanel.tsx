@@ -2,10 +2,11 @@ import { useMemo } from 'react';
 import { Sparkles } from 'lucide-react';
 
 import type { Track } from '../../project/schema';
-import { computeSmartSuggestions } from '../../services/smartSuggestions';
+import { computeSmartSuggestions, type SmartSuggestionAction } from '../../services/smartSuggestions';
 
 interface WorkspaceSuggestionsPanelProps {
   fullTracks: Track[];
+  onApplyAction: (action: SmartSuggestionAction) => void;
   onSelectTrack: (trackId: string) => void;
 }
 
@@ -14,7 +15,7 @@ interface WorkspaceSuggestionsPanelProps {
 // pairs the keyDetector with lane-density heuristics — no ML, just
 // pattern-recognition. Hides entirely when there are no actionable
 // tips so the panel does not nag a finished session.
-export const WorkspaceSuggestionsPanel = ({ fullTracks, onSelectTrack }: WorkspaceSuggestionsPanelProps) => {
+export const WorkspaceSuggestionsPanel = ({ fullTracks, onApplyAction, onSelectTrack }: WorkspaceSuggestionsPanelProps) => {
   const suggestions = useMemo(() => computeSmartSuggestions(fullTracks), [fullTracks]);
 
   if (suggestions.length === 0) return null;
@@ -30,26 +31,46 @@ export const WorkspaceSuggestionsPanel = ({ fullTracks, onSelectTrack }: Workspa
       </div>
       <div className="mt-3 grid gap-2">
         {suggestions.slice(0, 6).map((entry) => (
-          <button
-            aria-label={entry.trackId ? `${entry.title}. Jump to lane.` : entry.title}
-            className={`flex w-full items-start justify-between gap-3 rounded-[3px] border bg-[rgba(255,255,255,0.02)] px-3 py-2 text-left transition-colors ${entry.tone === 'attention' ? 'border-[rgba(255,148,102,0.32)]' : 'border-[var(--border-soft)]'} hover:border-[rgba(114,217,255,0.32)]`}
-            disabled={!entry.trackId}
+          <div
+            className={`flex w-full items-start justify-between gap-3 rounded-[3px] border bg-[rgba(255,255,255,0.02)] px-3 py-2 transition-colors ${entry.tone === 'attention' ? 'border-[rgba(255,148,102,0.32)]' : 'border-[var(--border-soft)]'}`}
             key={entry.id}
-            onClick={() => {
-              if (entry.trackId) onSelectTrack(entry.trackId);
-            }}
-            type="button"
           >
-            <div className="min-w-0 flex-1">
+            <button
+              aria-label={entry.trackId ? `${entry.title}. Jump to lane.` : entry.title}
+              className="min-w-0 flex-1 text-left"
+              disabled={!entry.trackId}
+              onClick={() => {
+                if (entry.trackId) onSelectTrack(entry.trackId);
+              }}
+              type="button"
+            >
               <div className="text-sm font-medium text-[var(--text-primary)]">{entry.title}</div>
               <div className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">{entry.detail}</div>
+            </button>
+            <div className="flex shrink-0 flex-col items-end gap-1">
+              {entry.action && entry.actionLabel && (
+                <button
+                  aria-label={entry.actionLabel}
+                  className="control-chip h-7 min-h-[1.75rem] inline-flex items-center gap-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                  data-active="true"
+                  onClick={() => entry.action && onApplyAction(entry.action)}
+                  type="button"
+                >
+                  {entry.actionLabel}
+                </button>
+              )}
+              {entry.trackId && (
+                <button
+                  aria-label="Open this lane"
+                  className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--accent-strong)]"
+                  onClick={() => entry.trackId && onSelectTrack(entry.trackId)}
+                  type="button"
+                >
+                  Open
+                </button>
+              )}
             </div>
-            {entry.trackId && (
-              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--accent-strong)]">
-                Open
-              </span>
-            )}
-          </button>
+          </div>
         ))}
       </div>
     </section>

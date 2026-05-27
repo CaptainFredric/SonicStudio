@@ -34,6 +34,7 @@ const formatSaveLabel = (saveStatus: 'idle' | 'saving' | 'saved' | 'error', last
 export const WorkspaceSettingsPanel = () => {
   const {
     applyPatternSegment,
+    applyTrackVoicePreset,
     arrangerClips,
     auditionInstrumentNote,
     bpm,
@@ -85,6 +86,7 @@ export const WorkspaceSettingsPanel = () => {
     songLengthInBeats,
     songMarkers,
     stepsPerPattern,
+    toggleStep,
     trainingCorpusSummary,
     tracks,
     transportMode,
@@ -170,6 +172,19 @@ export const WorkspaceSettingsPanel = () => {
 
       <WorkspaceSuggestionsPanel
         fullTracks={tracks}
+        onApplyAction={(action) => {
+          if (action.kind === 'place-steps') {
+            for (const step of action.steps) {
+              toggleStep(action.trackId, step.stepIndex, step.note);
+            }
+            setSelectedTrackId(action.trackId);
+            return;
+          }
+          if (action.kind === 'apply-preset') {
+            applyTrackVoicePreset(action.trackId, action.presetId);
+            setSelectedTrackId(action.trackId);
+          }
+        }}
         onSelectTrack={setSelectedTrackId}
       />
 
