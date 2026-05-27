@@ -10,7 +10,7 @@
 // jump to the relevant lane on tap.
 
 import type { Track } from '../project/schema';
-import { detectKey } from './keyDetector';
+import { detectKey, detectPatternKeyDrift } from './keyDetector';
 
 export type SuggestionTone = 'tip' | 'attention';
 
@@ -142,6 +142,19 @@ export const computeSmartSuggestions = (tracks: Track[]): SmartSuggestion[] => {
       title: 'No melody yet',
       detail: 'Open a Chord starter or use Alt+C to capture a string.',
       tone: 'tip',
+    });
+  }
+
+  // 6. Patterns that wander out of the session's detected key.
+  const drift = detectPatternKeyDrift(tracks, key);
+  for (const entry of drift) {
+    if (!entry.drifts) continue;
+    const percentInside = entry.ratio === null ? 0 : Math.round(entry.ratio * 100);
+    suggestions.push({
+      id: `pattern-drift-${entry.patternIndex}`,
+      title: `Pattern ${String.fromCharCode(65 + entry.patternIndex)} wanders out of ${keyHint}`,
+      detail: `Only ${percentInside}% of its notes fit ${keyHint}. Intentional? Then ignore.`,
+      tone: 'attention',
     });
   }
 

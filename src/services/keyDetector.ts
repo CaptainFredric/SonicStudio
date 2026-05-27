@@ -128,6 +128,111 @@ const correlation = (a: number[], b: number[]): number => {
   return numerator / denominator;
 };
 
+// Major / natural-minor scale degree pitch classes relative to the
+// tonic. Used by laneFitness + patternKeyDrift to test whether each
+// note falls inside the diatonic set.
+const MAJOR_SCALE_PCS = new Set<number>([0, 2, 4, 5, 7, 9, 11]);
+const MINOR_SCALE_PCS = new Set<number>([0, 2, 3, 5, 7, 8, 10]);
+
+const noteFitsKey = (notePc: number, key: DetectedKey): boolean => {
+  const relative = ((notePc - key.root) % 12 + 12) % 12;
+  const scale = key.mode === 'major' ? MAJOR_SCALE_PCS : MINOR_SCALE_PCS;
+  return scale.has(relative);
+};
+
+export interface LaneFitness {
+  inside: number;
+  outside: number;
+  /** Fraction inside the detected key, 0..1. Returns null if no notes. */
+  ratio: number | null;
+}
+
+/**
+ * Read how well a single lane sits inside the detected key. Drum
+ * lanes always return null — their pitches are constant and shouldn't
+ * be graded musically.
+ */
+export const laneFitness = (track: Track, key: DetectedKey): LaneFitness => {
+  if (key.uncertain) return { inside: 0, outside: 0, ratio: null };
+  if (!PITCHED_TYPES.includes(track.type)) return { inside: 0, outside: 0, ratio: null };
+  let inside = 0;
+  let outside = 0;
+  for (const stepGrid of Object.values(track.patterns)) {
+    for (const step of stepGrid) {
+      for (const event of step) {
+        const pc = noteNameToPitchClass(event.note);
+        if (pc === null) continue;
+        if (noteFitsKey(pc, key)) inside += 1;
+        else outside += 1;
+      }
+    }
+  }
+  const total = inside + outside;
+  return {
+    inside,
+    outside,
+    ratio: total === 0 ? null : inside / total,
+  };
+};
+
+export interface PatternKeyDrift {
+  patternIndex: number;
+  inside: number;
+  outside: number;
+  /** Same fraction-inside semantics as LaneFitness.ratio. */
+  ratio: number | null;
+  /** True when this pattern is mostly off-key compared to the session. */
+  drifts: boolean;
+}
+
+const DRIFT_RATIO_THRESHOLD = 0.7;
+const DRIFT_MIN_NOTES = 4;
+
+/**
+ * Scan each pattern bank and flag the ones whose notes mostly fall
+ * outside the session's detected key. Drum lanes are excluded so a
+ * percussion-heavy pattern doesn't look "off-key" just because its
+ * kicks are constant.
+ */
+export const detectPatternKeyDrift = (tracks: Track[], key: DetectedKey): PatternKeyDrift[] => {
+  if (key.uncertain) return [];
+  const buckets = new Map<number, { inside: number; outside: number }>();
+  for (const track of tracks) {
+    if (!PITCHED_TYPES.includes(track.type)) continue;
+    if (track.muted) continue;
+    for (const [patternKey, stepGrid] of Object.entries(track.patterns)) {
+      const patternIndex = Number(patternKey);
+      if (!Number.isFinite(patternIndex)) continue;
+      let bucket = buckets.get(patternIndex);
+      if (!bucket) {
+        bucket = { inside: 0, outside: 0 };
+        buckets.set(patternIndex, bucket);
+      }
+      for (const step of stepGrid) {
+        for (const event of step) {
+          const pc = noteNameToPitchClass(event.note);
+          if (pc === null) continue;
+          if (noteFitsKey(pc, key)) bucket.inside += 1;
+          else bucket.outside += 1;
+        }
+      }
+    }
+  }
+  return Array.from(buckets.entries())
+    .sort(([a], [b]) => a - b)
+    .map(([patternIndex, { inside, outside }]) => {
+      const total = inside + outside;
+      const ratio = total === 0 ? null : inside / total;
+      return {
+        patternIndex,
+        inside,
+        outside,
+        ratio,
+        drifts: total >= DRIFT_MIN_NOTES && ratio !== null && ratio < DRIFT_RATIO_THRESHOLD,
+      };
+    });
+};
+
 export const detectKey = (tracks: Track[]): DetectedKey => {
   const { histogram, noteCount } = buildHistogram(tracks);
   if (noteCount === 0) return EMPTY_KEY;

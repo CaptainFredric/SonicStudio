@@ -45,6 +45,7 @@ import {
 } from '../services/sessionPlayers';
 import { shiftNote } from './arranger/noteUtils';
 import { CollapsedLaneIcon } from './CollapsedLaneIcon';
+import { LaneKeyChip } from './LaneKeyChip';
 import { TrackMeterBar } from './TrackMeterBar';
 import {
   NOTE_GATE_FINE_STEP,
@@ -2279,6 +2280,7 @@ export const MainWorkspace = () => {
                           <TrackMeterBar className="mt-1.5" color={track.color} trackId={track.id} />
                           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                             <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.type}</span>
+                            <LaneKeyChip track={track} />
                             {pinned && <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--accent-strong)]">Pinned</span>}
                             {!isMobileViewport && <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.source.engine}</span>}
                             {!isMobileViewport && <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{sourceLabel}</span>}

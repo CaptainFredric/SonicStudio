@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { createBlankProject, createTwilightFrameProject, createLateHoursProject } from '../project/schema';
-import { detectKey } from './keyDetector';
+import { detectKey, detectPatternKeyDrift, laneFitness } from './keyDetector';
 
 describe('detectKey', () => {
   it('returns the empty key when there are no pitched notes', () => {
@@ -45,5 +45,48 @@ describe('detectKey', () => {
     const result = detectKey(project.tracks);
     expect(result.confidence).toBeGreaterThanOrEqual(0);
     expect(result.confidence).toBeLessThanOrEqual(1);
+  });
+});
+
+describe('laneFitness', () => {
+  it('returns null ratio for drum lanes (their pitches do not encode harmony)', () => {
+    const project = createTwilightFrameProject();
+    const kick = project.tracks.find((track) => track.type === 'kick');
+    if (!kick) throw new Error('Twilight Frame should have a kick');
+    const key = detectKey(project.tracks);
+    expect(laneFitness(kick, key).ratio).toBeNull();
+  });
+
+  it('reads a high inside-key ratio for the violin lane in A minor', () => {
+    const project = createTwilightFrameProject();
+    const violin = project.tracks.find((track) => track.type === 'violin');
+    if (!violin) throw new Error('Twilight Frame should have a violin');
+    const key = detectKey(project.tracks);
+    const fitness = laneFitness(violin, key);
+    expect(fitness.ratio).not.toBeNull();
+    expect(fitness.ratio as number).toBeGreaterThan(0.8);
+  });
+});
+
+describe('detectPatternKeyDrift', () => {
+  it('returns no drift entries when no key has been called', () => {
+    const project = createBlankProject();
+    // Wipe pitched notes so detectKey reports uncertain.
+    for (const track of project.tracks) {
+      if (['kick', 'snare', 'hihat'].includes(track.type)) continue;
+      for (const stepGrid of Object.values(track.patterns)) {
+        stepGrid.forEach((_, index) => { stepGrid[index] = []; });
+      }
+    }
+    const key = detectKey(project.tracks);
+    expect(detectPatternKeyDrift(project.tracks, key)).toEqual([]);
+  });
+
+  it('flags zero drifting patterns for the in-key Twilight Frame', () => {
+    const project = createTwilightFrameProject();
+    const key = detectKey(project.tracks);
+    const drift = detectPatternKeyDrift(project.tracks, key);
+    expect(drift.length).toBeGreaterThan(0);
+    expect(drift.filter((entry) => entry.drifts)).toEqual([]);
   });
 });
