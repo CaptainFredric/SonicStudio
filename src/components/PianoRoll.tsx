@@ -169,7 +169,10 @@ export const PianoRoll = () => {
   // Seed the chord palette with the session's detected key on mount.
   // The user can still override via the Key dropdown / Major-Minor
   // toggle, and re-sync at any time with the "Match session" button.
+  // Scale lock keeps the palette glued to the detected key as the
+  // session evolves so stamps stay diatonic by construction.
   const initialDetected = useMemo(() => detectKey(tracks), [tracks]);
+  const [scaleLocked, setScaleLocked] = useState(false);
   const [chordKey, setChordKey] = useState<KeyName>(() => (
     initialDetected.uncertain ? 'C' : (initialDetected.rootName as KeyName)
   ));
@@ -177,7 +180,14 @@ export const PianoRoll = () => {
     initialDetected.uncertain ? 'major' : initialDetected.mode
   ));
   const liveDetected = useMemo(() => detectKey(tracks), [tracks]);
-  const canMatchSession = !liveDetected.uncertain
+  // While locked, follow the live detected key on every render.
+  useEffect(() => {
+    if (!scaleLocked || liveDetected.uncertain) return;
+    if (chordKey !== liveDetected.rootName) setChordKey(liveDetected.rootName as KeyName);
+    if (chordMode !== liveDetected.mode) setChordMode(liveDetected.mode);
+  }, [scaleLocked, liveDetected, chordKey, chordMode]);
+  const canMatchSession = !scaleLocked
+    && !liveDetected.uncertain
     && (liveDetected.rootName !== chordKey || liveDetected.mode !== chordMode);
   const [chordPaletteOpen, setChordPaletteOpen] = useState(false);
   // The control rack collapses by default so the note grid leads the view.
@@ -1008,6 +1018,7 @@ export const PianoRoll = () => {
               <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Key</span>
               <select
                 className="control-field h-7 px-2 text-xs"
+                disabled={scaleLocked}
                 onChange={(event) => setChordKey(event.target.value as KeyName)}
                 value={chordKey}
               >
@@ -1017,9 +1028,24 @@ export const PianoRoll = () => {
               </select>
             </label>
             <div className="surface-panel-muted flex items-center gap-1 p-1">
-              <WindowButton active={chordMode === 'major'} label="Major" onClick={() => setChordMode('major')} />
-              <WindowButton active={chordMode === 'minor'} label="Minor" onClick={() => setChordMode('minor')} />
+              <WindowButton active={chordMode === 'major'} label="Major" disabled={scaleLocked} onClick={() => setChordMode('major')} />
+              <WindowButton active={chordMode === 'minor'} label="Minor" disabled={scaleLocked} onClick={() => setChordMode('minor')} />
             </div>
+            {!liveDetected.uncertain && (
+              <button
+                aria-label={scaleLocked ? 'Unlock the chord palette key' : 'Lock the chord palette to the detected session key'}
+                aria-pressed={scaleLocked}
+                className="control-chip h-7 min-h-[1.75rem] inline-flex items-center gap-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                data-active={scaleLocked ? 'true' : 'false'}
+                onClick={() => setScaleLocked((current) => !current)}
+                title={scaleLocked
+                  ? 'Unlock the palette so you can pick a different key.'
+                  : `Lock the palette to ${liveDetected.label}. Stamps stay diatonic.`}
+                type="button"
+              >
+                {scaleLocked ? 'Scale locked' : 'Lock to session'}
+              </button>
+            )}
             {canMatchSession && (
               <button
                 aria-label={`Match the chord palette to the detected key ${liveDetected.label}`}
@@ -1777,15 +1803,18 @@ const ToolButton = ({
 
 const WindowButton = ({
   active,
+  disabled = false,
   label,
   onClick,
 }: {
   active: boolean;
+  disabled?: boolean;
   label: string;
   onClick: () => void;
 }) => (
   <button
-    className="rounded-sm border h-9 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] transition-colors"
+    className="rounded-sm border h-9 px-3 text-[10px] font-semibold uppercase tracking-[0.16em] transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+    disabled={disabled}
     onClick={onClick}
     style={active
       ? {
