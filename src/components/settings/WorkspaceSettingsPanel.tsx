@@ -6,6 +6,7 @@ import { type RenderTargetProfileId } from '../../utils/export';
 import { useQueuedNoteStringId } from '../../services/noteStringQueue';
 import { WorkspaceBouncePanel } from './WorkspaceBouncePanel';
 import { WorkspaceCapturePanel } from './WorkspaceCapturePanel';
+import { WorkspaceSuggestionsPanel } from './WorkspaceSuggestionsPanel';
 import { WorkspaceOptionsPanel } from './WorkspaceOptionsPanel';
 import { WorkspaceRecoveryPanel } from './WorkspaceRecoveryPanel';
 import { WorkspaceSessionPanel } from './WorkspaceSessionPanel';
@@ -165,6 +166,11 @@ export const WorkspaceSettingsPanel = () => {
         onSaveCheckpoint={() => saveCheckpoint()}
         onSaveProject={saveProject}
         trackCount={tracks.length}
+      />
+
+      <WorkspaceSuggestionsPanel
+        fullTracks={tracks}
+        onSelectTrack={setSelectedTrackId}
       />
 
       <WorkspaceCapturePanel
