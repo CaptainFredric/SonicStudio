@@ -48,7 +48,12 @@ const AUDITION_LANE_PREFERENCE: InstrumentType[] = [
   'violin', 'piano', 'lead', 'pluck', 'bell', 'pad', 'bass', 'fx', 'kick', 'snare', 'hihat',
 ];
 
-const pickAuditionLane = (tracks: Track[]): Track | null => {
+export interface SessionAuditionTokens {
+  type: InstrumentType | null;
+  tokens: CapturedNoteToken[];
+}
+
+export const pickAuditionLane = (tracks: Track[]): Track | null => {
   for (const type of AUDITION_LANE_PREFERENCE) {
     const candidate = tracks.find((track) => (
       track.type === type
@@ -62,7 +67,7 @@ const pickAuditionLane = (tracks: Track[]): Track | null => {
   )) ?? null;
 };
 
-const buildAuditionTokens = (track: Track | null, stepsPerPattern: number): CapturedNoteToken[] => {
+export const buildAuditionTokens = (track: Track | null, stepsPerPattern: number): CapturedNoteToken[] => {
   if (!track) return [];
   const tokens: CapturedNoteToken[] = [];
   const pattern = track.patterns[0] ?? [];
@@ -123,3 +128,19 @@ const PREVIEW_CACHE: Record<SessionTemplateId, TemplatePreview> = SESSION_TEMPLA
 export const getTemplatePreview = (templateId: SessionTemplateId): TemplatePreview => (
   PREVIEW_CACHE[templateId]
 );
+
+/**
+ * Same audition-extraction routine the starter scenes use, but
+ * generalised so any session (e.g. a saved scoresheet) can be
+ * previewed without a template id.
+ */
+export const buildSessionAudition = (
+  tracks: Track[],
+  stepsPerPattern: number,
+): SessionAuditionTokens => {
+  const lane = pickAuditionLane(tracks);
+  return {
+    type: lane?.type ?? null,
+    tokens: buildAuditionTokens(lane, stepsPerPattern),
+  };
+};

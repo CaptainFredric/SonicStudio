@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react';
-import { BookOpen, Check, FolderOpen, Pencil, Plus, Trash2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { BookOpen, Check, FolderOpen, Pencil, Play, Plus, Square, Trash2 } from 'lucide-react';
 
+import { schedulePreview, type PreviewSchedule } from '../../audio/captureStringPreview';
 import { useAudio } from '../../context/AudioContext';
+import { buildSessionAudition } from '../../services/templatePreview';
 
 const formatRelative = (iso: string): string => {
   try {
@@ -24,6 +26,7 @@ const formatRelative = (iso: string): string => {
 
 export const ScoresheetsPanel = () => {
   const {
+    auditionInstrumentNote,
     deleteScoresheet,
     loadScoresheet,
     projectName,
@@ -31,6 +34,50 @@ export const ScoresheetsPanel = () => {
     saveScoresheet,
     scoresheets,
   } = useAudio();
+  const previewRef = useRef<PreviewSchedule | null>(null);
+  const [previewingId, setPreviewingId] = useState<string | null>(null);
+
+  useEffect(() => () => {
+    previewRef.current?.cancel();
+    previewRef.current = null;
+  }, []);
+
+  const stopPreview = () => {
+    previewRef.current?.cancel();
+    previewRef.current = null;
+    setPreviewingId(null);
+  };
+
+  const startPreview = (sheetId: string, sheet: typeof scoresheets[number]) => {
+    if (!auditionInstrumentNote) return;
+    const audition = buildSessionAudition(
+      sheet.session.project.tracks,
+      sheet.session.project.transport.stepsPerPattern,
+    );
+    if (!audition.type || audition.tokens.length === 0) return;
+    stopPreview();
+    const type = audition.type;
+    setPreviewingId(sheetId);
+    previewRef.current = schedulePreview(
+      audition.tokens,
+      (note, velocity) => { void auditionInstrumentNote(type, note, velocity); },
+      {
+        stepMs: 160,
+        onComplete: () => {
+          previewRef.current = null;
+          setPreviewingId((current) => (current === sheetId ? null : current));
+        },
+      },
+    );
+  };
+
+  const togglePreview = (sheetId: string, sheet: typeof scoresheets[number]) => {
+    if (previewingId === sheetId) {
+      stopPreview();
+      return;
+    }
+    startPreview(sheetId, sheet);
+  };
   const [draftName, setDraftName] = useState(projectName);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState('');
@@ -136,6 +183,19 @@ export const ScoresheetsPanel = () => {
                 </div>
               </div>
               <div className="flex items-center gap-1">
+                <button
+                  aria-label={previewingId === sheet.id ? `Stop preview of ${sheet.name}` : `Preview ${sheet.name}`}
+                  aria-pressed={previewingId === sheet.id}
+                  className="ghost-icon-button flex h-7 w-7 items-center justify-center"
+                  data-active={previewingId === sheet.id ? 'true' : 'false'}
+                  onClick={() => togglePreview(sheet.id, sheet)}
+                  title={previewingId === sheet.id ? 'Stop preview' : 'Hear a quick reference loop without loading the session'}
+                  type="button"
+                >
+                  {previewingId === sheet.id
+                    ? <Square className="h-3 w-3 fill-current" />
+                    : <Play className="h-3 w-3 fill-current" />}
+                </button>
                 <button
                   aria-label={`Open scoresheet ${sheet.name}`}
                   className="ghost-icon-button flex h-7 w-7 items-center justify-center"
