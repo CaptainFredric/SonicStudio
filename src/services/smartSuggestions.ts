@@ -260,8 +260,8 @@ export const computeSmartSuggestions = (tracks: Track[]): SmartSuggestion[] => {
   for (const next of nextChords.slice(0, 2)) {
     suggestions.push({
       id: `next-chord-${next.id}`,
-      title: `Try ${next.label} next`,
-      detail: `Common move from your current chord. Saves as a single ${next.numeral} string queued for the next tap.`,
+      title: `Try ${next.numeral} (${next.label}) next`,
+      detail: 'Common move from your current chord. Saves as a single-chord string queued for the next tap.',
       tone: 'tip',
       action: {
         kind: 'save-and-queue-string',

@@ -23,6 +23,7 @@ import { engine } from '../audio/ToneEngine';
 import { playSupersonicToggleSound } from '../audio/uiSounds';
 import { AudioHealthDot } from './AudioHealthDot';
 import { KeyTag } from './KeyTag';
+import { TransportElapsedTag } from './TransportElapsedTag';
 import { useAudio } from '../context/AudioContext';
 import {
   MASTER_PRESET_DEFINITIONS,
@@ -571,6 +572,7 @@ export const TopBar = ({
                   <div className="flex items-center justify-between gap-2 px-1 pb-1 text-[9px] font-mono uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
                     <span>Transport</span>
                     <span className="flex items-center gap-2">
+                      <TransportElapsedTag />
                       <KeyTag />
                       <AudioHealthDot />
                     </span>

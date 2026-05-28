@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Pin } from 'lucide-react';
 
 import { useAudio } from '../context/AudioContext';
-import { getEffectiveKey } from '../services/keyDetector';
+import { detectKey, getEffectiveKey } from '../services/keyDetector';
 import { useManualKeyOverride, type ManualKeyOverride } from '../services/manualKeyOverride';
 
 const ROOT_OPTIONS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] as const;
@@ -18,6 +18,10 @@ export const KeyTag = ({ className = '' }: { className?: string }) => {
   const { tracks } = useAudio();
   const [override, setOverride] = useManualKeyOverride();
   const effective = useMemo(() => getEffectiveKey(tracks), [tracks, override]);
+  // Separate analytical reading so the picker can offer a one-tap
+  // "Pin to detected" even when the user has already pinned a
+  // different key.
+  const analytical = useMemo(() => detectKey(tracks), [tracks]);
   const [pickerOpen, setPickerOpen] = useState(false);
 
   if (effective.uncertain && !override) {
@@ -83,6 +87,17 @@ export const KeyTag = ({ className = '' }: { className?: string }) => {
               </button>
             ))}
           </div>
+          {!analytical.uncertain && (
+            <button
+              aria-label={`Pin to the detected key ${analytical.label}`}
+              className="control-chip h-7 min-h-[1.75rem] px-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+              disabled={override?.rootName === analytical.rootName && override?.mode === analytical.mode}
+              onClick={() => setOverride({ rootName: analytical.rootName, mode: analytical.mode } as ManualKeyOverride)}
+              type="button"
+            >
+              Pin to {analytical.label}
+            </button>
+          )}
           <button
             aria-label="Release the manual pin and resume auto detection"
             className="control-chip h-7 min-h-[1.75rem] px-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
