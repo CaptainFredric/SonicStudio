@@ -160,6 +160,50 @@ export interface ScoresheetGlance {
  * Fast read of a scoresheet's high-level stats for the picker. Lets
  * the user compare two saved sessions by eye without opening either.
  */
+export interface ScoresheetThumbnail {
+  /** Hex / CSS color from the most active lane. */
+  color: string;
+  /** One entry per step. 1 = note, 0 = rest. Clamped to 16 steps. */
+  steps: number[];
+}
+
+/**
+ * Build a tiny activity strip for the picker thumbnail. Picks the
+ * non-drum lane with the most notes (falling back to drums if the
+ * session has no melodic content), reads its pattern 0, and emits
+ * a 16-bucket array of on / off booleans. Cheap enough to compute
+ * per render in the picker.
+ */
+export const getScoresheetThumbnail = (sheet: Scoresheet): ScoresheetThumbnail | null => {
+  const tracks = sheet.session.project.tracks;
+  if (tracks.length === 0) return null;
+  type TrackRecord = (typeof tracks)[number];
+  const noteCountFor = (track: TrackRecord): number => (
+    Object.values(track.patterns).reduce(
+      (sum, stepGrid) => sum + stepGrid.reduce((inner, step) => inner + step.length, 0),
+      0,
+    )
+  );
+  const drumTypes = new Set(['kick', 'snare', 'hihat']);
+  const melodic = tracks.filter((track) => !drumTypes.has(track.type));
+  const ranked = (melodic.length > 0 ? melodic : tracks)
+    .map((track) => ({ track, count: noteCountFor(track) }))
+    .sort((a, b) => b.count - a.count);
+  const top = ranked[0];
+  if (!top || top.count === 0) return null;
+
+  const pattern = top.track.patterns[0] ?? [];
+  const sampleCount = Math.min(16, pattern.length || 16);
+  const stride = Math.max(1, Math.floor(pattern.length / sampleCount));
+  const steps: number[] = [];
+  for (let bucket = 0; bucket < sampleCount; bucket += 1) {
+    const stepIndex = bucket * stride;
+    const step = pattern[stepIndex];
+    steps.push(step && step.length > 0 ? 1 : 0);
+  }
+  return { color: top.track.color, steps };
+};
+
 export const summarizeScoresheet = (sheet: Scoresheet): ScoresheetGlance => {
   const project = sheet.session.project;
   let noteCount = 0;

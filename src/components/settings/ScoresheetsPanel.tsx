@@ -3,7 +3,7 @@ import { BookOpen, Check, FolderOpen, Pencil, Play, Plus, Square, Trash2 } from 
 
 import { schedulePreview, type PreviewSchedule } from '../../audio/captureStringPreview';
 import { useAudio } from '../../context/AudioContext';
-import { summarizeScoresheet } from '../../services/scoresheets';
+import { getScoresheetThumbnail, summarizeScoresheet } from '../../services/scoresheets';
 import { buildSessionAudition } from '../../services/templatePreview';
 
 const formatRelative = (iso: string): string => {
@@ -193,6 +193,29 @@ export const ScoresheetsPanel = () => {
                       <span>{glance.noteCount} {glance.noteCount === 1 ? 'note' : 'notes'}</span>
                       <span aria-hidden="true" className="text-[var(--border-soft)]">·</span>
                       <span>{glance.bars} {glance.bars === 1 ? 'bar' : 'bars'}</span>
+                    </div>
+                  );
+                })()}
+                {(() => {
+                  const thumb = getScoresheetThumbnail(sheet);
+                  if (!thumb) return null;
+                  return (
+                    <div
+                      aria-label="Most active lane's pattern thumbnail"
+                      className="mt-2 flex h-2 w-full max-w-[180px] items-stretch gap-[1px]"
+                      role="img"
+                    >
+                      {thumb.steps.map((on, index) => (
+                        <span
+                          key={index}
+                          className="flex-1 rounded-[1px]"
+                          style={{
+                            background: on
+                              ? thumb.color
+                              : 'rgba(255,255,255,0.06)',
+                          }}
+                        />
+                      ))}
                     </div>
                   );
                 })()}
