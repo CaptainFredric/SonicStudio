@@ -197,6 +197,25 @@ export const TapToPlay = () => {
   const track = tracks.find((candidate) => candidate.id === selectedTrackId) ?? null;
   const [open, setOpen] = useState<boolean>(readInitialOpen);
   const [activeKey, setActiveKey] = useState<string | null>(null);
+  // Recent-note ghost trail: each entry holds the note name + the
+  // wall-clock millisecond it was played, so the keyboard can fade
+  // older entries out by age without a separate tick interval.
+  const [recentNotes, setRecentNotes] = useState<Array<{ note: string; playedAt: number }>>([]);
+  // Animation pulse so older ghost-trail entries fade smoothly.
+  const [, setGhostTick] = useState(0);
+  useEffect(() => {
+    if (recentNotes.length === 0) return undefined;
+    const id = window.setInterval(() => setGhostTick((value) => value + 1), 120);
+    return () => window.clearInterval(id);
+  }, [recentNotes.length]);
+  useEffect(() => {
+    if (recentNotes.length === 0) return undefined;
+    const id = window.setTimeout(() => {
+      const cutoff = Date.now() - 2400;
+      setRecentNotes((current) => current.filter((entry) => entry.playedAt >= cutoff));
+    }, 600);
+    return () => window.clearTimeout(id);
+  }, [recentNotes]);
   const [height, setHeight] = useState<number>(readInitialHeight);
   const [octaveShift, setOctaveShift] = useState<number>(readInitialOctaveShift);
   const [writeMode, setWriteMode] = useState<boolean>(readInitialWriteMode);
@@ -341,6 +360,10 @@ export const TapToPlay = () => {
         stampPlayedNote(note, 0.88);
       }
       setActiveKey(note);
+      setRecentNotes((current) => [
+        { note, playedAt: Date.now() },
+        ...current.filter((entry) => entry.note !== note),
+      ].slice(0, 12));
       const id = window.setTimeout(() => setActiveKey((current) => (current === note ? null : current)), 170);
       lastFlashRef.current = id;
     },
@@ -635,6 +658,29 @@ export const TapToPlay = () => {
             : 'Turn on Write to drop notes into the pattern from the keyboard.'}
         </span>
       </div>
+
+      {!isDrum && recentNotes.length > 0 && (
+        <div
+          aria-live="polite"
+          aria-label="Recently played notes"
+          className="flex flex-wrap items-center gap-1.5"
+        >
+          {recentNotes.map((entry) => {
+            const age = Math.max(0, Date.now() - entry.playedAt);
+            const opacity = Math.max(0, 1 - age / 2400);
+            if (opacity <= 0.02) return null;
+            return (
+              <span
+                key={`${entry.note}-${entry.playedAt}`}
+                className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--accent-strong)]"
+                style={{ opacity, transition: 'opacity 240ms linear' }}
+              >
+                {entry.note}
+              </span>
+            );
+          })}
+        </div>
+      )}
 
       {isDrum ? (
         <DrumPadStrip

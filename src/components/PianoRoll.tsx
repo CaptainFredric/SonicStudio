@@ -443,7 +443,7 @@ export const PianoRoll = () => {
     toggleStep(track.id, stepIndex, note);
   };
 
-  const paintStateRef = useRef<{ mode: 'add' | 'remove'; visited: Set<string>; lastClientX?: number; lastClientY?: number } | null>(null);
+  const paintStateRef = useRef<{ mode: 'add' | 'remove'; snapToKey: boolean; visited: Set<string>; lastClientX?: number; lastClientY?: number } | null>(null);
 
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
@@ -490,18 +490,27 @@ export const PianoRoll = () => {
     if (event.button !== 0) return;
     event.preventDefault();
     const mode: 'add' | 'remove' = hasNote ? 'remove' : 'add';
-    paintStateRef.current = { mode, visited: new Set([`${stepIndex}:${note}`]) };
-    handleGridToggle(stepIndex, note);
+    // Shift held at paint-start clamps every note placed during the
+    // gesture to the nearest in-key pitch. We resolve the snapped
+    // note here so removing a freshly-snapped note in the same paint
+    // stays consistent with the on-screen pitch the user just placed.
+    const snapToKey = mode === 'add' && event.shiftKey && !liveDetected.uncertain;
+    const placedNote = snapToKey ? snapNoteToKey(note, liveDetected) : note;
+    paintStateRef.current = { mode, snapToKey, visited: new Set([`${stepIndex}:${placedNote}`]) };
+    handleGridToggle(stepIndex, placedNote);
   };
 
   const handleCellPointerEnter = (stepIndex: number, note: string, hasNote: boolean) => {
     const state = paintStateRef.current;
     if (!state) return;
-    const key = `${stepIndex}:${note}`;
+    const placedNote = state.snapToKey && !liveDetected.uncertain
+      ? snapNoteToKey(note, liveDetected)
+      : note;
+    const key = `${stepIndex}:${placedNote}`;
     if (state.visited.has(key)) return;
     state.visited.add(key);
-    if (state.mode === 'add' && !hasNote) handleGridToggle(stepIndex, note);
-    else if (state.mode === 'remove' && hasNote) handleGridToggle(stepIndex, note);
+    if (state.mode === 'add' && !hasNote) handleGridToggle(stepIndex, placedNote);
+    else if (state.mode === 'remove' && hasNote) handleGridToggle(stepIndex, placedNote);
   };
 
   const handleSuperSonicPointerDown = (
@@ -1146,6 +1155,11 @@ export const PianoRoll = () => {
             <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
               Stamps at {selectedStepIndex !== null ? `step ${selectedStepIndex + 1}` : 'step 1'} · click any chord
             </span>
+            {!liveDetected.uncertain && (
+              <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+                Tip · Shift+paint snaps new notes to {liveDetected.label}
+              </span>
+            )}
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             {(chordMode === 'major' ? MAJOR_KEY_TRIADS : MINOR_KEY_TRIADS).map((triad) => (
