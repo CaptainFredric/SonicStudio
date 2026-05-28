@@ -131,6 +131,40 @@ export const loadScoresheet = (id: string): Scoresheet | null => (
   listScoresheets().find((sheet) => sheet.id === id) ?? null
 );
 
+export interface ScoresheetGlance {
+  bpm: number;
+  trackCount: number;
+  noteCount: number;
+  bars: number;
+}
+
+/**
+ * Fast read of a scoresheet's high-level stats for the picker. Lets
+ * the user compare two saved sessions by eye without opening either.
+ */
+export const summarizeScoresheet = (sheet: Scoresheet): ScoresheetGlance => {
+  const project = sheet.session.project;
+  let noteCount = 0;
+  for (const track of project.tracks) {
+    for (const stepGrid of Object.values(track.patterns)) {
+      for (const step of stepGrid) {
+        noteCount += step.length;
+      }
+    }
+  }
+  const songLengthSteps = project.arrangerClips.reduce(
+    (maxBeat, clip) => Math.max(maxBeat, clip.startBeat + clip.beatLength),
+    project.transport.stepsPerPattern,
+  );
+  const stepsPerPattern = Math.max(1, project.transport.stepsPerPattern);
+  return {
+    bpm: Math.round(project.transport.bpm),
+    trackCount: project.tracks.length,
+    noteCount,
+    bars: Math.max(1, Math.round(songLengthSteps / stepsPerPattern)),
+  };
+};
+
 export const clearAllScoresheets = (): void => {
   if (typeof window === 'undefined') return;
   try {

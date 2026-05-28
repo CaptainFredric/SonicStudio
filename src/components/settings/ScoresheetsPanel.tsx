@@ -3,6 +3,7 @@ import { BookOpen, Check, FolderOpen, Pencil, Play, Plus, Square, Trash2 } from 
 
 import { schedulePreview, type PreviewSchedule } from '../../audio/captureStringPreview';
 import { useAudio } from '../../context/AudioContext';
+import { summarizeScoresheet } from '../../services/scoresheets';
 import { buildSessionAudition } from '../../services/templatePreview';
 
 const formatRelative = (iso: string): string => {
@@ -181,6 +182,20 @@ export const ScoresheetsPanel = () => {
                     </>
                   )}
                 </div>
+                {(() => {
+                  const glance = summarizeScoresheet(sheet);
+                  return (
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+                      <span>{glance.bpm} BPM</span>
+                      <span aria-hidden="true" className="text-[var(--border-soft)]">·</span>
+                      <span>{glance.trackCount} {glance.trackCount === 1 ? 'lane' : 'lanes'}</span>
+                      <span aria-hidden="true" className="text-[var(--border-soft)]">·</span>
+                      <span>{glance.noteCount} {glance.noteCount === 1 ? 'note' : 'notes'}</span>
+                      <span aria-hidden="true" className="text-[var(--border-soft)]">·</span>
+                      <span>{glance.bars} {glance.bars === 1 ? 'bar' : 'bars'}</span>
+                    </div>
+                  );
+                })()}
               </div>
               <div className="flex items-center gap-1">
                 <button
