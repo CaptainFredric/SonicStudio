@@ -219,7 +219,26 @@ export const PianoRoll = () => {
   // Scale lock keeps the palette glued to the detected key as the
   // session evolves so stamps stay diatonic by construction.
   const initialDetected = useMemo(() => getEffectiveKey(tracks), [tracks]);
-  const [scaleLocked, setScaleLocked] = useState(false);
+  const [scaleLocked, setScaleLocked] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try {
+      return window.localStorage.getItem('sonicstudio:piano-roll:scale-locked:v1') === '1';
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      if (scaleLocked) {
+        window.localStorage.setItem('sonicstudio:piano-roll:scale-locked:v1', '1');
+      } else {
+        window.localStorage.removeItem('sonicstudio:piano-roll:scale-locked:v1');
+      }
+    } catch {
+      /* storage may be unavailable; ignore */
+    }
+  }, [scaleLocked]);
   const [chordKey, setChordKey] = useState<KeyName>(() => (
     initialDetected.uncertain ? 'C' : (initialDetected.rootName as KeyName)
   ));
@@ -414,6 +433,21 @@ export const PianoRoll = () => {
 
     return NOTE_WINDOWS[noteWindow];
   }, [activeNoteBounds, autoFitActiveNotes, focusSelectedNote, noteWindow, selectedNote, track.type]);
+
+  // Pitch classes that fit the session's effective key, used to tint
+  // grid rows whose pitch falls inside the diatonic set. Null when
+  // the key is uncertain so the grid keeps its neutral look.
+  const inKeyPitchClasses = useMemo<Set<number> | null>(() => {
+    if (liveDetected.uncertain) return null;
+    const degrees = liveDetected.mode === 'major' ? [0, 2, 4, 5, 7, 9, 11] : [0, 2, 3, 5, 7, 8, 10];
+    return new Set(degrees.map((degree) => (liveDetected.root + degree) % 12));
+  }, [liveDetected]);
+
+  const rowPitchClassFromName = (note: string): number | null => {
+    const match = note.match(/^([A-G])(#?)/);
+    if (!match) return null;
+    return PITCH_CLASS_INDEX_FROM_NAME[`${match[1]}${match[2]}`] ?? null;
+  };
 
   const selectStep = (stepIndex: number) => {
     setSelectedStepIndex(stepIndex);
@@ -1233,6 +1267,8 @@ export const PianoRoll = () => {
 
             {renderNotes.map((note, rowIndex) => {
               const isBlackKey = note.includes('#');
+              const rowPc = isDrum ? null : rowPitchClassFromName(note);
+              const isInKey = inKeyPitchClasses !== null && rowPc !== null && inKeyPitchClasses.has(rowPc);
 
               return (
                 <div className="flex border-b border-[var(--border-soft)]/80 last:border-b-0" key={note} style={{ height: `${rowHeight}px` }}>
@@ -1243,7 +1279,16 @@ export const PianoRoll = () => {
                       backgroundImage: `linear-gradient(rgba(255,255,255,${isBlackKey ? '0.02' : '0.05'}),rgba(255,255,255,${isBlackKey ? '0.02' : '0.05'}))`,
                     }}
                   >
-                    <span>{isDrum ? 'HIT' : note}</span>
+                    <span className="flex items-center gap-1.5">
+                      {isInKey && (
+                        <span
+                          aria-hidden="true"
+                          className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--accent-strong)]"
+                          title={`In ${liveDetected.label}`}
+                        />
+                      )}
+                      <span>{isDrum ? 'HIT' : note}</span>
+                    </span>
                     {!isDrum && note.startsWith('C') && (
                       <span className="text-[9px] text-[var(--text-tertiary)]">oct</span>
                     )}

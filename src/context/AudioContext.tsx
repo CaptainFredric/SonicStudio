@@ -592,7 +592,7 @@ export const AudioProvider = ({
     publishNotice(
       'success',
       'Training corpus saved',
-      `${summary.trackCount} ${summary.trackCount === 1 ? 'track' : 'tracks'}, ${summary.noteCount} ${summary.noteCount === 1 ? 'note' : 'notes'}, ${summary.patternCount} ${summary.patternCount === 1 ? 'pattern' : 'patterns'}.`,
+      `${summary.trackCount} ${summary.trackCount === 1 ? 'track' : 'tracks'}, ${summary.noteCount} ${summary.noteCount === 1 ? 'note' : 'notes'}, ${summary.patternCount} ${summary.patternCount === 1 ? 'pattern' : 'patterns'}. README.md follows.`,
     );
   }, [project]);
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { createBlankProject, createTwilightFrameProject } from '../project/schema';
-import { buildTrainingCorpus, summarizeTrainingCorpus } from './aiTrainingCorpus';
+import { buildTrainingCorpus, buildTrainingCorpusReadme, summarizeTrainingCorpus } from './aiTrainingCorpus';
 
 describe('aiTrainingCorpus', () => {
   it('emits the V3 envelope and copies session-level metadata from the project', () => {
@@ -75,6 +75,19 @@ describe('aiTrainingCorpus', () => {
       expect(trainingTrack.stats.density_per_step).toBeGreaterThanOrEqual(0);
       expect(trainingTrack.stats.density_per_step).toBeLessThanOrEqual(1);
     });
+  });
+});
+
+describe('buildTrainingCorpusReadme', () => {
+  it('documents the schema and references the session name', () => {
+    const project = createTwilightFrameProject();
+    const corpus = buildTrainingCorpus(project);
+    const readme = buildTrainingCorpusReadme(corpus);
+    expect(readme).toContain('# SonicStudio training corpus');
+    expect(readme).toContain(project.metadata.name);
+    expect(readme).toContain('Schema version: `3`');
+    expect(readme).toContain('detected_key');
+    expect(readme).toContain('Conventions');
   });
 });
 

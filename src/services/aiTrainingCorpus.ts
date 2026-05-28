@@ -346,24 +346,85 @@ const slugify = (input: string): string => (
 );
 
 /**
+ * Build a README.md companion file that documents the corpus schema
+ * so a downstream pipeline maintainer can read the JSON without
+ * digging through this source file. Kept inline so the export
+ * always matches the V the data was emitted with.
+ */
+export const buildTrainingCorpusReadme = (corpus: TrainingCorpusV3): string => {
+  const generatedAt = new Date(corpus.exported_at).toISOString();
+  const overrideLine = corpus.detected_key.manual_override
+    ? `Manual key pin at export time: \`${corpus.detected_key.manual_override.root_name} ${corpus.detected_key.manual_override.mode}\``
+    : 'No manual key pin at export time. The detected_key field is the Krumhansl-Schmuckler reading.';
+  return [
+    `# SonicStudio training corpus`,
+    ``,
+    `Generated ${generatedAt} from session **${corpus.session_name}**.`,
+    ``,
+    `Schema version: \`${corpus.version}\``,
+    ``,
+    `## Top-level fields`,
+    ``,
+    `- \`version\`: integer schema version. Increment when the shape changes.`,
+    `- \`source\`: always \`"sonicstudio"\`. Use to gate ingestion to this format.`,
+    `- \`exported_at\`: ISO timestamp of the export.`,
+    `- \`session_name\`: human-readable name from the studio session.`,
+    `- \`tempo_bpm\`: integer BPM of the transport at export time.`,
+    `- \`steps_per_pattern\`: how many 16th steps make up one pattern bar.`,
+    `- \`pattern_count\`: number of pattern banks the session uses.`,
+    `- \`transport_mode\`: \`"PATTERN"\` or \`"SONG"\`. Pattern mode loops the current bank; song mode follows the arrangement.`,
+    `- \`detected_key\`: the live Krumhansl-Schmuckler key reading. \`manual_override\` is populated when the user pinned a key by hand.`,
+    `- \`tracks\`: per-lane metadata, including color, voice, and pre-rolled stats (note count, mean velocity, octave range, density per step).`,
+    `- \`notes\`: flat list of every note across every lane, with \`track_id\`, \`pattern_index\`, \`step\`, \`note\`, \`velocity\`, \`gate\`.`,
+    `- \`pattern_stats\`: per-pattern note count and active track ids.`,
+    `- \`song\`: arrangement clips, one per (lane × pattern) placement.`,
+    `- \`markers\`: timeline markers placed on song view.`,
+    ``,
+    `## Notes on the detected_key field`,
+    ``,
+    overrideLine,
+    ``,
+    `\`confidence\` is normalized to 0..1; values near 1 are strong matches, near 0 are weak. \`uncertain\` is true when the session had too few notes for a confident call.`,
+    ``,
+    `## Conventions`,
+    ``,
+    `- Pitch class indices count from C (\`0\`) to B (\`11\`).`,
+    `- Velocities run 0..1, never 0..127.`,
+    `- Gates are step-lengths held (so a \`gate\` of 2 spans two 16th steps).`,
+    `- Empty steps are not omitted from the grid — they appear as empty arrays inside each track's pattern.`,
+    ``,
+  ].join('\n');
+};
+
+/**
  * Build the corpus for the current project and trigger a browser
- * download as JSON. Filename derives from the session name.
+ * download as JSON. Filename derives from the session name. Also
+ * triggers a companion README.md so a downstream pipeline reader
+ * can see the schema without opening this file.
  */
 export const downloadTrainingCorpus = (project: Project): void => {
   if (typeof window === 'undefined' || typeof document === 'undefined') {
     return;
   }
   const corpus = buildTrainingCorpus(project);
+  const slug = slugify(corpus.session_name);
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.style.display = 'none';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.setTimeout(() => URL.revokeObjectURL(url), 250);
+  };
   const json = serializeTrainingCorpus(corpus);
-  const blob = new Blob([json], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${slugify(corpus.session_name)}-training-corpus.json`;
-  a.style.display = 'none';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  // Give the browser a tick to start the download before revoking.
-  window.setTimeout(() => URL.revokeObjectURL(url), 250);
+  downloadBlob(new Blob([json], { type: 'application/json' }), `${slug}-training-corpus.json`);
+  // Defer the README a tick so Chrome / Safari don't merge the two
+  // sequential downloads into a "block multiple downloads?" prompt.
+  window.setTimeout(() => {
+    const readme = buildTrainingCorpusReadme(corpus);
+    downloadBlob(new Blob([readme], { type: 'text/markdown' }), `${slug}-training-corpus.README.md`);
+  }, 400);
 };
