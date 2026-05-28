@@ -140,7 +140,18 @@ export const ScoresheetsPanel = () => {
           {scoresheets.map((sheet) => (
             <div
               key={sheet.id}
-              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-2 transition-colors hover:bg-[rgba(255,255,255,0.04)]"
+              className="grid cursor-grab grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-2 transition-colors hover:bg-[rgba(255,255,255,0.04)] active:cursor-grabbing"
+              draggable={renamingId !== sheet.id}
+              onDragStart={(event) => {
+                if (renamingId === sheet.id) {
+                  event.preventDefault();
+                  return;
+                }
+                event.dataTransfer.setData('application/x-sonicstudio-scoresheet', sheet.id);
+                event.dataTransfer.setData('text/plain', sheet.name);
+                event.dataTransfer.effectAllowed = 'copy';
+              }}
+              title="Drag onto a lane to apply this scoresheet's most active melody to that lane."
             >
               <div className="min-w-0">
                 {renamingId === sheet.id ? (

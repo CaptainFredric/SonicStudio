@@ -1,8 +1,33 @@
 import { useEffect, useRef, useState } from 'react';
-import { Mic2, X } from 'lucide-react';
+import { History, Mic2, X } from 'lucide-react';
 
 import { captureNoteString } from '../services/noteStringLibrary';
 import { setQueuedNoteStringId } from '../services/noteStringQueue';
+
+const HISTORY_STORAGE_KEY = 'sonicstudio:quick-capture-history:v1';
+const MAX_HISTORY = 5;
+
+const readHistory = (): string[] => {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(HISTORY_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((value): value is string => typeof value === 'string').slice(0, MAX_HISTORY);
+  } catch {
+    return [];
+  }
+};
+
+const writeHistory = (entries: string[]): void => {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(entries.slice(0, MAX_HISTORY)));
+  } catch {
+    /* storage may be unavailable; ignore */
+  }
+};
 
 interface QuickCaptureBarProps {
   open: boolean;
@@ -19,10 +44,12 @@ export const QuickCaptureBar = ({ open, onClose, onNotify }: QuickCaptureBarProp
   const [draftName, setDraftName] = useState('');
   const [draftRaw, setDraftRaw] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [history, setHistory] = useState<string[]>(() => readHistory());
 
   useEffect(() => {
     if (!open) return;
     setError(null);
+    setHistory(readHistory());
     // Defer focus so the dialog has actually painted before we focus.
     const id = window.setTimeout(() => inputRef.current?.focus(), 40);
     return () => window.clearTimeout(id);
@@ -50,6 +77,14 @@ export const QuickCaptureBar = ({ open, onClose, onNotify }: QuickCaptureBarProp
     }
     const saved = updated[0];
     setQueuedNoteStringId(saved.id);
+    // Remember this entry so the next Alt+C can recall it. Dedupe so
+    // a user retrying the same line doesn't fill the history with it.
+    const trimmedRaw = draftRaw.trim();
+    if (trimmedRaw) {
+      const nextHistory = [trimmedRaw, ...history.filter((entry) => entry !== trimmedRaw)].slice(0, MAX_HISTORY);
+      writeHistory(nextHistory);
+      setHistory(nextHistory);
+    }
     onNotify?.(
       'success',
       'Saved and queued',
@@ -127,6 +162,30 @@ export const QuickCaptureBar = ({ open, onClose, onNotify }: QuickCaptureBarProp
           {error && (
             <div className="text-[11px] text-[var(--accent-warn,#ff9466)]" role="alert">
               {error}
+            </div>
+          )}
+          {history.length > 0 && (
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              <span className="inline-flex items-center gap-1 font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+                <History className="h-3 w-3" />
+                Recent
+              </span>
+              {history.map((entry, index) => (
+                <button
+                  aria-label={`Reuse capture "${entry}"`}
+                  className="control-chip h-7 min-h-[1.75rem] inline-flex items-center px-2 font-mono text-[10px] tracking-[0.06em]"
+                  key={`${entry}-${index}`}
+                  onClick={() => {
+                    setDraftRaw(entry);
+                    setError(null);
+                    inputRef.current?.focus();
+                  }}
+                  title={`Click to fill: ${entry}`}
+                  type="button"
+                >
+                  {entry.length > 24 ? `${entry.slice(0, 22)}…` : entry}
+                </button>
+              ))}
             </div>
           )}
         </div>

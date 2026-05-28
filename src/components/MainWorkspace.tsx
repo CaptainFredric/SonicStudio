@@ -35,8 +35,11 @@ import { FACTORY_LOOP_LIBRARY } from '../services/loopLibrary';
 import {
   loadCapturedNoteStrings,
   noteStringToPatternSegment,
+  saveCapturedNoteStringFromTokens,
+  tokensFromPatternSteps,
 } from '../services/noteStringLibrary';
 import { useQueuedNoteStringId } from '../services/noteStringQueue';
+import { listScoresheets, getScoresheetThumbnail } from '../services/scoresheets';
 import {
   buildSessionPlayerPatternDecks,
   buildSessionPlayerSegments,
@@ -1363,6 +1366,33 @@ export const MainWorkspace = () => {
     return true;
   }, [applySegmentToTrack, setSelectedTrackId, tracks]);
 
+  // Drop a saved scoresheet onto a lane: find the scoresheet's most
+  // active melodic lane, save its pattern 0 as a CapturedNoteString
+  // on the shelf, and apply that string to the target lane. The
+  // current session is untouched apart from the target lane.
+  const handleScoresheetMelodyDrop = useCallback((scoresheetId: string, trackId: string): boolean => {
+    if (!scoresheetId) return false;
+    const sheet = listScoresheets().find((entry) => entry.id === scoresheetId);
+    if (!sheet) return false;
+    const thumb = getScoresheetThumbnail(sheet);
+    if (!thumb) return false;
+    const sourceTracks = sheet.session.project.tracks;
+    const sourceTrack = sourceTracks.find((entry) => entry.color === thumb.color)
+      ?? sourceTracks.find((entry) => !['kick', 'snare', 'hihat'].includes(entry.type))
+      ?? sourceTracks[0];
+    if (!sourceTrack) return false;
+    const pattern = sourceTrack.patterns[0] ?? [];
+    const tokens = tokensFromPatternSteps(pattern);
+    if (tokens.length === 0) return false;
+    const updated = saveCapturedNoteStringFromTokens({
+      name: `${sheet.name} · ${sourceTrack.name}`,
+      tokens,
+      source: 'typed',
+    });
+    if (!updated || !updated[0]) return false;
+    return handleNoteStringDrop(updated[0].id, trackId);
+  }, [handleNoteStringDrop]);
+
   const handleApplyPatternSegment = (segment: PatternSegment) => {
     if (!selectedTrack) {
       return;
@@ -2227,7 +2257,10 @@ export const MainWorkspace = () => {
                           }}
                           onPointerLeave={clearLaneHoverAudition}
                           onDragEnter={(event) => {
-                            if (event.dataTransfer.types.includes('application/x-sonicstudio-note-string')) {
+                            if (
+                              event.dataTransfer.types.includes('application/x-sonicstudio-note-string')
+                              || event.dataTransfer.types.includes('application/x-sonicstudio-scoresheet')
+                            ) {
                               event.preventDefault();
                               event.currentTarget.dataset.dropTarget = 'note-string';
                             }
@@ -2238,17 +2271,28 @@ export const MainWorkspace = () => {
                             }
                           }}
                           onDragOver={(event) => {
-                            if (event.dataTransfer.types.includes('application/x-sonicstudio-note-string')) {
+                            if (
+                              event.dataTransfer.types.includes('application/x-sonicstudio-note-string')
+                              || event.dataTransfer.types.includes('application/x-sonicstudio-scoresheet')
+                            ) {
                               event.preventDefault();
                               event.dataTransfer.dropEffect = 'copy';
                             }
                           }}
                           onDrop={(event) => {
                             const stringId = event.dataTransfer.getData('application/x-sonicstudio-note-string');
-                            if (!stringId) return;
-                            event.preventDefault();
-                            delete event.currentTarget.dataset.dropTarget;
-                            handleNoteStringDrop(stringId, track.id);
+                            if (stringId) {
+                              event.preventDefault();
+                              delete event.currentTarget.dataset.dropTarget;
+                              handleNoteStringDrop(stringId, track.id);
+                              return;
+                            }
+                            const scoresheetId = event.dataTransfer.getData('application/x-sonicstudio-scoresheet');
+                            if (scoresheetId) {
+                              event.preventDefault();
+                              delete event.currentTarget.dataset.dropTarget;
+                              handleScoresheetMelodyDrop(scoresheetId, track.id);
+                            }
                           }}
                           onKeyDown={(event) => {
                             if (event.key === 'Enter' || event.key === ' ') {
