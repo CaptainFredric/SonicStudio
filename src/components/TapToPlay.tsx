@@ -3,6 +3,7 @@ import { ChevronDown, ChevronUp, GripHorizontal, Hand, Minus, Plus, Power } from
 
 import { engine } from '../audio/ToneEngine';
 import { useAudio, usePlaybackStep } from '../context/AudioContext';
+import { getEffectiveKey } from '../services/keyDetector';
 import {
   captureSuggestionControlsToTrackParams,
   captureSuggestionControlsToTrackSource,
@@ -121,6 +122,29 @@ const buildWhiteKeys = (range: Octave) => {
   return result;
 };
 
+const PITCH_CLASS_INDEX: Record<string, number> = {
+  C: 0, 'C#': 1, D: 2, 'D#': 3, E: 4, F: 5, 'F#': 6, G: 7, 'G#': 8, A: 9, 'A#': 10, B: 11,
+};
+const MAJOR_DEGREES = [0, 2, 4, 5, 7, 9, 11];
+const MINOR_DEGREES = [0, 2, 3, 5, 7, 8, 10];
+
+// Resolve the effective key (auto-detect or manual pin) and return
+// the diatonic pitch-class set so the keyboard can tint in-key keys.
+// Returns null when the key reading is uncertain so the keyboard
+// falls back to a neutral look on a fresh blank session.
+const buildInKeyPitchSet = (tracks: Parameters<typeof getEffectiveKey>[0]): Set<number> | null => {
+  const key = getEffectiveKey(tracks);
+  if (key.uncertain) return null;
+  const degrees = key.mode === 'major' ? MAJOR_DEGREES : MINOR_DEGREES;
+  return new Set(degrees.map((degree) => (key.root + degree) % 12));
+};
+
+const pitchClassFromNote = (note: string): number | null => {
+  const match = note.match(/^([A-G])(#?)/);
+  if (!match) return null;
+  return PITCH_CLASS_INDEX[`${match[1]}${match[2]}`] ?? null;
+};
+
 const DRUM_PADS = [
   { label: 'Soft', velocity: 0.55, qwerty: 'a' },
   { label: 'Mid', velocity: 0.75, qwerty: 's' },
@@ -224,6 +248,10 @@ export const TapToPlay = () => {
     return { ...base, startOctave: Math.max(0, Math.min(8, base.startOctave + octaveShift)) };
   }, [track, octaveShift]);
   const whiteKeys = useMemo(() => buildWhiteKeys(octaveRange), [octaveRange]);
+  // Pitch classes that fit the session's effective key. Tap-to-play
+  // uses this to tint in-key keys so the user can pick safe notes
+  // visually without reading them off the chord palette.
+  const inKeyPitchClasses = useMemo(() => buildInKeyPitchSet(tracks), [tracks]);
   const selectedRecordedPreset = useMemo(() => (
     selectedRecordedPresetId
       ? recordedNoteLibrary.find((preset) => preset.id === selectedRecordedPresetId) ?? null
@@ -619,6 +647,7 @@ export const TapToPlay = () => {
         <KeyboardStrip
           accent={track.color}
           active={activeKey}
+          inKeyPitchClasses={inKeyPitchClasses}
           onKey={playKey}
           whiteKeys={whiteKeys}
           height={height}
@@ -663,16 +692,23 @@ const TrackPicker = ({
 const KeyboardStrip = ({
   accent,
   active,
+  inKeyPitchClasses,
   onKey,
   whiteKeys,
   height,
 }: {
   accent: string;
   active: string | null;
+  inKeyPitchClasses: Set<number> | null;
   onKey: (note: string) => void;
   whiteKeys: Array<{ note: string; octave: number; whiteIndex: number; qwerty?: string }>;
   height: number;
 }) => {
+  const isInKey = (note: string): boolean => {
+    if (!inKeyPitchClasses) return false;
+    const pc = pitchClassFromNote(note);
+    return pc !== null && inKeyPitchClasses.has(pc);
+  };
   return (
     <div
       className="relative w-full select-none"
@@ -684,10 +720,11 @@ const KeyboardStrip = ({
         {whiteKeys.map((wk) => {
           const isActive = active === wk.note;
           const isC = wk.note.startsWith('C');
+          const inKey = isInKey(wk.note);
           return (
             <button
               key={wk.note}
-              className="relative flex-1 border-l first:border-l-0 border-[var(--border-soft)] bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.08)] transition-colors"
+              className={`relative flex-1 border-l first:border-l-0 border-[var(--border-soft)] transition-colors ${inKey ? 'bg-[rgba(114,217,255,0.10)] hover:bg-[rgba(114,217,255,0.18)]' : 'bg-[rgba(255,255,255,0.04)] hover:bg-[rgba(255,255,255,0.08)]'}`}
               onMouseDown={(event) => {
                 event.preventDefault();
                 onKey(wk.note);
@@ -700,7 +737,7 @@ const KeyboardStrip = ({
                 background: isActive ? accent : undefined,
               }}
               type="button"
-              title={`${wk.note}${wk.qwerty ? ` (${wk.qwerty.toUpperCase()})` : ''}`}
+              title={`${wk.note}${wk.qwerty ? ` (${wk.qwerty.toUpperCase()})` : ''}${inKey ? ' · in key' : ''}`}
             >
               <span
                 className="pointer-events-none absolute bottom-1 left-1/2 -translate-x-1/2 font-mono text-[9px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]"
@@ -720,10 +757,11 @@ const KeyboardStrip = ({
           const left = `${((i + 1) / whiteKeys.length) * 100}%`;
           const blackNote = `${black}${wk.octave}`;
           const isActive = active === blackNote;
+          const inKey = isInKey(blackNote);
           return (
             <button
               key={blackNote}
-              className="pointer-events-auto absolute top-0 z-10 -translate-x-1/2 border border-[var(--border-strong)] bg-[#0a0f15] hover:bg-[#0f1620] transition-colors"
+              className={`pointer-events-auto absolute top-0 z-10 -translate-x-1/2 border transition-colors ${inKey ? 'border-[rgba(114,217,255,0.55)] bg-[#0d1a25] hover:bg-[#15293a]' : 'border-[var(--border-strong)] bg-[#0a0f15] hover:bg-[#0f1620]'}`}
               onMouseDown={(event) => {
                 event.preventDefault();
                 onKey(blackNote);
@@ -739,7 +777,7 @@ const KeyboardStrip = ({
                 background: isActive ? accent : undefined,
               }}
               type="button"
-              title={blackNote}
+              title={`${blackNote}${inKey ? ' · in key' : ''}`}
             />
           );
         })}
