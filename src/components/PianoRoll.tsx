@@ -6,6 +6,7 @@ import {
   Eraser,
   LayoutGrid,
   Layers3,
+  ListPlus,
   Minus,
   Music,
   Plus,
@@ -17,6 +18,8 @@ import {
 
 import { useAudio, usePlaybackStep } from '../context/AudioContext';
 import { detectKey, getEffectiveKey } from '../services/keyDetector';
+import { saveCapturedNoteStringFromTokens, tokensFromPatternSteps } from '../services/noteStringLibrary';
+import { setQueuedNoteStringId } from '../services/noteStringQueue';
 import { MAX_STEPS_PER_PATTERN, type NoteEvent } from '../project/schema';
 import { TrackIcon, getTrackPersonality } from '../utils/trackPersonality';
 import {
@@ -992,6 +995,25 @@ export const PianoRoll = () => {
             )}
             <ToolButton label="Vary note volume. Adds a touch of random loudness so the pattern feels less mechanical." onClick={() => humanizePattern(track.id)}>
               <Shuffle className="h-4 w-4" />
+            </ToolButton>
+            <ToolButton
+              label="Save this pattern to the capture shelf as a note string. Drag it onto any other lane to reuse the melody."
+              onClick={() => {
+                const steps = track.patterns[currentPattern] ?? [];
+                const tokens = tokensFromPatternSteps(steps);
+                if (tokens.length === 0) return;
+                const patternLabel = String.fromCharCode(65 + currentPattern);
+                const updated = saveCapturedNoteStringFromTokens({
+                  name: `${track.name} ${patternLabel}`,
+                  tokens,
+                  source: 'typed',
+                });
+                if (updated && updated[0]) {
+                  setQueuedNoteStringId(updated[0].id);
+                }
+              }}
+            >
+              <ListPlus className="h-4 w-4" />
             </ToolButton>
             {!isDrum && (
               <ToolButton label={chordPaletteOpen ? 'Hide chord palette' : 'Show chord palette'} onClick={() => setChordPaletteOpen((current) => !current)}>

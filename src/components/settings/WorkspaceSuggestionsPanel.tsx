@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
-import { Sparkles, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Play, Sparkles, Square, X } from 'lucide-react';
 
+import { schedulePreview, type PreviewSchedule } from '../../audio/captureStringPreview';
 import type { Track } from '../../project/schema';
 import { useDismissedSuggestionIds } from '../../services/dismissedSuggestions';
 import { computeSmartSuggestions, type SmartSuggestionAction } from '../../services/smartSuggestions';
@@ -9,6 +10,8 @@ interface WorkspaceSuggestionsPanelProps {
   fullTracks: Track[];
   onApplyAction: (action: SmartSuggestionAction) => void;
   onSelectTrack: (trackId: string) => void;
+  /** Optional: when wired, suggestion cards with token actions get a Play button. */
+  previewTrackByType?: (trackTypeFallback: 'lead' | 'pad' | 'piano', note: string, velocity: number) => Promise<void> | void;
 }
 
 // Small "Suggestions" panel that surfaces concrete next-step tips for
@@ -16,7 +19,7 @@ interface WorkspaceSuggestionsPanelProps {
 // pairs the keyDetector with lane-density heuristics — no ML, just
 // pattern-recognition. Hides entirely when there are no actionable
 // tips so the panel does not nag a finished session.
-export const WorkspaceSuggestionsPanel = ({ fullTracks, onApplyAction, onSelectTrack }: WorkspaceSuggestionsPanelProps) => {
+export const WorkspaceSuggestionsPanel = ({ fullTracks, onApplyAction, onSelectTrack, previewTrackByType }: WorkspaceSuggestionsPanelProps) => {
   const allSuggestions = useMemo(() => computeSmartSuggestions(fullTracks), [fullTracks]);
   const [dismissedIds, dismiss, resetDismissed] = useDismissedSuggestionIds();
   const suggestions = useMemo(
@@ -24,6 +27,35 @@ export const WorkspaceSuggestionsPanel = ({ fullTracks, onApplyAction, onSelectT
     [allSuggestions, dismissedIds],
   );
   const hiddenCount = allSuggestions.length - suggestions.length;
+
+  const previewRef = useRef<PreviewSchedule | null>(null);
+  const [previewingId, setPreviewingId] = useState<string | null>(null);
+  useEffect(() => () => { previewRef.current?.cancel(); }, []);
+  const stopPreview = () => {
+    previewRef.current?.cancel();
+    previewRef.current = null;
+    setPreviewingId(null);
+  };
+  const togglePreview = (entryId: string, action: SmartSuggestionAction) => {
+    if (action.kind !== 'save-and-queue-string' || !previewTrackByType) return;
+    if (previewingId === entryId) {
+      stopPreview();
+      return;
+    }
+    stopPreview();
+    setPreviewingId(entryId);
+    previewRef.current = schedulePreview(
+      action.tokens,
+      (note, velocity) => { void previewTrackByType('pad', note, velocity); },
+      {
+        stepMs: 200,
+        onComplete: () => {
+          previewRef.current = null;
+          setPreviewingId((current) => (current === entryId ? null : current));
+        },
+      },
+    );
+  };
 
   if (suggestions.length === 0 && hiddenCount === 0) return null;
 
@@ -67,17 +99,34 @@ export const WorkspaceSuggestionsPanel = ({ fullTracks, onApplyAction, onSelectT
               <div className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">{entry.detail}</div>
             </button>
             <div className="flex shrink-0 flex-col items-end gap-1">
-              {entry.action && entry.actionLabel && (
-                <button
-                  aria-label={entry.actionLabel}
-                  className="control-chip h-7 min-h-[1.75rem] inline-flex items-center gap-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                  data-active="true"
-                  onClick={() => entry.action && onApplyAction(entry.action)}
-                  type="button"
-                >
-                  {entry.actionLabel}
-                </button>
-              )}
+              <div className="flex items-center gap-1">
+                {entry.action?.kind === 'save-and-queue-string' && previewTrackByType && (
+                  <button
+                    aria-label={previewingId === entry.id ? `Stop previewing ${entry.title}` : `Preview ${entry.title}`}
+                    aria-pressed={previewingId === entry.id}
+                    className="control-chip flex h-7 min-h-[1.75rem] w-7 items-center justify-center px-1"
+                    data-active={previewingId === entry.id ? 'true' : 'false'}
+                    onClick={() => entry.action && togglePreview(entry.id, entry.action)}
+                    title="Audition this chord through the selected lane before saving."
+                    type="button"
+                  >
+                    {previewingId === entry.id
+                      ? <Square className="h-3 w-3 fill-current" />
+                      : <Play className="h-3 w-3 fill-current" />}
+                  </button>
+                )}
+                {entry.action && entry.actionLabel && (
+                  <button
+                    aria-label={entry.actionLabel}
+                    className="control-chip h-7 min-h-[1.75rem] inline-flex items-center gap-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                    data-active="true"
+                    onClick={() => entry.action && onApplyAction(entry.action)}
+                    type="button"
+                  >
+                    {entry.actionLabel}
+                  </button>
+                )}
+              </div>
               <div className="flex items-center gap-1">
                 {entry.trackId && (
                   <button

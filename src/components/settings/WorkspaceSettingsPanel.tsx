@@ -173,6 +173,10 @@ export const WorkspaceSettingsPanel = () => {
 
       <WorkspaceSuggestionsPanel
         fullTracks={tracks}
+        previewTrackByType={(fallbackType, note, velocity) => {
+          const targetType = tracks.find((track) => track.id === selectedTrackId)?.type ?? fallbackType;
+          return auditionInstrumentNote(targetType, note, velocity);
+        }}
         onApplyAction={(action) => {
           if (action.kind === 'place-steps') {
             for (const step of action.steps) {

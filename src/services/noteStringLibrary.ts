@@ -579,6 +579,38 @@ export const importCapturedNoteStringsFromJson = (raw: string): NoteStringImport
   };
 };
 
+/**
+ * Convert a pattern's StepValue[] into a flat CapturedNoteToken
+ * sequence. Each step becomes either a token (taking the highest
+ * pitch when the step has more than one event, so the result reads
+ * like a melodic line rather than a stacked chord) or a rest. We
+ * trim trailing rests so a half-empty pattern reads cleanly when it
+ * lands on the shelf.
+ */
+export const tokensFromPatternSteps = (
+  steps: Array<Array<{ note: string; gate: number; velocity: number }>>,
+): Array<CapturedNoteToken | null> => {
+  const tokens: Array<CapturedNoteToken | null> = [];
+  for (const step of steps) {
+    if (!step || step.length === 0) {
+      tokens.push(null);
+      continue;
+    }
+    // The "lead" of a step is the highest-pitched event so a layered
+    // pad-style chord still produces a recognisable melody line.
+    const lead = [...step].sort((a, b) => a.note.localeCompare(b.note)).pop() ?? step[0];
+    tokens.push({
+      note: lead.note,
+      gate: clampStepGate(lead.gate),
+      velocity: clampStepVelocity(lead.velocity),
+    });
+  }
+  while (tokens.length > 0 && tokens[tokens.length - 1] === null) {
+    tokens.pop();
+  }
+  return tokens;
+};
+
 export interface TranscriptionNoteLike {
   note: string;
   startStep: number;
