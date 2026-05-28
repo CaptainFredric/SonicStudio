@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useAudio, type BounceNormalizationMode, type BounceTailMode } from '../../context/AudioContext';
 import { type ExportScope } from '../../services/workflowTypes';
 import { type RenderTargetProfileId } from '../../utils/export';
+import { getEffectiveKey } from '../../services/keyDetector';
 import { saveCapturedNoteStringFromTokens } from '../../services/noteStringLibrary';
 import { useQueuedNoteStringId } from '../../services/noteStringQueue';
 import { WorkspaceBouncePanel } from './WorkspaceBouncePanel';
@@ -199,6 +200,35 @@ export const WorkspaceSettingsPanel = () => {
             if (updated && updated[0]) {
               setQueuedNoteStringId(updated[0].id);
             }
+            return;
+          }
+          if (action.kind === 'trim-drift') {
+            const key = getEffectiveKey(tracks);
+            if (key.uncertain) return;
+            const scaleDegrees = key.mode === 'major'
+              ? [0, 2, 4, 5, 7, 9, 11]
+              : [0, 2, 3, 5, 7, 8, 10];
+            const inKeyPcs = new Set(scaleDegrees.map((degree) => (key.root + degree) % 12));
+            const pitchClassFromNote = (note: string): number | null => {
+              const match = note.match(/^([A-G])(#?)/);
+              if (!match) return null;
+              const pcMap: Record<string, number> = {
+                C: 0, 'C#': 1, D: 2, 'D#': 3, E: 4, F: 5, 'F#': 6, G: 7, 'G#': 8, A: 9, 'A#': 10, B: 11,
+              };
+              return pcMap[`${match[1]}${match[2]}`] ?? null;
+            };
+            tracks.forEach((track) => {
+              if (['kick', 'snare', 'hihat'].includes(track.type)) return;
+              const original = track.patterns[action.patternIndex] ?? [];
+              const filtered = original.map((step) => step.filter((event) => {
+                const pc = pitchClassFromNote(event.note);
+                return pc !== null && inKeyPcs.has(pc);
+              }));
+              const changed = filtered.some((step, index) => step.length !== (original[index]?.length ?? 0));
+              if (changed) {
+                applyPatternSegment(track.id, action.patternIndex, filtered);
+              }
+            });
           }
         }}
         onSelectTrack={setSelectedTrackId}

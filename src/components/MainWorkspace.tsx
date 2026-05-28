@@ -40,6 +40,7 @@ import {
 } from '../services/noteStringLibrary';
 import { useQueuedNoteStringId } from '../services/noteStringQueue';
 import { listScoresheets, getScoresheetThumbnail } from '../services/scoresheets';
+import { getEffectiveKey, laneFitness } from '../services/keyDetector';
 import {
   buildSessionPlayerPatternDecks,
   buildSessionPlayerSegments,
@@ -2321,7 +2322,15 @@ export const MainWorkspace = () => {
                             </div>
                             <span className="min-w-0 truncate text-sm font-semibold tracking-tight text-[var(--text-primary)]">{track.name}</span>
                           </div>
-                          <TrackMeterBar className="mt-1.5" color={track.color} trackId={track.id} />
+                          <TrackMeterBar
+                            className="mt-1.5"
+                            color={track.color}
+                            offKey={(() => {
+                              const fitness = laneFitness(track, getEffectiveKey(tracks));
+                              return fitness.ratio !== null && fitness.ratio < 0.7;
+                            })()}
+                            trackId={track.id}
+                          />
                           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                             <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.type}</span>
                             <LaneKeyChip track={track} />

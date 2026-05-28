@@ -31,6 +31,10 @@ export type SmartSuggestionAction =
       kind: 'save-and-queue-string';
       name: string;
       tokens: CapturedNoteToken[];
+    }
+  | {
+      kind: 'trim-drift';
+      patternIndex: number;
     };
 
 export interface SmartSuggestion {
@@ -272,16 +276,28 @@ export const computeSmartSuggestions = (tracks: Track[]): SmartSuggestion[] => {
     });
   }
 
-  // 8. Patterns that wander out of the session's detected key.
+  // 8. Patterns that wander out of the session's detected key. When
+  //    the drifting pattern is long, offer a trim action that strips
+  //    the out-of-key notes in one tap.
   const drift = detectPatternKeyDrift(tracks, key);
   for (const entry of drift) {
     if (!entry.drifts) continue;
     const percentInside = entry.ratio === null ? 0 : Math.round(entry.ratio * 100);
+    const isHeavy = entry.outside >= 12;
+    const patternLetter = String.fromCharCode(65 + entry.patternIndex);
     suggestions.push({
       id: `pattern-drift-${entry.patternIndex}`,
-      title: `Pattern ${String.fromCharCode(65 + entry.patternIndex)} wanders out of ${keyHint}`,
-      detail: `Only ${percentInside}% of its notes fit ${keyHint}. Intentional? Then ignore.`,
+      title: `Pattern ${patternLetter} wanders out of ${keyHint}`,
+      detail: isHeavy
+        ? `Only ${percentInside}% of its ${entry.inside + entry.outside} notes fit ${keyHint}. Trim the off-key ones in one tap.`
+        : `Only ${percentInside}% of its notes fit ${keyHint}. Intentional? Then ignore.`,
       tone: 'attention',
+      ...(isHeavy
+        ? {
+            action: { kind: 'trim-drift', patternIndex: entry.patternIndex },
+            actionLabel: `Trim off-key in ${patternLetter}`,
+          }
+        : {}),
     });
   }
 
