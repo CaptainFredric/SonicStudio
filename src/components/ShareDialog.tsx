@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Check, Copy, Download, Link2, Share2, X } from 'lucide-react';
 
 import { useAudio } from '../context/AudioContext';
+import { useManualKeyOverride } from '../services/manualKeyOverride';
 
 interface ShareDialogProps {
   open: boolean;
@@ -28,17 +29,26 @@ const formatBytes = (bytes: number): string => {
 
 export const ShareDialog = ({ open, onClose, onNotify }: ShareDialogProps) => {
   const { currentSession, exportSession } = useAudio();
+  const [override] = useManualKeyOverride();
   const [tab, setTab] = useState<Tab>('link');
   const [copied, setCopied] = useState<Tab | null>(null);
 
   const sessionJson = useMemo(() => {
     if (!open) return '';
     try {
-      return JSON.stringify(currentSession, null, 2);
+      // Wrap the session so a manual key pin can travel alongside it.
+      // Older share links carried just the session; the receiver still
+      // accepts both shapes so we don't break existing URLs.
+      const payload = {
+        v: 1,
+        session: currentSession,
+        manualKeyOverride: override,
+      };
+      return JSON.stringify(payload, null, 2);
     } catch {
       return '';
     }
-  }, [currentSession, open]);
+  }, [currentSession, open, override]);
 
   const shareLink = useMemo(() => {
     if (!sessionJson || typeof window === 'undefined') return '';

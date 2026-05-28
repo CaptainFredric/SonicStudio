@@ -17,6 +17,7 @@ import { SuperSonicAssistBar } from './components/SuperSonicAssistBar';
 import { OnboardingGuide } from './components/OnboardingGuide';
 import { QuickCaptureBar } from './components/QuickCaptureBar';
 import { SongTranscriber } from './components/SongTranscriber';
+import { setManualKeyOverride } from './services/manualKeyOverride';
 import { AudioHealthDot } from './components/AudioHealthDot';
 import { KeyTag } from './components/KeyTag';
 import { TransportElapsedTag } from './components/TransportElapsedTag';
@@ -540,6 +541,28 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
     let cancelled = false;
     const loadSharedSession = async () => {
       setLaunchpadOpen(false);
+      // Wrapped share payloads also carry the sender's manual key
+      // override. Restore it so the receiver picks up the same pin
+      // the sender saw. Older share links lacked the wrapper and
+      // simply skip this branch.
+      try {
+        const parsed = JSON.parse(shared) as unknown;
+        if (parsed && typeof parsed === 'object' && 'manualKeyOverride' in parsed) {
+          const value = (parsed as { manualKeyOverride?: unknown }).manualKeyOverride;
+          if (value && typeof value === 'object' && 'rootName' in (value as object) && 'mode' in (value as object)) {
+            const candidate = value as { rootName: unknown; mode: unknown };
+            if (typeof candidate.rootName === 'string' && (candidate.mode === 'major' || candidate.mode === 'minor')) {
+              setManualKeyOverride({ rootName: candidate.rootName, mode: candidate.mode });
+            } else {
+              setManualKeyOverride(null);
+            }
+          } else {
+            setManualKeyOverride(null);
+          }
+        }
+      } catch {
+        /* malformed wrapper — let importSession handle it */
+      }
       const file = new File([shared], 'shared-session.sonicstudio.json', { type: 'application/json' });
       await importSession(file);
       if (!cancelled) {
