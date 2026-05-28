@@ -1,6 +1,7 @@
 import { type StudioSession } from '../project/schema';
 import { hydrateSessionPayload } from '../project/storage';
 import { detectKey, type KeyMode } from './keyDetector';
+import { getManualKeyOverride, setManualKeyOverride, type ManualKeyOverride } from './manualKeyOverride';
 
 const STORAGE_KEY = 'sonicstudio:scoresheets:v1';
 const MAX_SCORESHEETS = 24;
@@ -19,6 +20,8 @@ export interface Scoresheet {
   savedAt: string;
   session: StudioSession;
   detectedKey?: ScoresheetKeySnapshot;
+  /** Manual key pin the user had set at save time, if any. */
+  manualKeyOverride?: ManualKeyOverride | null;
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> => (
@@ -52,12 +55,26 @@ const normalizeScoresheet = (value: unknown): Scoresheet | null => {
   const savedAt = typeof value.savedAt === 'string' && value.savedAt
     ? value.savedAt
     : new Date().toISOString();
+  const rawOverride = value.manualKeyOverride;
+  const manualKeyOverride: ManualKeyOverride | null = (
+    rawOverride
+    && typeof rawOverride === 'object'
+    && typeof (rawOverride as Record<string, unknown>).rootName === 'string'
+    && ((rawOverride as Record<string, unknown>).mode === 'major' || (rawOverride as Record<string, unknown>).mode === 'minor')
+  )
+    ? {
+        rootName: (rawOverride as Record<string, unknown>).rootName as string,
+        mode: (rawOverride as Record<string, unknown>).mode as KeyMode,
+      }
+    : null;
+
   return {
     id,
     name,
     savedAt,
     session,
     detectedKey: normalizeKeySnapshot(value.detectedKey),
+    manualKeyOverride,
   };
 };
 
@@ -110,6 +127,7 @@ export const saveScoresheet = (
     savedAt: new Date().toISOString(),
     session,
     detectedKey,
+    manualKeyOverride: getManualKeyOverride(),
   };
   const filtered = options.replaceId ? sheets.filter((sheet) => sheet.id !== options.replaceId) : sheets;
   return persistScoresheets([next, ...filtered]);

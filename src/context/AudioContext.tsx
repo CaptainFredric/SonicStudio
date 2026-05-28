@@ -62,6 +62,9 @@ import {
   deleteScoresheet as deleteScoresheetService,
   listScoresheets,
   loadScoresheet as loadScoresheetService,
+} from '../services/scoresheets';
+import { setManualKeyOverride } from '../services/manualKeyOverride';
+import {
   renameScoresheet as renameScoresheetService,
   saveScoresheet as saveScoresheetService,
 } from '../services/scoresheets';
@@ -642,6 +645,11 @@ export const AudioProvider = ({
     const sheet = loadScoresheetService(id);
     if (!sheet) return;
     dispatch({ type: 'HYDRATE_SESSION', session: sheet.session });
+    // Restore the manual key override the user had at save time so
+    // reopening a scoresheet picks up where the user left off. A
+    // sheet saved without an override clears any current pin so the
+    // session resumes auto detection.
+    setManualKeyOverride(sheet.manualKeyOverride ?? null);
     resetTransportState();
     setSaveStatus('idle');
   }, [resetTransportState]);

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useAudio } from '../context/AudioContext';
-import { getEffectiveKey, laneFitness } from '../services/keyDetector';
+import { detectKey, getEffectiveKey, laneFitness } from '../services/keyDetector';
 import type { Track } from '../project/schema';
 
 interface LaneKeyChipProps {
@@ -22,12 +22,20 @@ export const LaneKeyChip = ({ track, className = '' }: LaneKeyChipProps) => {
   const { tracks } = useAudio();
   const key = useMemo(() => getEffectiveKey(tracks), [tracks]);
   const fitness = useMemo(() => laneFitness(track, key), [track, key]);
+  // When this lane drifts from the session key, show its own
+  // most-likely key as a secondary hint — useful when a lane is
+  // intentionally in a different key, or when the user has pinned
+  // the session and a sketch lane wants to explore elsewhere.
+  const ownKey = useMemo(() => detectKey([track]), [track]);
 
+  const isFitting = fitness.ratio !== null && fitness.ratio >= 0.8;
   const label = fitness.ratio === null
     ? null
-    : fitness.ratio >= 0.8
+    : isFitting
       ? `In ${key.label}`
-      : `Out of ${key.label}`;
+      : !ownKey.uncertain && (ownKey.rootName !== key.rootName || ownKey.mode !== key.mode)
+        ? `Out of ${key.label} · reads as ${ownKey.label}`
+        : `Out of ${key.label}`;
 
   // Track the label that's been on screen long enough to fade between.
   const [renderedLabel, setRenderedLabel] = useState<string | null>(label);
@@ -63,7 +71,6 @@ export const LaneKeyChip = ({ track, className = '' }: LaneKeyChipProps) => {
   if (renderedLabel === null) return null;
 
   const ratio = fitness.ratio ?? 0;
-  const isFitting = ratio >= 0.8;
   const colorClass = isFitting
     ? 'text-[var(--accent-strong)]'
     : 'text-[var(--accent-warn,#ff9466)]';
