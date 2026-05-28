@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useAudio } from '../context/AudioContext';
-import { detectKey, laneFitness } from '../services/keyDetector';
+import { getEffectiveKey, laneFitness } from '../services/keyDetector';
 import type { Track } from '../project/schema';
 
 interface LaneKeyChipProps {
@@ -20,7 +20,7 @@ interface LaneKeyChipProps {
 // of a hard swap.
 export const LaneKeyChip = ({ track, className = '' }: LaneKeyChipProps) => {
   const { tracks } = useAudio();
-  const key = useMemo(() => detectKey(tracks), [tracks]);
+  const key = useMemo(() => getEffectiveKey(tracks), [tracks]);
   const fitness = useMemo(() => laneFitness(track, key), [track, key]);
 
   const label = fitness.ratio === null

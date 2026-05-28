@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 
 import { useAudio, usePlaybackStep } from '../context/AudioContext';
-import { detectKey } from '../services/keyDetector';
+import { detectKey, getEffectiveKey } from '../services/keyDetector';
 import { MAX_STEPS_PER_PATTERN, type NoteEvent } from '../project/schema';
 import { TrackIcon, getTrackPersonality } from '../utils/trackPersonality';
 import {
@@ -171,7 +171,7 @@ export const PianoRoll = () => {
   // toggle, and re-sync at any time with the "Match session" button.
   // Scale lock keeps the palette glued to the detected key as the
   // session evolves so stamps stay diatonic by construction.
-  const initialDetected = useMemo(() => detectKey(tracks), [tracks]);
+  const initialDetected = useMemo(() => getEffectiveKey(tracks), [tracks]);
   const [scaleLocked, setScaleLocked] = useState(false);
   const [chordKey, setChordKey] = useState<KeyName>(() => (
     initialDetected.uncertain ? 'C' : (initialDetected.rootName as KeyName)
@@ -179,7 +179,7 @@ export const PianoRoll = () => {
   const [chordMode, setChordMode] = useState<'major' | 'minor'>(() => (
     initialDetected.uncertain ? 'major' : initialDetected.mode
   ));
-  const liveDetected = useMemo(() => detectKey(tracks), [tracks]);
+  const liveDetected = useMemo(() => getEffectiveKey(tracks), [tracks]);
   // While locked, follow the live detected key on every render.
   useEffect(() => {
     if (!scaleLocked || liveDetected.uncertain) return;

@@ -3,7 +3,7 @@ import { AudioWaveform, Check, ChevronDown, ChevronUp, Copy, Download, ListPlus,
 
 import { schedulePreview, type PreviewSchedule } from '../../audio/captureStringPreview';
 import { CHORD_STARTERS, transposeChordStarterToKey } from '../../services/chordStarters';
-import { detectKey, type DetectedKey } from '../../services/keyDetector';
+import { getEffectiveKey, type DetectedKey } from '../../services/keyDetector';
 import type { Track } from '../../project/schema';
 import {
   captureNoteString,
@@ -69,7 +69,7 @@ export const WorkspaceCapturePanel = ({
   setSelectedTrackId,
   tracks,
 }: WorkspaceCapturePanelProps) => {
-  const detectedKey: DetectedKey = useMemo(() => detectKey(fullTracks), [fullTracks]);
+  const detectedKey: DetectedKey = useMemo(() => getEffectiveKey(fullTracks), [fullTracks]);
   const [matchKey, setMatchKey] = useState(true);
   const effectiveStarters = useMemo(() => (
     matchKey && !detectedKey.uncertain

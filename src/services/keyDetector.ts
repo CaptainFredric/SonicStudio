@@ -12,6 +12,7 @@
 // call. The detection runs in microseconds on a normal session.
 
 import type { Track } from '../project/schema';
+import { getManualKeyOverride } from './manualKeyOverride';
 
 // Krumhansl & Kessler / Schmuckler weighting vectors. Index 0 = the
 // tonic, index 1 = the second pitch class, and so on. We rotate them
@@ -138,6 +139,36 @@ const noteFitsKey = (notePc: number, key: DetectedKey): boolean => {
   const relative = ((notePc - key.root) % 12 + 12) % 12;
   const scale = key.mode === 'major' ? MAJOR_SCALE_PCS : MINOR_SCALE_PCS;
   return scale.has(relative);
+};
+
+const PITCH_CLASS_FROM_NAME: Record<string, number> = {
+  C: 0, 'C#': 1, D: 2, 'D#': 3, E: 4, F: 5, 'F#': 6, G: 7, 'G#': 8, A: 9, 'A#': 10, B: 11,
+};
+
+/**
+ * Source of truth for "what key is this session in?" for UI surfaces.
+ * Honors a manual override when one is set, falling back to the
+ * Krumhansl-Schmuckler reading otherwise. Use this instead of
+ * detectKey from any component that should respect the user's pin.
+ */
+export const getEffectiveKey = (tracks: Track[]): DetectedKey => {
+  const override = getManualKeyOverride();
+  if (override) {
+    const root = PITCH_CLASS_FROM_NAME[override.rootName] ?? 0;
+    return {
+      root,
+      rootName: override.rootName,
+      mode: override.mode,
+      label: `${override.rootName} ${override.mode}`,
+      confidence: 1,
+      uncertain: false,
+      noteCount: tracks.reduce((sum, track) => sum + Object.values(track.patterns).reduce(
+        (innerSum, stepGrid) => innerSum + stepGrid.reduce((s, step) => s + step.length, 0),
+        0,
+      ), 0),
+    };
+  }
+  return detectKey(tracks);
 };
 
 export interface LaneFitness {

@@ -10,7 +10,7 @@
 // jump to the relevant lane on tap.
 
 import type { Track } from '../project/schema';
-import { detectKey, detectPatternKeyDrift } from './keyDetector';
+import { detectPatternKeyDrift, getEffectiveKey } from './keyDetector';
 import { suggestNextChords } from './nextChord';
 import type { CapturedNoteToken } from './noteStringLibrary';
 
@@ -89,7 +89,7 @@ const computeTrackStats = (track: Track): TrackStats => {
 
 export const computeSmartSuggestions = (tracks: Track[]): SmartSuggestion[] => {
   if (tracks.length === 0) return [];
-  const key = detectKey(tracks);
+  const key = getEffectiveKey(tracks);
   const keyHint = key.uncertain ? 'your session' : key.label;
   const stats = tracks.map(computeTrackStats);
   const suggestions: SmartSuggestion[] = [];
