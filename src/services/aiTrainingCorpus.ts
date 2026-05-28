@@ -34,6 +34,7 @@ import type {
 } from '../project/schema';
 
 import { detectKey, type KeyMode } from './keyDetector';
+import { getManualKeyOverride } from './manualKeyOverride';
 
 const COR_VERSION = 3;
 
@@ -91,6 +92,8 @@ export interface TrainingDetectedKey {
   label: string;
   confidence: number;
   uncertain: boolean;
+  /** When the user pinned a manual key at export time, the override is preserved here. */
+  manual_override?: { root_name: string; mode: KeyMode } | null;
 }
 
 export interface TrainingCorpusV3 {
@@ -260,6 +263,7 @@ export const buildTrainingCorpus = (project: Project): TrainingCorpusV3 => {
   const song = project.arrangerClips.map(describeClip);
   const markers = project.markers.map(describeMarker);
   const key = detectKey(project.tracks);
+  const manualOverride = getManualKeyOverride();
 
   return {
     version: COR_VERSION,
@@ -277,6 +281,9 @@ export const buildTrainingCorpus = (project: Project): TrainingCorpusV3 => {
       label: key.label,
       confidence: round3(key.confidence),
       uncertain: key.uncertain,
+      manual_override: manualOverride
+        ? { root_name: manualOverride.rootName, mode: manualOverride.mode }
+        : null,
     },
     tracks,
     notes,

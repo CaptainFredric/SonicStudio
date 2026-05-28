@@ -26,6 +26,8 @@ describe('aiTrainingCorpus', () => {
     expect(corpus.detected_key.mode).toBe('minor');
     expect(corpus.detected_key.confidence).toBeGreaterThan(0);
     expect(corpus.detected_key.uncertain).toBe(false);
+    // No manual pin in this environment — the field is present but null.
+    expect(corpus.detected_key.manual_override).toBeNull();
   });
 
   it('attaches per-track stats: note count, mean velocity, octave range, density', () => {

@@ -61,11 +61,24 @@ export const QuickCaptureBar = ({ open, onClose, onNotify }: QuickCaptureBarProp
       if (event.key === 'Escape') {
         event.preventDefault();
         onClose();
+        return;
+      }
+      // Alt+1..5 recalls the n-th history entry so a power user can
+      // build on a recent capture without reaching for the chip strip.
+      if (event.altKey && /^[1-5]$/.test(event.key)) {
+        const index = Number.parseInt(event.key, 10) - 1;
+        const entry = history[index];
+        if (entry) {
+          event.preventDefault();
+          setDraftRaw(entry);
+          setError(null);
+          inputRef.current?.focus();
+        }
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [open, onClose]);
+  }, [open, onClose, history]);
 
   if (!open) return null;
 
@@ -172,18 +185,19 @@ export const QuickCaptureBar = ({ open, onClose, onNotify }: QuickCaptureBarProp
               </span>
               {history.map((entry, index) => (
                 <button
-                  aria-label={`Reuse capture "${entry}"`}
-                  className="control-chip h-7 min-h-[1.75rem] inline-flex items-center px-2 font-mono text-[10px] tracking-[0.06em]"
+                  aria-label={`Reuse capture "${entry}". Shortcut Alt+${index + 1}.`}
+                  className="control-chip h-7 min-h-[1.75rem] inline-flex items-center gap-1 px-2 font-mono text-[10px] tracking-[0.06em]"
                   key={`${entry}-${index}`}
                   onClick={() => {
                     setDraftRaw(entry);
                     setError(null);
                     inputRef.current?.focus();
                   }}
-                  title={`Click to fill: ${entry}`}
+                  title={`Alt+${index + 1} to recall. Fills: ${entry}`}
                   type="button"
                 >
-                  {entry.length > 24 ? `${entry.slice(0, 22)}…` : entry}
+                  <span className="text-[var(--text-tertiary)]">Alt+{index + 1}</span>
+                  <span>{entry.length > 24 ? `${entry.slice(0, 22)}…` : entry}</span>
                 </button>
               ))}
             </div>
