@@ -47,6 +47,49 @@ import { loadRecordedNotePresets, subscribeRecordedNotePresets, type RecordedNot
 import { captureSuggestionControlsToTrackParams, captureSuggestionControlsToTrackSource } from '../services/audioRecording';
 
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+const PITCH_CLASS_INDEX_FROM_NAME: Record<string, number> = {
+  C: 0, 'C#': 1, D: 2, 'D#': 3, E: 4, F: 5, 'F#': 6, G: 7, 'G#': 8, A: 9, 'A#': 10, B: 11,
+};
+const MAJOR_SCALE_PCS = [0, 2, 4, 5, 7, 9, 11];
+const MINOR_SCALE_PCS = [0, 2, 3, 5, 7, 8, 10];
+
+// Snap a note name to the nearest pitch class in the detected key.
+// Preserves the octave when the snap is within 1 semitone. Used by
+// the Piano Roll's Snap toolbar action so a stray accidental clicks
+// into the scale without changing the gesture vocabulary.
+const snapNoteToKey = (note: string, key: { root: number; mode: 'major' | 'minor' }): string => {
+  const match = note.match(/^([A-G])(#?)(-?\d+)$/);
+  if (!match) return note;
+  const pc = PITCH_CLASS_INDEX_FROM_NAME[`${match[1]}${match[2]}`];
+  if (pc === undefined) return note;
+  const octave = Number.parseInt(match[3], 10);
+  if (!Number.isFinite(octave)) return note;
+  const scale = key.mode === 'major' ? MAJOR_SCALE_PCS : MINOR_SCALE_PCS;
+  const inKey = new Set(scale.map((degree) => (key.root + degree) % 12));
+  if (inKey.has(pc)) return note;
+  // Find the closest in-key pitch class by absolute semitone distance.
+  let bestDelta = 12;
+  let bestPc = pc;
+  for (const candidate of inKey) {
+    const forward = (candidate - pc + 12) % 12;
+    const backward = (pc - candidate + 12) % 12;
+    const delta = Math.min(forward, backward);
+    if (delta < bestDelta) {
+      bestDelta = delta;
+      bestPc = candidate;
+    }
+  }
+  // Use the signed distance (favouring downward snaps for ties) so
+  // the resulting MIDI value lands sensibly within the octave.
+  const baseMidi = (octave + 1) * 12 + pc;
+  const upward = (bestPc - pc + 12) % 12;
+  const downward = (pc - bestPc + 12) % 12;
+  const signed = upward <= downward ? upward : -downward;
+  const targetMidi = Math.max(0, Math.min(127, baseMidi + signed));
+  const targetPc = ((targetMidi % 12) + 12) % 12;
+  const targetOctave = Math.floor(targetMidi / 12) - 1;
+  return `${NOTE_NAMES[targetPc]}${targetOctave}`;
+};
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 const GRID_LABEL_WIDTH = 88;
 const MOBILE_GRID_LABEL_WIDTH = 72;
@@ -146,6 +189,7 @@ export const PianoRoll = () => {
     stepsPerPattern,
     superSonicMode,
     superSonicPreferences,
+    applyPatternSegment,
     toggleStep,
     tracks,
     transposePattern,
@@ -1015,6 +1059,23 @@ export const PianoRoll = () => {
             >
               <ListPlus className="h-4 w-4" />
             </ToolButton>
+            {!isDrum && !liveDetected.uncertain && (
+              <ToolButton
+                label={`Snap notes outside ${liveDetected.label} to the nearest in-key pitch.`}
+                onClick={() => {
+                  const steps = track.patterns[currentPattern] ?? [];
+                  const snapped = steps.map((step) => (
+                    step.map((event) => ({
+                      ...event,
+                      note: snapNoteToKey(event.note, liveDetected),
+                    }))
+                  ));
+                  applyPatternSegment(track.id, currentPattern, snapped);
+                }}
+              >
+                <span className="font-mono text-[10px]">Snap</span>
+              </ToolButton>
+            )}
             {!isDrum && (
               <ToolButton label={chordPaletteOpen ? 'Hide chord palette' : 'Show chord palette'} onClick={() => setChordPaletteOpen((current) => !current)}>
                 <Music className="h-4 w-4" />

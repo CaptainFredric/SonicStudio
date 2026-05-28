@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ChevronDown,
   ChevronUp,
@@ -24,6 +24,7 @@ import { playSupersonicToggleSound } from '../audio/uiSounds';
 import { AudioHealthDot } from './AudioHealthDot';
 import { KeyTag } from './KeyTag';
 import { TransportElapsedTag } from './TransportElapsedTag';
+import { detectPatternKeyDrift, getEffectiveKey } from '../services/keyDetector';
 import { useAudio } from '../context/AudioContext';
 import {
   MASTER_PRESET_DEFINITIONS,
@@ -240,6 +241,16 @@ export const TopBar = ({
 
   const compactStart = firstImpression && !isPlaying;
   const isFirstImpression = compactStart;
+  // Pre-compute which pattern banks drift out of the effective key so
+  // each PatternButton can light up a small warning dot. detectPattern
+  // KeyDrift returns empty when the key is uncertain, which keeps the
+  // buttons clean on a fresh session.
+  const patternDriftSet = useMemo(() => {
+    const key = getEffectiveKey(tracks);
+    if (key.uncertain) return new Set<number>();
+    const drift = detectPatternKeyDrift(tracks, key);
+    return new Set(drift.filter((entry) => entry.drifts).map((entry) => entry.patternIndex));
+  }, [tracks]);
   const showPlayPulse = !isPlaying && !countInActive;
   const brandName = superSonicMode ? 'SuperSonicStudio' : 'SonicStudio';
   const brandTagline = superSonicMode
@@ -478,6 +489,7 @@ export const TopBar = ({
                     <React.Fragment key={patternIndex}>
                       <PatternButton
                         active={currentPattern === patternIndex}
+                        drifts={patternDriftSet.has(patternIndex)}
                         onClick={() => setCurrentPattern(patternIndex)}
                       >
                         {String.fromCharCode(65 + patternIndex)}
@@ -1178,20 +1190,29 @@ const UtilityBtn = ({
 const PatternButton = ({
   active,
   children,
+  drifts = false,
   onClick,
 }: {
   active: boolean;
   children: React.ReactNode;
+  drifts?: boolean;
   onClick: () => void;
 }) => (
   <button
-    className="pattern-toggle-chip h-11 min-w-11 px-3 font-mono text-xs font-medium uppercase tracking-[0.16em] sm:h-9 sm:min-w-9"
+    className="pattern-toggle-chip relative h-11 min-w-11 px-3 font-mono text-xs font-medium uppercase tracking-[0.16em] sm:h-9 sm:min-w-9"
     data-active={active ? 'true' : 'false'}
     data-ui-sound="tab"
     onClick={onClick}
+    title={drifts ? 'This pattern wanders out of the session key.' : undefined}
     type="button"
   >
     {children}
+    {drifts && (
+      <span
+        aria-hidden="true"
+        className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-[var(--accent-warn,#ff9466)]"
+      />
+    )}
   </button>
 );
 
