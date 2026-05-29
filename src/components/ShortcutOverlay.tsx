@@ -28,6 +28,14 @@ const GROUPS: Array<{ title: string; entries: ShortcutEntry[] }> = [
     ],
   },
   {
+    title: 'Capture',
+    entries: [
+      { keys: '⌥ C', label: 'Quick capture a note string from anywhere' },
+      { keys: '⌥ 1-5', label: 'Recall a recent capture (inside Quick capture)' },
+      { keys: '⇧ paint', label: 'Snap painted notes to the session key (Piano Roll)' },
+    ],
+  },
+  {
     title: 'Edit',
     entries: [
       { keys: '⌘ S', label: 'Save' },
@@ -42,6 +50,14 @@ const GROUPS: Array<{ title: string; entries: ShortcutEntry[] }> = [
       { keys: 'A S D F G H J K L', label: 'White keys, two octaves' },
       { keys: 'W E T Y U O P', label: 'Black keys' },
       { keys: 'A S D F', label: 'Drum pads (when a drum track is selected)' },
+    ],
+  },
+  {
+    title: 'Drag and drop',
+    entries: [
+      { keys: 'Drag', label: 'Drop a shelf string on a lane, cell, or arrangement row' },
+      { keys: 'Tap', label: 'On touch, queue a string then tap a cell or lane to drop it' },
+      { keys: 'Drag', label: 'Drop a scoresheet on a lane to borrow its melody' },
     ],
   },
   {
@@ -95,11 +111,11 @@ export const ShortcutOverlay = () => {
           <div>
             <div className="flex items-center gap-2 text-[var(--accent)]">
               <Keyboard className="h-4 w-4" />
-              <span className="section-label text-[var(--accent)]">Shortcuts</span>
+              <span className="section-label text-[var(--accent)]">Reference</span>
             </div>
-            <h2 className="mt-1.5 text-lg font-semibold tracking-tight text-[var(--text-primary)]">Keyboard shortcuts</h2>
+            <h2 className="mt-1.5 text-lg font-semibold tracking-tight text-[var(--text-primary)]">Shortcuts and gestures</h2>
             <p className="mt-1 text-[12px] leading-5 text-[var(--text-secondary)]">
-              Reference for transport, editing, and playable keys.
+              Transport, editing, playable keys, capture, and the drag actions the studio responds to.
             </p>
           </div>
           <button
