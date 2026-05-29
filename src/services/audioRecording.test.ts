@@ -5,7 +5,9 @@ import {
   buildCaptureSuggestions,
   buildDetectedNoteCandidates,
   buildRecordingInsights,
+  captureProfileToPitchThreshold,
   captureSuggestionControlsToTrackSource,
+  DEFAULT_CAPTURE_PITCH_THRESHOLD,
 } from './audioRecording';
 
 const createSineWave = (hz: number, durationSeconds: number, sampleRate = 44100, amplitude = 0.62) => {
@@ -263,5 +265,44 @@ describe('audioRecording insights', () => {
     expect(frame.detectedPitchHz).toBeNull();
     expect(frame.signalLevel).toBe(0);
     expect(frame.noteCandidates).toHaveLength(0);
+  });
+});
+
+describe('capture analysis profile sensitivity', () => {
+  it('makes Quick more eager and Steady stricter than Balanced', () => {
+    const quick = captureProfileToPitchThreshold('quick');
+    const balanced = captureProfileToPitchThreshold('balanced');
+    const steady = captureProfileToPitchThreshold('steady');
+
+    // A higher YIN threshold accepts a periodic dip sooner (more eager).
+    expect(quick).toBeGreaterThan(balanced);
+    expect(steady).toBeLessThan(balanced);
+  });
+
+  it('keeps Balanced on the established default threshold', () => {
+    expect(captureProfileToPitchThreshold('balanced')).toBe(DEFAULT_CAPTURE_PITCH_THRESHOLD);
+  });
+
+  it('stays within a sane YIN range for every profile', () => {
+    (['quick', 'balanced', 'steady'] as const).forEach((profile) => {
+      const threshold = captureProfileToPitchThreshold(profile);
+      expect(threshold).toBeGreaterThan(0.05);
+      expect(threshold).toBeLessThan(0.3);
+    });
+  });
+
+  it('still locks a clean A3 across every profile threshold', () => {
+    (['quick', 'balanced', 'steady'] as const).forEach((profile) => {
+      const frame = analyzeCaptureFrame({
+        durationSeconds: 0.5,
+        sampleRate: 44100,
+        samples: createSineWave(220, 0.5),
+        pitchThreshold: captureProfileToPitchThreshold(profile),
+      });
+
+      expect(frame.detectedPitchHz).not.toBeNull();
+      expect(Math.abs((frame.detectedPitchHz ?? 0) - 220)).toBeLessThan(220 * 0.03);
+      expect(frame.detectedNote).toBe('A3');
+    });
   });
 });

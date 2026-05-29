@@ -6,6 +6,7 @@ import { useAudio } from '../context/AudioContext';
 import { Knob } from './Knob';
 import {
   AudioRecorder,
+  captureProfileToPitchThreshold,
   captureSuggestionControlsToTrackParams,
   captureSuggestionControlsToTrackSource,
   normalizeCaptureSuggestionControls,
@@ -471,6 +472,8 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
       setPreviewUrl(null);
     }
     const recorder = new AudioRecorder();
+    // Let the chosen analysis profile steer how eagerly pitch is tracked.
+    recorder.setPitchThreshold(captureProfileToPitchThreshold(capturePreferences.analysisProfile));
     recorder.onLiveUpdate((frame) => {
       setLiveFrame({
         ...frame,
@@ -493,7 +496,7 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
       setError(err instanceof Error ? err.message : 'Could not access the microphone.');
       setState('error');
     }
-  }, [capturePreferences.keepShelfBetweenTakes, previewUrl]);
+  }, [capturePreferences.analysisProfile, capturePreferences.keepShelfBetweenTakes, previewUrl]);
 
   const stopRecording = useCallback(async () => {
     const recorder = recorderRef.current;

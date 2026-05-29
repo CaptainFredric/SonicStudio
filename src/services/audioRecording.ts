@@ -1,11 +1,13 @@
 // Audio recording + pitch analysis for SonicStudio.
 //
-// Records microphone audio via MediaRecorder, then runs a lightweight
-// autocorrelation-based pitch detector over the decoded buffer to identify
-// the dominant musical pitch. From that pitch (and rough energy / brightness
-// hints) we now build a ranked set of note candidates and track suggestions
-// with reusable synth/sample control values that the capture UI can expose.
+// Records microphone audio via MediaRecorder, then runs a shared YIN pitch
+// detector over the decoded buffer to identify the dominant musical pitch.
+// From that pitch (and rough energy / brightness hints) we build a ranked
+// set of note candidates and track suggestions with reusable synth/sample
+// control values that the capture UI can expose. The capture analysis
+// profile tunes how eagerly the detector locks a pitch.
 
+import type { CaptureAnalysisProfile } from '../project/preferences';
 import {
   getTrackVoicePresetDefinitions,
   INITIAL_PARAMS,
@@ -822,10 +824,12 @@ export const analyzeCaptureFrame = ({
   durationSeconds,
   sampleRate,
   samples,
+  pitchThreshold = DEFAULT_CAPTURE_PITCH_THRESHOLD,
 }: {
   durationSeconds: number;
   sampleRate: number;
   samples: Float32Array;
+  pitchThreshold?: number;
 }): LiveCaptureFrame => {
   const fullRms = rmsOf(samples);
   const rmsDb = linearToDb(fullRms);
@@ -834,7 +838,7 @@ export const analyzeCaptureFrame = ({
   const analysisDurationSeconds = analysisSamples.length / sampleRate;
   const analysisTransientDensity = transientDensityOf(analysisSamples);
   const brightness = brightnessOf(analysisSamples);
-  const pitchDetection = detectFundamentalHz(analysisSamples, sampleRate);
+  const pitchDetection = detectFundamentalHz(analysisSamples, sampleRate, pitchThreshold);
   const tailEnergyRatio = tailEnergyRatioOf(analysisSamples);
   const snapLikelihood = estimateSnapLikelihood({
     brightness,
@@ -877,7 +881,32 @@ export const analyzeCaptureFrame = ({
   };
 };
 
-const detectPitchInWindow = (samples: Float32Array, sampleRate: number): WindowPitchCandidate | null => {
+// Default YIN absolute threshold for capture pitch detection. Lower is
+// stricter (only clean, strongly periodic frames lock a pitch); higher
+// reacts faster to softer or noisier input.
+export const DEFAULT_CAPTURE_PITCH_THRESHOLD = 0.15;
+
+// Map a capture analysis profile to a YIN threshold so the Quick / Balanced
+// / Steady control actually tunes how the pitch tracker behaves: "Quick"
+// locks a read fast for quick noodling, "Steady" holds out for clean
+// sustained tones, "Balanced" sits in the middle (the prior default).
+export const captureProfileToPitchThreshold = (profile: CaptureAnalysisProfile): number => {
+  switch (profile) {
+    case 'quick':
+      return 0.2;
+    case 'steady':
+      return 0.11;
+    case 'balanced':
+    default:
+      return DEFAULT_CAPTURE_PITCH_THRESHOLD;
+  }
+};
+
+const detectPitchInWindow = (
+  samples: Float32Array,
+  sampleRate: number,
+  threshold = DEFAULT_CAPTURE_PITCH_THRESHOLD,
+): WindowPitchCandidate | null => {
   if (samples.length < 1024) {
     return null;
   }
@@ -902,7 +931,7 @@ const detectPitchInWindow = (samples: Float32Array, sampleRate: number): WindowP
   const reading = detectPitchYin(samples, sampleRate, {
     minHz: 50,
     maxHz: 2500,
-    threshold: 0.15,
+    threshold,
     silenceRms: 0,
   });
   if (!reading || reading.clarity < 0.22) {
@@ -936,7 +965,11 @@ const buildPitchWindows = (samples: Float32Array, start: number, end: number) =>
   return offsets.map((offset) => samples.subarray(offset, Math.min(samples.length, offset + windowSize)));
 };
 
-const detectPeakWindowPitch = (samples: Float32Array, sampleRate: number): WindowPitchCandidate | null => {
+const detectPeakWindowPitch = (
+  samples: Float32Array,
+  sampleRate: number,
+  threshold = DEFAULT_CAPTURE_PITCH_THRESHOLD,
+): WindowPitchCandidate | null => {
   if (samples.length < 1024) {
     return null;
   }
@@ -956,11 +989,15 @@ const detectPeakWindowPitch = (samples: Float32Array, sampleRate: number): Windo
   }
 
   const fallbackWindow = samples.subarray(bestStart, Math.min(samples.length, bestStart + windowSize));
-  return detectPitchInWindow(fallbackWindow, sampleRate);
+  return detectPitchInWindow(fallbackWindow, sampleRate, threshold);
 };
 
 // Aggregate the strongest repeating pitch across a few windows so the capture can survive noisy attacks.
-const detectFundamentalHz = (samples: Float32Array, sampleRate: number): PitchDetectionResult => {
+const detectFundamentalHz = (
+  samples: Float32Array,
+  sampleRate: number,
+  threshold = DEFAULT_CAPTURE_PITCH_THRESHOLD,
+): PitchDetectionResult => {
   let peakAmplitude = 0;
   for (let index = 0; index < samples.length; index += 1) {
     peakAmplitude = Math.max(peakAmplitude, Math.abs(samples[index]));
@@ -975,10 +1012,10 @@ const detectFundamentalHz = (samples: Float32Array, sampleRate: number): PitchDe
 
   const trimmed = samples.subarray(start, end + 1);
   const candidates = buildPitchWindows(samples, start, end)
-    .map((window) => detectPitchInWindow(window, sampleRate))
+    .map((window) => detectPitchInWindow(window, sampleRate, threshold))
     .filter((candidate): candidate is WindowPitchCandidate => candidate !== null);
 
-  const peakWindowCandidate = detectPeakWindowPitch(trimmed, sampleRate);
+  const peakWindowCandidate = detectPeakWindowPitch(trimmed, sampleRate, threshold);
   if (peakWindowCandidate) {
     const boostedPeakCandidate: WindowPitchCandidate = {
       ...peakWindowCandidate,
@@ -1037,9 +1074,19 @@ export class AudioRecorder {
   private lastLiveEmitAt = 0;
   private stream: MediaStream | null = null;
   private startedAt = 0;
+  private pitchThreshold = DEFAULT_CAPTURE_PITCH_THRESHOLD;
 
   public onLiveUpdate(listener: ((frame: LiveCaptureFrame) => void) | null): void {
     this.liveListener = listener;
+  }
+
+  // Tune how eagerly the pitch tracker locks a read. Driven by the capture
+  // analysis profile so Quick / Balanced / Steady changes the live and
+  // post-take pitch detection, not just the suggestion gating.
+  public setPitchThreshold(value: number): void {
+    if (Number.isFinite(value)) {
+      this.pitchThreshold = clamp(value, 0.08, 0.28);
+    }
   }
 
   private emitLiveFrame = () => {
@@ -1057,6 +1104,7 @@ export class AudioRecorder {
         durationSeconds: Math.max(0.18, (Date.now() - this.startedAt) / 1000),
         sampleRate: audioContext.sampleRate,
         samples: buffer,
+        pitchThreshold: this.pitchThreshold,
       });
       this.liveListener?.(frame);
       this.lastLiveEmitAt = now;
@@ -1178,6 +1226,7 @@ export class AudioRecorder {
         durationSeconds,
         sampleRate: audioBuffer.sampleRate,
         samples: audioBuffer.getChannelData(0),
+        pitchThreshold: this.pitchThreshold,
       });
       brightness = frame.brightness;
       clarity = frame.clarity;
