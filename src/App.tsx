@@ -321,7 +321,7 @@ const CompactTransportBar = ({ forceVisible = false }: { forceVisible?: boolean 
       {isFirstImpression && !isPlaying && (
         <span
           aria-live="polite"
-          className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--accent-strong)]"
+          className="rounded-full border border-[rgba(114,217,255,0.32)] bg-[rgba(114,217,255,0.08)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--accent-strong)]"
           role="note"
         >
           Tap play
