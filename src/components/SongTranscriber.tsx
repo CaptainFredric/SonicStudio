@@ -15,9 +15,11 @@ import { useAudio } from '../context/AudioContext';
 import { captureNoteStringFromTranscription } from '../services/noteStringLibrary';
 import {
   buildSessionFromTranscription,
+  mixToMono,
   transcribeAudioBuffer,
   type TranscriptionResult,
 } from '../services/songTranscription';
+import { extractPeaks } from '../utils/waveformPeaks';
 
 type NoticeTone = 'info' | 'success' | 'error';
 
@@ -53,6 +55,7 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
   const { loadTranscribedSession } = useAudio();
   const [status, setStatus] = useState<TranscriberStatus>('idle');
   const [result, setResult] = useState<TranscriptionResult | null>(null);
+  const [peaks, setPeaks] = useState<number[]>([]);
   const [sourceLabel, setSourceLabel] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [bpmOverride, setBpmOverride] = useState('');
@@ -71,6 +74,7 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
   const resetState = useCallback(() => {
     setStatus('idle');
     setResult(null);
+    setPeaks([]);
     setSourceLabel('');
     setErrorMessage('');
     setBpmOverride('');
@@ -121,6 +125,13 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
     try {
       const buffer = await decodeAudio(data);
       decodedBufferRef.current = buffer;
+      // Pull a waveform strip from the decoded take so the user can see
+      // what they recorded / uploaded before and after transcribing.
+      try {
+        setPeaks(extractPeaks(mixToMono(buffer), 120));
+      } catch {
+        setPeaks([]);
+      }
       await runTranscription(buffer);
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Could not read that audio.');
@@ -339,6 +350,7 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
 
           {status === 'ready' && result ? (
             <div className="grid gap-3">
+              {peaks.length > 0 && <WaveformStrip peaks={peaks} />}
               <div className="grid grid-cols-3 gap-2">
                 <ResultStat label="Notes" value={String(result.notes.length)} />
                 <ResultStat label="Tempo" value={`${result.bpm} BPM`} />
@@ -424,5 +436,22 @@ const ResultStat = ({ label, value }: { label: string; value: string }) => (
     <div className="mt-1 font-mono text-sm font-semibold tracking-[0.04em] text-[var(--text-primary)]">
       {value}
     </div>
+  </div>
+);
+
+// A compact symmetric waveform of the decoded take, drawn as mirrored
+// bars from a normalized peaks array.
+const WaveformStrip = ({ peaks }: { peaks: number[] }) => (
+  <div
+    aria-hidden="true"
+    className="flex h-12 items-center gap-[1px] overflow-hidden rounded-[3px] border border-[var(--border-soft)] bg-[rgba(6,9,13,0.4)] px-2"
+  >
+    {peaks.map((peak, index) => (
+      <span
+        key={index}
+        className="min-w-0 flex-1 rounded-[1px] bg-[var(--accent)]"
+        style={{ height: `${Math.max(6, Math.round(peak * 100))}%`, opacity: 0.35 + peak * 0.5 }}
+      />
+    ))}
   </div>
 );
