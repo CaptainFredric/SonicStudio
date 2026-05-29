@@ -24,7 +24,7 @@ import { TransportElapsedTag } from './components/TransportElapsedTag';
 import { TransportPositionTag } from './components/TransportPositionTag';
 import { ToastStack, type ToastItem } from './components/ToastStack';
 import { resolveStudioRoute, type StudioRouteState } from './app/routeController';
-import type { SessionTemplateId } from './project/schema';
+import { APP_VIEW_ORDER, type AppView, type SessionTemplateId } from './project/schema';
 import { markOnboardingCompleted, markOnboardingSkipped, shouldAutoOpenOnboarding } from './services/onboardingState';
 import { useMediaQuery } from './utils/useMediaQuery';
 import { playSupersonicToggleSound } from './audio/uiSounds';
@@ -79,6 +79,12 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe,
       title: 'Arranger: place clips and shape full song structure',
     },
   ];
+
+  // Keep the rail in the one canonical order so the tabs and the Alt+1..5
+  // shortcuts can never drift apart.
+  const orderedNavItems = [...navItems].sort(
+    (left, right) => APP_VIEW_ORDER.indexOf(left.id as AppView) - APP_VIEW_ORDER.indexOf(right.id as AppView),
+  );
 
   const renderViewButton = (item: { icon: React.ReactNode; id: string; label: string; title: string }) => (
     <button
@@ -171,11 +177,11 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe,
       </div>
 
       <div className="mt-2 grid grid-cols-5 gap-1.5 md:mt-0 md:hidden">
-        {navItems.map(renderViewButton)}
+        {orderedNavItems.map(renderViewButton)}
       </div>
 
       <div className="hidden md:grid md:w-full md:gap-2.5">
-        {navItems.map(renderViewButton)}
+        {orderedNavItems.map(renderViewButton)}
       </div>
 
       <div className="grid grid-cols-3 gap-2 border-t border-[var(--border-soft)] pt-3 md:mt-auto md:grid-cols-1 md:gap-2">

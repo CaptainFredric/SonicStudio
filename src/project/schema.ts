@@ -1,6 +1,11 @@
 import { NOTE_GATE_MAX, NOTE_GATE_MIN, clampNoteGate } from '../utils/noteEditing';
 
 export type AppView = 'SEQUENCER' | 'PIANO_ROLL' | 'MIXER' | 'ARRANGER' | 'COMPOSE';
+
+// Canonical left-to-right order of the workspace view tabs. The nav rail and
+// the Alt+1..5 shortcuts both read this so the numbering always matches what
+// is on screen.
+export const APP_VIEW_ORDER: readonly AppView[] = ['SEQUENCER', 'COMPOSE', 'PIANO_ROLL', 'MIXER', 'ARRANGER'];
 export type InstrumentType = 'kick' | 'snare' | 'hihat' | 'bass' | 'lead' | 'pad' | 'pluck' | 'fx' | 'violin' | 'piano' | 'bell';
 export type TransportMode = 'PATTERN' | 'SONG';
 export type OscillatorShape = 'sine' | 'triangle' | 'sawtooth' | 'square';

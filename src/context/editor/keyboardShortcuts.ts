@@ -1,6 +1,6 @@
 import type { Dispatch } from 'react';
 
-import type { Project } from '../../project/schema';
+import { APP_VIEW_ORDER, type Project } from '../../project/schema';
 import type { EditorAction } from './editorTypes';
 
 interface CreateKeyboardShortcutHandlerOptions {
@@ -59,9 +59,9 @@ export const createKeyboardShortcutHandler = ({
 
   if (event.altKey && /^Digit[1-5]$/.test(event.code)) {
     event.preventDefault();
-    const views = ['SEQUENCER', 'PIANO_ROLL', 'MIXER', 'ARRANGER', 'COMPOSE'] as const;
-    const nextView = views[Math.max(0, Math.min(views.length - 1, Number(event.code.slice(-1)) - 1))];
-    dispatch({ type: 'SET_ACTIVE_VIEW', view: nextView });
+    // Follow the on-screen tab order so Alt+N lands on the Nth visible view.
+    const index = Math.max(0, Math.min(APP_VIEW_ORDER.length - 1, Number(event.code.slice(-1)) - 1));
+    dispatch({ type: 'SET_ACTIVE_VIEW', view: APP_VIEW_ORDER[index] });
     return;
   }
 

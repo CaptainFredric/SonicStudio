@@ -122,7 +122,7 @@ export const WorkspaceTransportPanel = ({
         <ShortcutRow command="Alt+R" description="Arm or stop recording" />
         <ShortcutRow command="Alt+S" description="Toggle SuperSonic" />
         <ShortcutRow command="Alt+C" description="Quick capture a note string" />
-        <ShortcutRow command="Alt+1 … 5" description="Sequencer, Notes, Mix, Song, Compose" />
+        <ShortcutRow command="Alt+1 … 5" description="Sequencer, Compose, Piano Roll, Mixer, Arranger" />
         <ShortcutRow command="1 … 8" description="Switch pattern bank" />
         <ShortcutRow command="Cmd/Ctrl+S" description="Save session" />
         <ShortcutRow command="Cmd/Ctrl+Z" description="Undo" />
