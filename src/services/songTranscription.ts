@@ -86,7 +86,24 @@ export interface TranscriptionOptions {
   bpm?: number;
   /** Drop notes shorter than this many 16th steps. Defaults to 1. */
   minNoteSteps?: number;
+  /**
+   * 0..1. Higher catches quieter / breathier notes; lower rejects more
+   * as noise. Maps to the YIN threshold and the silence floor. Default
+   * 0.5 (balanced).
+   */
+  sensitivity?: number;
 }
+
+// Translate a 0..1 sensitivity into detector parameters. Higher
+// sensitivity loosens the YIN threshold (accepts less-periodic frames)
+// and lowers the silence floor (picks up quieter takes).
+const sensitivityToPitchOptions = (sensitivity: number): { threshold: number; silenceRms: number } => {
+  const s = clamp(sensitivity, 0, 1);
+  return {
+    threshold: 0.10 + s * 0.14, // 0.10 (strict) .. 0.24 (permissive)
+    silenceRms: 0.02 - s * 0.015, // 0.02 (ignores quiet) .. 0.005 (hears quiet)
+  };
+};
 
 // --- Small numeric helpers ------------------------------------------------
 
@@ -175,7 +192,11 @@ export const detectPitchHz = (frame: Float32Array, sampleRate: number): number =
 };
 
 /** Run the pitch detector across the whole signal, frame by frame. */
-const analyzeFrames = (samples: Float32Array, sampleRate: number): FrameAnalysis[] => {
+const analyzeFrames = (
+  samples: Float32Array,
+  sampleRate: number,
+  pitchOptions: { threshold: number; silenceRms: number },
+): FrameAnalysis[] => {
   const frames: FrameAnalysis[] = [];
   for (let start = 0; start + WINDOW <= samples.length; start += HOP) {
     const frame = samples.subarray(start, start + WINDOW);
@@ -185,9 +206,14 @@ const analyzeFrames = (samples: Float32Array, sampleRate: number): FrameAnalysis
     }
     rms = Math.sqrt(rms / frame.length);
 
-    const hz = detectPitchHz(frame, sampleRate);
+    const reading = detectPitchYin(frame, sampleRate, {
+      minHz: MIN_HZ,
+      maxHz: MAX_HZ,
+      threshold: pitchOptions.threshold,
+      silenceRms: pitchOptions.silenceRms,
+    });
     frames.push({
-      midi: hz > 0 ? frequencyToMidi(hz) : null,
+      midi: reading ? frequencyToMidi(reading.hz) : null,
       rms,
     });
   }
@@ -337,7 +363,7 @@ export const transcribeSamples = (
   const hopSeconds = HOP / workingRate;
   const durationSeconds = limited.length / sampleRate;
 
-  const rawFrames = analyzeFrames(mono, workingRate);
+  const rawFrames = analyzeFrames(mono, workingRate, sensitivityToPitchOptions(options.sensitivity ?? 0.5));
   const frames = smoothPitchTrack(rawFrames);
 
   // Confidence + polyphony heuristic. A clean monophonic take holds a steady

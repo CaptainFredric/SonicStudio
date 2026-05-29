@@ -17,6 +17,7 @@ import {
   buildSessionFromTranscription,
   mixToMono,
   transcribeAudioBuffer,
+  type TranscriptionOptions,
   type TranscriptionResult,
 } from '../services/songTranscription';
 import { extractPeaks } from '../utils/waveformPeaks';
@@ -56,6 +57,8 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
   const [status, setStatus] = useState<TranscriberStatus>('idle');
   const [result, setResult] = useState<TranscriptionResult | null>(null);
   const [peaks, setPeaks] = useState<number[]>([]);
+  const [sensitivity, setSensitivity] = useState(0.5);
+  const [minNoteSteps, setMinNoteSteps] = useState(1);
   const [sourceLabel, setSourceLabel] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [bpmOverride, setBpmOverride] = useState('');
@@ -101,15 +104,17 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
   }, [open, onClose]);
 
   /** Run the transcription pass over a decoded buffer. */
-  const runTranscription = useCallback(async (buffer: AudioBuffer, bpm?: number) => {
+  const runTranscription = useCallback(async (buffer: AudioBuffer, options: TranscriptionOptions = {}) => {
     setStatus('working');
     setErrorMessage('');
     // Yield once so the "Analyzing" state paints before the synchronous pass.
     await new Promise((resolve) => window.setTimeout(resolve, 30));
     try {
-      const transcription = transcribeAudioBuffer(buffer, bpm ? { bpm } : {});
+      const transcription = transcribeAudioBuffer(buffer, options);
       setResult(transcription);
-      setBpmOverride(String(transcription.bpm));
+      if (options.bpm === undefined) {
+        setBpmOverride(String(transcription.bpm));
+      }
       setStatus('ready');
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Transcription failed.');
@@ -188,6 +193,20 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
     mediaRecorderRef.current = null;
   }, []);
 
+  // Re-run the pass over the already-decoded take with whatever the
+  // current option controls say, merging in any just-changed value.
+  const reanalyze = (overrides: TranscriptionOptions = {}) => {
+    const buffer = decodedBufferRef.current;
+    if (!buffer) return;
+    const bpm = Number(bpmOverride);
+    void runTranscription(buffer, {
+      bpm: Number.isFinite(bpm) && bpm >= 40 && bpm <= 220 ? bpm : undefined,
+      sensitivity,
+      minNoteSteps,
+      ...overrides,
+    });
+  };
+
   const handleBpmCommit = useCallback(() => {
     const buffer = decodedBufferRef.current;
     const bpm = Number(bpmOverride);
@@ -197,8 +216,8 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
     if (result && bpm === result.bpm) {
       return;
     }
-    void runTranscription(buffer, bpm);
-  }, [bpmOverride, result, runTranscription]);
+    void runTranscription(buffer, { bpm, sensitivity, minNoteSteps });
+  }, [bpmOverride, minNoteSteps, result, runTranscription, sensitivity]);
 
   const applyToStudio = useCallback(() => {
     if (!result || result.notes.length === 0) {
@@ -386,6 +405,62 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
                   Adjust if the timing reads wrong, then notes re-snap to the grid.
                 </span>
               </label>
+
+              <div className="grid gap-3 rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3 sm:grid-cols-2">
+                <label className="grid gap-1.5">
+                  <span className="flex items-center justify-between text-[10px] font-mono uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+                    <span>Sensitivity</span>
+                    <span className="text-[var(--text-secondary)]">{Math.round(sensitivity * 100)}%</span>
+                  </span>
+                  <input
+                    aria-label="Transcription sensitivity"
+                    className="w-full"
+                    max={1}
+                    min={0}
+                    onChange={(event) => {
+                      const next = Number(event.target.value);
+                      setSensitivity(next);
+                    }}
+                    onPointerUp={() => reanalyze({ sensitivity })}
+                    onKeyUp={() => reanalyze({ sensitivity })}
+                    step={0.05}
+                    type="range"
+                    value={sensitivity}
+                  />
+                  <span className="text-[10px] leading-4 text-[var(--text-tertiary)]">
+                    Higher catches quiet or breathy notes; lower ignores more as noise.
+                  </span>
+                </label>
+
+                <label className="grid gap-1.5">
+                  <span className="text-[10px] font-mono uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Shortest note</span>
+                  <div className="flex gap-1.5">
+                    {[
+                      { label: '1/16', steps: 1 },
+                      { label: '1/8', steps: 2 },
+                      { label: '1/4', steps: 4 },
+                    ].map((option) => (
+                      <button
+                        aria-label={`Shortest note ${option.label}`}
+                        aria-pressed={minNoteSteps === option.steps}
+                        className="control-chip h-8 flex-1 min-h-[2rem] px-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                        data-active={minNoteSteps === option.steps ? 'true' : 'false'}
+                        key={option.steps}
+                        onClick={() => {
+                          setMinNoteSteps(option.steps);
+                          reanalyze({ minNoteSteps: option.steps });
+                        }}
+                        type="button"
+                      >
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                  <span className="text-[10px] leading-4 text-[var(--text-tertiary)]">
+                    Drops blips shorter than this so fast wobbles don't become notes.
+                  </span>
+                </label>
+              </div>
             </div>
           ) : null}
         </div>
