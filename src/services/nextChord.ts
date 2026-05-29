@@ -10,16 +10,10 @@
 // the goal is "good next idea," not "complete music-theory simulator."
 
 import type { Track } from '../project/schema';
+import { NOTE_NAMES_SHARP, pitchClassFromNote, scaleDegreesFor } from '../utils/pitch';
 import type { DetectedKey, KeyMode } from './keyDetector';
 import type { CapturedNoteToken } from './noteStringLibrary';
 
-const PITCH_CLASS_INDEX: Record<string, number> = {
-  C: 0, 'C#': 1, D: 2, 'D#': 3, E: 4, F: 5, 'F#': 6, G: 7, 'G#': 8, A: 9, 'A#': 10, B: 11,
-};
-const NOTE_NAMES_SHARP = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-
-const MAJOR_DEGREES = [0, 2, 4, 5, 7, 9, 11]; // I ii iii IV V vi vii
-const MINOR_DEGREES = [0, 2, 3, 5, 7, 8, 10]; // i ii° III iv V VI VII
 const MAJOR_NUMERALS = ['I', 'ii', 'iii', 'IV', 'V', 'vi', 'vii°'];
 const MINOR_NUMERALS = ['i', 'ii°', 'III', 'iv', 'V', 'VI', 'VII'];
 
@@ -43,11 +37,6 @@ const MINOR_TRANSITIONS: Record<number, number[]> = {
   6: [2, 0],    // VII-> III, i
 };
 
-const noteNameToPitchClass = (note: string): number | null => {
-  const match = note.match(/^([A-G])(#?)/);
-  if (!match) return null;
-  return PITCH_CLASS_INDEX[`${match[1]}${match[2]}`] ?? null;
-};
 
 // Pick the most recent chord-root the user authored. We prefer the
 // bass lane (its notes are by convention the chord root). Falling
@@ -62,7 +51,7 @@ const findLastRootPitch = (tracks: Track[]): number | null => {
         if (!step || step.length === 0) continue;
         const note = step[0]?.note;
         if (!note) continue;
-        const pc = noteNameToPitchClass(note);
+        const pc = pitchClassFromNote(note);
         if (pc !== null) return pc;
       }
     }
@@ -78,7 +67,7 @@ const findLastRootPitch = (tracks: Track[]): number | null => {
         const sorted = [...step].sort((a, b) => a.note.localeCompare(b.note));
         const note = sorted[0]?.note;
         if (!note) continue;
-        const pc = noteNameToPitchClass(note);
+        const pc = pitchClassFromNote(note);
         if (pc !== null) return pc;
       }
     }
@@ -86,13 +75,12 @@ const findLastRootPitch = (tracks: Track[]): number | null => {
   return null;
 };
 
-const degreesFor = (mode: KeyMode) => (mode === 'major' ? MAJOR_DEGREES : MINOR_DEGREES);
 const numeralsFor = (mode: KeyMode) => (mode === 'major' ? MAJOR_NUMERALS : MINOR_NUMERALS);
 const transitionsFor = (mode: KeyMode) => (mode === 'major' ? MAJOR_TRANSITIONS : MINOR_TRANSITIONS);
 
 const degreeFromPitchClass = (root: number, pc: number, mode: KeyMode): number | null => {
   const relative = ((pc - root) % 12 + 12) % 12;
-  const degrees = degreesFor(mode);
+  const degrees = scaleDegreesFor(mode);
   for (let degreeIndex = 0; degreeIndex < degrees.length; degreeIndex += 1) {
     if (degrees[degreeIndex] === relative) return degreeIndex;
   }
@@ -132,7 +120,7 @@ export const suggestNextChords = (
   if (currentDegree === null) return [];
 
   const nextDegreeIndices = transitionsFor(key.mode)[currentDegree] ?? [];
-  const degrees = degreesFor(key.mode);
+  const degrees = scaleDegreesFor(key.mode);
   const numerals = numeralsFor(key.mode);
 
   return nextDegreeIndices.slice(0, 3).map((degreeIndex) => {

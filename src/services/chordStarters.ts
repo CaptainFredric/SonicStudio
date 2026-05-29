@@ -12,7 +12,7 @@
 // / Duplicate actions as any other entry.
 
 import type { CapturedNoteToken } from './noteStringLibrary';
-import type { KeyMode } from './keyDetector';
+import { NOTE_NAMES_SHARP, PITCH_CLASS_BY_NAME, type ScaleMode } from '../utils/pitch';
 
 export interface ChordStarter {
   id: string;
@@ -20,19 +20,14 @@ export interface ChordStarter {
   description: string;
   /** Pitch class of the tonic this starter was authored in. */
   sourceRoot: number;
-  sourceMode: KeyMode;
+  sourceMode: ScaleMode;
   tokens: CapturedNoteToken[];
 }
-
-const NOTE_NAMES_SHARP = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-const PITCH_CLASS_INDEX: Record<string, number> = {
-  C: 0, 'C#': 1, D: 2, 'D#': 3, E: 4, F: 5, 'F#': 6, G: 7, 'G#': 8, A: 9, 'A#': 10, B: 11,
-};
 
 const shiftNote = (note: string, semitones: number): string => {
   const match = note.match(/^([A-G])(#?)(-?\d+)$/);
   if (!match) return note;
-  const pc = PITCH_CLASS_INDEX[`${match[1]}${match[2]}`];
+  const pc = PITCH_CLASS_BY_NAME[`${match[1]}${match[2]}`];
   if (pc === undefined) return note;
   const octave = Number.parseInt(match[3], 10);
   if (!Number.isFinite(octave)) return note;
@@ -52,7 +47,7 @@ const shiftNote = (note: string, semitones: number): string => {
 export const transposeChordStarterToKey = (
   starter: ChordStarter,
   targetRoot: number,
-  targetMode: KeyMode,
+  targetMode: ScaleMode,
 ): ChordStarter => {
   if (starter.sourceMode !== targetMode) return starter;
   const semitones = ((targetRoot - starter.sourceRoot) % 12 + 12) % 12;

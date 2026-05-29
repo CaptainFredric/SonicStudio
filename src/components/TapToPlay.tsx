@@ -4,6 +4,7 @@ import { ChevronDown, ChevronUp, GripHorizontal, Hand, Minus, Plus, Power } from
 import { engine } from '../audio/ToneEngine';
 import { useAudio, usePlaybackStep } from '../context/AudioContext';
 import { getEffectiveKey } from '../services/keyDetector';
+import { inKeyPitchClasses, pitchClassFromNote } from '../utils/pitch';
 import {
   captureSuggestionControlsToTrackParams,
   captureSuggestionControlsToTrackSource,
@@ -122,12 +123,6 @@ const buildWhiteKeys = (range: Octave) => {
   return result;
 };
 
-const PITCH_CLASS_INDEX: Record<string, number> = {
-  C: 0, 'C#': 1, D: 2, 'D#': 3, E: 4, F: 5, 'F#': 6, G: 7, 'G#': 8, A: 9, 'A#': 10, B: 11,
-};
-const MAJOR_DEGREES = [0, 2, 4, 5, 7, 9, 11];
-const MINOR_DEGREES = [0, 2, 3, 5, 7, 8, 10];
-
 // Resolve the effective key (auto-detect or manual pin) and return
 // the diatonic pitch-class set so the keyboard can tint in-key keys.
 // Returns null when the key reading is uncertain so the keyboard
@@ -135,14 +130,7 @@ const MINOR_DEGREES = [0, 2, 3, 5, 7, 8, 10];
 const buildInKeyPitchSet = (tracks: Parameters<typeof getEffectiveKey>[0]): Set<number> | null => {
   const key = getEffectiveKey(tracks);
   if (key.uncertain) return null;
-  const degrees = key.mode === 'major' ? MAJOR_DEGREES : MINOR_DEGREES;
-  return new Set(degrees.map((degree) => (key.root + degree) % 12));
-};
-
-const pitchClassFromNote = (note: string): number | null => {
-  const match = note.match(/^([A-G])(#?)/);
-  if (!match) return null;
-  return PITCH_CLASS_INDEX[`${match[1]}${match[2]}`] ?? null;
+  return inKeyPitchClasses(key.root, key.mode);
 };
 
 const DRUM_PADS = [

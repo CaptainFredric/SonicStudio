@@ -12,6 +12,12 @@
 // call. The detection runs in microseconds on a normal session.
 
 import type { Track } from '../project/schema';
+import {
+  inKeyPitchClasses,
+  NOTE_NAMES_SHARP,
+  pitchClassFromNote,
+  type ScaleMode,
+} from '../utils/pitch';
 import { getManualKeyOverride } from './manualKeyOverride';
 
 // Krumhansl & Kessler / Schmuckler weighting vectors. Index 0 = the
@@ -20,23 +26,7 @@ import { getManualKeyOverride } from './manualKeyOverride';
 const MAJOR_PROFILE = [6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88];
 const MINOR_PROFILE = [6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17];
 
-const NOTE_NAMES_SHARP = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-
-const PITCH_CLASS_INDEX: Record<string, number> = {
-  C: 0, 'C#': 1, Db: 1, D: 2, 'D#': 3, Eb: 3, E: 4, Fb: 4, F: 5,
-  'E#': 5, 'F#': 6, Gb: 6, G: 7, 'G#': 8, Ab: 8, A: 9, 'A#': 10, Bb: 10, B: 11, Cb: 11,
-};
-
-const noteNameToPitchClass = (note: string): number | null => {
-  // Note shapes we accept: "C4", "F#3", "Bb2", "B-1" (negative octave).
-  const match = note.match(/^([A-Ga-g])([#b]?)/);
-  if (!match) return null;
-  const letter = match[1].toUpperCase();
-  const accidental = match[2];
-  return PITCH_CLASS_INDEX[`${letter}${accidental}`] ?? null;
-};
-
-export type KeyMode = 'major' | 'minor';
+export type KeyMode = ScaleMode;
 
 export interface DetectedKey {
   /** Tonic pitch class index (0 = C). */
@@ -90,7 +80,7 @@ const buildHistogram = (tracks: Track[]): { histogram: number[]; noteCount: numb
       stepGrid.forEach((step, stepIndex) => {
         const positionBonus = stepIndex % STEPS_PER_BAR === 0 ? DOWNBEAT_BONUS : 1;
         for (const event of step) {
-          const pc = noteNameToPitchClass(event.note);
+          const pc = pitchClassFromNote(event.note);
           if (pc === null) continue;
           // Weight by velocity so a fortissimo accent counts more
           // than a soft passing tone, by lane (bass anchors the
@@ -129,21 +119,11 @@ const correlation = (a: number[], b: number[]): number => {
   return numerator / denominator;
 };
 
-// Major / natural-minor scale degree pitch classes relative to the
-// tonic. Used by laneFitness + patternKeyDrift to test whether each
-// note falls inside the diatonic set.
-const MAJOR_SCALE_PCS = new Set<number>([0, 2, 4, 5, 7, 9, 11]);
-const MINOR_SCALE_PCS = new Set<number>([0, 2, 3, 5, 7, 8, 10]);
-
-const noteFitsKey = (notePc: number, key: DetectedKey): boolean => {
-  const relative = ((notePc - key.root) % 12 + 12) % 12;
-  const scale = key.mode === 'major' ? MAJOR_SCALE_PCS : MINOR_SCALE_PCS;
-  return scale.has(relative);
-};
-
-const PITCH_CLASS_FROM_NAME: Record<string, number> = {
-  C: 0, 'C#': 1, D: 2, 'D#': 3, E: 4, F: 5, 'F#': 6, G: 7, 'G#': 8, A: 9, 'A#': 10, B: 11,
-};
+// True when an absolute pitch class belongs to the key's diatonic set.
+// Used by laneFitness + detectPatternKeyDrift.
+const noteFitsKey = (notePc: number, key: DetectedKey): boolean => (
+  inKeyPitchClasses(key.root, key.mode).has(notePc)
+);
 
 /**
  * Source of truth for "what key is this session in?" for UI surfaces.
@@ -154,7 +134,7 @@ const PITCH_CLASS_FROM_NAME: Record<string, number> = {
 export const getEffectiveKey = (tracks: Track[]): DetectedKey => {
   const override = getManualKeyOverride();
   if (override) {
-    const root = PITCH_CLASS_FROM_NAME[override.rootName] ?? 0;
+    const root = pitchClassFromNote(override.rootName) ?? 0;
     return {
       root,
       rootName: override.rootName,
@@ -191,7 +171,7 @@ export const laneFitness = (track: Track, key: DetectedKey): LaneFitness => {
   for (const stepGrid of Object.values(track.patterns)) {
     for (const step of stepGrid) {
       for (const event of step) {
-        const pc = noteNameToPitchClass(event.note);
+        const pc = pitchClassFromNote(event.note);
         if (pc === null) continue;
         if (noteFitsKey(pc, key)) inside += 1;
         else outside += 1;
@@ -241,7 +221,7 @@ export const detectPatternKeyDrift = (tracks: Track[], key: DetectedKey): Patter
       }
       for (const step of stepGrid) {
         for (const event of step) {
-          const pc = noteNameToPitchClass(event.note);
+          const pc = pitchClassFromNote(event.note);
           if (pc === null) continue;
           if (noteFitsKey(pc, key)) bucket.inside += 1;
           else bucket.outside += 1;

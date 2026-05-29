@@ -10,26 +10,22 @@
 
 import { useEffect, useState } from 'react';
 
-import type { KeyMode } from './keyDetector';
+import { PITCH_CLASS_BY_NAME, type ScaleMode } from '../utils/pitch';
 
 const STORAGE_KEY = 'sonicstudio:manual-key:v1';
 const EVENT = 'sonicstudio:manual-key:change';
 
 export interface ManualKeyOverride {
   rootName: string;
-  mode: KeyMode;
+  mode: ScaleMode;
 }
-
-const PITCH_CLASS_INDEX: Record<string, number> = {
-  C: 0, 'C#': 1, D: 2, 'D#': 3, E: 4, F: 5, 'F#': 6, G: 7, 'G#': 8, A: 9, 'A#': 10, B: 11,
-};
 
 const isValid = (value: unknown): value is ManualKeyOverride => {
   if (typeof value !== 'object' || value === null) return false;
   const record = value as Record<string, unknown>;
   if (typeof record.rootName !== 'string') return false;
   if (record.mode !== 'major' && record.mode !== 'minor') return false;
-  return PITCH_CLASS_INDEX[record.rootName] !== undefined;
+  return PITCH_CLASS_BY_NAME[record.rootName] !== undefined;
 };
 
 const readPersisted = (): ManualKeyOverride | null => {

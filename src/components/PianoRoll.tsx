@@ -18,6 +18,13 @@ import {
 
 import { useAudio, usePlaybackStep } from '../context/AudioContext';
 import { detectKey, getEffectiveKey } from '../services/keyDetector';
+import {
+  inKeyPitchClasses,
+  NOTE_NAMES_SHARP,
+  PITCH_CLASS_BY_NAME,
+  pitchClassFromNote,
+  type ScaleMode,
+} from '../utils/pitch';
 import { saveCapturedNoteStringFromTokens, tokensFromPatternSteps } from '../services/noteStringLibrary';
 import { setQueuedNoteStringId } from '../services/noteStringQueue';
 import { MAX_STEPS_PER_PATTERN, type NoteEvent } from '../project/schema';
@@ -46,26 +53,20 @@ import { useMediaQuery } from '../utils/useMediaQuery';
 import { loadRecordedNotePresets, subscribeRecordedNotePresets, type RecordedNotePreset } from '../services/recordedNoteLibrary';
 import { captureSuggestionControlsToTrackParams, captureSuggestionControlsToTrackSource } from '../services/audioRecording';
 
-const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-const PITCH_CLASS_INDEX_FROM_NAME: Record<string, number> = {
-  C: 0, 'C#': 1, D: 2, 'D#': 3, E: 4, F: 5, 'F#': 6, G: 7, 'G#': 8, A: 9, 'A#': 10, B: 11,
-};
-const MAJOR_SCALE_PCS = [0, 2, 4, 5, 7, 9, 11];
-const MINOR_SCALE_PCS = [0, 2, 3, 5, 7, 8, 10];
+const NOTE_NAMES = NOTE_NAMES_SHARP;
 
 // Snap a note name to the nearest pitch class in the detected key.
 // Preserves the octave when the snap is within 1 semitone. Used by
 // the Piano Roll's Snap toolbar action so a stray accidental clicks
 // into the scale without changing the gesture vocabulary.
-const snapNoteToKey = (note: string, key: { root: number; mode: 'major' | 'minor' }): string => {
+const snapNoteToKey = (note: string, key: { root: number; mode: ScaleMode }): string => {
   const match = note.match(/^([A-G])(#?)(-?\d+)$/);
   if (!match) return note;
-  const pc = PITCH_CLASS_INDEX_FROM_NAME[`${match[1]}${match[2]}`];
+  const pc = PITCH_CLASS_BY_NAME[`${match[1]}${match[2]}`];
   if (pc === undefined) return note;
   const octave = Number.parseInt(match[3], 10);
   if (!Number.isFinite(octave)) return note;
-  const scale = key.mode === 'major' ? MAJOR_SCALE_PCS : MINOR_SCALE_PCS;
-  const inKey = new Set(scale.map((degree) => (key.root + degree) % 12));
+  const inKey = inKeyPitchClasses(key.root, key.mode);
   if (inKey.has(pc)) return note;
   // Find the closest in-key pitch class by absolute semitone distance.
   let bestDelta = 12;
@@ -437,17 +438,10 @@ export const PianoRoll = () => {
   // Pitch classes that fit the session's effective key, used to tint
   // grid rows whose pitch falls inside the diatonic set. Null when
   // the key is uncertain so the grid keeps its neutral look.
-  const inKeyPitchClasses = useMemo<Set<number> | null>(() => {
+  const inKeyRowPitchClasses = useMemo<Set<number> | null>(() => {
     if (liveDetected.uncertain) return null;
-    const degrees = liveDetected.mode === 'major' ? [0, 2, 4, 5, 7, 9, 11] : [0, 2, 3, 5, 7, 8, 10];
-    return new Set(degrees.map((degree) => (liveDetected.root + degree) % 12));
+    return inKeyPitchClasses(liveDetected.root, liveDetected.mode);
   }, [liveDetected]);
-
-  const rowPitchClassFromName = (note: string): number | null => {
-    const match = note.match(/^([A-G])(#?)/);
-    if (!match) return null;
-    return PITCH_CLASS_INDEX_FROM_NAME[`${match[1]}${match[2]}`] ?? null;
-  };
 
   const selectStep = (stepIndex: number) => {
     setSelectedStepIndex(stepIndex);
@@ -1267,8 +1261,8 @@ export const PianoRoll = () => {
 
             {renderNotes.map((note, rowIndex) => {
               const isBlackKey = note.includes('#');
-              const rowPc = isDrum ? null : rowPitchClassFromName(note);
-              const isInKey = inKeyPitchClasses !== null && rowPc !== null && inKeyPitchClasses.has(rowPc);
+              const rowPc = isDrum ? null : pitchClassFromNote(note);
+              const isInKey = inKeyRowPitchClasses !== null && rowPc !== null && inKeyRowPitchClasses.has(rowPc);
 
               return (
                 <div className="flex border-b border-[var(--border-soft)]/80 last:border-b-0" key={note} style={{ height: `${rowHeight}px` }}>

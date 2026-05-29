@@ -27,6 +27,7 @@ import {
   type StepValue,
 } from '../project/schema';
 import { clampNoteGate, NOTE_GATE_MIN, NOTE_GATE_MAX } from '../utils/noteEditing';
+import { NOTE_NAMES_SHARP, PITCH_CLASS_BY_NAME } from '../utils/pitch';
 import type { PatternSegment } from './patternSegments';
 
 // Schema's own gate/velocity clamps aren't exported. Mirror the same
@@ -404,18 +405,12 @@ export const removeCapturedNoteString = (id: string): CapturedNoteString[] => {
 };
 
 // MIDI <-> note-name plumbing used by transposeCapturedNoteString.
-// Kept local to the file so the library has no external dependency
-// just for a semitone shift.
-const PITCH_CLASS_INDEX: Record<string, number> = {
-  C: 0, 'C#': 1, D: 2, 'D#': 3, E: 4, F: 5, 'F#': 6, G: 7, 'G#': 8, A: 9, 'A#': 10, B: 11,
-};
-const NOTE_NAMES_SHARP = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-
+// Pitch-class map and sharp names come from the shared pitch util.
 const noteNameToMidi = (note: string): number | null => {
   const match = note.match(/^([A-G])(#?)(-?\d+)$/);
   if (!match) return null;
   const pitchClass = `${match[1]}${match[2]}`;
-  const pc = PITCH_CLASS_INDEX[pitchClass];
+  const pc = PITCH_CLASS_BY_NAME[pitchClass];
   if (pc === undefined) return null;
   const octave = Number.parseInt(match[3], 10);
   if (!Number.isFinite(octave)) return null;
