@@ -2,6 +2,7 @@ import React from 'react';
 import { Gauge, Layers3 } from 'lucide-react';
 
 import { MetricCell, SegmentButton, ShortcutRow } from './SettingsPrimitives';
+import { TapTempoButton } from './TapTempoButton';
 
 const PATTERN_OPTIONS = [2, 4, 6, 8, 12, 16];
 const STEP_OPTIONS = [8, 16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512, 768, 1024, 1536, 2048, 3072, 4096];
@@ -56,6 +57,7 @@ export const WorkspaceTransportPanel = ({
               value={bpm}
             />
             <span className="text-xs font-medium uppercase tracking-[0.18em] text-[var(--text-tertiary)]">BPM</span>
+            <TapTempoButton onBpmChange={onBpmChange} />
           </div>
         </div>
 
