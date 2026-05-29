@@ -321,10 +321,10 @@ export const AudioProvider = ({
     ui: editorState.ui,
   }), [project, editorState.ui]);
 
-  const publishNotice = (tone: StudioNotice['tone'], title: string, detail?: string) => {
+  const publishNotice = useCallback((tone: StudioNotice['tone'], title: string, detail?: string) => {
     noticeIdRef.current += 1;
     setLatestNotice({ detail, id: noticeIdRef.current, title, tone });
-  };
+  }, []);
 
   useEffect(() => {
     persistStudioPreferences(preferences);
@@ -670,9 +670,10 @@ export const AudioProvider = ({
     dispatchAppendBounceHistory: (entry) => dispatch({ type: 'APPEND_BOUNCE_HISTORY', entry }),
     loopRangeEndBeat,
     loopRangeStartBeat,
+    notify: publishNotice,
     selectedArrangerClipId,
     setRenderState,
-  }), [loopRangeEndBeat, loopRangeStartBeat, project, selectedArrangerClipId]);
+  }), [loopRangeEndBeat, loopRangeStartBeat, project, publishNotice, selectedArrangerClipId]);
 
   const audioContextValue = useMemo<AudioContextType>(() => ({
     activeView,

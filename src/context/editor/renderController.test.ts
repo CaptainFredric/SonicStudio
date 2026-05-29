@@ -108,6 +108,78 @@ describe('renderController', () => {
     expect(call.options.tailMode).toBe('short');
   });
 
+  it('notifies success after a MIDI export resolves', async () => {
+    renderControllerMocks.exportToMIDI.mockResolvedValue({ success: true });
+    const notify = vi.fn();
+    const controller = createRenderController({
+      currentProject: createProjectFromTemplate('night-transit'),
+      dispatchAppendBounceHistory: vi.fn(),
+      loopRangeEndBeat: null,
+      loopRangeStartBeat: null,
+      notify,
+      selectedArrangerClipId: null,
+      setRenderState: vi.fn(),
+    });
+
+    await controller.exportMidi('pattern');
+
+    expect(notify).toHaveBeenCalledWith('success', expect.stringMatching(/midi/i), expect.any(String));
+  });
+
+  it('notifies an error when a MIDI export reports failure', async () => {
+    renderControllerMocks.exportToMIDI.mockResolvedValue({ success: false, message: '' });
+    const notify = vi.fn();
+    const controller = createRenderController({
+      currentProject: createProjectFromTemplate('night-transit'),
+      dispatchAppendBounceHistory: vi.fn(),
+      loopRangeEndBeat: null,
+      loopRangeStartBeat: null,
+      notify,
+      selectedArrangerClipId: null,
+      setRenderState: vi.fn(),
+    });
+
+    await controller.exportMidi('pattern');
+
+    expect(notify).toHaveBeenCalledWith('error', expect.stringMatching(/did not finish/i), expect.any(String));
+  });
+
+  it('notifies an error with the message when the offline mix render throws', async () => {
+    renderControllerMocks.exportOfflineMix.mockRejectedValue(new Error('render failed'));
+    const notify = vi.fn();
+    const controller = createRenderController({
+      currentProject: createProjectFromTemplate('night-transit'),
+      dispatchAppendBounceHistory: vi.fn(),
+      loopRangeEndBeat: null,
+      loopRangeStartBeat: null,
+      notify,
+      selectedArrangerClipId: null,
+      setRenderState: vi.fn(),
+    });
+
+    await controller.exportAudioMix('pattern');
+
+    expect(notify).toHaveBeenCalledWith('error', expect.stringMatching(/did not finish/i), 'render failed');
+  });
+
+  it('notifies success after the offline mix render resolves', async () => {
+    renderControllerMocks.exportOfflineMix.mockResolvedValue(undefined);
+    const notify = vi.fn();
+    const controller = createRenderController({
+      currentProject: createProjectFromTemplate('night-transit'),
+      dispatchAppendBounceHistory: vi.fn(),
+      loopRangeEndBeat: null,
+      loopRangeStartBeat: null,
+      notify,
+      selectedArrangerClipId: null,
+      setRenderState: vi.fn(),
+    });
+
+    await controller.exportAudioMix('pattern');
+
+    expect(notify).toHaveBeenCalledWith('success', expect.stringMatching(/mix/i), expect.any(String));
+  });
+
   it('replays a loop-window mix export with the stored scope and target options', async () => {
     const project = createProjectFromTemplate('night-transit');
     project.bounceHistory = [{

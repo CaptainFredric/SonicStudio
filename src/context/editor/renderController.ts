@@ -2,6 +2,7 @@ import type { Dispatch, SetStateAction } from 'react';
 
 import { renderProjectOffline } from '../../audio/offlineRender';
 import { type BounceHistoryEntry, type Project } from '../../project/schema';
+import { exportFailureNotice, exportSuccessNotice } from '../../services/exportFeedback';
 import {
   buildBounceHistoryEntry,
   buildBounceHistoryLabel,
@@ -17,11 +18,15 @@ import type {
 } from '../../services/workflowTypes';
 import { exportToMIDI, type RenderTargetProfileId } from '../../utils/export';
 
+type ExportNotifier = (tone: 'success' | 'error', title: string, detail?: string) => void;
+
 interface CreateRenderControllerOptions {
   currentProject: Project;
   dispatchAppendBounceHistory: (entry: BounceHistoryEntry) => void;
   loopRangeEndBeat: number | null;
   loopRangeStartBeat: number | null;
+  // Surface the outcome of an export so a failed render is never silent.
+  notify?: ExportNotifier;
   selectedArrangerClipId: string | null;
   setRenderState: Dispatch<SetStateAction<RenderState>>;
 }
@@ -49,9 +54,18 @@ export const createRenderController = ({
   dispatchAppendBounceHistory,
   loopRangeEndBeat,
   loopRangeStartBeat,
+  notify = () => {},
   selectedArrangerClipId,
   setRenderState,
 }: CreateRenderControllerOptions) => {
+  const notifySuccess = (kind: Parameters<typeof exportSuccessNotice>[0]) => {
+    const notice = exportSuccessNotice(kind);
+    notify('success', notice.title, notice.detail);
+  };
+  const notifyFailure = (kind: Parameters<typeof exportFailureNotice>[0], error: unknown) => {
+    const notice = exportFailureNotice(kind, error);
+    notify('error', notice.title, notice.detail);
+  };
   const appendBounceHistory = (
     mode: 'mix' | 'stems',
     scope: ExportScope,
@@ -81,17 +95,22 @@ export const createRenderController = ({
       return;
     }
 
-    await exportOfflineMix({
-      onMixRendered: (analysis) => {
-        appendBounceHistory('mix', scope, options, buildBounceHistoryLabel(scope, 'mix'), analysis);
-      },
-      options,
-      projectName: currentProject.metadata.name,
-      renderOffline: renderProjectOffline,
-      renderPayload,
-      scheduler: browserScheduler,
-      setRenderState,
-    });
+    try {
+      await exportOfflineMix({
+        onMixRendered: (analysis) => {
+          appendBounceHistory('mix', scope, options, buildBounceHistoryLabel(scope, 'mix'), analysis);
+        },
+        options,
+        projectName: currentProject.metadata.name,
+        renderOffline: renderProjectOffline,
+        renderPayload,
+        scheduler: browserScheduler,
+        setRenderState,
+      });
+      notifySuccess('mix');
+    } catch (error) {
+      notifyFailure('mix', error);
+    }
   };
 
   const exportMidi = async (
@@ -102,7 +121,16 @@ export const createRenderController = ({
       return;
     }
 
-    await exportToMIDI(renderPayload.project, { format: 'midi' });
+    try {
+      const result = await exportToMIDI(renderPayload.project, { format: 'midi' });
+      if (result.success) {
+        notifySuccess('midi');
+      } else {
+        notifyFailure('midi', new Error(result.message ?? ''));
+      }
+    } catch (error) {
+      notifyFailure('midi', error);
+    }
   };
 
   const exportTrackStems = async (
@@ -114,17 +142,22 @@ export const createRenderController = ({
       return;
     }
 
-    await exportOfflineStems({
-      onStemBatchRendered: () => {
-        appendBounceHistory('stems', scope, options, buildBounceHistoryLabel(scope, 'stems'));
-      },
-      options,
-      projectName: currentProject.metadata.name,
-      renderOffline: renderProjectOffline,
-      renderPayload,
-      scheduler: browserScheduler,
-      setRenderState,
-    });
+    try {
+      await exportOfflineStems({
+        onStemBatchRendered: () => {
+          appendBounceHistory('stems', scope, options, buildBounceHistoryLabel(scope, 'stems'));
+        },
+        options,
+        projectName: currentProject.metadata.name,
+        renderOffline: renderProjectOffline,
+        renderPayload,
+        scheduler: browserScheduler,
+        setRenderState,
+      });
+      notifySuccess('stems');
+    } catch (error) {
+      notifyFailure('stems', error);
+    }
   };
 
   const rerunBounceHistory = async (entryId: string) => {
