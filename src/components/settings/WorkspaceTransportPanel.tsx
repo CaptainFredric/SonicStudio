@@ -2,7 +2,6 @@ import React from 'react';
 import { Gauge, Layers3 } from 'lucide-react';
 
 import { MetricCell, SegmentButton, ShortcutRow } from './SettingsPrimitives';
-import { TapTempoButton } from './TapTempoButton';
 
 const PATTERN_OPTIONS = [2, 4, 6, 8, 12, 16];
 const STEP_OPTIONS = [8, 16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512, 768, 1024, 1536, 2048, 3072, 4096];
@@ -47,7 +46,7 @@ export const WorkspaceTransportPanel = ({
 
         <div>
           <div className="section-label">Tempo</div>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
+          <div className="mt-2 flex items-center gap-2">
             <input
               className="control-field h-11 w-24 px-3 text-center font-mono text-sm"
               max="240"
@@ -57,27 +56,9 @@ export const WorkspaceTransportPanel = ({
               value={bpm}
             />
             <span className="text-xs font-medium uppercase tracking-[0.18em] text-[var(--text-tertiary)]">BPM</span>
-            <TapTempoButton onBpmChange={onBpmChange} />
-            <button
-              aria-label="Halve the tempo"
-              className="control-chip h-11 min-h-[2.75rem] px-3 font-mono text-[11px] font-semibold tracking-[0.1em] disabled:cursor-not-allowed disabled:opacity-40"
-              disabled={Math.round(bpm / 2) < 40}
-              onClick={() => onBpmChange(Math.max(40, Math.round(bpm / 2)))}
-              title="Half-time. Drops the tempo to half its current value."
-              type="button"
-            >
-              ÷2
-            </button>
-            <button
-              aria-label="Double the tempo"
-              className="control-chip h-11 min-h-[2.75rem] px-3 font-mono text-[11px] font-semibold tracking-[0.1em] disabled:cursor-not-allowed disabled:opacity-40"
-              disabled={Math.round(bpm * 2) > 240}
-              onClick={() => onBpmChange(Math.min(240, Math.round(bpm * 2)))}
-              title="Double-time. Raises the tempo to twice its current value."
-              type="button"
-            >
-              ×2
-            </button>
+          </div>
+          <div className="mt-1.5 text-[11px] leading-5 text-[var(--text-secondary)]">
+            Tap tempo, nudges, and half / double-time live in the tempo dock at the top of the workspace.
           </div>
         </div>
 

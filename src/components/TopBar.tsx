@@ -25,6 +25,7 @@ import { AudioHealthDot } from './AudioHealthDot';
 import { KeyTag } from './KeyTag';
 import { TransportElapsedTag } from './TransportElapsedTag';
 import { detectPatternKeyDrift, getEffectiveKey } from '../services/keyDetector';
+import { bpmFromTaps, trimTapRun } from '../utils/tapTempo';
 import { useAudio } from '../context/AudioContext';
 import {
   MASTER_PRESET_DEFINITIONS,
@@ -385,29 +386,26 @@ export const TopBar = ({
   };
 
   const tapTempo = () => {
-    const now = Date.now();
-    const recent = tapTempoHistoryRef.current.filter((timestamp) => now - timestamp <= TAP_TEMPO_MAX_INTERVAL_MS);
-    recent.push(now);
-    tapTempoHistoryRef.current = recent.slice(-6);
+    // Keep the most recent contiguous run of taps (gaps longer than the
+    // window start a fresh count), capped so very long sessions don't
+    // grow unbounded. BPM math lives in the shared, unit-tested util.
+    const run = trimTapRun(
+      [...tapTempoHistoryRef.current, Date.now()],
+      TAP_TEMPO_MAX_INTERVAL_MS,
+    ).slice(-6);
+    tapTempoHistoryRef.current = run;
 
-    if (tapTempoHistoryRef.current.length < TAP_TEMPO_MIN_TAPS) {
-      const remaining = TAP_TEMPO_MIN_TAPS - tapTempoHistoryRef.current.length;
+    if (run.length < TAP_TEMPO_MIN_TAPS) {
+      const remaining = TAP_TEMPO_MIN_TAPS - run.length;
       pushTapTempoLabel(remaining > 0 ? `Tap ${remaining} more` : 'Tap again');
       return;
     }
 
-    const intervals = [] as number[];
-    for (let index = 1; index < tapTempoHistoryRef.current.length; index += 1) {
-      intervals.push(tapTempoHistoryRef.current[index] - tapTempoHistoryRef.current[index - 1]);
-    }
-
-    const averageIntervalMs = intervals.reduce((sum, value) => sum + value, 0) / intervals.length;
-    if (!Number.isFinite(averageIntervalMs) || averageIntervalMs <= 0) {
+    const detectedBpm = bpmFromTaps(run);
+    if (detectedBpm === null) {
       pushTapTempoLabel('Tap again');
       return;
     }
-
-    const detectedBpm = clampTempo(60000 / averageIntervalMs);
     setBpm(detectedBpm);
     pushTapTempoLabel(`${detectedBpm} BPM`);
   };
