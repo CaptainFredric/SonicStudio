@@ -30,6 +30,7 @@ import {
   type TransportMode,
   type TransportSettings,
 } from '../project/schema';
+import { detectPitchYin } from '../utils/pitchDetection';
 
 // --- Tunable analysis constants -------------------------------------------
 
@@ -161,74 +162,16 @@ interface FrameAnalysis {
  * MIN_HZ..MAX_HZ is scanned, which keeps the pass fast.
  */
 export const detectPitchHz = (frame: Float32Array, sampleRate: number): number => {
-  let rms = 0;
-  for (let i = 0; i < frame.length; i += 1) {
-    rms += frame[i] * frame[i];
-  }
-  rms = Math.sqrt(rms / frame.length);
-  if (rms < SILENCE_RMS) {
-    return -1;
-  }
-
-  const minLag = Math.max(2, Math.floor(sampleRate / MAX_HZ));
-  const maxLag = Math.min(frame.length - 1, Math.ceil(sampleRate / MIN_HZ));
-
-  let bestLag = -1;
-  let bestCorrelation = 0;
-  let previous = 0;
-  let ascending = false;
-
-  for (let lag = minLag; lag <= maxLag; lag += 1) {
-    let correlation = 0;
-    for (let i = 0; i < frame.length - lag; i += 1) {
-      correlation += frame[i] * frame[i + lag];
-    }
-    // Take the first strong local maximum after the correlation starts
-    // rising — that is the fundamental, not a louder harmonic multiple.
-    if (correlation > previous) {
-      ascending = true;
-    } else if (ascending && correlation < previous && previous > bestCorrelation) {
-      bestCorrelation = previous;
-      bestLag = lag - 1;
-      ascending = false;
-    }
-    previous = correlation;
-  }
-
-  if (bestLag < 0) {
-    return -1;
-  }
-
-  // Reject weak peaks: require the peak to hold a reasonable share of the
-  // zero-lag energy so noise frames do not produce phantom pitches.
-  let energy = 0;
-  for (let i = 0; i < frame.length; i += 1) {
-    energy += frame[i] * frame[i];
-  }
-  if (energy <= 0 || bestCorrelation / energy < 0.3) {
-    return -1;
-  }
-
-  // Parabolic interpolation around the peak for sub-sample accuracy.
-  const refine = (lag: number): number => {
-    if (lag <= minLag || lag >= maxLag) return lag;
-    const score = (l: number) => {
-      let sum = 0;
-      for (let i = 0; i < frame.length - l; i += 1) {
-        sum += frame[i] * frame[i + l];
-      }
-      return sum;
-    };
-    const left = score(lag - 1);
-    const center = score(lag);
-    const right = score(lag + 1);
-    const denominator = left + right - 2 * center;
-    if (denominator === 0) return lag;
-    return lag - (right - left) / (2 * denominator);
-  };
-
-  const refinedLag = refine(bestLag);
-  return sampleRate / refinedLag;
+  // Delegates to the shared YIN detector. YIN's cumulative-mean-normalized
+  // difference resists the octave slips and weak-frame phantoms the old
+  // autocorrelation pass was prone to. -1 still means "no pitch here".
+  const reading = detectPitchYin(frame, sampleRate, {
+    minHz: MIN_HZ,
+    maxHz: MAX_HZ,
+    silenceRms: SILENCE_RMS,
+    threshold: 0.15,
+  });
+  return reading ? reading.hz : -1;
 };
 
 /** Run the pitch detector across the whole signal, frame by frame. */

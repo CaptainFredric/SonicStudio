@@ -14,6 +14,7 @@ import {
   type SynthParams,
   type TrackSource,
 } from '../project/schema';
+import { detectPitchYin } from '../utils/pitchDetection';
 
 const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] as const;
 
@@ -881,82 +882,37 @@ const detectPitchInWindow = (samples: Float32Array, sampleRate: number): WindowP
     return null;
   }
 
+  // Window energy (RMS of the mean-removed signal) still drives how much
+  // each window is trusted downstream, so compute it here regardless of
+  // whether a pitch is found.
   const mean = samples.reduce((sum, value) => sum + value, 0) / samples.length;
-  const buffer = new Float32Array(samples.length);
-  let energy = 0;
+  let energySum = 0;
   for (let index = 0; index < samples.length; index += 1) {
-    const window = 0.5 - (0.5 * Math.cos((2 * Math.PI * index) / Math.max(1, samples.length - 1)));
-    const value = (samples[index] - mean) * window;
-    buffer[index] = value;
-    energy += value * value;
+    const value = samples[index] - mean;
+    energySum += value * value;
   }
-
-  if (energy <= 1e-6) {
+  if (energySum <= 1e-6) {
     return null;
   }
+  const energy = Math.sqrt(energySum / samples.length);
 
-  // Reach ~2500 Hz so the violin's upper register lands inside capture.
-  const minLag = Math.floor(sampleRate / 2500);
-  const maxLag = Math.min(Math.floor(sampleRate / 50), buffer.length - 2);
-  if (maxLag <= minLag) {
+  // YIN reads the fundamental more reliably than the old normalized
+  // autocorrelation, especially on breathy or harmonic-rich input.
+  // ~50-2500 Hz keeps the violin's upper register reachable.
+  const reading = detectPitchYin(samples, sampleRate, {
+    minHz: 50,
+    maxHz: 2500,
+    threshold: 0.15,
+    silenceRms: 0,
+  });
+  if (!reading || reading.clarity < 0.22) {
     return null;
   }
-
-  let bestLag = -1;
-  let bestScore = 0;
-  const scores: number[] = [];
-  for (let lag = minLag; lag <= maxLag; lag += 1) {
-    let acc = 0;
-    let normLeft = 0;
-    let normRight = 0;
-    for (let index = 0; index < buffer.length - lag; index += 1) {
-      const left = buffer[index];
-      const right = buffer[index + lag];
-      acc += left * right;
-      normLeft += left * left;
-      normRight += right * right;
-    }
-
-    const normalized = normLeft > 0 && normRight > 0
-      ? acc / Math.sqrt(normLeft * normRight)
-      : 0;
-    scores.push(normalized);
-    if (normalized > bestScore) {
-      bestScore = normalized;
-      bestLag = lag;
-    }
-  }
-
-  if (bestLag <= 0 || bestScore < 0.22) {
-    return null;
-  }
-
-  const threshold = Math.max(0.22, bestScore * 0.9);
-  let resolvedLag = bestLag;
-  for (let index = 1; index < scores.length - 1; index += 1) {
-    const previous = scores[index - 1];
-    const current = scores[index];
-    const next = scores[index + 1];
-    if (current >= threshold && current >= previous && current >= next) {
-      resolvedLag = minLag + index;
-      break;
-    }
-  }
-
-  const resolvedIndex = resolvedLag - minLag;
-  const leftScore = scores[resolvedIndex - 1] ?? scores[resolvedIndex] ?? bestScore;
-  const centerScore = scores[resolvedIndex] ?? bestScore;
-  const rightScore = scores[resolvedIndex + 1] ?? scores[resolvedIndex] ?? bestScore;
-  const curvature = leftScore - (2 * centerScore) + rightScore;
-  const interpolation = Math.abs(curvature) > 1e-6
-    ? clamp(0.5 * (leftScore - rightScore) / curvature, -0.5, 0.5)
-    : 0;
-  const refinedLag = resolvedLag + interpolation;
 
   return {
-    clarity: clamp(bestScore, 0, 1),
-    energy: Math.sqrt(energy / buffer.length),
-    pitchHz: sampleRate / refinedLag,
+    clarity: reading.clarity,
+    energy,
+    pitchHz: reading.hz,
   };
 };
 
