@@ -461,7 +461,7 @@ export const TopBar = ({
               <span className="section-label">Project</span>
               <input
                 aria-label="Project name"
-                className="control-field h-11 w-full px-4 text-sm font-medium tracking-tight"
+                className="control-field h-11 w-full max-w-full px-4 text-sm font-medium tracking-tight lg:max-w-md"
                 onBlur={commitProjectName}
                 onChange={(event) => setDraftProjectName(event.target.value)}
                 onKeyDown={(event) => {
