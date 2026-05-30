@@ -338,6 +338,17 @@ export const AudioProvider = ({
     document.documentElement.dataset.motionMode = preferences.motionMode;
   }, [preferences.motionMode]);
 
+  // Name the browser tab after the current project so the showcase is easy to
+  // pick out among other tabs, and falls back to the product name when unnamed.
+  useEffect(() => {
+    if (typeof document === 'undefined') {
+      return;
+    }
+
+    const name = project.metadata.name?.trim();
+    document.title = name ? `${name} · SonicStudio` : 'SonicStudio';
+  }, [project.metadata.name]);
+
   useEffect(() => {
     if (typeof document === 'undefined') {
       return;

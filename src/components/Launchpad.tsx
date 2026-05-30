@@ -477,10 +477,10 @@ export const Launchpad = ({
         <aside className="surface-panel-strong px-4 py-4">
           <div className="section-label">Quick start</div>
           <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-2">
-            <LaunchStat label="Scenes" value={String(START_OPTIONS.length)} />
-            <LaunchStat label="Scoresheets" value={String(scoresheets.length)} />
-            <LaunchStat label="Captured" value={String(recordedNotes.length)} />
-            <LaunchStat label="Export" value="WAV MIDI" />
+            <LaunchStat label="Scenes" value={String(START_OPTIONS.length)} hint="ready to load" />
+            <LaunchStat label="Scoresheets" value={String(scoresheets.length)} hint="saved melodies" />
+            <LaunchStat label="Captured" value={String(recordedNotes.length)} hint="mic captures" />
+            <LaunchStat label="Export" value="WAV MIDI" hint="bounce, stems, MIDI" />
           </div>
 
           <div className="mt-5 grid gap-3 border-t border-[var(--border-soft)] pt-4">
@@ -831,12 +831,15 @@ const LaunchPathStep = ({
 const LaunchStat = ({
   label,
   value,
+  hint,
 }: {
   label: string;
   value: string;
+  hint?: string;
 }) => (
   <div className="launch-stat border border-[var(--border-soft)] bg-[rgba(255,255,255,0.025)] px-4 py-3">
     <div className="section-label">{label}</div>
     <div className="mt-2 font-mono text-sm font-semibold tracking-[0.08em] text-[var(--text-primary)]">{value}</div>
+    {hint ? <div className="mt-1 text-[10px] leading-4 text-[var(--text-tertiary)]">{hint}</div> : null}
   </div>
 );
