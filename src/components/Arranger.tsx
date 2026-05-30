@@ -406,6 +406,7 @@ export const Arranger = () => {
   useArrangerShortcuts({
     duplicateArrangerClip,
     makeClipPatternUnique,
+    minClipLength: MIN_CLIP_LENGTH,
     removeArrangerClip,
     selectedClip,
     setFollowPlayhead,

@@ -7,6 +7,7 @@ import type { SnapSize } from './types';
 interface UseArrangerShortcutsOptions {
   duplicateArrangerClip: (clipId: string) => void;
   makeClipPatternUnique: (clipId: string) => void;
+  minClipLength: number;
   removeArrangerClip: (clipId: string) => void;
   selectedClip: ArrangementClip | null;
   setFollowPlayhead: Dispatch<SetStateAction<boolean>>;
@@ -27,6 +28,7 @@ const isEditableTarget = (target: HTMLElement | null) => (
 export const useArrangerShortcuts = ({
   duplicateArrangerClip,
   makeClipPatternUnique,
+  minClipLength,
   removeArrangerClip,
   selectedClip,
   setFollowPlayhead,
@@ -61,6 +63,9 @@ export const useArrangerShortcuts = ({
         case 'move':
           updateArrangerClip(selectedClip.id, { startBeat: Math.max(0, selectedClip.startBeat + shortcutAction.amount) });
           return;
+        case 'resize':
+          updateArrangerClip(selectedClip.id, { beatLength: Math.max(minClipLength, selectedClip.beatLength + shortcutAction.amount) });
+          return;
         case 'transpose':
           transformClipPattern(selectedClip.id, 'transpose', shortcutAction.amount);
           return;
@@ -79,6 +84,7 @@ export const useArrangerShortcuts = ({
   }, [
     duplicateArrangerClip,
     makeClipPatternUnique,
+    minClipLength,
     removeArrangerClip,
     selectedClip,
     setFollowPlayhead,

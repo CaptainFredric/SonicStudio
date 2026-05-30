@@ -11,6 +11,7 @@ export type ArrangerShortcutAction =
   | { type: 'make-unique' }
   | { type: 'remove' }
   | { amount: number; type: 'move' }
+  | { amount: number; type: 'resize' }
   | { amount: number; type: 'transpose' }
   | { type: 'toggle-follow' };
 
@@ -146,7 +147,7 @@ export const shouldHandleTimelineWheel = (
 };
 
 export const resolveArrangerShortcut = (
-  event: Pick<KeyboardEvent, 'key' | 'metaKey' | 'ctrlKey'>,
+  event: Pick<KeyboardEvent, 'key' | 'metaKey' | 'ctrlKey'> & { shiftKey?: boolean },
   selectedClip: ArrangementClip | null,
   snapSize: SnapSize,
 ): ArrangerShortcutAction | null => {
@@ -169,11 +170,13 @@ export const resolveArrangerShortcut = (
   }
 
   if (event.key === 'ArrowLeft') {
-    return { amount: -snapSize, type: 'move' };
+    // Shift turns the nudge into a trim of the clip's right edge, mirroring
+    // the mouse drag-trim, so length edits do not need the pointer.
+    return { amount: -snapSize, type: event.shiftKey ? 'resize' : 'move' };
   }
 
   if (event.key === 'ArrowRight') {
-    return { amount: snapSize, type: 'move' };
+    return { amount: snapSize, type: event.shiftKey ? 'resize' : 'move' };
   }
 
   if (event.key === '[') {

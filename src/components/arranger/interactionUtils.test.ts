@@ -119,6 +119,15 @@ describe('interactionUtils', () => {
     expect(resolveArrangerShortcut({ ctrlKey: false, key: 'f', metaKey: false }, clip, 4)).toEqual({ type: 'toggle-follow' });
   });
 
+  it('turns shift+arrow into a clip resize while plain arrow still moves', () => {
+    const project = createProjectFromTemplate('night-transit');
+    const clip = project.arrangerClips[0];
+
+    expect(resolveArrangerShortcut({ ctrlKey: false, key: 'ArrowRight', metaKey: false, shiftKey: true }, clip, 4)).toEqual({ amount: 4, type: 'resize' });
+    expect(resolveArrangerShortcut({ ctrlKey: false, key: 'ArrowLeft', metaKey: false, shiftKey: true }, clip, 4)).toEqual({ amount: -4, type: 'resize' });
+    expect(resolveArrangerShortcut({ ctrlKey: false, key: 'ArrowRight', metaKey: false, shiftKey: false }, clip, 4)).toEqual({ amount: 4, type: 'move' });
+  });
+
   it('clamps viewport scrolling and filters unsupported wheel gestures', () => {
     expect(getViewportScrollLeft(0, 600, 400, 1)).toBe(288);
     expect(getViewportScrollLeft(580, 600, 400, 1)).toBe(600);

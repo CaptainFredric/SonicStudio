@@ -45,6 +45,18 @@ const GROUPS: Array<{ title: string; entries: ShortcutEntry[] }> = [
     ],
   },
   {
+    title: 'Arranger clips',
+    entries: [
+      { keys: '← →', label: 'Nudge the selected clip' },
+      { keys: '⇧ ← →', label: 'Trim the selected clip length' },
+      { keys: '[ ]', label: 'Transpose the selected clip' },
+      { keys: 'D', label: 'Duplicate the selected clip' },
+      { keys: 'U', label: 'Make a linked clip unique' },
+      { keys: 'Backspace', label: 'Remove the selected clip' },
+      { keys: 'F', label: 'Follow the playhead' },
+    ],
+  },
+  {
     title: 'Tap to play',
     entries: [
       { keys: 'A S D F G H J K L', label: 'White keys, two octaves' },
