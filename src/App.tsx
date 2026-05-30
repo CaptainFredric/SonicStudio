@@ -668,7 +668,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
   };
 
   return (
-    <div className="app-shell min-h-screen w-full antialiased text-[var(--text-primary)] md:h-screen md:min-h-0 md:overflow-hidden">
+    <div className="app-shell min-h-screen w-full antialiased text-[var(--text-primary)] md:flex md:flex-row md:h-screen md:min-h-0 md:overflow-hidden">
       <ToastStack toasts={toasts} onDismiss={dismissToast} />
       <OnboardingGuide
         onComplete={() => {
@@ -724,7 +724,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
           </div>
         </>
       ) : null}
-      <div className="flex min-h-screen min-w-0 flex-col md:h-full md:min-h-0 md:overflow-hidden">
+      <div className="flex min-h-screen min-w-0 flex-col md:h-full md:min-h-0 md:flex-1 md:overflow-hidden">
         {!focusMode && (
           <div className="px-3 pt-3">
             <TopBar firstImpression={isFirstImpression} isCaptureOpen={isRecordOpen} onOpenCapture={openCapture} />
