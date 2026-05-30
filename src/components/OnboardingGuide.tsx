@@ -18,12 +18,12 @@ interface GuideStep {
 
 const GUIDE_STEPS: GuideStep[] = [
   {
-    action: 'Open Library to start fresh, reopen saved work, or pull captured notes.',
-    body: 'Library keeps starter scenes, saved sessions, and captured notes together so you can reset or recover fast.',
-    eyebrow: 'Library',
-    payoff: 'You always have a clean starting point and a quick return path.',
-    target: 'sessions',
-    title: 'Library is your reset and recall hub.',
+    action: 'Tap Play to hear the whole scene, then keep what works.',
+    body: 'Press Play, or hit Space, and the scene you loaded starts right up. Audio wakes on that first tap, so there is nothing to set up first.',
+    eyebrow: 'Start here',
+    payoff: 'You hear the idea in seconds, then change only what you want.',
+    target: 'play',
+    title: 'Start by hearing it.',
   },
   {
     action: 'Use the left rail to switch editing context, not just screens.',
@@ -34,12 +34,12 @@ const GUIDE_STEPS: GuideStep[] = [
     title: 'Each main view has a distinct job.',
   },
   {
-    action: 'Start with Play so you hear timing, energy, and balance before editing.',
-    body: 'Press Space or tap Play. The first interaction wakes audio, so this is the fastest first check.',
-    eyebrow: 'Transport',
-    payoff: 'You can spot what to fix in seconds instead of guessing.',
-    target: 'play',
-    title: 'Listen first, then edit with intent.',
+    action: 'Open Library to start fresh, reopen saved work, or pull captured notes.',
+    body: 'Library keeps starter scenes, saved sessions, and captured notes together so you can reset or pick up where you left off.',
+    eyebrow: 'Library',
+    payoff: 'You always have a clean starting point and a quick way back.',
+    target: 'sessions',
+    title: 'Library holds your scenes and saves.',
   },
   {
     action: 'Use the lower strip (or A through L) to audition notes in place.',
