@@ -4,6 +4,7 @@ import { SlidersHorizontal } from 'lucide-react';
 import { useAudio } from '../context/AudioContext';
 import { engine } from '../audio/ToneEngine';
 import type { Track } from '../project/schema';
+import { anyTrackSoloed, isSilencedBySolo } from '../utils/mixerStripState';
 import { TrackIcon } from '../utils/trackPersonality';
 
 type MixerScope = 'ALL' | 'PINNED' | 'RHYTHM' | 'MUSICAL' | 'TEXTURE';
@@ -28,7 +29,7 @@ const getMixerGroup = (track: Track): Exclude<MixerGroupKey, 'PINNED'> => {
   return 'MUSICAL';
 };
 
-const VUChannel: React.FC<{ isPlaying: boolean; selected: boolean; track: Track }> = ({ isPlaying, selected, track }) => {
+const VUChannel: React.FC<{ anySolo: boolean; isPlaying: boolean; selected: boolean; track: Track }> = ({ anySolo, isPlaying, selected, track }) => {
   const { setSelectedTrackId, updateTrackPan, updateTrackVolume, toggleMute, toggleSolo } = useAudio();
   const [level, setLevel] = useState(-100);
 
@@ -47,6 +48,7 @@ const VUChannel: React.FC<{ isPlaying: boolean; selected: boolean; track: Track 
   }, [isPlaying, track.id]);
 
   const levelHeight = Math.max(0, Math.min(100, ((level + 60) / 60) * 100));
+  const silenced = isSilencedBySolo(track, anySolo);
 
   return (
     <div
@@ -79,7 +81,13 @@ const VUChannel: React.FC<{ isPlaying: boolean; selected: boolean; track: Track 
         <StateBtn active={track.solo} label="Solo" onClick={() => toggleSolo(track.id)} />
       </div>
 
-      <div className="mt-5">
+      {silenced ? (
+        <div className="mt-2 text-center font-mono text-[9px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+          Silenced by solo
+        </div>
+      ) : null}
+
+      <div className={`mt-5 transition-opacity ${silenced ? 'opacity-40' : ''}`}>
         <div className="flex items-center justify-between">
           <span className="section-label">Pan</span>
           <span className="font-mono text-[10px] text-[var(--text-secondary)]">{track.pan.toFixed(1)}</span>
@@ -95,7 +103,7 @@ const VUChannel: React.FC<{ isPlaying: boolean; selected: boolean; track: Track 
         />
       </div>
 
-      <div className="mt-6 flex-1 flex items-center justify-center gap-5">
+      <div className={`mt-6 flex-1 flex items-center justify-center gap-5 transition-opacity ${silenced ? 'opacity-40' : ''}`}>
         <div className="relative h-[160px] sm:h-[220px] w-3 rounded-full border border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)] overflow-hidden">
           <div
             className="absolute bottom-0 left-0 right-0 rounded-full transition-all duration-75"
@@ -115,7 +123,7 @@ const VUChannel: React.FC<{ isPlaying: boolean; selected: boolean; track: Track 
         />
       </div>
 
-      <div className="mt-4 flex items-center justify-between border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-2">
+      <div className={`mt-4 flex items-center justify-between border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-2 transition-opacity ${silenced ? 'opacity-40' : ''}`}>
         <span className="section-label">Gain</span>
         <span className="font-mono text-xs text-[var(--text-primary)]">{track.volume.toFixed(1)} dB</span>
       </div>
@@ -125,6 +133,7 @@ const VUChannel: React.FC<{ isPlaying: boolean; selected: boolean; track: Track 
 
 export const Mixer = () => {
   const { isPlaying, master, pinnedTrackIds, selectedTrackId, setMasterSettings, tracks } = useAudio();
+  const anySolo = useMemo(() => anyTrackSoloed(tracks), [tracks]);
   const [masterLevel, setMasterLevel] = useState(-100);
   const [mixerScope, setMixerScope] = useState<MixerScope>('ALL');
   const [collapsedGroups, setCollapsedGroups] = useState<Record<MixerGroupKey, boolean>>({
@@ -466,7 +475,7 @@ export const Mixer = () => {
                   <div className="mt-3 flex h-full min-h-[360px] gap-3 md:min-h-[500px] md:gap-4">
                     {sectionTracks.map((track) => (
                       <div key={track.id} className="scroll-snap-align-start">
-                        <VUChannel isPlaying={isPlaying} selected={selectedTrackId === track.id} track={track} />
+                        <VUChannel anySolo={anySolo} isPlaying={isPlaying} selected={selectedTrackId === track.id} track={track} />
                       </div>
                     ))}
                   </div>
