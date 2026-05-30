@@ -480,6 +480,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
     isSettingsOpen,
     latestNotice,
     loadSessionTemplate,
+    requestDemoPlayback,
     setActiveView,
     setSettingsOpen,
   } = useAudio();
@@ -598,6 +599,14 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
     void initAudio();
   };
 
+  // Load a scene and start it playing in one go. Arms the autoplay flag before
+  // the load so the project-sync effect kicks off playback once the engine has
+  // the new scene. Distinct from picking a scene and then pressing Play.
+  const handlePlayDemo = (templateId: SessionTemplateId) => {
+    requestDemoPlayback();
+    handleSelectTemplate(templateId);
+  };
+
   const handleStartGuide = () => {
     loadSessionTemplate('night-transit');
     setActiveView('SEQUENCER');
@@ -703,6 +712,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
             isOpen={isLaunchpadOpen}
             onClose={() => setLaunchpadOpen(false)}
             onImportMidi={handleImportMidi}
+            onPlayDemo={handlePlayDemo}
             onSelectTemplate={handleSelectTemplate}
             onStartGuide={handleStartGuide}
             onTranscribeSong={openTranscribe}

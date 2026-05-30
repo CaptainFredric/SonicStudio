@@ -8,6 +8,7 @@ import {
   FileInput,
   FolderOpen,
   HardDrive,
+  Play,
   Plus,
   Search,
   Shuffle,
@@ -27,6 +28,7 @@ interface LaunchpadProps {
   isOpen: boolean;
   onClose: () => void;
   onImportMidi: () => void;
+  onPlayDemo: (templateId: SessionTemplateId) => void;
   onSelectTemplate: (templateId: SessionTemplateId) => void;
   onStartGuide: () => void;
   onTranscribeSong: () => void;
@@ -231,6 +233,7 @@ export const Launchpad = ({
   isOpen,
   onClose,
   onImportMidi,
+  onPlayDemo,
   onSelectTemplate,
   onStartGuide,
   onTranscribeSong,
@@ -346,15 +349,26 @@ export const Launchpad = ({
           </div>
 
           <div className="grid gap-3 lg:grid-cols-[minmax(0,1.12fr)_minmax(0,0.88fr)]">
-            <PrimaryStartCard
-              badge="Featured scene"
-              body="Loads a complete scene with clips, lane parts, and a ready-to-go mix."
-              eyebrow={`${recommended.genre} · ${recommended.bpm} BPM`}
-              mark={recommended.mark}
-              onClick={() => onSelectTemplate(recommended.id)}
-              swatch={recommended.swatch}
-              title={recommended.label}
-            />
+            <div className="grid content-start gap-2">
+              <PrimaryStartCard
+                badge="Featured scene"
+                body="Loads a complete scene with clips, lane parts, and a ready-to-go mix."
+                eyebrow={`${recommended.genre} · ${recommended.bpm} BPM`}
+                mark={recommended.mark}
+                onClick={() => onSelectTemplate(recommended.id)}
+                swatch={recommended.swatch}
+                title={recommended.label}
+              />
+              <button
+                className="flex items-center justify-center gap-2 rounded-[3px] border border-[var(--accent)] bg-[rgba(72,228,255,0.12)] px-4 py-2.5 text-[12px] font-semibold uppercase tracking-[0.14em] text-[var(--accent-strong)] transition-colors hover:bg-[rgba(72,228,255,0.2)]"
+                data-ui-sound="tab"
+                onClick={() => onPlayDemo(recommended.id)}
+                type="button"
+              >
+                <Play className="h-3.5 w-3.5" />
+                Hear a demo
+              </button>
+            </div>
 
             <div className="grid gap-3">
               <SecondaryStartCard

@@ -219,6 +219,7 @@ interface AudioContextType {
   splitArrangerClip: (clipId: string, splitAtBeat?: number) => void;
   stepsPerPattern: number;
   stop: () => void;
+  requestDemoPlayback: () => void;
   toggleClipPatternStep: (clipId: string, stepIndex: number, note?: string, mode?: 'add' | 'remove' | 'toggle') => void;
   toggleMute: (trackId: string) => void;
   togglePlay: () => Promise<void>;
@@ -302,6 +303,11 @@ export const AudioProvider = ({
   const manualSavePendingRef = useRef(false);
   const noticeIdRef = useRef(0);
   const saveErrorNoticeActiveRef = useRef(false);
+  // One-shot flag: when a demo is requested, the next project sync starts
+  // playback so a single click both loads and plays the scene. Held in a ref
+  // so it survives the load re-render without being a dependency.
+  const demoAutoplayRef = useRef(false);
+  const togglePlayRef = useRef<(() => Promise<void>) | null>(null);
 
   const project = editorState.history.present;
   const {
@@ -456,6 +462,13 @@ export const AudioProvider = ({
   useEffect(() => {
     engine.syncProject(project);
     setCurrentStep((current) => clampCurrentStepToLoopBounds(project, current, loopRangeStartBeat, loopRangeEndBeat));
+    // A demo was requested: the engine now holds the freshly loaded scene, so
+    // start playback on this same project. This runs after syncProject so the
+    // transport never starts on the previous scene.
+    if (demoAutoplayRef.current) {
+      demoAutoplayRef.current = false;
+      void togglePlayRef.current?.();
+    }
   }, [project]);
 
   useEffect(() => {
@@ -569,6 +582,17 @@ export const AudioProvider = ({
     setIsRecording,
     tracks: project.tracks,
   }), [countInActive, initAudio, isInitialized, isPlaying, isRecording, project]);
+
+  // Keep the latest togglePlay reachable from the project-sync effect without
+  // making it a dependency (matches the initAudioRef pattern above).
+  togglePlayRef.current = togglePlay;
+
+  // Load-and-play: arm the one-shot flag, then the next project sync (from
+  // loading a scene) starts playback. Distinct from opening a scene and then
+  // pressing Play, which stays load-only.
+  const requestDemoPlayback = useCallback(() => {
+    demoAutoplayRef.current = true;
+  }, []);
 
   const {
     deleteCheckpoint,
@@ -752,6 +776,7 @@ export const AudioProvider = ({
     songMarkers,
     stepsPerPattern: project.transport.stepsPerPattern,
     stop,
+    requestDemoPlayback,
     togglePlay,
     toggleRecording,
     tracks: project.tracks,
@@ -876,6 +901,7 @@ export const AudioProvider = ({
     songLengthInBeats,
     songMarkers,
     stop,
+    requestDemoPlayback,
     togglePlay,
     toggleRecording,
   ]);
