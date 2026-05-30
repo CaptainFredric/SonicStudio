@@ -869,6 +869,15 @@ export const MainWorkspace = () => {
   }, [isPlaying, tracks.length, stepsPerPattern, superSonicMode]);
 
   useEffect(() => {
+    // Only watch frame drift while the transport is running. The readout is
+    // playback-only, so a 60fps loop that re-renders the whole workspace
+    // while the studio sits idle is pure main-thread churn, the kind that
+    // hurts weaker devices most.
+    if (!isPlaying) {
+      setUiFrameDriftMs((current) => (current === 0 ? current : 0));
+      return;
+    }
+
     let frameId = 0;
     let lastFrameTime = performance.now();
     let driftAccumulator = 0;
@@ -883,7 +892,12 @@ export const MainWorkspace = () => {
 
       if (sampleCount >= 15) {
         const nextDrift = driftAccumulator / sampleCount;
-        setUiFrameDriftMs((current) => Number(((current * 0.65) + (nextDrift * 0.35)).toFixed(2)));
+        setUiFrameDriftMs((current) => {
+          const smoothed = Number(((current * 0.65) + (nextDrift * 0.35)).toFixed(2));
+          // Skip the re-render when the smoothed reading barely moved, so a
+          // steady playback does not keep re-rendering the workspace.
+          return Math.abs(smoothed - current) < 0.3 ? current : smoothed;
+        });
         driftAccumulator = 0;
         sampleCount = 0;
       }
@@ -893,7 +907,7 @@ export const MainWorkspace = () => {
 
     frameId = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(frameId);
-  }, []);
+  }, [isPlaying]);
 
   useEffect(() => {
     const node = addLaneStripRef.current;
