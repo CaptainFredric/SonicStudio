@@ -7,19 +7,29 @@ import { engine } from '../audio/ToneEngine';
 // scaled to the current level, so activity stays visible even with the
 // labels and controls hidden.
 export const CollapsedLaneIcon = ({
+  active = true,
   children,
   color,
+  intervalMs = 130,
   title,
   trackId,
 }: {
+  active?: boolean;
   children: ReactNode;
   color: string;
+  intervalMs?: number;
   title: string;
   trackId: string;
 }) => {
   const [level, setLevel] = useState(0);
 
   useEffect(() => {
+    // Skip the timer entirely while the transport is idle: a collapsed lane
+    // can't be producing sound, so there is nothing to glow for.
+    if (!active) {
+      setLevel(0);
+      return;
+    }
     let attached = true;
     const tick = () => {
       if (!attached) return;
@@ -30,12 +40,12 @@ export const CollapsedLaneIcon = ({
       setLevel(normalised);
     };
     tick();
-    const id = window.setInterval(tick, 130);
+    const id = window.setInterval(tick, intervalMs);
     return () => {
       attached = false;
       window.clearInterval(id);
     };
-  }, [trackId]);
+  }, [active, intervalMs, trackId]);
 
   const glowAlpha = Math.round(level * 0.7 * 255).toString(16).padStart(2, '0');
 

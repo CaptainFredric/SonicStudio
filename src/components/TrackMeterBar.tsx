@@ -12,19 +12,29 @@ import { engine } from '../audio/ToneEngine';
 // -60 dB maps to empty, 0 dB maps to full; in practice tracks bounce
 // around the −30 dB to −10 dB band during a busy section.
 export const TrackMeterBar = ({
+  active = true,
   className = '',
   color,
+  intervalMs = 110,
   offKey = false,
   trackId,
 }: {
+  active?: boolean;
   className?: string;
   color: string;
+  intervalMs?: number;
   offKey?: boolean;
   trackId: string;
 }) => {
   const [level, setLevel] = useState(0);
 
   useEffect(() => {
+    // Nothing is sounding while the transport is idle, so don't burn a timer
+    // (and a re-render) per lane reading a meter that will always be silent.
+    if (!active) {
+      setLevel(0);
+      return;
+    }
     let attached = true;
     const tick = () => {
       if (!attached) return;
@@ -35,12 +45,12 @@ export const TrackMeterBar = ({
       setLevel(normalised);
     };
     tick();
-    const id = window.setInterval(tick, 110);
+    const id = window.setInterval(tick, intervalMs);
     return () => {
       attached = false;
       window.clearInterval(id);
     };
-  }, [trackId]);
+  }, [active, intervalMs, trackId]);
 
   return (
     <span

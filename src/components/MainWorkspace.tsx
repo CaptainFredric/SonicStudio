@@ -21,6 +21,7 @@ import {
   Zap,
 } from 'lucide-react';
 
+import { meterIntervalForMode } from '../audio/meterTiming';
 import { engine } from '../audio/ToneEngine';
 import { getSamplePresetMeta } from '../audio/sampleLibrary';
 import { useAudio, usePlaybackStep } from '../context/AudioContext';
@@ -477,6 +478,7 @@ export const MainWorkspace = () => {
     pinnedTrackIds,
     previewTrack,
     removeTrack,
+    audioStabilityMode,
     isPlaying,
     selectedTrackId,
     setActiveView,
@@ -2307,7 +2309,7 @@ export const MainWorkspace = () => {
                         >
                           {selected && <div className="absolute left-0 top-3 bottom-3 w-[2px] rounded-full" style={{ backgroundColor: track.color }} />}
                           {laneColumnCollapsed ? (
-                            <CollapsedLaneIcon color={track.color} title={`${track.name} · ${track.type} lane`} trackId={track.id}>
+                            <CollapsedLaneIcon active={isPlaying} color={track.color} intervalMs={meterIntervalForMode(130, audioStabilityMode)} title={`${track.name} · ${track.type} lane`} trackId={track.id}>
                               <TrackIcon type={track.type} className="h-3.5 w-3.5" />
                             </CollapsedLaneIcon>
                           ) : (
@@ -2323,8 +2325,10 @@ export const MainWorkspace = () => {
                             <span className="min-w-0 truncate text-sm font-semibold tracking-tight text-[var(--text-primary)]">{track.name}</span>
                           </div>
                           <TrackMeterBar
+                            active={isPlaying}
                             className="mt-1.5"
                             color={track.color}
+                            intervalMs={meterIntervalForMode(110, audioStabilityMode)}
                             offKey={(() => {
                               const fitness = laneFitness(track, getEffectiveKey(tracks));
                               return fitness.ratio !== null && fitness.ratio < 0.7;

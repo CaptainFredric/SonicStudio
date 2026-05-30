@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { SlidersHorizontal } from 'lucide-react';
 
 import { useAudio } from '../context/AudioContext';
+import { meterIntervalForMode } from '../audio/meterTiming';
 import { engine } from '../audio/ToneEngine';
 import type { Track } from '../project/schema';
 import { anyTrackSoloed, isSilencedBySolo } from '../utils/mixerStripState';
@@ -30,7 +31,7 @@ const getMixerGroup = (track: Track): Exclude<MixerGroupKey, 'PINNED'> => {
 };
 
 const VUChannel: React.FC<{ anySolo: boolean; isPlaying: boolean; selected: boolean; track: Track }> = ({ anySolo, isPlaying, selected, track }) => {
-  const { setSelectedTrackId, updateTrackPan, updateTrackVolume, toggleMute, toggleSolo } = useAudio();
+  const { audioStabilityMode, setSelectedTrackId, updateTrackPan, updateTrackVolume, toggleMute, toggleSolo } = useAudio();
   const [level, setLevel] = useState(-100);
 
   useEffect(() => {
@@ -40,12 +41,12 @@ const VUChannel: React.FC<{ anySolo: boolean; isPlaying: boolean; selected: bool
     }
     const interval = window.setInterval(() => {
       setLevel(engine.getMeterValue(track.id));
-    }, 50);
+    }, meterIntervalForMode(50, audioStabilityMode));
 
     return () => {
       window.clearInterval(interval);
     };
-  }, [isPlaying, track.id]);
+  }, [audioStabilityMode, isPlaying, track.id]);
 
   const levelHeight = Math.max(0, Math.min(100, ((level + 60) / 60) * 100));
   const silenced = isSilencedBySolo(track, anySolo);
@@ -132,7 +133,7 @@ const VUChannel: React.FC<{ anySolo: boolean; isPlaying: boolean; selected: bool
 };
 
 export const Mixer = () => {
-  const { isPlaying, master, pinnedTrackIds, selectedTrackId, setMasterSettings, tracks } = useAudio();
+  const { audioStabilityMode, isPlaying, master, pinnedTrackIds, selectedTrackId, setMasterSettings, tracks } = useAudio();
   const anySolo = useMemo(() => anyTrackSoloed(tracks), [tracks]);
   const [masterLevel, setMasterLevel] = useState(-100);
   const [mixerScope, setMixerScope] = useState<MixerScope>('ALL');
@@ -154,12 +155,12 @@ export const Mixer = () => {
     }
     const interval = window.setInterval(() => {
       setMasterLevel(engine.getMasterMeterValue());
-    }, 50);
+    }, meterIntervalForMode(50, audioStabilityMode));
 
     return () => {
       window.clearInterval(interval);
     };
-  }, [isPlaying]);
+  }, [audioStabilityMode, isPlaying]);
 
   const masterLevelHeight = Math.max(0, Math.min(100, ((masterLevel + 60) / 60) * 100));
   const visibleTracks = useMemo(() => tracks.filter((track) => {
