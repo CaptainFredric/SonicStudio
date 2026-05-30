@@ -417,6 +417,12 @@ export const Launchpad = ({
                   <input
                     className="control-field h-10 w-full border-0 bg-transparent px-0 text-[13px] text-[var(--text-primary)] focus:outline-none"
                     onChange={(event) => setLibraryQuery(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' && visibleOptions.length > 0) {
+                        event.preventDefault();
+                        onSelectTemplate(visibleOptions[0].id);
+                      }
+                    }}
                     placeholder="Search name, feel, or BPM"
                     value={libraryQuery}
                   />
@@ -442,6 +448,7 @@ export const Launchpad = ({
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-soft)] pb-3 text-[11px] leading-5 text-[var(--text-secondary)]">
               <span>
                 {visibleOptions.length} {visibleOptions.length === 1 ? 'scene' : 'scenes'} match the current browser.
+                {libraryQuery && visibleOptions.length > 0 ? ' Press Enter to open the top scene.' : ''}
               </span>
               {libraryQuery ? (
                 <button
