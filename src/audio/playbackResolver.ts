@@ -1,5 +1,14 @@
 import type { ArrangementClip, StepValue, Track, TransportMode } from '../project/schema';
 
+// A track only reaches the speakers when it is not muted and not silenced by
+// another track's solo. The scheduler uses this to skip synthesizing voices
+// that Tone's channel solo would mute anyway, saving real DSP while a solo is
+// held, which matters most on weaker devices.
+export const isTrackAudible = (
+  track: Pick<Track, 'muted' | 'solo'>,
+  anySolo: boolean,
+): boolean => !track.muted && (!anySolo || track.solo);
+
 export interface ResolvedPatternStep {
   note: StepValue;
   patternIndex: number;

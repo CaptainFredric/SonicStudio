@@ -4,8 +4,25 @@ import { createProjectFromTemplate } from '../project/schema';
 import {
   findFirstPlayableStepInLoop,
   hasPlayableStepAt,
+  isTrackAudible,
   resolvePatternStepForPlayback,
 } from './playbackResolver';
+
+describe('isTrackAudible', () => {
+  it('plays an unmuted track when nothing is soloed', () => {
+    expect(isTrackAudible({ muted: false, solo: false }, false)).toBe(true);
+  });
+
+  it('silences a muted track regardless of solo state', () => {
+    expect(isTrackAudible({ muted: true, solo: false }, false)).toBe(false);
+    expect(isTrackAudible({ muted: true, solo: true }, true)).toBe(false);
+  });
+
+  it('keeps only the soloed tracks audible while a solo is held', () => {
+    expect(isTrackAudible({ muted: false, solo: true }, true)).toBe(true);
+    expect(isTrackAudible({ muted: false, solo: false }, true)).toBe(false);
+  });
+});
 
 const clearPatternNotes = (project: ReturnType<typeof createProjectFromTemplate>, patternIndex = 0) => {
   const stepsPerPattern = project.transport.stepsPerPattern;

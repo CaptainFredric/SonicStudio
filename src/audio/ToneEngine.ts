@@ -1,7 +1,7 @@
 import * as Tone from 'tone';
 
 import { getSamplePresetMeta, getSampleUrl } from './sampleLibrary';
-import { findFirstPlayableStepInLoop, hasPlayableStepAt, resolvePatternStepForPlayback } from './playbackResolver';
+import { findFirstPlayableStepInLoop, hasPlayableStepAt, isTrackAudible, resolvePatternStepForPlayback } from './playbackResolver';
 import type { AudioStabilityMode } from '../project/preferences';
 import type {
   ArrangementClip,
@@ -476,8 +476,13 @@ export class ToneEngine {
       this.triggerMetronomeTick(songStep % 16 === 0, time);
     }
 
+    // While any track is soloed, Tone's channel solo mutes the rest at the
+    // output. Skip scheduling their voices entirely so a weak device is not
+    // synthesizing sound that will never be heard.
+    const anySolo = this.tracksState.some((candidate) => candidate.solo);
+
     this.tracksState.forEach((track) => {
-      if (track.muted) {
+      if (!isTrackAudible(track, anySolo)) {
         return;
       }
 
