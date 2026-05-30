@@ -1297,6 +1297,8 @@ export const PianoRoll = () => {
 
                     return (
                       <button
+                        aria-label={`${note} step ${stepIndex + 1}`}
+                        aria-pressed={!!activeEvent}
                         className={`group relative border-r border-[var(--border-soft)] transition-colors touch-none ${stepIndex % 4 === 0 ? 'bg-[rgba(255,255,255,0.02)]' : ''} ${isSelected ? 'ring-1 ring-inset ring-[rgba(124,211,252,0.22)]' : ''} hover:bg-[rgba(255,255,255,0.04)]`}
                         key={`${note}-${stepIndex}`}
                         onPointerDown={(event) => handleCellPointerDown(stepIndex, note, !!activeEvent, event)}
@@ -1672,6 +1674,7 @@ export const PianoRoll = () => {
                   <div className="section-label">Pitch</div>
                   <div className="mt-2 flex gap-2">
                     <button
+                      aria-label="Lower the selected note a semitone"
                       className="ghost-icon-button flex h-10 w-10 items-center justify-center"
                       disabled={!selectedNote || normalizedSelectedNoteIndex === null}
                       onClick={() => selectedNote && normalizedSelectedNoteIndex !== null && updateStepEvent(track.id, selectedStepIndex, normalizedSelectedNoteIndex, { note: shiftNote(selectedNote.note, -1) })}
@@ -1692,6 +1695,7 @@ export const PianoRoll = () => {
                       ))}
                     </select>
                     <button
+                      aria-label="Raise the selected note a semitone"
                       className="ghost-icon-button flex h-10 w-10 items-center justify-center"
                       disabled={!selectedNote || normalizedSelectedNoteIndex === null}
                       onClick={() => selectedNote && normalizedSelectedNoteIndex !== null && updateStepEvent(track.id, selectedStepIndex, normalizedSelectedNoteIndex, { note: shiftNote(selectedNote.note, 1) })}

@@ -2446,6 +2446,8 @@ export const MainWorkspace = () => {
 
                             return (
                               <button
+                                aria-label={`${track.name} step ${stepIndex + 1}`}
+                                aria-pressed={isActive}
                                 className={`group relative shrink-0 touch-none border transition-colors ${editorMode === 'select' ? 'cursor-pointer' : 'cursor-crosshair'} ${compactLanes ? 'min-h-[38px]' : 'min-h-[48px]'} ${isActive ? 'border-transparent' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.05)]'} ${isCurrent ? 'ring-1 ring-inset ring-[rgba(255,255,255,0.08)]' : ''} ${isSelectedStep ? 'outline outline-1 outline-offset-0 outline-[rgba(125,211,252,0.26)]' : ''} ${placementCursor && placementCursor.trackId === track.id && placementCursor.stepIndex === stepIndex ? 'seq-place-cursor' : ''}`}
                                 data-seq-cell="true"
                                 data-step-index={stepIndex}
