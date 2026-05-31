@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Check, Copy, Download, Link2, Share2, X } from 'lucide-react';
 
 import { useAudio } from '../context/AudioContext';
+import { useDialogFocus } from '../hooks/useDialogFocus';
 import { useManualKeyOverride } from '../services/manualKeyOverride';
 
 interface ShareDialogProps {
@@ -32,6 +33,8 @@ export const ShareDialog = ({ open, onClose, onNotify }: ShareDialogProps) => {
   const [override] = useManualKeyOverride();
   const [tab, setTab] = useState<Tab>('link');
   const [copied, setCopied] = useState<Tab | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(open, dialogRef);
 
   const sessionJson = useMemo(() => {
     if (!open) return '';
@@ -133,6 +136,7 @@ export const ShareDialog = ({ open, onClose, onNotify }: ShareDialogProps) => {
       role="dialog"
     >
       <div
+        ref={dialogRef}
         className="surface-panel-strong w-[min(640px,96vw)] max-h-[88vh] overflow-auto p-5 shadow-[0_24px_60px_rgba(0,0,0,0.45)]"
         onClick={(event) => event.stopPropagation()}
       >

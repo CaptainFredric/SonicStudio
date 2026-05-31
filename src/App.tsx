@@ -17,6 +17,7 @@ import { SuperSonicAssistBar } from './components/SuperSonicAssistBar';
 import { OnboardingGuide } from './components/OnboardingGuide';
 import { QuickCaptureBar } from './components/QuickCaptureBar';
 import { SongTranscriber } from './components/SongTranscriber';
+import { useDialogFocus } from './hooks/useDialogFocus';
 import { setManualKeyOverride } from './services/manualKeyOverride';
 import { AudioHealthDot } from './components/AudioHealthDot';
 import { KeyTag } from './components/KeyTag';
@@ -485,6 +486,9 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
     setSettingsOpen,
   } = useAudio();
   const isFirstImpression = useFirstImpression();
+  const settingsPanelRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(isSettingsOpen, settingsPanelRef);
+  const launchpadRef = useRef<HTMLDivElement>(null);
 
   const [isLaunchpadOpen, setLaunchpadOpen] = useState<boolean>(() => {
     return routeState.showLaunchpad;
@@ -494,6 +498,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
   const [isRecordOpen, setRecordOpen] = useState(false);
   const [isTranscribeOpen, setTranscribeOpen] = useState(false);
   const [isQuickCaptureOpen, setQuickCaptureOpen] = useState(false);
+  useDialogFocus(isLaunchpadOpen, launchpadRef);
   const [focusMode, setFocusMode] = useState(false);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -706,7 +711,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
         aria-hidden
       />
       {isLaunchpadOpen ? (
-        <div className="fixed inset-0 z-[60] overflow-auto bg-[var(--bg-app)] p-3">
+        <div ref={launchpadRef} className="fixed inset-0 z-[60] overflow-auto bg-[var(--bg-app)] p-3">
           <Launchpad
             isInitialized={isInitialized}
             isOpen={isLaunchpadOpen}
@@ -729,7 +734,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
             tabIndex={-1}
             type="button"
           />
-          <div className="fixed inset-x-3 bottom-3 top-3 z-[65] md:static md:inset-auto md:z-auto md:flex md:min-h-0 md:w-[380px] md:max-w-[380px] md:flex-col">
+          <div ref={settingsPanelRef} className="fixed inset-x-3 bottom-3 top-3 z-[65] md:static md:inset-auto md:z-auto md:flex md:min-h-0 md:w-[380px] md:max-w-[380px] md:flex-col">
             <SettingsSidebar requestedTab={routeState.requestedSettingsTab} />
           </div>
         </>
