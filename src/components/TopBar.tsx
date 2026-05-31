@@ -569,6 +569,7 @@ export const TopBar = ({
                     label="Restart"
                     onClick={handleRestartSession}
                     shortcut="Double click"
+                    tone="danger"
                     uiSound="danger"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -809,6 +810,7 @@ export const TopBar = ({
                     label="Restart"
                     onClick={handleRestartSession}
                     shortcut="Double click"
+                    tone="danger"
                     uiSound="danger"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -1153,6 +1155,7 @@ const UtilityBtn = ({
   label,
   onClick,
   shortcut,
+  tone = 'default',
   uiSound = 'action',
 }: {
   armed?: boolean;
@@ -1163,11 +1166,13 @@ const UtilityBtn = ({
   label: string;
   onClick: () => void;
   shortcut?: string;
+  tone?: 'default' | 'danger';
   uiSound?: 'action' | 'danger';
 }) => (
   <button
     aria-label={label}
     className={`ghost-icon-button relative flex h-9 min-w-0 items-center justify-center gap-1.5 overflow-hidden px-2.5 ${armed ? 'border-[rgba(248,113,113,0.34)] text-[var(--danger)] shadow-[inset_0_0_0_1px_rgba(248,113,113,0.14)]' : ''}`}
+    style={!armed && tone === 'danger' ? { color: 'rgba(248,113,113,0.82)', borderColor: 'rgba(248,113,113,0.34)' } : undefined}
     data-armed={armed ? 'true' : 'false'}
     data-armed-phase={armed ? 'armed' : disarming ? 'disarming' : 'idle'}
     data-ui-sound={uiSound}
