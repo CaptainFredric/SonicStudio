@@ -206,6 +206,7 @@ interface AudioContextType {
   setTrackSource: (id: string, source: Partial<TrackSource>) => void;
   setMotionMode: (mode: MotionMode) => void;
   setUiSoundsEnabled: (enabled: boolean) => void;
+  setMidiInputEnabled: (enabled: boolean) => void;
   setStickyMobileTransport: (enabled: boolean) => void;
   setAudioStabilityMode: (mode: AudioStabilityMode) => void;
   setMetronomeEnabled: (enabled: boolean) => void;
@@ -260,6 +261,7 @@ interface AudioContextType {
   saveTrackSnapshot: (trackId: string, snapshotId?: string | null) => void;
   trackSnapshots: TrackSnapshot[];
   uiSoundsEnabled: boolean;
+  midiInputEnabled: boolean;
   stickyMobileTransport: boolean;
   audioStabilityMode: AudioStabilityMode;
 }
@@ -783,6 +785,7 @@ export const AudioProvider = ({
     trackSnapshots: project.trackSnapshots,
     transportMode: project.transport.mode,
     uiSoundsEnabled: preferences.uiSoundsEnabled,
+    midiInputEnabled: preferences.midiInputEnabled,
     stickyMobileTransport: preferences.stickyMobileTransport,
     audioStabilityMode: preferences.audioStabilityMode,
     deleteCheckpoint,
@@ -818,6 +821,7 @@ export const AudioProvider = ({
     })),
     setSettingsOpen: (open) => dispatch({ type: 'SET_SETTINGS_OPEN', open }),
     setUiSoundsEnabled: (uiSoundsEnabled) => setPreferences((current) => ({ ...current, uiSoundsEnabled })),
+    setMidiInputEnabled: (midiInputEnabled) => setPreferences((current) => ({ ...current, midiInputEnabled })),
     setStickyMobileTransport: (stickyMobileTransport) => setPreferences((current) => ({ ...current, stickyMobileTransport })),
     setAudioStabilityMode: (audioStabilityMode) => setPreferences((current) => ({ ...current, audioStabilityMode })),
     setAccentColor: (accentColor) => setPreferences((current) => ({ ...current, accentColor })),
@@ -880,6 +884,7 @@ export const AudioProvider = ({
     preferences.superSonic,
     preferences.superSonicMode,
     preferences.uiSoundsEnabled,
+    preferences.midiInputEnabled,
     preferences.stickyMobileTransport,
     preferences.audioStabilityMode,
     previewTrack,

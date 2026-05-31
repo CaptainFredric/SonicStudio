@@ -11,12 +11,15 @@ interface PreferencesPanelProps {
   motionMode: MotionMode;
   superSonicMode: boolean;
   uiSoundsEnabled: boolean;
+  midiInputEnabled: boolean;
+  midiSupported: boolean;
   defaultWorkspace: DefaultWorkspace;
   onAccentChange: (color: AccentColor) => void;
   onDensityChange: (density: Density) => void;
   onMotionModeChange: (mode: MotionMode) => void;
   onSuperSonicModeChange: (enabled: boolean) => void;
   onUiSoundsEnabledChange: (enabled: boolean) => void;
+  onMidiInputEnabledChange: (enabled: boolean) => void;
   onDefaultWorkspaceChange: (workspace: DefaultWorkspace) => void;
 }
 
@@ -37,12 +40,15 @@ export const PreferencesPanel = ({
   motionMode,
   superSonicMode,
   uiSoundsEnabled,
+  midiInputEnabled,
+  midiSupported,
   defaultWorkspace,
   onAccentChange,
   onDensityChange,
   onMotionModeChange,
   onSuperSonicModeChange,
   onUiSoundsEnabledChange,
+  onMidiInputEnabledChange,
   onDefaultWorkspaceChange,
 }: PreferencesPanelProps) => (
   <div className="space-y-4">
@@ -158,6 +164,18 @@ export const PreferencesPanel = ({
       <div className="mt-3 flex gap-2">
         <StateButton active={uiSoundsEnabled} label="On" onClick={() => onUiSoundsEnabledChange(true)} />
         <StateButton active={!uiSoundsEnabled} label="Off" onClick={() => onUiSoundsEnabledChange(false)} />
+      </div>
+    </PanelCard>
+
+    <PanelCard icon={<Keyboard className="h-4 w-4 text-[var(--accent)]" />} title="MIDI keyboard">
+      <p className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
+        {midiSupported
+          ? 'Play the selected lane from a connected MIDI keyboard. Your browser may ask permission the first time.'
+          : 'This browser does not support MIDI input. Chrome or Edge on desktop works best.'}
+      </p>
+      <div className="mt-3 flex gap-2">
+        <StateButton active={midiInputEnabled} label="On" onClick={() => onMidiInputEnabledChange(true)} />
+        <StateButton active={!midiInputEnabled} label="Off" onClick={() => onMidiInputEnabledChange(false)} />
       </div>
     </PanelCard>
 

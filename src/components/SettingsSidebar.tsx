@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { BookOpen, Settings2, Sliders, Speaker, X } from 'lucide-react';
 
+import { MidiInputManager } from '../audio/midiInput';
 import { useAudio } from '../context/AudioContext';
 import { OutputSettingsPanel } from './settings/OutputSettingsPanel';
 import { PreferencesPanel } from './settings/PreferencesPanel';
@@ -62,8 +63,10 @@ export const SettingsSidebar = ({
     setSettingsOpen,
     setSuperSonicMode,
     setUiSoundsEnabled,
+    setMidiInputEnabled,
     superSonicMode,
     uiSoundsEnabled,
+    midiInputEnabled,
   } = useAudio();
   const [settingsTab, setSettingsTab] = useState<StudioTab>(requestedTab);
 
@@ -126,12 +129,15 @@ export const SettingsSidebar = ({
             motionMode={motionMode}
             superSonicMode={superSonicMode}
             uiSoundsEnabled={uiSoundsEnabled}
+            midiInputEnabled={midiInputEnabled}
+            midiSupported={MidiInputManager.isSupported()}
             onAccentChange={setAccentColor}
             onDefaultWorkspaceChange={setDefaultWorkspace}
             onDensityChange={setDensity}
             onMotionModeChange={setMotionMode}
             onSuperSonicModeChange={setSuperSonicMode}
             onUiSoundsEnabledChange={setUiSoundsEnabled}
+            onMidiInputEnabledChange={setMidiInputEnabled}
           />
         ) : null}
         {settingsTab === 'SCORESHEETS' ? <ScoresheetsPanel /> : null}

@@ -22,6 +22,7 @@ export interface SuperSonicPreferences {
 export interface StudioPreferences {
   motionMode: MotionMode;
   uiSoundsEnabled: boolean;
+  midiInputEnabled: boolean;
   accentColor: AccentColor;
   density: Density;
   defaultWorkspace: DefaultWorkspace;
@@ -37,6 +38,7 @@ const STUDIO_PREFERENCES_KEY = 'sonicstudio:preferences:v1';
 export const DEFAULT_STUDIO_PREFERENCES: StudioPreferences = {
   motionMode: 'fluid',
   uiSoundsEnabled: true,
+  midiInputEnabled: false,
   accentColor: 'aqua',
   density: 'comfortable',
   defaultWorkspace: 'piano-roll',
@@ -145,6 +147,9 @@ export const normalizeStudioPreferences = (value: unknown): StudioPreferences =>
     uiSoundsEnabled: typeof candidate.uiSoundsEnabled === 'boolean'
       ? candidate.uiSoundsEnabled
       : true,
+    midiInputEnabled: typeof candidate.midiInputEnabled === 'boolean'
+      ? candidate.midiInputEnabled
+      : false,
     accentColor: isAccentColor(candidate.accentColor) ? candidate.accentColor : 'aqua',
     density: isDensity(candidate.density) ? candidate.density : 'comfortable',
     defaultWorkspace: isDefaultWorkspace(candidate.defaultWorkspace) ? candidate.defaultWorkspace : 'piano-roll',
