@@ -2541,7 +2541,7 @@ export const MainWorkspace = () => {
                                     }}
                                   />
                                 )}
-                                {isActive && showStepNoteLabel && !['kick', 'snare', 'hihat'].includes(track.type) && leadEvent && (
+                                {isActive && showStepNoteLabel && (track.source.engine === 'sample' || !['kick', 'snare', 'hihat'].includes(track.type)) && leadEvent && (
                                   <span className="absolute bottom-1 right-1 font-mono text-[9px] font-medium text-black/60">
                                     {leadEvent.note}
                                     {extraNotes > 0 ? ` +${extraNotes}` : ''}
