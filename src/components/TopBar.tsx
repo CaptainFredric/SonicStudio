@@ -4,6 +4,7 @@ import {
   ChevronUp,
   Circle,
   Compass,
+  DownloadCloud,
   Layers3,
   Mic,
   Pause,
@@ -23,7 +24,9 @@ import { engine } from '../audio/ToneEngine';
 import { playSupersonicToggleSound } from '../audio/uiSounds';
 import { AudioHealthDot } from './AudioHealthDot';
 import { KeyTag } from './KeyTag';
+import { MidiRecordTag } from './MidiRecordTag';
 import { TransportElapsedTag } from './TransportElapsedTag';
+import { usePwaInstall } from '../hooks/usePwaInstall';
 import { detectPatternKeyDrift, getEffectiveKey } from '../services/keyDetector';
 import { bpmFromTaps, trimTapRun } from '../utils/tapTempo';
 import { useAudio } from '../context/AudioContext';
@@ -124,6 +127,7 @@ export const TopBar = ({
     uiSoundsEnabled,
     undo,
   } = useAudio();
+  const { canInstall, promptInstall } = usePwaInstall();
   const [draftProjectName, setDraftProjectName] = useState(projectName);
   const [isSupersonicHovered, setIsSupersonicHovered] = useState(false);
   const [isRestartArmed, setIsRestartArmed] = useState(false);
@@ -546,6 +550,18 @@ export const TopBar = ({
           <div className="grid gap-3 border-b border-[var(--border-soft)]/70 pb-3">
             <div className="hidden md:grid md:justify-items-stretch xl:justify-items-end">
               <div className="grid w-full max-w-none gap-2 xl:max-w-[372px]">
+                {canInstall && (
+                  <button
+                    aria-label="Install SonicStudio as an app"
+                    className="ghost-icon-button flex h-9 w-full items-center justify-center gap-1.5 px-2.5 text-[9px] font-semibold uppercase tracking-[0.14em]"
+                    onClick={() => { void promptInstall(); }}
+                    title="Install SonicStudio as an app so it opens in its own window and works offline"
+                    type="button"
+                  >
+                    <DownloadCloud className="h-3.5 w-3.5" />
+                    Install app
+                  </button>
+                )}
                 <div
                   className="grid grid-cols-4 gap-2"
                   style={{
@@ -583,6 +599,7 @@ export const TopBar = ({
                   <div className="flex items-center justify-between gap-2 px-1 pb-1 text-[9px] font-mono uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
                     <span>Transport</span>
                     <span className="flex items-center gap-2">
+                      <MidiRecordTag />
                       <TransportElapsedTag />
                       <KeyTag />
                       <AudioHealthDot />
@@ -794,6 +811,11 @@ export const TopBar = ({
                 }}
               >
                 <div className="flex items-center gap-1">
+                  {canInstall && (
+                    <UtilityBtn label="Install app" onClick={() => { void promptInstall(); }}>
+                      <DownloadCloud className="h-3.5 w-3.5" />
+                    </UtilityBtn>
+                  )}
                   <UtilityBtn label="Save" onClick={saveProject} shortcut="⌘S">
                     <Save className="h-3.5 w-3.5" />
                   </UtilityBtn>

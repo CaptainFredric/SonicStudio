@@ -22,6 +22,7 @@ import { MidiKeyboardBridge } from './components/MidiKeyboardBridge';
 import { setManualKeyOverride } from './services/manualKeyOverride';
 import { AudioHealthDot } from './components/AudioHealthDot';
 import { KeyTag } from './components/KeyTag';
+import { MidiRecordTag } from './components/MidiRecordTag';
 import { TransportElapsedTag } from './components/TransportElapsedTag';
 import { TransportPositionTag } from './components/TransportPositionTag';
 import { ToastStack, type ToastItem } from './components/ToastStack';
@@ -326,6 +327,7 @@ const CompactTransportBar = ({ forceVisible = false }: { forceVisible?: boolean 
       <TransportPositionTag />
       <TransportElapsedTag />
       <KeyTag />
+      <MidiRecordTag />
       {isFirstImpression && !isPlaying && (
         <span
           aria-live="polite"
