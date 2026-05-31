@@ -1,15 +1,37 @@
 {
   "name": "SonicStudio",
   "short_name": "SonicStudio",
+  "description": "A browser-native music studio for sketching beats, melodies, and arrangements.",
   "start_url": "/SonicStudio/",
+  "scope": "/SonicStudio/",
   "display": "standalone",
+  "orientation": "any",
   "background_color": "#030406",
   "theme_color": "#07111A",
+  "categories": ["music", "productivity", "entertainment"],
   "icons": [
     {
       "src": "/SonicStudio/favicon-32.png",
       "sizes": "32x32",
       "type": "image/png"
+    },
+    {
+      "src": "/SonicStudio/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/SonicStudio/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/SonicStudio/icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     },
     {
       "src": "/SonicStudio/apple-touch-icon.png",
