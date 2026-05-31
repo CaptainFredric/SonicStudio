@@ -65,7 +65,7 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
   const [bpmOverride, setBpmOverride] = useState('');
 
   const transcriberDialogRef = useRef<HTMLDivElement | null>(null);
-  useDialogFocus(open, transcriberDialogRef);
+  useDialogFocus(open, transcriberDialogRef, { trap: true });
 
   const decodedBufferRef = useRef<AudioBuffer | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);

@@ -498,7 +498,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
   const [isRecordOpen, setRecordOpen] = useState(false);
   const [isTranscribeOpen, setTranscribeOpen] = useState(false);
   const [isQuickCaptureOpen, setQuickCaptureOpen] = useState(false);
-  useDialogFocus(isLaunchpadOpen, launchpadRef);
+  useDialogFocus(isLaunchpadOpen, launchpadRef, { trap: true });
   const [focusMode, setFocusMode] = useState(false);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);

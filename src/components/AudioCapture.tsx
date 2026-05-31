@@ -198,7 +198,7 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
     tracks,
   } = useAudio();
   const captureDialogRef = useRef<HTMLDivElement | null>(null);
-  useDialogFocus(open, captureDialogRef);
+  useDialogFocus(open, captureDialogRef, { trap: true });
   const recorderRef = useRef<AudioRecorder | null>(null);
   const audioElRef = useRef<HTMLAudioElement | null>(null);
   const pendingCreateRef = useRef<{ note: string | null; previousTrackCount: number; suggestion: CaptureSuggestion } | null>(null);

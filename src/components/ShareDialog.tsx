@@ -34,7 +34,7 @@ export const ShareDialog = ({ open, onClose, onNotify }: ShareDialogProps) => {
   const [tab, setTab] = useState<Tab>('link');
   const [copied, setCopied] = useState<Tab | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
-  useDialogFocus(open, dialogRef);
+  useDialogFocus(open, dialogRef, { trap: true });
 
   const sessionJson = useMemo(() => {
     if (!open) return '';
