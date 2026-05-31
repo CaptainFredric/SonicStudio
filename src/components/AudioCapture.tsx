@@ -41,6 +41,7 @@ import {
   type InstrumentType,
 } from '../project/schema';
 import type { CaptureAnalysisProfile, CapturePreferences } from '../project/preferences';
+import { useDialogFocus } from '../hooks/useDialogFocus';
 
 interface AudioCaptureProps {
   open: boolean;
@@ -196,6 +197,8 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
     stampChord,
     tracks,
   } = useAudio();
+  const captureDialogRef = useRef<HTMLDivElement | null>(null);
+  useDialogFocus(open, captureDialogRef);
   const recorderRef = useRef<AudioRecorder | null>(null);
   const audioElRef = useRef<HTMLAudioElement | null>(null);
   const pendingCreateRef = useRef<{ note: string | null; previousTrackCount: number; suggestion: CaptureSuggestion } | null>(null);
@@ -804,6 +807,7 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
       role="dialog"
     >
       <div
+        ref={captureDialogRef}
         className="surface-panel-strong w-[min(980px,96vw)] max-h-[88vh] overflow-auto p-5 shadow-[0_24px_60px_rgba(0,0,0,0.45)]"
         onClick={(event) => event.stopPropagation()}
       >

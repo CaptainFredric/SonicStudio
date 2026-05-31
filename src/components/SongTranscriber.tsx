@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 
 import { useAudio } from '../context/AudioContext';
+import { useDialogFocus } from '../hooks/useDialogFocus';
 import { captureNoteStringFromTranscription } from '../services/noteStringLibrary';
 import {
   buildSessionFromTranscription,
@@ -62,6 +63,9 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
   const [sourceLabel, setSourceLabel] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [bpmOverride, setBpmOverride] = useState('');
+
+  const transcriberDialogRef = useRef<HTMLDivElement | null>(null);
+  useDialogFocus(open, transcriberDialogRef);
 
   const decodedBufferRef = useRef<AudioBuffer | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -267,6 +271,7 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
       role="dialog"
     >
       <div
+        ref={transcriberDialogRef}
         className="surface-panel-strong w-[min(720px,96vw)] max-h-[88vh] overflow-auto p-5 shadow-[0_24px_60px_rgba(0,0,0,0.45)]"
         onClick={(event) => event.stopPropagation()}
       >
