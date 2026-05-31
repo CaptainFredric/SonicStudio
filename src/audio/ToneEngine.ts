@@ -197,7 +197,7 @@ export class ToneEngine {
       }
 
       if (this.transportEventId === null) {
-        this.transportEventId = Tone.Transport.scheduleRepeat((time) => {
+        this.transportEventId = Tone.getTransport().scheduleRepeat((time) => {
           this.playStep(time);
         }, '16n');
       }
@@ -370,9 +370,9 @@ export class ToneEngine {
     const loopBounds = this.getLoopBounds();
     const sixteenthDuration = Tone.Time('16n').toSeconds();
 
-    Tone.Transport.loop = this.transportLoopEnabled;
-    Tone.Transport.loopStart = loopBounds.startBeat * sixteenthDuration;
-    Tone.Transport.loopEnd = loopBounds.endBeat * sixteenthDuration;
+    Tone.getTransport().loop = this.transportLoopEnabled;
+    Tone.getTransport().loopStart = loopBounds.startBeat * sixteenthDuration;
+    Tone.getTransport().loopEnd = loopBounds.endBeat * sixteenthDuration;
   }
 
   private hasPlayableStepAt(songStep: number) {
@@ -537,15 +537,15 @@ export class ToneEngine {
   }
 
   public togglePlayback() {
-    if (Tone.Transport.state === 'started') {
+    if (Tone.getTransport().state === 'started') {
       this.stopActiveVoices();
-      Tone.Transport.pause();
+      Tone.getTransport().pause();
       return false;
     }
 
     this.updateTransportLoop();
 
-    if (Tone.Transport.state !== 'paused') {
+    if (Tone.getTransport().state !== 'paused') {
       // If start lands on a silent spot, seek to the first playable step so
       // users hear music immediately when pressing Play.
       const loopBounds = this.getLoopBounds();
@@ -556,10 +556,10 @@ export class ToneEngine {
         }
       }
 
-      Tone.Transport.position = this.currentStep * Tone.Time('16n').toSeconds();
+      Tone.getTransport().position = this.currentStep * Tone.Time('16n').toSeconds();
     }
 
-    Tone.Transport.start();
+    Tone.getTransport().start();
     return true;
   }
 
@@ -572,14 +572,14 @@ export class ToneEngine {
         this.disposeTrackGraph(trackId);
       }
     });
-    Tone.Transport.stop();
-    Tone.Transport.position = loopBounds.startBeat * Tone.Time('16n').toSeconds();
+    Tone.getTransport().stop();
+    Tone.getTransport().position = loopBounds.startBeat * Tone.Time('16n').toSeconds();
     this.currentStep = loopBounds.startBeat;
     this.stepCallbacks.forEach((callback) => callback(loopBounds.startBeat % this.stepsPerPattern, this.currentPattern));
   }
 
   public setBpm(bpm: number) {
-    Tone.Transport.bpm.rampTo(bpm, 0.1);
+    Tone.getTransport().bpm.rampTo(bpm, 0.1);
   }
 
   public async startRecording() {
@@ -813,6 +813,34 @@ export class ToneEngine {
     const scheduledDuration = track.source.samplePlayback === 'oneshot'
       ? trimmedDuration
       : Math.min(trimmedDuration, Math.max(0.02, duration * playbackRate));
+
+    // Offline bounce path. Tone.Offline schedules every hit in the future and
+    // has restored the original audio context by the time these callbacks run,
+    // so reusing or mutating the live pooled players throws (cross-context
+    // connect, and "source not started" from the playbackRate setter touching
+    // a not-yet-started source). Render each hit instead with a throwaway
+    // Player pinned to the graph's offline context, with every parameter set at
+    // construction so no setter ever touches a pending source. The offline
+    // context is discarded after the render, so these are never disposed.
+    if (this.offlineMode && graph.sampleBuffer) {
+      const oneShot = new Tone.Player({
+        context: graph.sourceInput.context,
+        fadeOut: Math.min(0.05, scheduledDuration * 0.25),
+        loop: false,
+        playbackRate,
+        reverse: sliceWindow.reverse,
+        url: graph.sampleBuffer,
+      });
+      oneShot.volume.value = Tone.gainToDb(Math.max(0.0001, step.velocity * sliceWindow.gain));
+      oneShot.connect(graph.sourceInput);
+      try {
+        oneShot.start(time, windowStart, scheduledDuration);
+        oneShot.stop(time + scheduledDuration + 0.06);
+      } catch {
+        // Ignore scheduling errors near the render tail.
+      }
+      return;
+    }
 
     if (graph.samplePlayers.length === 0) {
       return;
