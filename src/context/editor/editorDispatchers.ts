@@ -72,6 +72,7 @@ export const createEditorDispatchers = (dispatch: Dispatch<EditorAction>) => ({
   toggleSettings: () => dispatch({ type: 'TOGGLE_SETTINGS' }),
   toggleSolo: (trackId: string) => dispatch({ type: 'TOGGLE_SOLO', trackId }),
   toggleStep: (trackId: string, stepIndex: number, note?: string) => dispatch({ type: 'TOGGLE_STEP', note, stepIndex, trackId }),
+  recordStepNote: (trackId: string, stepIndex: number, note: string) => dispatch({ type: 'RECORD_STEP_NOTE', note, stepIndex, trackId }),
   transformClipPattern: (clipId: string, transform: 'clear' | 'double-density' | 'halve-density' | 'randomize-velocity' | 'reset-automation' | 'shift-left' | 'shift-right' | 'transpose', value?: number) => dispatch({ type: 'TRANSFORM_CLIP_PATTERN', clipId, transform, value }),
   transposePattern: (trackId: string, semitones: number) => dispatch({ type: 'TRANSPOSE_PATTERN', semitones, trackId }),
   transposePatternAt: (trackId: string, patternIndex: number, semitones: number) => dispatch({ type: 'TRANSPOSE_PATTERN_AT', semitones, trackId, patternIndex }),

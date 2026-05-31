@@ -13,6 +13,7 @@ describe('studio preferences', () => {
       motionMode: 'focus',
       uiSoundsEnabled: false,
       midiInputEnabled: false,
+      midiRecordEnabled: false,
       accentColor: 'violet',
       density: 'compact',
       defaultWorkspace: 'arranger',

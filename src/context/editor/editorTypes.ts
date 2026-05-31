@@ -87,6 +87,7 @@ export type EditorAction =
   | { type: 'TOGGLE_SOLO'; trackId: string }
   | { type: 'TOGGLE_CLIP_PATTERN_STEP'; clipId: string; mode?: 'add' | 'remove' | 'toggle'; note?: string; stepIndex: number }
   | { type: 'TOGGLE_STEP'; note?: string; stepIndex: number; trackId: string }
+  | { type: 'RECORD_STEP_NOTE'; note: string; stepIndex: number; trackId: string }
   | { type: 'TOGGLE_PATTERN_STEP'; note?: string; stepIndex: number; trackId: string; patternIndex: number }
   | { type: 'TOGGLE_VOLUME'; trackId: string; volume: number }
   | { type: 'TRANSFORM_CLIP_PATTERN'; clipId: string; transform: 'clear' | 'double-density' | 'halve-density' | 'randomize-velocity' | 'reset-automation' | 'shift-left' | 'shift-right' | 'transpose'; value?: number }

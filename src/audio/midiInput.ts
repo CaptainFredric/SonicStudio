@@ -30,6 +30,20 @@ export const parseMidiMessage = (data: ArrayLike<number> | null | undefined): Mi
   return { type: 'other' };
 };
 
+// Recording is opt-in and only meaningful while the transport runs: a played
+// note lands on whatever step the playhead is passing. Outside playback, or
+// with recording off, incoming notes only audition (handled by the caller).
+export const shouldRecordMidiNote = (params: {
+  recordEnabled: boolean;
+  isPlaying: boolean;
+  message: MidiNoteMessage;
+}): boolean => (
+  params.recordEnabled
+  && params.isPlaying
+  && params.message.type === 'noteon'
+  && typeof params.message.note === 'number'
+);
+
 interface MidiMessageEventLike {
   data: Uint8Array;
 }

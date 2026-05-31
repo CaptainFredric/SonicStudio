@@ -12,6 +12,7 @@ interface PreferencesPanelProps {
   superSonicMode: boolean;
   uiSoundsEnabled: boolean;
   midiInputEnabled: boolean;
+  midiRecordEnabled: boolean;
   midiSupported: boolean;
   defaultWorkspace: DefaultWorkspace;
   onAccentChange: (color: AccentColor) => void;
@@ -20,6 +21,7 @@ interface PreferencesPanelProps {
   onSuperSonicModeChange: (enabled: boolean) => void;
   onUiSoundsEnabledChange: (enabled: boolean) => void;
   onMidiInputEnabledChange: (enabled: boolean) => void;
+  onMidiRecordEnabledChange: (enabled: boolean) => void;
   onDefaultWorkspaceChange: (workspace: DefaultWorkspace) => void;
 }
 
@@ -41,6 +43,7 @@ export const PreferencesPanel = ({
   superSonicMode,
   uiSoundsEnabled,
   midiInputEnabled,
+  midiRecordEnabled,
   midiSupported,
   defaultWorkspace,
   onAccentChange,
@@ -49,6 +52,7 @@ export const PreferencesPanel = ({
   onSuperSonicModeChange,
   onUiSoundsEnabledChange,
   onMidiInputEnabledChange,
+  onMidiRecordEnabledChange,
   onDefaultWorkspaceChange,
 }: PreferencesPanelProps) => (
   <div className="space-y-4">
@@ -177,6 +181,17 @@ export const PreferencesPanel = ({
         <StateButton active={midiInputEnabled} label="On" onClick={() => onMidiInputEnabledChange(true)} />
         <StateButton active={!midiInputEnabled} label="Off" onClick={() => onMidiInputEnabledChange(false)} />
       </div>
+      {midiSupported && midiInputEnabled ? (
+        <div className="mt-4 border-t border-[var(--chrome-line)] pt-3">
+          <p className="text-[11px] leading-5 text-[var(--text-secondary)]">
+            Record into the lane while playing. Notes you play land on the step under the playhead.
+          </p>
+          <div className="mt-3 flex gap-2">
+            <StateButton active={midiRecordEnabled} label="On" onClick={() => onMidiRecordEnabledChange(true)} />
+            <StateButton active={!midiRecordEnabled} label="Off" onClick={() => onMidiRecordEnabledChange(false)} />
+          </div>
+        </div>
+      ) : null}
     </PanelCard>
 
     <PanelCard icon={<Keyboard className="h-4 w-4 text-[var(--accent)]" />} title="Keyboard shortcuts">

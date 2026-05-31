@@ -222,4 +222,29 @@ describe('editorReducer', () => {
     expect(targetTrack?.automation?.[0]?.level[0]).toBe(0.82);
     expect(targetTrack?.automation?.[0]?.tone[1]).toBe(0.22);
   });
+
+  it('records MIDI notes additively without toggling existing notes off', () => {
+    const state = createEditorState('blank-grid');
+    const leadTrackId = state.history.present.tracks.find((track) => track.type === 'lead')?.id;
+    if (!leadTrackId) {
+      throw new Error('Expected lead track');
+    }
+
+    const notesAtStep = (editorState: EditorState) => (
+      editorState.history.present.tracks.find((track) => track.id === leadTrackId)
+        ?.patterns[0]?.[2]?.map((event) => event.note) ?? []
+    );
+
+    const afterFirst = editorReducer(state, { type: 'RECORD_STEP_NOTE', note: 'C4', stepIndex: 2, trackId: leadTrackId });
+    expect(notesAtStep(afterFirst)).toEqual(['C4']);
+
+    // A second pitch stacks into a chord rather than replacing the first.
+    const afterSecond = editorReducer(afterFirst, { type: 'RECORD_STEP_NOTE', note: 'E4', stepIndex: 2, trackId: leadTrackId });
+    expect(notesAtStep(afterSecond).sort()).toEqual(['C4', 'E4']);
+
+    // Replaying a pitch already on the step is a no-op (unlike TOGGLE_STEP,
+    // which would remove it), so a held or repeated key never erases input.
+    const afterRepeat = editorReducer(afterSecond, { type: 'RECORD_STEP_NOTE', note: 'C4', stepIndex: 2, trackId: leadTrackId });
+    expect(notesAtStep(afterRepeat).sort()).toEqual(['C4', 'E4']);
+  });
 });

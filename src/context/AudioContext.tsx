@@ -207,6 +207,7 @@ interface AudioContextType {
   setMotionMode: (mode: MotionMode) => void;
   setUiSoundsEnabled: (enabled: boolean) => void;
   setMidiInputEnabled: (enabled: boolean) => void;
+  setMidiRecordEnabled: (enabled: boolean) => void;
   setStickyMobileTransport: (enabled: boolean) => void;
   setAudioStabilityMode: (mode: AudioStabilityMode) => void;
   setMetronomeEnabled: (enabled: boolean) => void;
@@ -229,6 +230,7 @@ interface AudioContextType {
   toggleSettings: () => void;
   toggleSolo: (trackId: string) => void;
   toggleStep: (trackId: string, stepIndex: number, note?: string) => void;
+  recordStepNote: (trackId: string, stepIndex: number, note: string) => void;
   tracks: Track[];
   createSongMarker: (beat: number, name?: string) => void;
   duplicateSongRange: (startBeat: number, endBeat: number, label?: string) => void;
@@ -262,6 +264,7 @@ interface AudioContextType {
   trackSnapshots: TrackSnapshot[];
   uiSoundsEnabled: boolean;
   midiInputEnabled: boolean;
+  midiRecordEnabled: boolean;
   stickyMobileTransport: boolean;
   audioStabilityMode: AudioStabilityMode;
 }
@@ -786,6 +789,7 @@ export const AudioProvider = ({
     transportMode: project.transport.mode,
     uiSoundsEnabled: preferences.uiSoundsEnabled,
     midiInputEnabled: preferences.midiInputEnabled,
+    midiRecordEnabled: preferences.midiRecordEnabled,
     stickyMobileTransport: preferences.stickyMobileTransport,
     audioStabilityMode: preferences.audioStabilityMode,
     deleteCheckpoint,
@@ -822,6 +826,7 @@ export const AudioProvider = ({
     setSettingsOpen: (open) => dispatch({ type: 'SET_SETTINGS_OPEN', open }),
     setUiSoundsEnabled: (uiSoundsEnabled) => setPreferences((current) => ({ ...current, uiSoundsEnabled })),
     setMidiInputEnabled: (midiInputEnabled) => setPreferences((current) => ({ ...current, midiInputEnabled })),
+    setMidiRecordEnabled: (midiRecordEnabled) => setPreferences((current) => ({ ...current, midiRecordEnabled })),
     setStickyMobileTransport: (stickyMobileTransport) => setPreferences((current) => ({ ...current, stickyMobileTransport })),
     setAudioStabilityMode: (audioStabilityMode) => setPreferences((current) => ({ ...current, audioStabilityMode })),
     setAccentColor: (accentColor) => setPreferences((current) => ({ ...current, accentColor })),
@@ -885,6 +890,7 @@ export const AudioProvider = ({
     preferences.superSonicMode,
     preferences.uiSoundsEnabled,
     preferences.midiInputEnabled,
+    preferences.midiRecordEnabled,
     preferences.stickyMobileTransport,
     preferences.audioStabilityMode,
     previewTrack,

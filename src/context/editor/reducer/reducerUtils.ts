@@ -512,3 +512,31 @@ export const updateStepPattern = (
     return nextSteps;
   })
 );
+
+// Additive write used by live MIDI recording: ensures `note` is present at the
+// step without ever toggling it back off. Replaying a note already on the step
+// is a no-op, so holding or repeating a key never erases what was captured.
+export const addNoteToStep = (
+  track: Track,
+  patternIndex: number,
+  stepsPerPattern: number,
+  stepIndex: number,
+  note: string,
+): Track => (
+  updatePatternSteps(track, patternIndex, stepsPerPattern, (nextSteps) => {
+    const existingStep = cloneStepEvents(nextSteps[stepIndex] ?? []);
+
+    if (existingStep.some((step) => step.note === note)) {
+      nextSteps[stepIndex] = existingStep;
+      return nextSteps;
+    }
+
+    const templateEvent = existingStep.at(-1);
+    nextSteps[stepIndex] = [
+      ...existingStep,
+      createStepEvent(note, templateEvent ?? {}),
+    ].sort((left, right) => compareNotesDescending(left.note, right.note));
+
+    return nextSteps;
+  })
+);

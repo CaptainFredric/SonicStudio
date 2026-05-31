@@ -64,9 +64,11 @@ export const SettingsSidebar = ({
     setSuperSonicMode,
     setUiSoundsEnabled,
     setMidiInputEnabled,
+    setMidiRecordEnabled,
     superSonicMode,
     uiSoundsEnabled,
     midiInputEnabled,
+    midiRecordEnabled,
   } = useAudio();
   const [settingsTab, setSettingsTab] = useState<StudioTab>(requestedTab);
 
@@ -130,6 +132,7 @@ export const SettingsSidebar = ({
             superSonicMode={superSonicMode}
             uiSoundsEnabled={uiSoundsEnabled}
             midiInputEnabled={midiInputEnabled}
+            midiRecordEnabled={midiRecordEnabled}
             midiSupported={MidiInputManager.isSupported()}
             onAccentChange={setAccentColor}
             onDefaultWorkspaceChange={setDefaultWorkspace}
@@ -138,6 +141,7 @@ export const SettingsSidebar = ({
             onSuperSonicModeChange={setSuperSonicMode}
             onUiSoundsEnabledChange={setUiSoundsEnabled}
             onMidiInputEnabledChange={setMidiInputEnabled}
+            onMidiRecordEnabledChange={setMidiRecordEnabled}
           />
         ) : null}
         {settingsTab === 'SCORESHEETS' ? <ScoresheetsPanel /> : null}

@@ -4,6 +4,7 @@ import {
 } from '../../../project/schema';
 import type { EditorAction, EditorState } from '../editorTypes';
 import {
+  addNoteToStep,
   cloneStepEvents,
   commitProject,
   updateStepPattern,
@@ -54,6 +55,11 @@ export const handleTrackNoteEventAction = (state: EditorState, action: EditorAct
     case 'TOGGLE_STEP':
       return commitProject(state, updateTrack(present, action.trackId, (track) => (
         updateStepPattern(track, present.transport.currentPattern, present.transport.stepsPerPattern, action.stepIndex, action.note)
+      )));
+
+    case 'RECORD_STEP_NOTE':
+      return commitProject(state, updateTrack(present, action.trackId, (track) => (
+        addNoteToStep(track, present.transport.currentPattern, present.transport.stepsPerPattern, action.stepIndex, action.note)
       )));
 
     case 'TOGGLE_PATTERN_STEP':

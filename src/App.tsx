@@ -18,8 +18,7 @@ import { OnboardingGuide } from './components/OnboardingGuide';
 import { QuickCaptureBar } from './components/QuickCaptureBar';
 import { SongTranscriber } from './components/SongTranscriber';
 import { useDialogFocus } from './hooks/useDialogFocus';
-import { useMidiKeyboard } from './hooks/useMidiKeyboard';
-import { midiToNote } from './context/editor/reducer/reducerUtils';
+import { MidiKeyboardBridge } from './components/MidiKeyboardBridge';
 import { setManualKeyOverride } from './services/manualKeyOverride';
 import { AudioHealthDot } from './components/AudioHealthDot';
 import { KeyTag } from './components/KeyTag';
@@ -483,27 +482,11 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
     isSettingsOpen,
     latestNotice,
     loadSessionTemplate,
-    midiInputEnabled,
-    previewTrack,
     requestDemoPlayback,
-    selectedTrackId,
     setActiveView,
     setSettingsOpen,
-    tracks,
   } = useAudio();
   const isFirstImpression = useFirstImpression();
-  // Live play-through from a hardware MIDI keyboard auditions the selected
-  // lane's voice (falls back to the first lane) at the played pitch.
-  useMidiKeyboard(midiInputEnabled, (message) => {
-    if (message.type !== 'noteon' || typeof message.note !== 'number') {
-      return;
-    }
-    const targetTrackId = selectedTrackId ?? tracks[0]?.id;
-    if (!targetTrackId) {
-      return;
-    }
-    void previewTrack(targetTrackId, midiToNote(message.note), undefined, message.velocity ?? 0.8);
-  });
   const settingsPanelRef = useRef<HTMLDivElement>(null);
   useDialogFocus(isSettingsOpen, settingsPanelRef);
   const launchpadRef = useRef<HTMLDivElement>(null);
@@ -701,6 +684,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
 
   return (
     <div className="app-shell min-h-screen w-full antialiased text-[var(--text-primary)] md:flex md:flex-row md:h-screen md:min-h-0 md:overflow-hidden">
+      <MidiKeyboardBridge />
       <ToastStack toasts={toasts} onDismiss={dismissToast} />
       <OnboardingGuide
         onComplete={() => {

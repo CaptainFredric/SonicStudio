@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseMidiMessage } from './midiInput';
+import { parseMidiMessage, shouldRecordMidiNote } from './midiInput';
 
 describe('parseMidiMessage', () => {
   it('reads a note-on with velocity', () => {
@@ -37,5 +37,27 @@ describe('parseMidiMessage', () => {
   it('handles empty or missing data', () => {
     expect(parseMidiMessage([]).type).toBe('other');
     expect(parseMidiMessage(null).type).toBe('other');
+  });
+});
+
+describe('shouldRecordMidiNote', () => {
+  const noteOn = parseMidiMessage([0x90, 60, 100]);
+  const noteOff = parseMidiMessage([0x80, 60, 0]);
+
+  it('records a note-on only while armed and playing', () => {
+    expect(shouldRecordMidiNote({ recordEnabled: true, isPlaying: true, message: noteOn })).toBe(true);
+  });
+
+  it('does not record when recording is off', () => {
+    expect(shouldRecordMidiNote({ recordEnabled: false, isPlaying: true, message: noteOn })).toBe(false);
+  });
+
+  it('does not record while the transport is stopped', () => {
+    expect(shouldRecordMidiNote({ recordEnabled: true, isPlaying: false, message: noteOn })).toBe(false);
+  });
+
+  it('never records note-offs or notes without a pitch', () => {
+    expect(shouldRecordMidiNote({ recordEnabled: true, isPlaying: true, message: noteOff })).toBe(false);
+    expect(shouldRecordMidiNote({ recordEnabled: true, isPlaying: true, message: { type: 'noteon' } })).toBe(false);
   });
 });

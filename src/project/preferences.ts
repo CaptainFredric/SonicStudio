@@ -23,6 +23,7 @@ export interface StudioPreferences {
   motionMode: MotionMode;
   uiSoundsEnabled: boolean;
   midiInputEnabled: boolean;
+  midiRecordEnabled: boolean;
   accentColor: AccentColor;
   density: Density;
   defaultWorkspace: DefaultWorkspace;
@@ -39,6 +40,7 @@ export const DEFAULT_STUDIO_PREFERENCES: StudioPreferences = {
   motionMode: 'fluid',
   uiSoundsEnabled: true,
   midiInputEnabled: false,
+  midiRecordEnabled: false,
   accentColor: 'aqua',
   density: 'comfortable',
   defaultWorkspace: 'piano-roll',
@@ -149,6 +151,9 @@ export const normalizeStudioPreferences = (value: unknown): StudioPreferences =>
       : true,
     midiInputEnabled: typeof candidate.midiInputEnabled === 'boolean'
       ? candidate.midiInputEnabled
+      : false,
+    midiRecordEnabled: typeof candidate.midiRecordEnabled === 'boolean'
+      ? candidate.midiRecordEnabled
       : false,
     accentColor: isAccentColor(candidate.accentColor) ? candidate.accentColor : 'aqua',
     density: isDensity(candidate.density) ? candidate.density : 'comfortable',
