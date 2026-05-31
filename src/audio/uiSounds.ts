@@ -57,7 +57,6 @@ const resolveRecipe = (variant: UiSoundVariant, mode: UiSoundMode): UiSoundRecip
 class UiSoundEngine {
   private context: AudioContext | null = null;
   private lastPlaybackAt = 0;
-  private noiseBuffer: AudioBuffer | null = null;
 
   private ensureContext() {
     if (typeof window === 'undefined') {
@@ -81,23 +80,6 @@ class UiSoundEngine {
     }
 
     return this.context;
-  }
-
-  private getNoiseBuffer(context: AudioContext) {
-    if (this.noiseBuffer) {
-      return this.noiseBuffer;
-    }
-
-    const buffer = context.createBuffer(1, Math.floor(context.sampleRate * 0.45), context.sampleRate);
-    const channelData = buffer.getChannelData(0);
-
-    for (let index = 0; index < channelData.length; index += 1) {
-      const fade = 1 - (index / channelData.length);
-      channelData[index] = (Math.random() * 2 - 1) * fade;
-    }
-
-    this.noiseBuffer = buffer;
-    return buffer;
   }
 
   play(variant: UiSoundVariant, mode: UiSoundMode = 'classic') {
@@ -171,72 +153,96 @@ class UiSoundEngine {
     }
     this.lastPlaybackAt = now;
 
-    const carrier = context.createOscillator();
-    const body = context.createOscillator();
-    const shimmer = context.createOscillator();
-    const envelope = context.createGain();
-    const shimmerEnvelope = context.createGain();
-    const filter = context.createBiquadFilter();
-    const air = context.createBufferSource();
-    const airEnvelope = context.createGain();
-    const airFilter = context.createBiquadFilter();
-    const swapEnabled = !enabled;
+    if (enabled) {
+      this.playPowerUp(context, now);
+    } else {
+      this.playPowerDown(context, now);
+    }
+  }
 
-    filter.type = 'bandpass';
-    filter.Q.value = swapEnabled ? 1.12 : 1.35;
-    filter.frequency.setValueAtTime(swapEnabled ? 2400 : 2200, now);
-    filter.frequency.exponentialRampToValueAtTime(swapEnabled ? 160 : 220, now + 0.29);
+  // Power on: a rising charge that brightens as it climbs, capped with a quick
+  // laser zap. Reads as energising and a little sci-fi.
+  private playPowerUp(context: AudioContext, now: number) {
+    const carrier = context.createOscillator();
+    const sub = context.createOscillator();
+    const filter = context.createBiquadFilter();
+    const envelope = context.createGain();
+
+    filter.type = 'lowpass';
+    filter.Q.value = 1.1;
+    filter.frequency.setValueAtTime(500, now);
+    filter.frequency.exponentialRampToValueAtTime(3800, now + 0.22);
+
+    carrier.type = 'sawtooth';
+    carrier.frequency.setValueAtTime(200, now);
+    carrier.frequency.exponentialRampToValueAtTime(1400, now + 0.22);
+    sub.type = 'triangle';
+    sub.frequency.setValueAtTime(100, now);
+    sub.frequency.exponentialRampToValueAtTime(700, now + 0.22);
 
     envelope.gain.setValueAtTime(0.0001, now);
-    envelope.gain.exponentialRampToValueAtTime(swapEnabled ? 0.056 : 0.041, now + 0.016);
-    envelope.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
-
-    shimmerEnvelope.gain.setValueAtTime(0.0001, now);
-    shimmerEnvelope.gain.exponentialRampToValueAtTime(swapEnabled ? 0.022 : 0.014, now + 0.014);
-    shimmerEnvelope.gain.exponentialRampToValueAtTime(0.0001, now + 0.21);
-
-    air.buffer = this.getNoiseBuffer(context);
-    airFilter.type = swapEnabled ? 'bandpass' : 'highpass';
-    airFilter.Q.value = swapEnabled ? 0.88 : 0.74;
-    airFilter.frequency.setValueAtTime(swapEnabled ? 1600 : 2200, now);
-    airFilter.frequency.exponentialRampToValueAtTime(swapEnabled ? 220 : 300, now + 0.27);
-    airEnvelope.gain.setValueAtTime(0.0001, now);
-    airEnvelope.gain.exponentialRampToValueAtTime(swapEnabled ? 0.025 : 0.018, now + 0.02);
-    airEnvelope.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
-
-    carrier.type = swapEnabled ? 'sawtooth' : 'triangle';
-    body.type = swapEnabled ? 'triangle' : 'sine';
-    shimmer.type = swapEnabled ? 'triangle' : 'sine';
-
-    carrier.frequency.setValueAtTime(swapEnabled ? 460 : 840, now);
-    carrier.frequency.exponentialRampToValueAtTime(swapEnabled ? 72 : 118, now + 0.26);
-    body.frequency.setValueAtTime(swapEnabled ? 780 : 620, now);
-    body.frequency.exponentialRampToValueAtTime(swapEnabled ? 120 : 150, now + 0.3);
-    shimmer.frequency.setValueAtTime(swapEnabled ? 1680 : 2100, now);
-    shimmer.frequency.exponentialRampToValueAtTime(swapEnabled ? 170 : 240, now + 0.18);
-
-    body.detune.value = swapEnabled ? 11 : -8;
-    shimmer.detune.value = swapEnabled ? 22 : -20;
+    envelope.gain.exponentialRampToValueAtTime(0.05, now + 0.015);
+    envelope.gain.setValueAtTime(0.05, now + 0.18);
+    envelope.gain.exponentialRampToValueAtTime(0.0001, now + 0.34);
 
     carrier.connect(filter);
-    body.connect(filter);
+    sub.connect(filter);
     filter.connect(envelope);
     envelope.connect(context.destination);
 
-    shimmer.connect(shimmerEnvelope);
-    shimmerEnvelope.connect(context.destination);
-    air.connect(airFilter);
-    airFilter.connect(airEnvelope);
-    airEnvelope.connect(context.destination);
+    carrier.start(now);
+    sub.start(now);
+    carrier.stop(now + 0.36);
+    sub.stop(now + 0.36);
+
+    // The laser zap at the top of the charge: a fast bright downward pew.
+    const zap = context.createOscillator();
+    const zapEnvelope = context.createGain();
+    zap.type = 'square';
+    zap.frequency.setValueAtTime(2000, now + 0.19);
+    zap.frequency.exponentialRampToValueAtTime(700, now + 0.31);
+    zapEnvelope.gain.setValueAtTime(0.0001, now + 0.19);
+    zapEnvelope.gain.exponentialRampToValueAtTime(0.04, now + 0.205);
+    zapEnvelope.gain.exponentialRampToValueAtTime(0.0001, now + 0.33);
+    zap.connect(zapEnvelope);
+    zapEnvelope.connect(context.destination);
+    zap.start(now + 0.19);
+    zap.stop(now + 0.35);
+  }
+
+  // Power off: a darkening descent that winds down, like a system spinning back
+  // to rest.
+  private playPowerDown(context: AudioContext, now: number) {
+    const carrier = context.createOscillator();
+    const sub = context.createOscillator();
+    const filter = context.createBiquadFilter();
+    const envelope = context.createGain();
+
+    filter.type = 'lowpass';
+    filter.Q.value = 0.9;
+    filter.frequency.setValueAtTime(2600, now);
+    filter.frequency.exponentialRampToValueAtTime(150, now + 0.3);
+
+    carrier.type = 'sawtooth';
+    carrier.frequency.setValueAtTime(820, now);
+    carrier.frequency.exponentialRampToValueAtTime(70, now + 0.3);
+    sub.type = 'triangle';
+    sub.frequency.setValueAtTime(540, now);
+    sub.frequency.exponentialRampToValueAtTime(60, now + 0.3);
+
+    envelope.gain.setValueAtTime(0.0001, now);
+    envelope.gain.exponentialRampToValueAtTime(0.052, now + 0.014);
+    envelope.gain.exponentialRampToValueAtTime(0.0001, now + 0.38);
+
+    carrier.connect(filter);
+    sub.connect(filter);
+    filter.connect(envelope);
+    envelope.connect(context.destination);
 
     carrier.start(now);
-    body.start(now);
-    shimmer.start(now);
-    air.start(now);
-    carrier.stop(now + 0.37);
-    body.stop(now + 0.37);
-    shimmer.stop(now + 0.21);
-    air.stop(now + 0.31);
+    sub.start(now);
+    carrier.stop(now + 0.4);
+    sub.stop(now + 0.4);
   }
 }
 
