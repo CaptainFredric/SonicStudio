@@ -1,8 +1,9 @@
-import type { ReactNode } from 'react';
-import { HardDrive, Keyboard, Palette, Rows2, Trash2, Type, Volume2, Waves, Zap } from 'lucide-react';
+import { useEffect, useState, type ReactNode } from 'react';
+import { Database, HardDrive, Keyboard, Palette, Rows2, Trash2, Type, Volume2, Waves, Zap } from 'lucide-react';
 
 import { ACCENT_PRESETS, type AccentColor, type DefaultWorkspace, type Density, type MotionMode } from '../../project/preferences';
 import { getSupersonicTransitionOrigin, runSupersonicTransition } from '../../utils/supersonicTransition';
+import { estimateOriginStorage, formatBytes, measureLocalStorageUsage, type StorageUsage } from '../../utils/storageUsage';
 import { SegmentButton, StateButton } from './SettingsPrimitives';
 
 interface PreferencesPanelProps {
@@ -203,6 +204,8 @@ export const PreferencesPanel = ({
       <ShortcutGroup title="Tap to play" shortcuts={SHORTCUTS.filter((s) => s.group === 'Tap to play')} />
     </PanelCard>
 
+    <StorageMeterCard />
+
     <PanelCard icon={<HardDrive className="h-4 w-4 text-[var(--accent)]" />} title="Where saves live">
       <p className="mt-1 text-[12px] leading-5 text-[var(--text-secondary)]">
         SonicStudio saves to <span className="font-mono text-[11px] text-[var(--text-primary)]">localStorage</span> in your browser, not to a server. That means:
@@ -257,6 +260,77 @@ const PanelCard = ({
     {children}
   </section>
 );
+
+const StorageMeterCard = () => {
+  const [usage, setUsage] = useState<StorageUsage | null>(null);
+  const [estimate, setEstimate] = useState<{ usageBytes: number; quotaBytes: number } | null>(null);
+
+  useEffect(() => {
+    setUsage(measureLocalStorageUsage());
+    let active = true;
+    void estimateOriginStorage().then((result) => {
+      if (active) setEstimate(result);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  if (!usage) {
+    return null;
+  }
+
+  const largest = usage.categories[0]?.bytes ?? 1;
+  const quotaPercent = estimate
+    ? Math.min(100, Math.max(1, Math.round((estimate.usageBytes / estimate.quotaBytes) * 100)))
+    : 0;
+
+  return (
+    <PanelCard icon={<Database className="h-4 w-4 text-[var(--accent)]" />} title="Studio data">
+      <p className="mt-1 text-[12px] leading-5 text-[var(--text-secondary)]">
+        Saved in this browser:{' '}
+        <span className="font-mono text-[11px] text-[var(--text-primary)]">{formatBytes(usage.totalBytes)}</span>
+        {usage.categories.length === 0 ? ' (nothing saved yet)' : ''}
+      </p>
+
+      {usage.categories.length > 0 ? (
+        <div className="mt-3 grid gap-2">
+          {usage.categories.map((category) => (
+            <div className="grid gap-1" key={category.label}>
+              <div className="flex items-center justify-between text-[11px] text-[var(--text-secondary)]">
+                <span>{category.label}</span>
+                <span className="font-mono text-[10px] text-[var(--text-tertiary)]">{formatBytes(category.bytes)}</span>
+              </div>
+              <div className="h-1 w-full overflow-hidden rounded-full bg-[var(--chrome-line)]">
+                <div
+                  className="h-full rounded-full bg-[var(--accent)]"
+                  style={{ width: `${Math.max(4, Math.round((category.bytes / largest) * 100))}%` }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {estimate ? (
+        <div className="mt-4 border-t border-[var(--chrome-line)] pt-3">
+          <div className="flex items-center justify-between text-[11px] text-[var(--text-secondary)]">
+            <span>All site storage</span>
+            <span className="font-mono text-[10px] text-[var(--text-tertiary)]">
+              {formatBytes(estimate.usageBytes)} / {formatBytes(estimate.quotaBytes)}
+            </span>
+          </div>
+          <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-[var(--chrome-line)]">
+            <div className="h-full rounded-full bg-[var(--accent)]" style={{ width: `${quotaPercent}%` }} />
+          </div>
+          <p className="mt-1 text-[10px] leading-4 text-[var(--text-tertiary)]">
+            Counts layouts, samples, and the offline cache too, not just saves.
+          </p>
+        </div>
+      ) : null}
+    </PanelCard>
+  );
+};
 
 const ShortcutGroup = ({
   title,
