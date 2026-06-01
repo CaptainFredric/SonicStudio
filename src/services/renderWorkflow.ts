@@ -4,11 +4,11 @@ import {
   type Project,
 } from '../project/schema';
 import {
-  convertAudioBufferToWavWithAnalysis,
   downloadBlob,
   sanitizeExportFileName,
   type AudioRenderAnalysis,
 } from '../utils/export';
+import { encodeAudioBufferToWavAsync } from '../audio/wavEncoderClient';
 import {
   formatBounceScopeLabel,
   type BounceRenderOptions,
@@ -270,7 +270,7 @@ export const exportOfflineMix = async ({
       progress: Math.max(current.progress, 0.98),
     }));
 
-    const { analysis, wavBlob } = convertAudioBufferToWavWithAnalysis(audioBuffer, {
+    const { analysis, wavBlob } = await encodeAudioBufferToWavAsync(audioBuffer, {
       normalization: options.normalization ?? 'none',
       targetProfileId: options.targetProfileId,
     });
@@ -352,7 +352,7 @@ export const exportOfflineStems = async ({
         progress: Math.max(current.progress, progressBase + (progressWeight * 0.98)),
       }));
 
-      const { wavBlob } = convertAudioBufferToWavWithAnalysis(audioBuffer, {
+      const { wavBlob } = await encodeAudioBufferToWavAsync(audioBuffer, {
         normalization: options.normalization ?? 'none',
         targetProfileId: options.targetProfileId,
       });
