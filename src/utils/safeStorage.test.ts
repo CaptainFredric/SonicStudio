@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { isStorageAvailable, readJson, readString, removeKey, writeJson } from './safeStorage';
+import { isStorageAvailable, readJson, readString, removeKey, writeJson, writeString } from './safeStorage';
 
 class FakeStorage {
   private store = new Map<string, string>();
@@ -94,6 +94,15 @@ describe('safeStorage writes', () => {
     };
     stubStorage(storage);
     expect(writeJson('k', 1)).toEqual({ ok: false, reason: 'error' });
+  });
+
+  it('writeString stores a raw (non-JSON) value', () => {
+    const storage = new FakeStorage();
+    stubStorage(storage);
+    expect(writeString('k', 'raw-id-123')).toEqual({ ok: true });
+    expect(readString('k')).toBe('raw-id-123');
+    vi.unstubAllGlobals();
+    expect(writeString('k', 'x')).toEqual({ ok: false, reason: 'unavailable' });
   });
 });
 

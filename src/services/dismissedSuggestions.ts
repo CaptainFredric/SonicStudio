@@ -8,29 +8,21 @@
 
 import { useEffect, useState } from 'react';
 
+import { readJson, writeJson } from '../utils/safeStorage';
+
 const STORAGE_KEY = 'sonicstudio:dismissed-suggestions:v1';
 const EVENT = 'sonicstudio:dismissed-suggestions:change';
 
-const readPersisted = (): Set<string> => {
-  if (typeof window === 'undefined') return new Set();
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return new Set();
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return new Set();
-    return new Set(parsed.filter((value): value is string => typeof value === 'string'));
-  } catch {
-    return new Set();
-  }
-};
+const readPersisted = (): Set<string> => (
+  readJson<Set<string>>(STORAGE_KEY, new Set(), (parsed) => (
+    Array.isArray(parsed)
+      ? new Set(parsed.filter((value): value is string => typeof value === 'string'))
+      : new Set()
+  ))
+);
 
 const writePersisted = (ids: Set<string>): void => {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(Array.from(ids)));
-  } catch {
-    /* storage may be unavailable; ignore */
-  }
+  writeJson(STORAGE_KEY, Array.from(ids));
 };
 
 let current: Set<string> = readPersisted();

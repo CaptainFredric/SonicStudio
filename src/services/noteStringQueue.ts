@@ -11,30 +11,21 @@
 
 import { useEffect, useState } from 'react';
 
+import { readString, removeKey, writeString } from '../utils/safeStorage';
+
 const EVENT = 'sonicstudio:queue-note-string';
 const STORAGE_KEY = 'sonicstudio:note-string-queue:v1';
 
 const readPersisted = (): string | null => {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    return raw && raw.length > 0 && raw.length < 256 ? raw : null;
-  } catch {
-    return null;
-  }
+  const raw = readString(STORAGE_KEY);
+  return raw && raw.length > 0 && raw.length < 256 ? raw : null;
 };
 
 const writePersisted = (id: string | null): void => {
-  if (typeof window === 'undefined') return;
-  try {
-    if (id) {
-      window.localStorage.setItem(STORAGE_KEY, id);
-    } else {
-      window.localStorage.removeItem(STORAGE_KEY);
-    }
-  } catch {
-    // Storage may be full or blocked. The in-memory queue still
-    // works for the current session.
+  if (id) {
+    writeString(STORAGE_KEY, id);
+  } else {
+    removeKey(STORAGE_KEY);
   }
 };
 

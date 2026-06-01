@@ -1,3 +1,5 @@
+import { readJson, removeKey, writeJson } from '../utils/safeStorage';
+
 const STORAGE_KEY = 'sonicstudio:onboarding:v1';
 
 export type OnboardingStatus = 'new' | 'skipped' | 'completed';
@@ -13,50 +15,24 @@ const isRecord = (value: unknown): value is Record<string, unknown> => (
 );
 
 const persistStatus = (status: OnboardingStatus) => {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  try {
-    const payload: PersistedOnboardingState = {
-      status,
-      updatedAt: new Date().toISOString(),
-      version: 1,
-    };
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-  } catch (error) {
-    if (typeof console !== 'undefined') {
-      console.warn('SonicStudio: failed to persist onboarding status', error);
-    }
+  const payload: PersistedOnboardingState = {
+    status,
+    updatedAt: new Date().toISOString(),
+    version: 1,
+  };
+  const result = writeJson(STORAGE_KEY, payload);
+  if (!result.ok && typeof console !== 'undefined') {
+    console.warn(`SonicStudio: failed to persist onboarding status (${result.reason})`);
   }
 };
 
-export const loadOnboardingStatus = (): OnboardingStatus => {
-  if (typeof window === 'undefined') {
-    return 'new';
-  }
-
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return 'new';
-    }
-
-    const parsed = JSON.parse(raw) as unknown;
-    if (!isRecord(parsed)) {
-      return 'new';
-    }
-
-    return parsed.status === 'completed' || parsed.status === 'skipped'
+export const loadOnboardingStatus = (): OnboardingStatus => (
+  readJson<OnboardingStatus>(STORAGE_KEY, 'new', (parsed) => (
+    isRecord(parsed) && (parsed.status === 'completed' || parsed.status === 'skipped')
       ? parsed.status
-      : 'new';
-  } catch (error) {
-    if (typeof console !== 'undefined') {
-      console.warn('SonicStudio: failed to load onboarding status', error);
-    }
-    return 'new';
-  }
-};
+      : 'new'
+  ))
+);
 
 export const shouldAutoOpenOnboarding = () => loadOnboardingStatus() === 'new';
 
@@ -73,15 +49,5 @@ export const markOnboardingSkipped = () => {
 };
 
 export const resetOnboardingStatus = () => {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  try {
-    window.localStorage.removeItem(STORAGE_KEY);
-  } catch (error) {
-    if (typeof console !== 'undefined') {
-      console.warn('SonicStudio: failed to reset onboarding status', error);
-    }
-  }
+  removeKey(STORAGE_KEY);
 };

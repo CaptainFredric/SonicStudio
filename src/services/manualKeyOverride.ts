@@ -11,6 +11,7 @@
 import { useEffect, useState } from 'react';
 
 import { PITCH_CLASS_BY_NAME, type ScaleMode } from '../utils/pitch';
+import { readJson, removeKey, writeJson } from '../utils/safeStorage';
 
 const STORAGE_KEY = 'sonicstudio:manual-key:v1';
 const EVENT = 'sonicstudio:manual-key:change';
@@ -28,28 +29,15 @@ const isValid = (value: unknown): value is ManualKeyOverride => {
   return PITCH_CLASS_BY_NAME[record.rootName] !== undefined;
 };
 
-const readPersisted = (): ManualKeyOverride | null => {
-  if (typeof window === 'undefined') return null;
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as unknown;
-    return isValid(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
-};
+const readPersisted = (): ManualKeyOverride | null => (
+  readJson<ManualKeyOverride | null>(STORAGE_KEY, null, (parsed) => (isValid(parsed) ? parsed : null))
+);
 
 const writePersisted = (value: ManualKeyOverride | null): void => {
-  if (typeof window === 'undefined') return;
-  try {
-    if (value) {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
-    } else {
-      window.localStorage.removeItem(STORAGE_KEY);
-    }
-  } catch {
-    /* storage may be unavailable; ignore */
+  if (value) {
+    writeJson(STORAGE_KEY, value);
+  } else {
+    removeKey(STORAGE_KEY);
   }
 };
 

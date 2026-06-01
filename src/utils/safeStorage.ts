@@ -128,6 +128,20 @@ export const writeJson = (key: string, value: unknown): StorageWriteResult => {
   }
 };
 
+// Store a raw string value (for keys that are not JSON). Same guarantees and
+// result shape as writeJson, minus the serialize step.
+export const writeString = (key: string, value: string): StorageWriteResult => {
+  if (!hasStorage()) {
+    return { ok: false, reason: 'unavailable' };
+  }
+  try {
+    window.localStorage.setItem(key, value);
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, reason: classifyWriteError(error) };
+  }
+};
+
 export const removeKey = (key: string): void => {
   if (!hasStorage()) {
     return;
