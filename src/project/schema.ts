@@ -15,7 +15,7 @@ export type SourceEngine = 'synth' | 'sample';
 export type SamplePlaybackMode = 'pitched' | 'oneshot';
 export type SampleTriggerMode = 'active-slice' | 'full-source' | 'step-mapped';
 export type SamplePreset = 'kick-thud' | 'snare-crack' | 'hat-air' | 'bass-pluck' | 'lead-glass' | 'pad-haze' | 'pluck-mallet' | 'fx-rise';
-export type SessionTemplateId = 'blank-grid' | 'night-transit' | 'beat-lab' | 'ambient-drift' | 'lofi-sunday' | 'synthwave-drive' | 'club-horizon' | 'starlight-parade' | 'velvet-suite' | 'crystal-garden' | 'twilight-frame' | 'late-hours';
+export type SessionTemplateId = 'blank-grid' | 'night-transit' | 'beat-lab' | 'ambient-drift' | 'lofi-sunday' | 'synthwave-drive' | 'club-horizon' | 'starlight-parade' | 'velvet-suite' | 'crystal-garden' | 'twilight-frame' | 'late-hours' | 'pulse-rider';
 
 export interface SessionTemplateDefinition {
   description: string;
@@ -426,6 +426,7 @@ const AMBIENT_TRACK_ORDER: InstrumentType[] = ['pad', 'pad', 'bass', 'lead', 'fx
 const LOFI_TRACK_ORDER: InstrumentType[] = ['kick', 'snare', 'hihat', 'bass', 'pad', 'lead'];
 const SYNTHWAVE_TRACK_ORDER: InstrumentType[] = ['kick', 'snare', 'hihat', 'bass', 'lead', 'pad'];
 const CLUB_TRACK_ORDER: InstrumentType[] = ['kick', 'snare', 'hihat', 'bass', 'pluck', 'pad', 'fx'];
+const PULSE_TRACK_ORDER: InstrumentType[] = ['kick', 'snare', 'hihat', 'bass', 'lead', 'pad', 'fx'];
 const STARLIGHT_TRACK_ORDER: InstrumentType[] = ['kick', 'snare', 'hihat', 'bass', 'lead', 'pad', 'pluck'];
 const VELVET_SUITE_TRACK_ORDER: InstrumentType[] = ['bass', 'piano', 'pad', 'violin'];
 const CRYSTAL_GARDEN_TRACK_ORDER: InstrumentType[] = ['kick', 'bass', 'piano', 'pad', 'bell'];
@@ -474,6 +475,12 @@ export const SESSION_TEMPLATE_DEFINITIONS: SessionTemplateDefinition[] = [
     focus: 'Club lift and stabs',
     id: 'club-horizon',
     label: 'Club Horizon',
+  },
+  {
+    description: 'Four-on-the-floor drive in E major at 125 BPM. A clean pad-and-hats intro, then the full groove with a bright lead hook and a lift.',
+    focus: 'Driving electronic groove',
+    id: 'pulse-rider',
+    label: 'Pulse Rider',
   },
   {
     description: 'Bright pop drums, melodic bass, glossy lead hooks, and a counter-pluck for fast topline writing.',
@@ -2143,6 +2150,131 @@ export const createClubHorizonProject = (projectName: string = 'Club Horizon'): 
   ]);
 };
 
+// Driving four-on-the-floor groove in E major at 125 BPM, recreated from a
+// reference track. The original's intro wandered, so this opens with a clean
+// pad-and-hats build that drops into the main beat, then lifts.
+export const createPulseRiderProject = (projectName: string = 'Pulse Rider'): Project => {
+  const { buildProject, tracks, transport } = createProjectFrame(projectName, {
+    bpm: 125,
+    mode: 'SONG',
+    trackOrder: PULSE_TRACK_ORDER,
+  });
+  const [kickTrack, snareTrack, hihatTrack, bassTrack, leadTrack, padTrack, fxTrack] = tracks;
+
+  // Four-on-the-floor kick.
+  for (const step of [0, 4, 8, 12]) {
+    putStep(kickTrack, 0, step, 'E1', { velocity: step % 8 === 0 ? 0.97 : 0.9 });
+    putStep(kickTrack, 1, step, 'E1', { velocity: step % 8 === 0 ? 0.99 : 0.92 });
+  }
+
+  // Clap on the backbeat, with a pickup into the lift.
+  for (const step of [4, 12]) {
+    putStep(snareTrack, 0, step, 'E1', { velocity: 0.82 });
+    putStep(snareTrack, 1, step, 'E1', { velocity: 0.86 });
+  }
+  putStep(snareTrack, 1, 14, 'E1', { velocity: 0.42 });
+
+  // Busy hats: offbeat accents over 16th ghosts.
+  for (const step of [2, 6, 10, 14]) {
+    putStep(hihatTrack, 0, step, 'E1', { gate: 0.34, velocity: 0.62 });
+    putStep(hihatTrack, 1, step, 'E1', { gate: 0.34, velocity: 0.66 });
+  }
+  for (const [index, step] of [1, 3, 5, 7, 9, 11, 13, 15].entries()) {
+    putStep(hihatTrack, 0, step, 'E1', { gate: 0.26, velocity: index % 2 === 0 ? 0.4 : 0.5 });
+    putStep(hihatTrack, 1, step, 'E1', { gate: 0.26, velocity: index % 2 === 0 ? 0.42 : 0.52 });
+  }
+
+  // Driving bass on an E - C#m - A - B progression (root on beat and offbeat).
+  const bassByBeat = [
+    { note: 'E2', steps: [0, 2] },
+    { note: 'C#2', steps: [4, 6] },
+    { note: 'A1', steps: [8, 10] },
+    { note: 'B1', steps: [12, 14] },
+  ];
+  bassByBeat.forEach(({ note, steps }) => {
+    steps.forEach((step) => putStep(bassTrack, 0, step, note, { gate: 0.9, velocity: 0.8 }));
+  });
+  // Lift: continuous 16th bass for more push.
+  bassByBeat.forEach(({ note, steps }) => {
+    [steps[0], steps[0] + 1, steps[1], steps[1] + 1].forEach((step) => {
+      putStep(bassTrack, 1, step, note, { gate: 0.5, velocity: 0.82 });
+    });
+  });
+
+  // Bright lead hook in E major.
+  [
+    { note: 'E4', step: 0 },
+    { note: 'B4', step: 3 },
+    { note: 'G#4', step: 6 },
+    { note: 'C#5', step: 8 },
+    { note: 'B4', step: 10 },
+    { note: 'G#4', step: 12 },
+    { note: 'F#4', step: 14 },
+  ].forEach(({ note, step }) => putStep(leadTrack, 0, step, note, { gate: 0.7, velocity: 0.74 }));
+  // Lift: same hook an octave up with a closing run.
+  [
+    { note: 'E5', step: 0 },
+    { note: 'B5', step: 3 },
+    { note: 'G#5', step: 6 },
+    { note: 'C#6', step: 8 },
+    { note: 'B5', step: 10 },
+    { note: 'G#5', step: 12 },
+    { note: 'E5', step: 14 },
+    { note: 'F#5', step: 15 },
+  ].forEach(({ note, step }) => putStep(leadTrack, 1, step, note, { gate: 0.6, velocity: 0.76 }));
+
+  // Sustained pad chords: E, C#m, A, B (one per beat).
+  const padChords = [
+    { step: 0, notes: ['E3', 'G#3', 'B3'] },
+    { step: 4, notes: ['C#3', 'E3', 'G#3'] },
+    { step: 8, notes: ['A2', 'C#3', 'E3'] },
+    { step: 12, notes: ['B2', 'D#3', 'F#3'] },
+  ];
+  padChords.forEach(({ step, notes }) => {
+    stackStep(padTrack, 0, step, notes.map((note) => ({ note, options: { gate: 4, velocity: 0.3 } })));
+    stackStep(padTrack, 1, step, notes.map((note) => ({ note, options: { gate: 4, velocity: 0.32 } })));
+  });
+
+  // FX sweeps into the turnarounds.
+  putStep(fxTrack, 0, 12, 'E5', { gate: 2, velocity: 0.5 });
+  putStep(fxTrack, 1, 0, 'E5', { gate: 2, velocity: 0.6 });
+  putStep(fxTrack, 1, 12, 'B4', { gate: 2, velocity: 0.56 });
+
+  leadTrack.params.delaySend = 0.22;
+  leadTrack.params.reverbSend = 0.16;
+  padTrack.params.reverbSend = 0.5;
+  padTrack.params.chorusSend = 0.22;
+  bassTrack.params.reverbSend = 0.05;
+  fxTrack.source.engine = 'sample';
+  fxTrack.source.samplePlayback = 'oneshot';
+
+  return buildProject([
+    // Intro (beats 0-15): pad and hats only, a tidy build instead of a busy open.
+    createArrangerClip(padTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(hihatTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    // Main beat drops (beats 16-31).
+    createArrangerClip(kickTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 16 }),
+    createArrangerClip(snareTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 16 }),
+    createArrangerClip(hihatTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 16 }),
+    createArrangerClip(bassTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 16 }),
+    createArrangerClip(leadTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 16 }),
+    createArrangerClip(padTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 16 }),
+    createArrangerClip(fxTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 16 }),
+    // Lift (beats 32-47): fuller pattern 1.
+    createArrangerClip(kickTrack.id, transport, { beatLength: 16, patternIndex: 1, startBeat: 32 }),
+    createArrangerClip(snareTrack.id, transport, { beatLength: 16, patternIndex: 1, startBeat: 32 }),
+    createArrangerClip(hihatTrack.id, transport, { beatLength: 16, patternIndex: 1, startBeat: 32 }),
+    createArrangerClip(bassTrack.id, transport, { beatLength: 16, patternIndex: 1, startBeat: 32 }),
+    createArrangerClip(leadTrack.id, transport, { beatLength: 16, patternIndex: 1, startBeat: 32 }),
+    createArrangerClip(padTrack.id, transport, { beatLength: 16, patternIndex: 1, startBeat: 32 }),
+    createArrangerClip(fxTrack.id, transport, { beatLength: 16, patternIndex: 1, startBeat: 32 }),
+  ], [
+    { beat: 0, id: createId('marker'), name: 'Intro' },
+    { beat: 16, id: createId('marker'), name: 'Main beat' },
+    { beat: 32, id: createId('marker'), name: 'Lift' },
+  ]);
+};
+
 export const createStarlightParadeProject = (projectName: string = 'Starlight Parade'): Project => {
   const { buildProject, tracks, transport } = createProjectFrame(projectName, {
     bpm: 110,
@@ -2676,6 +2808,8 @@ export const createProjectFromTemplate = (
       return createSynthwaveDriveProject();
     case 'club-horizon':
       return createClubHorizonProject();
+    case 'pulse-rider':
+      return createPulseRiderProject();
     case 'starlight-parade':
       return createStarlightParadeProject();
     case 'velvet-suite':

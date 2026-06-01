@@ -78,6 +78,16 @@ const START_OPTIONS: StartOption[] = [
     mark: 'CH',
   },
   {
+    body: 'Four-on-the-floor drive in E major. A clean pad-and-hats intro drops into the main groove, then lifts.',
+    focus: 'Driving groove',
+    genre: 'House pulse',
+    bpm: 125,
+    id: 'pulse-rider',
+    label: 'Pulse Rider',
+    swatch: ['#22d3ee', '#818cf8', '#f472b6'],
+    mark: 'PR',
+  },
+  {
     body: 'Bright pop drums, glossy lead hooks, and a counter-pluck for fast topline writing.',
     focus: 'Bright pop motion',
     genre: 'Pop shimmer',
@@ -159,7 +169,7 @@ const START_OPTIONS: StartOption[] = [
   },
 ];
 
-const FEATURED_IDS: SessionTemplateId[] = ['night-transit', 'twilight-frame', 'club-horizon', 'starlight-parade', 'velvet-suite'];
+const FEATURED_IDS: SessionTemplateId[] = ['pulse-rider', 'night-transit', 'twilight-frame', 'club-horizon', 'starlight-parade', 'velvet-suite'];
 
 const LIBRARY_FILTERS: Array<{ id: LibraryFilterId; label: string }> = [
   { id: 'featured', label: 'Featured' },
@@ -176,7 +186,7 @@ const matchesLibraryFilter = (option: StartOption, filterId: LibraryFilterId) =>
     case 'featured':
       return FEATURED_IDS.includes(option.id);
     case 'club':
-      return option.id === 'club-horizon' || option.id === 'beat-lab';
+      return option.id === 'club-horizon' || option.id === 'beat-lab' || option.id === 'pulse-rider';
     case 'hooks':
       return option.id === 'night-transit' || option.id === 'starlight-parade' || option.id === 'synthwave-drive' || option.id === 'crystal-garden';
     case 'drift':
