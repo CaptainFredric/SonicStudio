@@ -50,13 +50,13 @@ import {
   loadStudioPreferences,
   persistStudioPreferences,
 } from '../project/preferences';
-import { type PersistedCheckpoint } from '../project/storage';
+import { persistSessionWithResult, type PersistedCheckpoint } from '../project/storage';
 import {
   downloadTrainingCorpus,
   summarizeTrainingCorpus,
   type TrainingCorpusSummary,
 } from '../services/aiTrainingCorpus';
-import { listStudioCheckpoints, persistStudioSession } from '../services/sessionWorkflow';
+import { listStudioCheckpoints } from '../services/sessionWorkflow';
 import {
   type Scoresheet,
   deleteScoresheet as deleteScoresheetService,
@@ -499,7 +499,7 @@ export const AudioProvider = ({
 
   const hasPersistedOnceRef = useRef(false);
   const persistCurrentSession = useEffectEvent(() => {
-    const envelope = persistStudioSession(currentSession);
+    const { envelope, reason } = persistSessionWithResult(currentSession);
 
     if (envelope) {
       setLastSavedAt(envelope.savedAt);
@@ -515,7 +515,12 @@ export const AudioProvider = ({
 
     setSaveStatus('error');
     if (manualSavePendingRef.current || !saveErrorNoticeActiveRef.current) {
-      publishNotice('error', 'Could not save session', 'Browser storage rejected the latest save.');
+      const detail = reason === 'quota'
+        ? 'This browser is out of storage space. Export your work to keep it, then clear old recovery points in Studio Settings.'
+        : reason === 'unavailable'
+          ? 'This browser is blocking storage, which a private window can do. Export your work to keep it.'
+          : 'Your latest changes were not saved. Export your work to be safe.';
+      publishNotice('error', 'Could not save session', detail);
       saveErrorNoticeActiveRef.current = true;
     }
     manualSavePendingRef.current = false;

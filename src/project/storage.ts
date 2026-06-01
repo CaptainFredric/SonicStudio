@@ -7,7 +7,7 @@ import {
   type StudioSession,
   type StudioUIState,
 } from './schema';
-import { readJson, removeKey, writeJson } from '../utils/safeStorage';
+import { readJson, removeKey, writeJson, type StorageFailureReason } from '../utils/safeStorage';
 
 const STORAGE_KEY = 'sonicstudio:session:v1';
 const CHECKPOINT_STORAGE_KEY = 'sonicstudio:checkpoints:v1';
@@ -167,9 +167,14 @@ export const loadPersistedSession = (): StudioSession | null => (
 
 export const hasPersistedSession = (): boolean => loadPersistedSession() !== null;
 
-export const persistSession = (session: StudioSession): PersistedSessionEnvelope | null => {
+export interface SessionSaveResult {
+  envelope: PersistedSessionEnvelope | null;
+  reason?: StorageFailureReason;
+}
+
+export const persistSessionWithResult = (session: StudioSession): SessionSaveResult => {
   if (typeof window === 'undefined') {
-    return null;
+    return { envelope: null, reason: 'unavailable' };
   }
 
   const envelope: PersistedSessionEnvelope = {
@@ -193,10 +198,14 @@ export const persistSession = (session: StudioSession): PersistedSessionEnvelope
     if (typeof console !== 'undefined') {
       console.error(`SonicStudio: failed to persist session (${result.reason})`);
     }
-    return null;
+    return { envelope: null, reason: result.reason };
   }
-  return envelope;
+  return { envelope };
 };
+
+export const persistSession = (session: StudioSession): PersistedSessionEnvelope | null => (
+  persistSessionWithResult(session).envelope
+);
 
 const normalizeCheckpoint = (value: unknown): PersistedCheckpoint | null => {
   if (!isRecord(value)) {
