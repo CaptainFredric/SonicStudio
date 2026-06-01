@@ -5,11 +5,17 @@ import { type Project, type SessionTemplateId, type StudioSession, type StudioUI
 import {
   deleteStudioCheckpoint,
   importStudioMidiFile,
-  importStudioSessionFile,
+  importStudioSessionFileDetailed,
   restoreStudioCheckpoint,
   saveStudioCheckpoint,
 } from '../../services/sessionWorkflow';
 import type { SaveStatus } from '../../services/workflowTypes';
+
+export interface SessionImportOutcome {
+  ok: boolean;
+  reason?: 'unreadable' | 'unrecognized';
+  warning?: string;
+}
 
 const normalizeSessionFileName = (projectName: string) => (
   projectName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'sonicstudio-session'
@@ -103,21 +109,21 @@ export const createSessionController = ({
     exportSessionToFile(currentProject, currentUi);
   };
 
-  const importSession = async (file: File) => {
+  const importSession = async (file: File): Promise<SessionImportOutcome> => {
     saveCheckpoint('Before JSON import');
-    const session = await importStudioSessionFile(file);
-    if (!session) {
+    const result = await importStudioSessionFileDetailed(file);
+    if (!result.ok || !result.session) {
       setSaveStatus('error');
-      return false;
+      return { ok: false, reason: result.reason };
     }
 
-    applyHydratedSession(session, {
+    applyHydratedSession(result.session, {
       dispatchHydrateSession,
       resetTransportState,
       setLastSavedAt,
       setSaveStatus,
     });
-    return true;
+    return { ok: true, warning: result.warning };
   };
 
   const importMidiSession = async (file: File) => {

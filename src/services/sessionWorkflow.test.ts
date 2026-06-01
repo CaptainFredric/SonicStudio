@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { createProjectFromTemplate, type StudioSession } from '../project/schema';
+import { PROJECT_SCHEMA_VERSION } from '../project/schema';
 import {
   deleteStudioCheckpoint,
   importStudioMidiFile,
   importStudioSessionFile,
+  importStudioSessionFileDetailed,
   listStudioCheckpoints,
   persistStudioSession,
   restoreStudioCheckpoint,
@@ -103,5 +105,49 @@ describe('sessionWorkflow', () => {
     expect(restoreStudioCheckpoint('checkpoint-a', api)?.project.metadata.name).toBe('Restored');
     expect(deleteStudioCheckpoint('checkpoint-a', api)).toEqual([{ id: 'checkpoint-a' }]);
     expect(listStudioCheckpoints(api)).toEqual([{ id: 'checkpoint-a' }]);
+  });
+});
+
+describe('importStudioSessionFileDetailed (real validation)', () => {
+  it('round-trips an exported session file', async () => {
+    const session = createSession('Round Trip');
+    const file = { text: async () => JSON.stringify({ project: session.project, ui: session.ui }) };
+
+    const result = await importStudioSessionFileDetailed(file);
+
+    expect(result.ok).toBe(true);
+    expect(result.reason).toBeUndefined();
+    expect(result.warning).toBeUndefined();
+    expect(result.session?.project.metadata.name).toBe('Round Trip');
+    expect(result.session?.project.tracks.length).toBe(session.project.tracks.length);
+  });
+
+  it('classifies an unreadable (non-JSON) file', async () => {
+    const file = { text: async () => 'this is not json {{{' };
+    const result = await importStudioSessionFileDetailed(file);
+    expect(result).toMatchObject({ ok: false, session: null, reason: 'unreadable' });
+  });
+
+  it('classifies valid JSON that is not a session', async () => {
+    const file = { text: async () => JSON.stringify({ hello: 'world' }) };
+    const result = await importStudioSessionFileDetailed(file);
+    expect(result).toMatchObject({ ok: false, session: null, reason: 'unrecognized' });
+  });
+
+  it('loads a newer-schema file but flags a warning', async () => {
+    const session = createSession('From The Future');
+    const futureProject = {
+      ...session.project,
+      metadata: { ...session.project.metadata, version: PROJECT_SCHEMA_VERSION + 5 },
+    };
+    const file = { text: async () => JSON.stringify({ project: futureProject, ui: session.ui }) };
+
+    const result = await importStudioSessionFileDetailed(file);
+
+    expect(result.ok).toBe(true);
+    expect(result.session).not.toBeNull();
+    expect(result.warning).toContain(`v${PROJECT_SCHEMA_VERSION + 5}`);
+    // hydrate restamps to the version this build understands.
+    expect(result.session?.project.metadata.version).toBe(PROJECT_SCHEMA_VERSION);
   });
 });

@@ -7,7 +7,7 @@ import { createSessionController } from './sessionController';
 const sessionWorkflowMocks = vi.hoisted(() => ({
   deleteStudioCheckpoint: vi.fn(() => []),
   importStudioMidiFile: vi.fn(),
-  importStudioSessionFile: vi.fn(),
+  importStudioSessionFileDetailed: vi.fn(),
   restoreStudioCheckpoint: vi.fn(),
   saveStudioCheckpoint: vi.fn(() => []),
 }));
@@ -15,7 +15,7 @@ const sessionWorkflowMocks = vi.hoisted(() => ({
 vi.mock('../../services/sessionWorkflow', () => ({
   deleteStudioCheckpoint: sessionWorkflowMocks.deleteStudioCheckpoint,
   importStudioMidiFile: sessionWorkflowMocks.importStudioMidiFile,
-  importStudioSessionFile: sessionWorkflowMocks.importStudioSessionFile,
+  importStudioSessionFileDetailed: sessionWorkflowMocks.importStudioSessionFileDetailed,
   restoreStudioCheckpoint: sessionWorkflowMocks.restoreStudioCheckpoint,
   saveStudioCheckpoint: sessionWorkflowMocks.saveStudioCheckpoint,
 }));
@@ -103,7 +103,7 @@ describe('sessionController', () => {
     const session = createSessionFromTemplate('blank-grid');
     const setSaveStatus = vi.fn();
 
-    sessionWorkflowMocks.importStudioSessionFile.mockResolvedValue(null);
+    sessionWorkflowMocks.importStudioSessionFileDetailed.mockResolvedValue({ ok: false, session: null, reason: 'unrecognized' });
 
     const controller = createSessionController({
       currentProject: session.project,
@@ -116,7 +116,7 @@ describe('sessionController', () => {
       setSaveStatus,
     });
 
-    await expect(controller.importSession({} as File)).resolves.toBe(false);
+    await expect(controller.importSession({} as File)).resolves.toEqual({ ok: false, reason: 'unrecognized' });
     expect(sessionWorkflowMocks.saveStudioCheckpoint).toHaveBeenCalledWith(
       { project: session.project, ui: session.ui },
       'Before JSON import',

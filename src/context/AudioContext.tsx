@@ -644,13 +644,23 @@ export const AudioProvider = ({
   const trainingCorpusSummary = useMemo(() => summarizeTrainingCorpus(project), [project]);
 
   const importSession = useCallback(async (file: File) => {
-    const ok = await importSessionFromController(file);
-    publishNotice(
-      ok ? 'success' : 'error',
-      ok ? 'Session imported' : 'Could not import session',
-      ok ? `Loaded ${file.name}.` : 'That file does not match the SonicStudio session format.',
-    );
-    return ok;
+    const outcome = await importSessionFromController(file);
+    if (outcome.ok) {
+      publishNotice(
+        outcome.warning ? 'info' : 'success',
+        outcome.warning ? 'Session imported, with a heads-up' : 'Session imported',
+        outcome.warning ?? `Loaded ${file.name}.`,
+      );
+    } else {
+      publishNotice(
+        'error',
+        'Could not import session',
+        outcome.reason === 'unreadable'
+          ? "We couldn't read that file. Pick a .json session exported from SonicStudio."
+          : 'That file is valid JSON but not a SonicStudio session.',
+      );
+    }
+    return outcome.ok;
   }, [importSessionFromController]);
 
   const importMidiSession = useCallback(async (file: File) => {
