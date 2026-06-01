@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 
 import { getSamplePresetMeta, getSamplePresetOptions } from '../audio/sampleLibrary';
+import { readString, writeString } from '../utils/safeStorage';
 import { useAudio } from '../context/AudioContext';
 import { defaultNoteForTrack, getTrackVoicePresetDefinitions, type SampleSliceMemory } from '../project/schema';
 import { filterLabel, type RackView, waveformLabel } from './device-rack/rackPrimitives';
@@ -33,46 +34,26 @@ const isRackView = (value: unknown): value is RackView => (
 );
 
 const readInitialCollapsed = () => {
-  if (typeof window === 'undefined') return true;
-  try {
-    const raw = window.localStorage.getItem(RACK_COLLAPSED_KEY);
-    return raw === null ? true : raw === '1';
-  } catch {
-    return true;
-  }
+  const raw = readString(RACK_COLLAPSED_KEY);
+  return raw === null ? true : raw === '1';
 };
 
 const readInitialHeight = () => {
-  if (typeof window === 'undefined') return RACK_DEFAULT_HEIGHT;
-  try {
-    const raw = window.localStorage.getItem(RACK_HEIGHT_KEY);
-    if (!raw) return RACK_DEFAULT_HEIGHT;
-    const parsed = Number(raw);
-    if (!Number.isFinite(parsed)) return RACK_DEFAULT_HEIGHT;
-    return Math.min(RACK_MAX_HEIGHT, Math.max(RACK_MIN_HEIGHT, Math.round(parsed)));
-  } catch {
-    return RACK_DEFAULT_HEIGHT;
-  }
+  const raw = readString(RACK_HEIGHT_KEY);
+  if (!raw) return RACK_DEFAULT_HEIGHT;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) return RACK_DEFAULT_HEIGHT;
+  return Math.min(RACK_MAX_HEIGHT, Math.max(RACK_MIN_HEIGHT, Math.round(parsed)));
 };
 
-const readRackView = () => {
-  if (typeof window === 'undefined') return 'SOURCE' as RackView;
-  try {
-    const raw = window.localStorage.getItem(RACK_VIEW_KEY);
-    return isRackView(raw) ? raw : 'SOURCE';
-  } catch {
-    return 'SOURCE';
-  }
+const readRackView = (): RackView => {
+  const raw = readString(RACK_VIEW_KEY);
+  return isRackView(raw) ? raw : 'SOURCE';
 };
 
-const readSourceView = () => {
-  if (typeof window === 'undefined') return 'CORE' as const;
-  try {
-    return window.localStorage.getItem(RACK_SOURCE_VIEW_KEY) === 'SLICES' ? 'SLICES' : 'CORE';
-  } catch {
-    return 'CORE';
-  }
-};
+const readSourceView = () => (
+  readString(RACK_SOURCE_VIEW_KEY) === 'SLICES' ? 'SLICES' : 'CORE'
+);
 
 const makeEvenSlices = (parts: number): SampleSliceMemory[] => (
   Array.from({ length: parts }, (_, index) => {
@@ -128,31 +109,16 @@ export const DeviceRack = () => {
   const track = tracks.find((candidate) => candidate.id === selectedTrackId) ?? null;
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      window.localStorage.setItem(RACK_COLLAPSED_KEY, collapsed ? '1' : '0');
-    } catch {
-      /* ignore */
-    }
+    writeString(RACK_COLLAPSED_KEY, collapsed ? '1' : '0');
   }, [collapsed]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      window.localStorage.setItem(RACK_HEIGHT_KEY, String(rackHeight));
-    } catch {
-      /* ignore */
-    }
+    writeString(RACK_HEIGHT_KEY, String(rackHeight));
   }, [rackHeight]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      window.localStorage.setItem(RACK_VIEW_KEY, activeRackView);
-      window.localStorage.setItem(RACK_SOURCE_VIEW_KEY, activeSourceSubView);
-    } catch {
-      /* ignore */
-    }
+    writeString(RACK_VIEW_KEY, activeRackView);
+    writeString(RACK_SOURCE_VIEW_KEY, activeSourceSubView);
   }, [activeRackView, activeSourceSubView]);
 
   const handleResizeStart = useCallback(

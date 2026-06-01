@@ -3,30 +3,21 @@ import { History, Mic2, X } from 'lucide-react';
 
 import { captureNoteString } from '../services/noteStringLibrary';
 import { setQueuedNoteStringId } from '../services/noteStringQueue';
+import { readJson, writeJson } from '../utils/safeStorage';
 
 const HISTORY_STORAGE_KEY = 'sonicstudio:quick-capture-history:v1';
 const MAX_HISTORY = 5;
 
-const readHistory = (): string[] => {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = window.localStorage.getItem(HISTORY_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter((value): value is string => typeof value === 'string').slice(0, MAX_HISTORY);
-  } catch {
-    return [];
-  }
-};
+const readHistory = (): string[] => (
+  readJson<string[]>(HISTORY_STORAGE_KEY, [], (parsed) => (
+    Array.isArray(parsed)
+      ? parsed.filter((value): value is string => typeof value === 'string').slice(0, MAX_HISTORY)
+      : []
+  ))
+);
 
 const writeHistory = (entries: string[]): void => {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(entries.slice(0, MAX_HISTORY)));
-  } catch {
-    /* storage may be unavailable; ignore */
-  }
+  writeJson(HISTORY_STORAGE_KEY, entries.slice(0, MAX_HISTORY));
 };
 
 interface QuickCaptureBarProps {

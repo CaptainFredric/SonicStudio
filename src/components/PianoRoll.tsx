@@ -27,6 +27,9 @@ import {
 } from '../utils/pitch';
 import { saveCapturedNoteStringFromTokens, tokensFromPatternSteps } from '../services/noteStringLibrary';
 import { setQueuedNoteStringId } from '../services/noteStringQueue';
+import { readString, removeKey, writeString } from '../utils/safeStorage';
+
+const SCALE_LOCK_KEY = 'sonicstudio:piano-roll:scale-locked:v1';
 import { MAX_STEPS_PER_PATTERN, type NoteEvent } from '../project/schema';
 import { TrackIcon, getTrackPersonality } from '../utils/trackPersonality';
 import {
@@ -220,24 +223,12 @@ export const PianoRoll = () => {
   // Scale lock keeps the palette glued to the detected key as the
   // session evolves so stamps stay diatonic by construction.
   const initialDetected = useMemo(() => getEffectiveKey(tracks), [tracks]);
-  const [scaleLocked, setScaleLocked] = useState(() => {
-    if (typeof window === 'undefined') return false;
-    try {
-      return window.localStorage.getItem('sonicstudio:piano-roll:scale-locked:v1') === '1';
-    } catch {
-      return false;
-    }
-  });
+  const [scaleLocked, setScaleLocked] = useState(() => readString(SCALE_LOCK_KEY) === '1');
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      if (scaleLocked) {
-        window.localStorage.setItem('sonicstudio:piano-roll:scale-locked:v1', '1');
-      } else {
-        window.localStorage.removeItem('sonicstudio:piano-roll:scale-locked:v1');
-      }
-    } catch {
-      /* storage may be unavailable; ignore */
+    if (scaleLocked) {
+      writeString(SCALE_LOCK_KEY, '1');
+    } else {
+      removeKey(SCALE_LOCK_KEY);
     }
   }, [scaleLocked]);
   const [chordKey, setChordKey] = useState<KeyName>(() => (

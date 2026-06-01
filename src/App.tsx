@@ -30,6 +30,7 @@ import { resolveStudioRoute, type StudioRouteState } from './app/routeController
 import { APP_VIEW_ORDER, type AppView, type SessionTemplateId } from './project/schema';
 import { markOnboardingCompleted, markOnboardingSkipped, shouldAutoOpenOnboarding } from './services/onboardingState';
 import { useMediaQuery } from './utils/useMediaQuery';
+import { readString } from './utils/safeStorage';
 import { playSupersonicToggleSound } from './audio/uiSounds';
 import { getSupersonicTransitionOrigin, runSupersonicTransition } from './utils/supersonicTransition';
 import { AudioWaveform, LayoutGrid, Volume2, Settings, Sparkles, Rows2, Share2, Coffee } from 'lucide-react';
@@ -464,12 +465,7 @@ const readInitialRouteState = (): StudioRouteState => {
   if (typeof window === 'undefined') {
     return resolveStudioRoute('', false);
   }
-  let hasPersistedSession = false;
-  try {
-    hasPersistedSession = !!window.localStorage.getItem('sonicstudio:session:v1');
-  } catch {
-    hasPersistedSession = false;
-  }
+  const hasPersistedSession = readString('sonicstudio:session:v1') !== null;
   return resolveStudioRoute(window.location.search, hasPersistedSession);
 };
 

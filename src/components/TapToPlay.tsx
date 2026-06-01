@@ -5,6 +5,7 @@ import { engine } from '../audio/ToneEngine';
 import { useAudio, usePlaybackStep } from '../context/AudioContext';
 import { getEffectiveKey } from '../services/keyDetector';
 import { inKeyPitchClasses, pitchClassFromNote } from '../utils/pitch';
+import { readString, writeString } from '../utils/safeStorage';
 import {
   captureSuggestionControlsToTrackParams,
   captureSuggestionControlsToTrackSource,
@@ -21,48 +22,23 @@ const MIN_HEIGHT = 56;
 const MAX_HEIGHT = 240;
 const DEFAULT_HEIGHT = 88;
 
-const readInitialOpen = () => {
-  if (typeof window === 'undefined') return false;
-  try {
-    return window.localStorage.getItem(STORAGE_KEY) === '1';
-  } catch {
-    return false;
-  }
-};
+const readInitialOpen = () => readString(STORAGE_KEY) === '1';
 
 const readInitialHeight = () => {
-  if (typeof window === 'undefined') return DEFAULT_HEIGHT;
-  try {
-    const raw = window.localStorage.getItem(HEIGHT_STORAGE_KEY);
-    if (!raw) return DEFAULT_HEIGHT;
-    const parsed = Number(raw);
-    if (!Number.isFinite(parsed)) return DEFAULT_HEIGHT;
-    return Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, Math.round(parsed)));
-  } catch {
-    return DEFAULT_HEIGHT;
-  }
+  const raw = readString(HEIGHT_STORAGE_KEY);
+  if (!raw) return DEFAULT_HEIGHT;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) return DEFAULT_HEIGHT;
+  return Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, Math.round(parsed)));
 };
 
 const readInitialOctaveShift = () => {
-  if (typeof window === 'undefined') return 0;
-  try {
-    const raw = window.localStorage.getItem(OCTAVE_STORAGE_KEY);
-    const parsed = Number(raw);
-    if (!Number.isFinite(parsed)) return 0;
-    return Math.max(-3, Math.min(3, Math.round(parsed)));
-  } catch {
-    return 0;
-  }
+  const parsed = Number(readString(OCTAVE_STORAGE_KEY));
+  if (!Number.isFinite(parsed)) return 0;
+  return Math.max(-3, Math.min(3, Math.round(parsed)));
 };
 
-const readInitialWriteMode = () => {
-  if (typeof window === 'undefined') return false;
-  try {
-    return window.localStorage.getItem(WRITE_MODE_STORAGE_KEY) === '1';
-  } catch {
-    return false;
-  }
-};
+const readInitialWriteMode = () => readString(WRITE_MODE_STORAGE_KEY) === '1';
 
 const WHITE_KEYS = ['C', 'D', 'E', 'F', 'G', 'A', 'B'] as const;
 const BLACK_KEYS_BY_WHITE: Record<string, string | null> = {
@@ -220,31 +196,19 @@ export const TapToPlay = () => {
   }, []);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      window.localStorage.setItem(STORAGE_KEY, open ? '1' : '0');
-    } catch { /* ignore */ }
+    writeString(STORAGE_KEY, open ? '1' : '0');
   }, [open]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      window.localStorage.setItem(HEIGHT_STORAGE_KEY, String(height));
-    } catch { /* ignore */ }
+    writeString(HEIGHT_STORAGE_KEY, String(height));
   }, [height]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      window.localStorage.setItem(OCTAVE_STORAGE_KEY, String(octaveShift));
-    } catch { /* ignore */ }
+    writeString(OCTAVE_STORAGE_KEY, String(octaveShift));
   }, [octaveShift]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    try {
-      window.localStorage.setItem(WRITE_MODE_STORAGE_KEY, writeMode ? '1' : '0');
-    } catch { /* ignore */ }
+    writeString(WRITE_MODE_STORAGE_KEY, writeMode ? '1' : '0');
   }, [writeMode]);
 
   const isDrum = !!track && (track.type === 'kick' || track.type === 'snare' || track.type === 'hihat');

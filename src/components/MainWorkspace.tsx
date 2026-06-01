@@ -61,6 +61,9 @@ import {
 } from '../utils/noteEditing';
 import { TrackIcon, getTrackPersonality } from '../utils/trackPersonality';
 import { useMediaQuery } from '../utils/useMediaQuery';
+import { readString, writeString } from '../utils/safeStorage';
+
+const LANE_COLUMN_COLLAPSED_KEY = 'sonicstudio:lane-column-collapsed';
 import { MAX_STEPS_PER_PATTERN, defaultNoteForTrack, type InstrumentType, type NoteEvent, type Track } from '../project/schema';
 
 const TRACK_BUTTONS = [
@@ -531,8 +534,7 @@ export const MainWorkspace = () => {
     typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
   ));
   const [laneColumnCollapsed, setLaneColumnCollapsed] = useState(() => (
-    typeof window !== 'undefined'
-    && window.localStorage.getItem('sonicstudio:lane-column-collapsed') === 'true'
+    readString(LANE_COLUMN_COLLAPSED_KEY) === 'true'
   ));
   const [patternSegments, setPatternSegments] = useState<PatternSegment[]>(() => loadPatternSegments());
   const [stepZoom, setStepZoom] = useState(() => (
@@ -1141,11 +1143,7 @@ export const MainWorkspace = () => {
   // Remember whether the lane column is collapsed so a returning session
   // keeps the workspace the way it was left.
   useEffect(() => {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem(
-      'sonicstudio:lane-column-collapsed',
-      laneColumnCollapsed ? 'true' : 'false',
-    );
+    writeString(LANE_COLUMN_COLLAPSED_KEY, laneColumnCollapsed ? 'true' : 'false');
   }, [laneColumnCollapsed]);
 
   // Adding a lane: route every "new lane" action through here so the

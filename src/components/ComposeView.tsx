@@ -25,72 +25,36 @@ import {
   type SidePlacement,
 } from './compose/composeLayout';
 import { useMediaQuery } from '../utils/useMediaQuery';
+import { readJson, readString, writeJson, writeString } from '../utils/safeStorage';
 import { useAudio } from '../context/AudioContext';
 
-const readPresets = (): LayoutPreset[] => {
-  if (typeof window === 'undefined') return DEFAULT_PRESETS;
-  try {
-    const raw = window.localStorage.getItem(STORAGE.presets);
-    if (!raw) return DEFAULT_PRESETS;
-    const parsed = JSON.parse(raw);
-    return normalizeLayoutPresets(parsed);
-  } catch {
-    return DEFAULT_PRESETS;
-  }
-};
+const readPresets = (): LayoutPreset[] => (
+  readJson<LayoutPreset[]>(STORAGE.presets, DEFAULT_PRESETS, (parsed) => normalizeLayoutPresets(parsed))
+);
 
 const writePresets = (presets: LayoutPreset[]) => {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(STORAGE.presets, JSON.stringify(presets));
-  } catch {
-    /* ignore */
-  }
+  writeJson(STORAGE.presets, presets);
 };
 
 const readNumberSetting = (key: string, fallback: number, min: number, max: number) => {
-  if (typeof window === 'undefined') return fallback;
-  try {
-    const raw = window.localStorage.getItem(key);
-    if (!raw) return fallback;
-    const parsed = Number(raw);
-    if (!Number.isFinite(parsed)) return fallback;
-    if (key === STORAGE.topRatio) return clampTopRatio(parsed);
-    if (key === STORAGE.sideWidth) return clampSideWidth(parsed);
-    return Math.min(max, Math.max(min, parsed));
-  } catch {
-    return fallback;
-  }
+  const raw = readString(key);
+  if (!raw) return fallback;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) return fallback;
+  if (key === STORAGE.topRatio) return clampTopRatio(parsed);
+  if (key === STORAGE.sideWidth) return clampSideWidth(parsed);
+  return Math.min(max, Math.max(min, parsed));
 };
 
 const readPaneTarget = (key: string, fallback: PaneTarget): PaneTarget => {
-  if (typeof window === 'undefined') return fallback;
-  try {
-    const raw = window.localStorage.getItem(key);
-    return isPaneTarget(raw) ? raw : fallback;
-  } catch {
-    return fallback;
-  }
+  const raw = readString(key);
+  return isPaneTarget(raw) ? raw : fallback;
 };
 
 const readBoolean = (key: string, fallback: boolean) => {
-  if (typeof window === 'undefined') return fallback;
-  try {
-    const raw = window.localStorage.getItem(key);
-    if (raw === null) return fallback;
-    return raw === '1';
-  } catch {
-    return fallback;
-  }
-};
-
-const writeString = (key: string, value: string) => {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(key, value);
-  } catch {
-    /* ignore */
-  }
+  const raw = readString(key);
+  if (raw === null) return fallback;
+  return raw === '1';
 };
 
 const renderTarget = (target: PaneTarget) => {
@@ -142,13 +106,8 @@ export const ComposeView = () => {
   const [sideView, setSideView] = useState<PaneTarget>(() => readPaneTarget(STORAGE.sideView, 'MIXER'));
   const [sideWidth, setSideWidth] = useState<number>(() => readNumberSetting(STORAGE.sideWidth, DEFAULT_SIDE_WIDTH, MIN_SIDE_WIDTH, MAX_SIDE_WIDTH));
   const [sidePlacement, setSidePlacement] = useState<SidePlacement>(() => {
-    if (typeof window === 'undefined') return 'right';
-    try {
-      const raw = window.localStorage.getItem(STORAGE.sidePlacement);
-      return isSidePlacement(raw) ? raw : 'right';
-    } catch {
-      return 'right';
-    }
+    const raw = readString(STORAGE.sidePlacement);
+    return isSidePlacement(raw) ? raw : 'right';
   });
   const [presets, setPresets] = useState<LayoutPreset[]>(readPresets);
   const [recentlyApplied, setRecentlyApplied] = useState<string | null>(null);
