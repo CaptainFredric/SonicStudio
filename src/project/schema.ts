@@ -2175,6 +2175,7 @@ export const createPulseRiderProject = (projectName: string = 'Pulse Rider'): Pr
   const { buildProject, tracks, transport } = createProjectFrame(projectName, {
     bpm: 125,
     mode: 'SONG',
+    patternCount: 6,
     trackOrder: PULSE_TRACK_ORDER,
   });
   const [kickTrack, snareTrack, hihatTrack, bassTrack, leadTrack, padTrack, fxTrack] = tracks;
@@ -2190,111 +2191,131 @@ export const createPulseRiderProject = (projectName: string = 'Pulse Rider'): Pr
     { step: 8, notes: ['A2', 'C#3', 'E3'] },
     { step: 12, notes: ['B2', 'D#3', 'F#3'] },
   ];
-  const layPad = (pattern: number, velocity: number) => {
-    padChords.forEach(({ step, notes }) => {
-      stackStep(padTrack, pattern, step, notes.map((note) => ({ note, options: { gate: 4, velocity } })));
-    });
-  };
-  // Busy hats: offbeat accents over 16th ghosts.
-  const layBusyHats = (pattern: number, lift: number) => {
-    for (const step of [2, 6, 10, 14]) {
-      putStep(hihatTrack, pattern, step, 'E1', { gate: 0.34, velocity: 0.62 + lift });
-    }
-    for (const [index, step] of [1, 3, 5, 7, 9, 11, 13, 15].entries()) {
-      putStep(hihatTrack, pattern, step, 'E1', { gate: 0.26, velocity: (index % 2 === 0 ? 0.4 : 0.5) + lift });
-    }
-  };
-
-  // --- Pattern 0: the main groove ---
-  for (const step of [0, 4, 8, 12]) {
-    putStep(kickTrack, 0, step, 'E1', { velocity: step % 8 === 0 ? 0.97 : 0.9 });
-  }
-  for (const step of [4, 12]) {
-    putStep(snareTrack, 0, step, 'E1', { velocity: 0.82 });
-  }
-  layBusyHats(0, 0);
-  // Driving bass: root on the beat and the offbeat, with a passing pickup note.
   const bassMain = [
     { root: 'E2', steps: [0, 2], pass: { note: 'B1', step: 3 } },
     { root: 'C#2', steps: [4, 6], pass: { note: 'G#1', step: 7 } },
     { root: 'A1', steps: [8, 10], pass: { note: 'E2', step: 11 } },
     { root: 'B1', steps: [12, 14], pass: { note: 'F#2', step: 15 } },
   ];
-  bassMain.forEach(({ root, steps, pass }) => {
-    steps.forEach((step) => putStep(bassTrack, 0, step, root, { gate: 0.45, velocity: 0.82 }));
-    putStep(bassTrack, 0, pass.step, pass.note, { gate: 0.4, velocity: 0.64 });
+  type LeadNote = { note: string; step: number; gate?: number; velocity?: number };
+
+  // Per-part layer helpers, so the six patterns stay short and consistent.
+  const layPad = (p: number, velocity: number) => padChords.forEach(({ step, notes }) => {
+    stackStep(padTrack, p, step, notes.map((note) => ({ note, options: { gate: 4, velocity } })));
   });
-  // Bright lead hook in E major.
-  [
+  const layBusyHats = (p: number, lift: number) => {
+    for (const step of [2, 6, 10, 14]) putStep(hihatTrack, p, step, 'E1', { gate: 0.34, velocity: 0.62 + lift });
+    for (const [i, step] of [1, 3, 5, 7, 9, 11, 13, 15].entries()) {
+      putStep(hihatTrack, p, step, 'E1', { gate: 0.26, velocity: (i % 2 === 0 ? 0.4 : 0.5) + lift });
+    }
+  };
+  const layKick = (p: number, hot = 0) => {
+    for (const step of [0, 4, 8, 12]) putStep(kickTrack, p, step, 'E1', { velocity: (step % 8 === 0 ? 0.97 : 0.9) + hot });
+  };
+  const layClap = (p: number, ghost = false) => {
+    for (const step of [4, 12]) putStep(snareTrack, p, step, 'E1', { velocity: 0.84 });
+    if (ghost) putStep(snareTrack, p, 14, 'E1', { velocity: 0.44 });
+  };
+  const layMainBass = (p: number) => bassMain.forEach(({ root, steps, pass }) => {
+    steps.forEach((step) => putStep(bassTrack, p, step, root, { gate: 0.45, velocity: 0.82 }));
+    putStep(bassTrack, p, pass.step, pass.note, { gate: 0.4, velocity: 0.64 });
+  });
+  const layRollBass = (p: number) => [{ note: 'E2', at: 0 }, { note: 'C#2', at: 4 }, { note: 'A1', at: 8 }, { note: 'B1', at: 12 }].forEach(({ note, at }) => {
+    [at, at + 1, at + 2, at + 3].forEach((step) => putStep(bassTrack, p, step, note, { gate: 0.3, velocity: 0.82 }));
+  });
+  const layLead = (p: number, notes: LeadNote[], velocity = 0.74) => notes.forEach((entry) => {
+    putStep(leadTrack, p, entry.step, entry.note, { gate: entry.gate ?? 0.7, velocity: entry.velocity ?? velocity });
+  });
+
+  const hookBase: LeadNote[] = [
     { note: 'E4', step: 0 }, { note: 'B4', step: 3 }, { note: 'G#4', step: 6 },
     { note: 'C#5', step: 8 }, { note: 'B4', step: 10 }, { note: 'G#4', step: 12 }, { note: 'F#4', step: 14 },
-  ].forEach(({ note, step }) => putStep(leadTrack, 0, step, note, { gate: 0.7, velocity: 0.74 }));
-  layPad(0, 0.32);
-  putStep(fxTrack, 0, 12, 'E5', { gate: 2, velocity: 0.5 });
-
-  // --- Pattern 1: the lift (fuller) ---
-  for (const step of [0, 4, 8, 12]) {
-    putStep(kickTrack, 1, step, 'E1', { velocity: step % 8 === 0 ? 0.99 : 0.92 });
-  }
-  for (const step of [4, 12]) {
-    putStep(snareTrack, 1, step, 'E1', { velocity: 0.86 });
-  }
-  putStep(snareTrack, 1, 14, 'E1', { velocity: 0.42 });
-  layBusyHats(1, 0.04);
-  // Continuous 16th bass for push.
-  [{ note: 'E2', at: 0 }, { note: 'C#2', at: 4 }, { note: 'A1', at: 8 }, { note: 'B1', at: 12 }].forEach(({ note, at }) => {
-    [at, at + 1, at + 2, at + 3].forEach((step) => putStep(bassTrack, 1, step, note, { gate: 0.3, velocity: 0.82 }));
-  });
-  [
+  ];
+  const hookHigh: LeadNote[] = [
     { note: 'E5', step: 0 }, { note: 'B5', step: 3 }, { note: 'G#5', step: 6 }, { note: 'C#6', step: 8 },
     { note: 'B5', step: 10 }, { note: 'G#5', step: 12 }, { note: 'E5', step: 14 }, { note: 'F#5', step: 15 },
-  ].forEach(({ note, step }) => putStep(leadTrack, 1, step, note, { gate: 0.55, velocity: 0.76 }));
-  layPad(1, 0.34);
+  ];
+  const hookVar: LeadNote[] = [
+    { note: 'G#4', step: 0 }, { note: 'E4', step: 2 }, { note: 'B4', step: 4 }, { note: 'C#5', step: 7 },
+    { note: 'B4', step: 8 }, { note: 'A4', step: 10 }, { note: 'G#4', step: 12 }, { note: 'F#4', step: 15 },
+  ];
+
+  // Pattern 0 - main groove.
+  layKick(0); layClap(0); layBusyHats(0, 0); layMainBass(0); layLead(0, hookBase); layPad(0, 0.32);
+  putStep(fxTrack, 0, 12, 'E5', { gate: 2, velocity: 0.5 });
+
+  // Pattern 1 - lift (fuller, rolling bass, lead up an octave).
+  layKick(1, 0.02); layClap(1, true); layBusyHats(1, 0.04); layRollBass(1); layLead(1, hookHigh, 0.76); layPad(1, 0.34);
   putStep(fxTrack, 1, 0, 'E5', { gate: 2, velocity: 0.6 });
   putStep(fxTrack, 1, 12, 'B4', { gate: 2, velocity: 0.56 });
 
-  // --- Pattern 2: clean build (no kick yet) ---
-  // Present but tidy: audible pad, light hats, a gentle rolling sub, a lead
-  // pickup, and a riser that hands off into the drop.
+  // Pattern 2 - clean build/intro (no kick): pad, pulsing sub, light hats, pickup, riser.
   layPad(2, 0.5);
-  for (const [index, step] of [2, 6, 10, 14].entries()) {
-    putStep(hihatTrack, 2, step, 'E1', { gate: 0.3, velocity: 0.46 + index * 0.04 });
-  }
-  // Gentle pulsing sub gives the open some body without clutter.
+  for (const [i, step] of [2, 6, 10, 14].entries()) putStep(hihatTrack, 2, step, 'E1', { gate: 0.3, velocity: 0.46 + i * 0.04 });
   [{ note: 'E2', step: 0 }, { note: 'C#2', step: 4 }, { note: 'A1', step: 8 }, { note: 'B1', step: 12 }, { note: 'B1', step: 14 }].forEach(({ note, step }) => {
     putStep(bassTrack, 2, step, note, { gate: 0.7, velocity: 0.66 });
   });
-  putStep(leadTrack, 2, 12, 'B4', { gate: 0.5, velocity: 0.6 });
-  putStep(leadTrack, 2, 14, 'C#5', { gate: 0.5, velocity: 0.68 });
+  layLead(2, [{ note: 'B4', step: 12, gate: 0.5, velocity: 0.6 }, { note: 'C#5', step: 14, gate: 0.5, velocity: 0.68 }]);
   putStep(fxTrack, 2, 8, 'E4', { gate: 4, velocity: 0.52 });
 
-  // Pad keeps its own space; lead and bass timbres come from the presets above.
+  // Pattern 3 - breakdown: just pad, an emotive lead, and soft hats. No kick or bass.
+  layPad(3, 0.46);
+  for (const step of [2, 6, 10, 14]) putStep(hihatTrack, 3, step, 'E1', { gate: 0.3, velocity: 0.34 });
+  layLead(3, [
+    { note: 'E5', step: 0, gate: 3, velocity: 0.6 },
+    { note: 'B4', step: 6, gate: 2, velocity: 0.54 },
+    { note: 'G#5', step: 10, gate: 2.5, velocity: 0.6 },
+  ]);
+  putStep(fxTrack, 3, 0, 'E5', { gate: 4, velocity: 0.4 });
+
+  // Pattern 4 - peak (busiest): rolling bass, lead up high with extra accents, more FX.
+  layKick(4, 0.02); layClap(4, true); layBusyHats(4, 0.08); layRollBass(4);
+  layLead(4, [...hookHigh, { note: 'B5', step: 1, velocity: 0.6 }, { note: 'C#6', step: 5, velocity: 0.6 }], 0.78);
+  layPad(4, 0.36);
+  putStep(fxTrack, 4, 0, 'E5', { gate: 2, velocity: 0.62 });
+  putStep(fxTrack, 4, 8, 'B4', { gate: 2, velocity: 0.5 });
+  putStep(fxTrack, 4, 12, 'E5', { gate: 2, velocity: 0.56 });
+
+  // Pattern 5 - main variation: same drive, a different lead phrase.
+  layKick(5); layClap(5); layBusyHats(5, 0); layMainBass(5); layLead(5, hookVar); layPad(5, 0.32);
+  putStep(fxTrack, 5, 12, 'C#5', { gate: 2, velocity: 0.5 });
+
   padTrack.params.reverbSend = 0.5;
   padTrack.params.chorusSend = 0.22;
   fxTrack.source.engine = 'sample';
   fxTrack.source.samplePlayback = 'oneshot';
 
-  const fullBand = [kickTrack, snareTrack, hihatTrack, bassTrack, leadTrack, padTrack, fxTrack];
-  return buildProject([
-    // Intro (beats 0-15): pad, pulsing sub, and light hats. Clean open, not a busy one.
-    createArrangerClip(padTrack.id, transport, { beatLength: 16, patternIndex: 2, startBeat: 0 }),
-    createArrangerClip(bassTrack.id, transport, { beatLength: 16, patternIndex: 2, startBeat: 0 }),
-    createArrangerClip(hihatTrack.id, transport, { beatLength: 16, patternIndex: 2, startBeat: 0 }),
-    // Build (beats 16-31): add a lead pickup and a riser over the sub.
-    createArrangerClip(padTrack.id, transport, { beatLength: 16, patternIndex: 2, startBeat: 16 }),
-    createArrangerClip(hihatTrack.id, transport, { beatLength: 16, patternIndex: 2, startBeat: 16 }),
-    createArrangerClip(bassTrack.id, transport, { beatLength: 16, patternIndex: 2, startBeat: 16 }),
-    createArrangerClip(leadTrack.id, transport, { beatLength: 16, patternIndex: 2, startBeat: 16 }),
-    createArrangerClip(fxTrack.id, transport, { beatLength: 16, patternIndex: 2, startBeat: 16 }),
-    // Main beat drops (beats 32-47): full band, pattern 0.
-    ...fullBand.map((track) => createArrangerClip(track.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 32 })),
-    // Lift (beats 48-63): fuller pattern 1.
-    ...fullBand.map((track) => createArrangerClip(track.id, transport, { beatLength: 16, patternIndex: 1, startBeat: 48 })),
-  ], [
+  // Full-length arrangement following the reference arc. Each clip loops its
+  // 16-step pattern across its length, so a section is one clip per lane.
+  const full = [kickTrack, snareTrack, hihatTrack, bassTrack, leadTrack, padTrack, fxTrack];
+  const clips: ArrangementClip[] = [];
+  const section = (startBar: number, bars: number, pattern: number, lanes: Track[]) => {
+    lanes.forEach((track) => clips.push(createArrangerClip(track.id, transport, {
+      beatLength: bars * 16,
+      patternIndex: pattern,
+      startBeat: startBar * 16,
+    })));
+  };
+  section(0, 8, 2, [padTrack, bassTrack, hihatTrack]);                       // Intro
+  section(8, 8, 2, [padTrack, bassTrack, hihatTrack, leadTrack, fxTrack]);   // Build
+  section(16, 8, 0, full);                                                   // Drop
+  section(24, 8, 5, full);                                                   // Drop B (variation)
+  section(32, 8, 3, [padTrack, leadTrack, hihatTrack, fxTrack]);             // Breakdown
+  section(40, 4, 2, [padTrack, bassTrack, hihatTrack, leadTrack, fxTrack]);  // Rebuild
+  section(44, 8, 1, full);                                                   // Peak
+  section(52, 8, 4, full);                                                   // Peak B (max)
+  section(60, 8, 2, [padTrack, bassTrack]);                                  // Outro
+
+  return buildProject(clips, [
     { beat: 0, id: createId('marker'), name: 'Intro' },
-    { beat: 16, id: createId('marker'), name: 'Build' },
-    { beat: 32, id: createId('marker'), name: 'Main beat' },
-    { beat: 48, id: createId('marker'), name: 'Lift' },
+    { beat: 128, id: createId('marker'), name: 'Build' },
+    { beat: 256, id: createId('marker'), name: 'Drop' },
+    { beat: 384, id: createId('marker'), name: 'Drop B' },
+    { beat: 512, id: createId('marker'), name: 'Breakdown' },
+    { beat: 640, id: createId('marker'), name: 'Rebuild' },
+    { beat: 704, id: createId('marker'), name: 'Peak' },
+    { beat: 832, id: createId('marker'), name: 'Peak B' },
+    { beat: 960, id: createId('marker'), name: 'Outro' },
   ]);
 };
 
