@@ -1,4 +1,5 @@
 import { NOTE_GATE_MAX, NOTE_GATE_MIN, clampNoteGate } from '../utils/noteEditing';
+import { runSchemaMigrations } from './migrations';
 
 export type AppView = 'SEQUENCER' | 'PIANO_ROLL' | 'MIXER' | 'ARRANGER' | 'COMPOSE';
 
@@ -2691,7 +2692,11 @@ export const createProjectFromTemplate = (
   }
 };
 
-export const normalizeProject = (input: unknown): Project | null => {
+export const normalizeProject = (rawInput: unknown): Project | null => {
+  // Upgrade older saved shapes to the current schema before normalizing, so a
+  // structural change is an explicit, ordered migration rather than a silent
+  // reinterpretation. With no migrations registered this is the identity.
+  const input = runSchemaMigrations(rawInput, PROJECT_SCHEMA_VERSION);
   if (!isRecord(input)) {
     return null;
   }
