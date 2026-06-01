@@ -178,7 +178,17 @@ export const persistSession = (session: StudioSession): PersistedSessionEnvelope
     version: 1,
   };
 
-  const result = writeJson(STORAGE_KEY, envelope);
+  let result = writeJson(STORAGE_KEY, envelope);
+
+  // If the store is full, sacrifice the oldest recovery checkpoints (the most
+  // disposable and largest data we keep) one at a time and retry, so the live
+  // autosave is never lost just because old recovery points filled the quota.
+  // The loop terminates: each prune that reports progress strictly reduces the
+  // stored checkpoints, and pruning stops once none remain.
+  while (!result.ok && result.reason === 'quota' && pruneOldestCheckpoint()) {
+    result = writeJson(STORAGE_KEY, envelope);
+  }
+
   if (!result.ok) {
     if (typeof console !== 'undefined') {
       console.error(`SonicStudio: failed to persist session (${result.reason})`);
@@ -222,6 +232,24 @@ export const listProjectCheckpoints = (): PersistedCheckpoint[] => (
       .slice(0, MAX_CHECKPOINTS);
   })
 );
+
+// Drop the single oldest checkpoint to free space, returning whether storage
+// actually shrank. Used by persistSession's quota-recovery loop; returns false
+// once there is nothing left to prune (or the trim write itself failed), which
+// guarantees the loop ends.
+const pruneOldestCheckpoint = (): boolean => {
+  const checkpoints = listProjectCheckpoints();
+  if (checkpoints.length === 0) {
+    return false;
+  }
+  // listProjectCheckpoints returns newest-first, so the last entry is oldest.
+  const trimmed = checkpoints.slice(0, -1);
+  if (trimmed.length === 0) {
+    removeKey(CHECKPOINT_STORAGE_KEY);
+    return true;
+  }
+  return writeJson(CHECKPOINT_STORAGE_KEY, trimmed).ok;
+};
 
 export const saveProjectCheckpoint = (session: StudioSession, label: string): PersistedCheckpoint | null => {
   const nextEntry: PersistedCheckpoint = {
