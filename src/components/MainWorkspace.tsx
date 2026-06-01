@@ -62,6 +62,7 @@ import {
 import { TrackIcon, getTrackPersonality } from '../utils/trackPersonality';
 import { useMediaQuery } from '../utils/useMediaQuery';
 import { readString, writeString } from '../utils/safeStorage';
+import { TrackMinimap } from './TrackMinimap';
 
 const LANE_COLUMN_COLLAPSED_KEY = 'sonicstudio:lane-column-collapsed';
 import { MAX_STEPS_PER_PATTERN, defaultNoteForTrack, type InstrumentType, type NoteEvent, type Track } from '../project/schema';
@@ -2148,6 +2149,7 @@ export const MainWorkspace = () => {
           )}
 
           <div className="flex flex-col md:min-h-0 md:flex-1 md:overflow-hidden">
+            <TrackMinimap />
             <div
               className="sequencer-grid-scroll overflow-auto rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] md:min-h-0 md:flex-1"
               data-scrolled={gridScrollLeft > 1 ? 'true' : undefined}

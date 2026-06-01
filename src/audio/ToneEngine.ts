@@ -578,6 +578,22 @@ export class ToneEngine {
     this.stepCallbacks.forEach((callback) => callback(loopBounds.startBeat % this.stepsPerPattern, this.currentPattern));
   }
 
+  // Jump the playhead (and the running transport) to an absolute song beat.
+  // Used by the minimap scrubber so the user can drag to any spot in the track.
+  public seekToBeat(beat: number): void {
+    const loopBounds = this.getLoopBounds();
+    const maxBeat = Math.max(loopBounds.startBeat, loopBounds.endBeat - 1);
+    const clamped = Math.min(maxBeat, Math.max(loopBounds.startBeat, Math.round(beat)));
+    this.currentStep = clamped;
+    try {
+      Tone.getTransport().position = clamped * Tone.Time('16n').toSeconds();
+    } catch {
+      // Transport may not be running yet; currentStep still applies on play.
+    }
+    const visualStep = this.transportMode === 'SONG' ? clamped % this.stepsPerPattern : clamped;
+    this.stepCallbacks.forEach((callback) => callback(visualStep, this.currentPattern));
+  }
+
   public setBpm(bpm: number) {
     Tone.getTransport().bpm.rampTo(bpm, 0.1);
   }
