@@ -79,7 +79,7 @@ export interface AudioRenderAnalysis {
   durationSeconds: number;
   estimatedLufs: number;
   peakDb: number;
-  quality: 'clean' | 'hot' | 'quiet';
+  quality: 'clean' | 'hot' | 'quiet' | 'silent';
   recommendation?: string;
   rmsDb: number;
   sampleRate: number;
@@ -864,11 +864,15 @@ const analyzeAudioBuffer = (
   const rmsDb = rms > 0 ? 20 * Math.log10(rms) : -96;
   const crestDb = peakDb - rmsDb;
   const estimatedLufs = estimateIntegratedLufs(audioBuffer);
-  const quality = peakDb > -0.3
-    ? 'hot'
-    : rmsDb < -28
-      ? 'quiet'
-      : 'clean';
+  // An effectively silent render almost always means a broken export, not an
+  // artistic choice, so flag it distinctly instead of mislabelling it "quiet".
+  const quality = peakDb <= -90
+    ? 'silent'
+    : peakDb > -0.3
+      ? 'hot'
+      : rmsDb < -28
+        ? 'quiet'
+        : 'clean';
 
   const targetProfile = options.normalization === 'target' ? getRenderTargetProfile(options.targetProfileId) : null;
   let targetVerdict: TargetVerdict | undefined;

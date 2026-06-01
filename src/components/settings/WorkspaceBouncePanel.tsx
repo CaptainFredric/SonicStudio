@@ -29,7 +29,7 @@ interface BounceHistoryEntryView {
   mode: 'mix' | 'stems';
   normalization: BounceNormalizationMode;
   peakDb?: number;
-  quality?: 'clean' | 'hot' | 'quiet';
+  quality?: 'clean' | 'hot' | 'quiet' | 'silent';
   recommendation?: string;
   rmsDb?: number;
   sampleRate?: number;
@@ -69,11 +69,11 @@ const qualityChip = (entry: BounceHistoryEntryView): ReactNode => (
   <span
     className="rounded-[2px] border px-2 py-1 font-mono text-[10px] uppercase tracking-[0.16em]"
     style={{
-      borderColor: entry.quality === 'hot' ? 'rgba(248,113,113,0.32)' : entry.quality === 'quiet' ? 'rgba(251,191,36,0.32)' : 'rgba(114,217,255,0.26)',
-      color: entry.quality === 'hot' ? '#fca5a5' : entry.quality === 'quiet' ? '#fde68a' : '#b6f1ff',
+      borderColor: entry.quality === 'silent' || entry.quality === 'hot' ? 'rgba(248,113,113,0.32)' : entry.quality === 'quiet' ? 'rgba(251,191,36,0.32)' : 'rgba(114,217,255,0.26)',
+      color: entry.quality === 'silent' || entry.quality === 'hot' ? '#fca5a5' : entry.quality === 'quiet' ? '#fde68a' : '#b6f1ff',
     }}
   >
-    {entry.quality === 'hot' ? 'Hot print' : entry.quality === 'quiet' ? 'Quiet print' : 'Clean print'}
+    {entry.quality === 'silent' ? 'Silent — no audio' : entry.quality === 'hot' ? 'Hot print' : entry.quality === 'quiet' ? 'Quiet print' : 'Clean print'}
   </span>
 );
 
@@ -314,13 +314,15 @@ export const WorkspaceBouncePanel = ({
                 ) : null}
                 <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
                   {entry.durationSeconds ? `${entry.durationSeconds.toFixed(1)}s` : 'Unknown length'} · {Math.round(entry.sampleRate / 100) / 10} kHz
-                  {entry.recommendation
-                    ? ` · ${entry.recommendation}`
-                    : entry.quality === 'hot'
-                      ? ' · reduce output gain or widen headroom before reprinting'
-                      : entry.quality === 'quiet'
-                        ? ' · consider more output gain or stronger glue before sharing this print'
-                        : ' · headroom and loudness look usable for a reference print'}
+                  {entry.quality === 'silent'
+                    ? ' · this print has no audible signal. Check that tracks are unmuted and have notes, then bounce again'
+                    : entry.recommendation
+                      ? ` · ${entry.recommendation}`
+                      : entry.quality === 'hot'
+                        ? ' · reduce output gain or widen headroom before reprinting'
+                        : entry.quality === 'quiet'
+                          ? ' · consider more output gain or stronger glue before sharing this print'
+                          : ' · headroom and loudness look usable for a reference print'}
                 </div>
               </div>
             ) : null}

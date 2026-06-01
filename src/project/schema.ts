@@ -192,7 +192,7 @@ export interface BounceHistoryEntry {
   mode: 'mix' | 'stems';
   normalization: 'none' | 'peak' | 'target';
   peakDb?: number;
-  quality?: 'clean' | 'hot' | 'quiet';
+  quality?: 'clean' | 'hot' | 'quiet' | 'silent';
   recommendation?: string;
   rmsDb?: number;
   sampleRate?: number;
@@ -1288,7 +1288,7 @@ const normalizeBounceHistory = (input: unknown): BounceHistoryEntry[] => {
         mode,
         normalization,
         peakDb: typeof entry.peakDb === 'number' ? clamp(entry.peakDb, -96, 3) : undefined,
-        quality: entry.quality === 'clean' || entry.quality === 'hot' || entry.quality === 'quiet' ? entry.quality : undefined,
+        quality: entry.quality === 'clean' || entry.quality === 'hot' || entry.quality === 'quiet' || entry.quality === 'silent' ? entry.quality : undefined,
         recommendation: typeof entry.recommendation === 'string' && entry.recommendation.trim()
           ? entry.recommendation.trim().slice(0, 180)
           : undefined,
