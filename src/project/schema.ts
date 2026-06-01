@@ -2179,117 +2179,122 @@ export const createPulseRiderProject = (projectName: string = 'Pulse Rider'): Pr
   });
   const [kickTrack, snareTrack, hihatTrack, bassTrack, leadTrack, padTrack, fxTrack] = tracks;
 
-  // Four-on-the-floor kick.
-  for (const step of [0, 4, 8, 12]) {
-    putStep(kickTrack, 0, step, 'E1', { velocity: step % 8 === 0 ? 0.97 : 0.9 });
-    putStep(kickTrack, 1, step, 'E1', { velocity: step % 8 === 0 ? 0.99 : 0.92 });
-  }
+  // Match the reference timbre with the voices authored for this sound.
+  applyVoicePresetById(leadTrack, 'neon-drive');
+  applyVoicePresetById(bassTrack, 'pulse-sub');
 
-  // Clap on the backbeat, with a pickup into the lift.
-  for (const step of [4, 12]) {
-    putStep(snareTrack, 0, step, 'E1', { velocity: 0.82 });
-    putStep(snareTrack, 1, step, 'E1', { velocity: 0.86 });
-  }
-  putStep(snareTrack, 1, 14, 'E1', { velocity: 0.42 });
-
-  // Busy hats: offbeat accents over 16th ghosts.
-  for (const step of [2, 6, 10, 14]) {
-    putStep(hihatTrack, 0, step, 'E1', { gate: 0.34, velocity: 0.62 });
-    putStep(hihatTrack, 1, step, 'E1', { gate: 0.34, velocity: 0.66 });
-  }
-  for (const [index, step] of [1, 3, 5, 7, 9, 11, 13, 15].entries()) {
-    putStep(hihatTrack, 0, step, 'E1', { gate: 0.26, velocity: index % 2 === 0 ? 0.4 : 0.5 });
-    putStep(hihatTrack, 1, step, 'E1', { gate: 0.26, velocity: index % 2 === 0 ? 0.42 : 0.52 });
-  }
-
-  // Driving bass on an E - C#m - A - B progression (root on beat and offbeat).
-  const bassByBeat = [
-    { note: 'E2', steps: [0, 2] },
-    { note: 'C#2', steps: [4, 6] },
-    { note: 'A1', steps: [8, 10] },
-    { note: 'B1', steps: [12, 14] },
-  ];
-  bassByBeat.forEach(({ note, steps }) => {
-    steps.forEach((step) => putStep(bassTrack, 0, step, note, { gate: 0.9, velocity: 0.8 }));
-  });
-  // Lift: continuous 16th bass for more push.
-  bassByBeat.forEach(({ note, steps }) => {
-    [steps[0], steps[0] + 1, steps[1], steps[1] + 1].forEach((step) => {
-      putStep(bassTrack, 1, step, note, { gate: 0.5, velocity: 0.82 });
-    });
-  });
-
-  // Bright lead hook in E major.
-  [
-    { note: 'E4', step: 0 },
-    { note: 'B4', step: 3 },
-    { note: 'G#4', step: 6 },
-    { note: 'C#5', step: 8 },
-    { note: 'B4', step: 10 },
-    { note: 'G#4', step: 12 },
-    { note: 'F#4', step: 14 },
-  ].forEach(({ note, step }) => putStep(leadTrack, 0, step, note, { gate: 0.7, velocity: 0.74 }));
-  // Lift: same hook an octave up with a closing run.
-  [
-    { note: 'E5', step: 0 },
-    { note: 'B5', step: 3 },
-    { note: 'G#5', step: 6 },
-    { note: 'C#6', step: 8 },
-    { note: 'B5', step: 10 },
-    { note: 'G#5', step: 12 },
-    { note: 'E5', step: 14 },
-    { note: 'F#5', step: 15 },
-  ].forEach(({ note, step }) => putStep(leadTrack, 1, step, note, { gate: 0.6, velocity: 0.76 }));
-
-  // Sustained pad chords: E, C#m, A, B (one per beat).
+  // Sustained pad chords (E - C#m - A - B), reused across patterns.
   const padChords = [
     { step: 0, notes: ['E3', 'G#3', 'B3'] },
     { step: 4, notes: ['C#3', 'E3', 'G#3'] },
     { step: 8, notes: ['A2', 'C#3', 'E3'] },
     { step: 12, notes: ['B2', 'D#3', 'F#3'] },
   ];
-  padChords.forEach(({ step, notes }) => {
-    stackStep(padTrack, 0, step, notes.map((note) => ({ note, options: { gate: 4, velocity: 0.3 } })));
-    stackStep(padTrack, 1, step, notes.map((note) => ({ note, options: { gate: 4, velocity: 0.32 } })));
-  });
+  const layPad = (pattern: number, velocity: number) => {
+    padChords.forEach(({ step, notes }) => {
+      stackStep(padTrack, pattern, step, notes.map((note) => ({ note, options: { gate: 4, velocity } })));
+    });
+  };
+  // Busy hats: offbeat accents over 16th ghosts.
+  const layBusyHats = (pattern: number, lift: number) => {
+    for (const step of [2, 6, 10, 14]) {
+      putStep(hihatTrack, pattern, step, 'E1', { gate: 0.34, velocity: 0.62 + lift });
+    }
+    for (const [index, step] of [1, 3, 5, 7, 9, 11, 13, 15].entries()) {
+      putStep(hihatTrack, pattern, step, 'E1', { gate: 0.26, velocity: (index % 2 === 0 ? 0.4 : 0.5) + lift });
+    }
+  };
 
-  // FX sweeps into the turnarounds.
+  // --- Pattern 0: the main groove ---
+  for (const step of [0, 4, 8, 12]) {
+    putStep(kickTrack, 0, step, 'E1', { velocity: step % 8 === 0 ? 0.97 : 0.9 });
+  }
+  for (const step of [4, 12]) {
+    putStep(snareTrack, 0, step, 'E1', { velocity: 0.82 });
+  }
+  layBusyHats(0, 0);
+  // Driving bass: root on the beat and the offbeat, with a passing pickup note.
+  const bassMain = [
+    { root: 'E2', steps: [0, 2], pass: { note: 'B1', step: 3 } },
+    { root: 'C#2', steps: [4, 6], pass: { note: 'G#1', step: 7 } },
+    { root: 'A1', steps: [8, 10], pass: { note: 'E2', step: 11 } },
+    { root: 'B1', steps: [12, 14], pass: { note: 'F#2', step: 15 } },
+  ];
+  bassMain.forEach(({ root, steps, pass }) => {
+    steps.forEach((step) => putStep(bassTrack, 0, step, root, { gate: 0.45, velocity: 0.82 }));
+    putStep(bassTrack, 0, pass.step, pass.note, { gate: 0.4, velocity: 0.64 });
+  });
+  // Bright lead hook in E major.
+  [
+    { note: 'E4', step: 0 }, { note: 'B4', step: 3 }, { note: 'G#4', step: 6 },
+    { note: 'C#5', step: 8 }, { note: 'B4', step: 10 }, { note: 'G#4', step: 12 }, { note: 'F#4', step: 14 },
+  ].forEach(({ note, step }) => putStep(leadTrack, 0, step, note, { gate: 0.7, velocity: 0.74 }));
+  layPad(0, 0.32);
   putStep(fxTrack, 0, 12, 'E5', { gate: 2, velocity: 0.5 });
+
+  // --- Pattern 1: the lift (fuller) ---
+  for (const step of [0, 4, 8, 12]) {
+    putStep(kickTrack, 1, step, 'E1', { velocity: step % 8 === 0 ? 0.99 : 0.92 });
+  }
+  for (const step of [4, 12]) {
+    putStep(snareTrack, 1, step, 'E1', { velocity: 0.86 });
+  }
+  putStep(snareTrack, 1, 14, 'E1', { velocity: 0.42 });
+  layBusyHats(1, 0.04);
+  // Continuous 16th bass for push.
+  [{ note: 'E2', at: 0 }, { note: 'C#2', at: 4 }, { note: 'A1', at: 8 }, { note: 'B1', at: 12 }].forEach(({ note, at }) => {
+    [at, at + 1, at + 2, at + 3].forEach((step) => putStep(bassTrack, 1, step, note, { gate: 0.3, velocity: 0.82 }));
+  });
+  [
+    { note: 'E5', step: 0 }, { note: 'B5', step: 3 }, { note: 'G#5', step: 6 }, { note: 'C#6', step: 8 },
+    { note: 'B5', step: 10 }, { note: 'G#5', step: 12 }, { note: 'E5', step: 14 }, { note: 'F#5', step: 15 },
+  ].forEach(({ note, step }) => putStep(leadTrack, 1, step, note, { gate: 0.55, velocity: 0.76 }));
+  layPad(1, 0.34);
   putStep(fxTrack, 1, 0, 'E5', { gate: 2, velocity: 0.6 });
   putStep(fxTrack, 1, 12, 'B4', { gate: 2, velocity: 0.56 });
 
-  leadTrack.params.delaySend = 0.22;
-  leadTrack.params.reverbSend = 0.16;
+  // --- Pattern 2: clean build (no kick yet) ---
+  // Present but tidy: audible pad, light hats, a gentle rolling sub, a lead
+  // pickup, and a riser that hands off into the drop.
+  layPad(2, 0.5);
+  for (const [index, step] of [2, 6, 10, 14].entries()) {
+    putStep(hihatTrack, 2, step, 'E1', { gate: 0.3, velocity: 0.46 + index * 0.04 });
+  }
+  // Gentle pulsing sub gives the open some body without clutter.
+  [{ note: 'E2', step: 0 }, { note: 'C#2', step: 4 }, { note: 'A1', step: 8 }, { note: 'B1', step: 12 }, { note: 'B1', step: 14 }].forEach(({ note, step }) => {
+    putStep(bassTrack, 2, step, note, { gate: 0.7, velocity: 0.66 });
+  });
+  putStep(leadTrack, 2, 12, 'B4', { gate: 0.5, velocity: 0.6 });
+  putStep(leadTrack, 2, 14, 'C#5', { gate: 0.5, velocity: 0.68 });
+  putStep(fxTrack, 2, 8, 'E4', { gate: 4, velocity: 0.52 });
+
+  // Pad keeps its own space; lead and bass timbres come from the presets above.
   padTrack.params.reverbSend = 0.5;
   padTrack.params.chorusSend = 0.22;
-  bassTrack.params.reverbSend = 0.05;
   fxTrack.source.engine = 'sample';
   fxTrack.source.samplePlayback = 'oneshot';
 
+  const fullBand = [kickTrack, snareTrack, hihatTrack, bassTrack, leadTrack, padTrack, fxTrack];
   return buildProject([
-    // Intro (beats 0-15): pad and hats only, a tidy build instead of a busy open.
-    createArrangerClip(padTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
-    createArrangerClip(hihatTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
-    // Main beat drops (beats 16-31).
-    createArrangerClip(kickTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 16 }),
-    createArrangerClip(snareTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 16 }),
-    createArrangerClip(hihatTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 16 }),
-    createArrangerClip(bassTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 16 }),
-    createArrangerClip(leadTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 16 }),
-    createArrangerClip(padTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 16 }),
-    createArrangerClip(fxTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 16 }),
-    // Lift (beats 32-47): fuller pattern 1.
-    createArrangerClip(kickTrack.id, transport, { beatLength: 16, patternIndex: 1, startBeat: 32 }),
-    createArrangerClip(snareTrack.id, transport, { beatLength: 16, patternIndex: 1, startBeat: 32 }),
-    createArrangerClip(hihatTrack.id, transport, { beatLength: 16, patternIndex: 1, startBeat: 32 }),
-    createArrangerClip(bassTrack.id, transport, { beatLength: 16, patternIndex: 1, startBeat: 32 }),
-    createArrangerClip(leadTrack.id, transport, { beatLength: 16, patternIndex: 1, startBeat: 32 }),
-    createArrangerClip(padTrack.id, transport, { beatLength: 16, patternIndex: 1, startBeat: 32 }),
-    createArrangerClip(fxTrack.id, transport, { beatLength: 16, patternIndex: 1, startBeat: 32 }),
+    // Intro (beats 0-15): pad, pulsing sub, and light hats. Clean open, not a busy one.
+    createArrangerClip(padTrack.id, transport, { beatLength: 16, patternIndex: 2, startBeat: 0 }),
+    createArrangerClip(bassTrack.id, transport, { beatLength: 16, patternIndex: 2, startBeat: 0 }),
+    createArrangerClip(hihatTrack.id, transport, { beatLength: 16, patternIndex: 2, startBeat: 0 }),
+    // Build (beats 16-31): add a lead pickup and a riser over the sub.
+    createArrangerClip(padTrack.id, transport, { beatLength: 16, patternIndex: 2, startBeat: 16 }),
+    createArrangerClip(hihatTrack.id, transport, { beatLength: 16, patternIndex: 2, startBeat: 16 }),
+    createArrangerClip(bassTrack.id, transport, { beatLength: 16, patternIndex: 2, startBeat: 16 }),
+    createArrangerClip(leadTrack.id, transport, { beatLength: 16, patternIndex: 2, startBeat: 16 }),
+    createArrangerClip(fxTrack.id, transport, { beatLength: 16, patternIndex: 2, startBeat: 16 }),
+    // Main beat drops (beats 32-47): full band, pattern 0.
+    ...fullBand.map((track) => createArrangerClip(track.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 32 })),
+    // Lift (beats 48-63): fuller pattern 1.
+    ...fullBand.map((track) => createArrangerClip(track.id, transport, { beatLength: 16, patternIndex: 1, startBeat: 48 })),
   ], [
     { beat: 0, id: createId('marker'), name: 'Intro' },
-    { beat: 16, id: createId('marker'), name: 'Main beat' },
-    { beat: 32, id: createId('marker'), name: 'Lift' },
+    { beat: 16, id: createId('marker'), name: 'Build' },
+    { beat: 32, id: createId('marker'), name: 'Main beat' },
+    { beat: 48, id: createId('marker'), name: 'Lift' },
   ]);
 };
 
