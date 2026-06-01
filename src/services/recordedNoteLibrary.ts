@@ -1,5 +1,6 @@
 import type { InstrumentType } from '../project/schema';
 import { normalizeCaptureSuggestionControls, type CaptureSuggestion, type CaptureSuggestionControls } from './audioRecording';
+import { readJson, writeJson } from '../utils/safeStorage';
 
 const STORAGE_KEY = 'sonicstudio:recorded-notes:v1';
 const CHANGE_EVENT = 'sonicstudio:recorded-notes:change';
@@ -130,18 +131,8 @@ export const buildRecordedNotePreset = ({
   };
 };
 
-export const loadRecordedNotePresets = (): RecordedNotePreset[] => {
-  if (typeof window === 'undefined') {
-    return [];
-  }
-
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return [];
-    }
-
-    const parsed = JSON.parse(raw) as unknown;
+export const loadRecordedNotePresets = (): RecordedNotePreset[] => (
+  readJson<RecordedNotePreset[]>(STORAGE_KEY, [], (parsed) => {
     const items = isRecord(parsed) && Array.isArray(parsed.items)
       ? parsed.items
       : Array.isArray(parsed)
@@ -151,34 +142,23 @@ export const loadRecordedNotePresets = (): RecordedNotePreset[] => {
     return sortRecordedNotes(items
       .map((item) => normalizeRecordedNotePreset(item))
       .filter((item): item is RecordedNotePreset => item !== null));
-  } catch (error) {
-    if (typeof console !== 'undefined') {
-      console.warn('SonicStudio: failed to load recorded note presets', error);
-    }
-    return [];
-  }
-};
+  })
+);
 
 export const persistRecordedNotePresets = (items: RecordedNotePreset[]): RecordedNotePreset[] => {
   const normalized = sortRecordedNotes(items
     .map((item) => normalizeRecordedNotePreset(item))
     .filter((item): item is RecordedNotePreset => item !== null));
 
-  if (typeof window === 'undefined') {
-    return normalized;
-  }
-
-  try {
-    const envelope: PersistedRecordedNotesEnvelope = {
-      items: normalized,
-      version: 1,
-    };
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(envelope));
+  const envelope: PersistedRecordedNotesEnvelope = {
+    items: normalized,
+    version: 1,
+  };
+  const result = writeJson(STORAGE_KEY, envelope);
+  if (result.ok) {
     emitChange();
-  } catch (error) {
-    if (typeof console !== 'undefined') {
-      console.warn('SonicStudio: failed to persist recorded note presets', error);
-    }
+  } else if (typeof console !== 'undefined') {
+    console.warn(`SonicStudio: failed to persist recorded note presets (${result.reason})`);
   }
 
   return normalized;

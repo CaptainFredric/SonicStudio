@@ -28,6 +28,7 @@ import {
 } from '../project/schema';
 import { clampNoteGate, NOTE_GATE_MIN, NOTE_GATE_MAX } from '../utils/noteEditing';
 import { NOTE_NAMES_SHARP, PITCH_CLASS_BY_NAME } from '../utils/pitch';
+import { readJson, writeJson } from '../utils/safeStorage';
 import type { PatternSegment } from './patternSegments';
 
 // Schema's own gate/velocity clamps aren't exported. Mirror the same
@@ -284,12 +285,8 @@ const emitChange = () => {
   window.dispatchEvent(new CustomEvent(CHANGE_EVENT));
 };
 
-export const loadCapturedNoteStrings = (): CapturedNoteString[] => {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as unknown;
+export const loadCapturedNoteStrings = (): CapturedNoteString[] => (
+  readJson<CapturedNoteString[]>(STORAGE_KEY, [], (parsed) => {
     const items = isRecord(parsed) && Array.isArray(parsed.items)
       ? parsed.items
       : Array.isArray(parsed) ? parsed : [];
@@ -299,13 +296,8 @@ export const loadCapturedNoteStrings = (): CapturedNoteString[] => {
         .map((item) => normalizeCapturedString(item))
         .filter((item): item is CapturedNoteString => item !== null),
     );
-  } catch (error) {
-    if (typeof console !== 'undefined') {
-      console.warn('SonicStudio: failed to load captured note strings', error);
-    }
-    return [];
-  }
-};
+  })
+);
 
 export const persistCapturedNoteStrings = (items: CapturedNoteString[]): CapturedNoteString[] => {
   const normalized = sortByMostRecent(
@@ -314,16 +306,12 @@ export const persistCapturedNoteStrings = (items: CapturedNoteString[]): Capture
       .filter((item): item is CapturedNoteString => item !== null),
   ).slice(0, MAX_STORED_STRINGS);
 
-  if (typeof window === 'undefined') return normalized;
-
-  try {
-    const envelope: PersistedEnvelope = { items: normalized, version: 1 };
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(envelope));
+  const envelope: PersistedEnvelope = { items: normalized, version: 1 };
+  const result = writeJson(STORAGE_KEY, envelope);
+  if (result.ok) {
     emitChange();
-  } catch (error) {
-    if (typeof console !== 'undefined') {
-      console.warn('SonicStudio: failed to persist captured note strings', error);
-    }
+  } else if (typeof console !== 'undefined') {
+    console.warn(`SonicStudio: failed to persist captured note strings (${result.reason})`);
   }
 
   return normalized;

@@ -1,5 +1,6 @@
 import { type StudioSession } from '../project/schema';
 import { hydrateSessionPayload } from '../project/storage';
+import { readJson, removeKey, writeJson } from '../utils/safeStorage';
 import { detectKey, type KeyMode } from './keyDetector';
 import { getManualKeyOverride, setManualKeyOverride, type ManualKeyOverride } from './manualKeyOverride';
 
@@ -78,30 +79,20 @@ const normalizeScoresheet = (value: unknown): Scoresheet | null => {
   };
 };
 
-export const listScoresheets = (): Scoresheet[] => {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
+export const listScoresheets = (): Scoresheet[] => (
+  readJson<Scoresheet[]>(STORAGE_KEY, [], (parsed) => {
     if (!Array.isArray(parsed)) return [];
     return parsed
       .map(normalizeScoresheet)
       .filter((value): value is Scoresheet => value !== null)
       .sort((a, b) => b.savedAt.localeCompare(a.savedAt));
-  } catch {
-    return [];
-  }
-};
+  })
+);
 
 const persistScoresheets = (sheets: Scoresheet[]): Scoresheet[] => {
-  if (typeof window === 'undefined') return sheets;
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(sheets.slice(0, MAX_SCORESHEETS)));
-  } catch (error) {
-    if (typeof console !== 'undefined') {
-      console.error('SonicStudio: failed to persist scoresheets', error);
-    }
+  const result = writeJson(STORAGE_KEY, sheets.slice(0, MAX_SCORESHEETS));
+  if (!result.ok && typeof console !== 'undefined') {
+    console.error(`SonicStudio: failed to persist scoresheets (${result.reason})`);
   }
   return sheets.slice(0, MAX_SCORESHEETS);
 };
@@ -228,10 +219,5 @@ export const summarizeScoresheet = (sheet: Scoresheet): ScoresheetGlance => {
 };
 
 export const clearAllScoresheets = (): void => {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.removeItem(STORAGE_KEY);
-  } catch {
-    /* ignore */
-  }
+  removeKey(STORAGE_KEY);
 };

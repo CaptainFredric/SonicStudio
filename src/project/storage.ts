@@ -7,6 +7,7 @@ import {
   type StudioSession,
   type StudioUIState,
 } from './schema';
+import { readJson, removeKey, writeJson } from '../utils/safeStorage';
 
 const STORAGE_KEY = 'sonicstudio:session:v1';
 const CHECKPOINT_STORAGE_KEY = 'sonicstudio:checkpoints:v1';
@@ -124,16 +125,12 @@ const readDefaultWorkspaceView = (): AppView => {
   // Every new session opens in the Sequencer — the step grid is the most
   // direct surface to start sketching on. A returning user's saved
   // defaultWorkspace preference still wins.
-  if (typeof window === 'undefined') return 'SEQUENCER';
-  try {
-    const raw = window.localStorage.getItem('sonicstudio:preferences:v1');
-    if (!raw) return 'SEQUENCER';
-    const parsed = JSON.parse(raw);
-    const workspace = parsed?.defaultWorkspace;
-    return WORKSPACE_TO_VIEW[workspace] ?? 'SEQUENCER';
-  } catch {
-    return 'SEQUENCER';
-  }
+  return readJson<AppView>('sonicstudio:preferences:v1', 'SEQUENCER', (parsed) => {
+    const workspace = isRecord(parsed) ? (parsed as { defaultWorkspace?: unknown }).defaultWorkspace : undefined;
+    return typeof workspace === 'string' && WORKSPACE_TO_VIEW[workspace]
+      ? WORKSPACE_TO_VIEW[workspace]
+      : 'SEQUENCER';
+  });
 };
 
 export const createDefaultSession = (
@@ -159,28 +156,14 @@ export const createSessionFromTemplate = (
   templateId: SessionTemplateId,
 ): StudioSession => createDefaultSession(templateId);
 
-export const loadPersistedSession = (): StudioSession | null => {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return null;
-    }
-
-    const parsed = JSON.parse(raw) as unknown;
-
+export const loadPersistedSession = (): StudioSession | null => (
+  readJson<StudioSession | null>(STORAGE_KEY, null, (parsed) => {
     if (isRecord(parsed) && 'session' in parsed) {
       return hydrateSessionPayload(parsed.session);
     }
-
     return hydrateSessionPayload(parsed);
-  } catch {
-    return null;
-  }
-};
+  })
+);
 
 export const hasPersistedSession = (): boolean => loadPersistedSession() !== null;
 
@@ -189,22 +172,20 @@ export const persistSession = (session: StudioSession): PersistedSessionEnvelope
     return null;
   }
 
-  try {
-    const envelope: PersistedSessionEnvelope = {
-      savedAt: new Date().toISOString(),
-      session,
-      version: 1,
-    };
+  const envelope: PersistedSessionEnvelope = {
+    savedAt: new Date().toISOString(),
+    session,
+    version: 1,
+  };
 
-    const serialized = JSON.stringify(envelope);
-    window.localStorage.setItem(STORAGE_KEY, serialized);
-    return envelope;
-  } catch (error) {
+  const result = writeJson(STORAGE_KEY, envelope);
+  if (!result.ok) {
     if (typeof console !== 'undefined') {
-      console.error('SonicStudio: failed to persist session', error);
+      console.error(`SonicStudio: failed to persist session (${result.reason})`);
     }
     return null;
   }
+  return envelope;
 };
 
 const normalizeCheckpoint = (value: unknown): PersistedCheckpoint | null => {
@@ -229,52 +210,30 @@ const normalizeCheckpoint = (value: unknown): PersistedCheckpoint | null => {
   };
 };
 
-export const listProjectCheckpoints = (): PersistedCheckpoint[] => {
-  if (typeof window === 'undefined') {
-    return [];
-  }
-
-  try {
-    const raw = window.localStorage.getItem(CHECKPOINT_STORAGE_KEY);
-    if (!raw) {
-      return [];
-    }
-
-    const parsed = JSON.parse(raw) as unknown;
+export const listProjectCheckpoints = (): PersistedCheckpoint[] => (
+  readJson<PersistedCheckpoint[]>(CHECKPOINT_STORAGE_KEY, [], (parsed) => {
     if (!Array.isArray(parsed)) {
       return [];
     }
-
     return parsed
       .map((entry) => normalizeCheckpoint(entry))
       .filter((entry): entry is PersistedCheckpoint => entry !== null)
       .sort((left, right) => new Date(right.savedAt).getTime() - new Date(left.savedAt).getTime())
       .slice(0, MAX_CHECKPOINTS);
-  } catch {
-    return [];
-  }
-};
+  })
+);
 
 export const saveProjectCheckpoint = (session: StudioSession, label: string): PersistedCheckpoint | null => {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-
-  try {
-    const nextEntry: PersistedCheckpoint = {
-      id: `checkpoint_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-      label: label.trim().slice(0, 40) || 'Recovery point',
-      projectName: session.project.metadata.name,
-      savedAt: new Date().toISOString(),
-      session,
-      version: 1,
-    };
-    const nextEntries = [nextEntry, ...listProjectCheckpoints()].slice(0, MAX_CHECKPOINTS);
-    window.localStorage.setItem(CHECKPOINT_STORAGE_KEY, JSON.stringify(nextEntries));
-    return nextEntry;
-  } catch {
-    return null;
-  }
+  const nextEntry: PersistedCheckpoint = {
+    id: `checkpoint_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    label: label.trim().slice(0, 40) || 'Recovery point',
+    projectName: session.project.metadata.name,
+    savedAt: new Date().toISOString(),
+    session,
+    version: 1,
+  };
+  const nextEntries = [nextEntry, ...listProjectCheckpoints()].slice(0, MAX_CHECKPOINTS);
+  return writeJson(CHECKPOINT_STORAGE_KEY, nextEntries).ok ? nextEntry : null;
 };
 
 export const restoreProjectCheckpoint = (checkpointId: string): StudioSession | null => {
@@ -288,19 +247,10 @@ export const deleteProjectCheckpoint = (checkpointId: string): PersistedCheckpoi
   }
 
   const nextEntries = listProjectCheckpoints().filter((entry) => entry.id !== checkpointId);
-  try {
-    window.localStorage.setItem(CHECKPOINT_STORAGE_KEY, JSON.stringify(nextEntries));
-  } catch {
-    return nextEntries;
-  }
-
+  writeJson(CHECKPOINT_STORAGE_KEY, nextEntries);
   return nextEntries;
 };
 
 export const clearPersistedSession = (): void => {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  window.localStorage.removeItem(STORAGE_KEY);
+  removeKey(STORAGE_KEY);
 };

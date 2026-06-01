@@ -6,6 +6,7 @@ import {
   type PatternAutomation,
   type Track,
 } from '../project/schema';
+import { readJson, writeJson } from '../utils/safeStorage';
 
 export interface PatternSegment {
   automation: PatternAutomation;
@@ -105,29 +106,16 @@ export const createPatternSegment = (
   };
 };
 
-export const loadPatternSegments = (): PatternSegment[] => {
-  if (typeof window === 'undefined') {
-    return [];
-  }
-
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      return [];
-    }
-
-    const parsed = JSON.parse(raw);
+export const loadPatternSegments = (): PatternSegment[] => (
+  readJson<PatternSegment[]>(STORAGE_KEY, [], (parsed) => {
     if (!Array.isArray(parsed)) {
       return [];
     }
-
     return parsed
       .map((segment) => normalizeSegment(segment))
       .filter((segment): segment is PatternSegment => segment !== null);
-  } catch {
-    return [];
-  }
-};
+  })
+);
 
 export const persistPatternSegments = (segments: PatternSegment[]): PatternSegment[] => {
   const normalized = segments
@@ -135,15 +123,6 @@ export const persistPatternSegments = (segments: PatternSegment[]): PatternSegme
     .filter((segment): segment is PatternSegment => segment !== null)
     .slice(0, 24);
 
-  if (typeof window === 'undefined') {
-    return normalized;
-  }
-
-  try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(normalized));
-  } catch {
-    return normalized;
-  }
-
+  writeJson(STORAGE_KEY, normalized);
   return normalized;
 };

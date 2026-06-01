@@ -1,3 +1,5 @@
+import { readJson, writeJson } from '../utils/safeStorage';
+
 export type MotionMode = 'fluid' | 'focus' | 'still';
 export type AccentColor = 'aqua' | 'violet' | 'amber' | 'rose' | 'mint';
 export type Density = 'comfortable' | 'compact';
@@ -190,35 +192,12 @@ export const normalizeStudioPreferences = (value: unknown): StudioPreferences =>
   };
 };
 
-export const loadStudioPreferences = (): StudioPreferences => {
-  if (typeof window === 'undefined') {
-    return DEFAULT_STUDIO_PREFERENCES;
-  }
-
-  try {
-    const raw = window.localStorage.getItem(STUDIO_PREFERENCES_KEY);
-    if (!raw) {
-      return DEFAULT_STUDIO_PREFERENCES;
-    }
-
-    return normalizeStudioPreferences(JSON.parse(raw));
-  } catch {
-    return DEFAULT_STUDIO_PREFERENCES;
-  }
-};
+export const loadStudioPreferences = (): StudioPreferences => (
+  readJson<StudioPreferences>(STUDIO_PREFERENCES_KEY, DEFAULT_STUDIO_PREFERENCES, normalizeStudioPreferences)
+);
 
 export const persistStudioPreferences = (preferences: StudioPreferences): StudioPreferences => {
   const normalized = normalizeStudioPreferences(preferences);
-
-  if (typeof window === 'undefined') {
-    return normalized;
-  }
-
-  try {
-    window.localStorage.setItem(STUDIO_PREFERENCES_KEY, JSON.stringify(normalized));
-  } catch {
-    return normalized;
-  }
-
+  writeJson(STUDIO_PREFERENCES_KEY, normalized);
   return normalized;
 };
