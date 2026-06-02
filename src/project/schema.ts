@@ -1,5 +1,9 @@
 import { NOTE_GATE_MAX, NOTE_GATE_MIN, clampNoteGate } from '../utils/noteEditing';
 import { runSchemaMigrations } from './migrations';
+// Used at call time inside the scene builders below. schema and sceneBuilder
+// reference each other only from inside functions, so the cycle is inert at
+// module load.
+import { arrangeSections } from './sceneBuilder';
 
 export type AppView = 'SEQUENCER' | 'PIANO_ROLL' | 'MIXER' | 'ARRANGER' | 'COMPOSE';
 
@@ -566,8 +570,8 @@ export const TRACK_VOICE_PRESET_DEFINITIONS: TrackVoicePresetDefinition[] = [
     focus: 'Driving lead',
     id: 'neon-drive',
     label: 'Neon Drive',
-    params: { attack: 0.008, cutoff: 4200, decay: 0.3, delaySend: 0.2, distortion: 0.08, release: 0.5, resonance: 1.45, reverbSend: 0.16, sustain: 0.5 },
-    source: { detune: 14, engine: 'synth', octaveShift: 0, portamento: 0, waveform: 'sawtooth' },
+    params: { attack: 0.008, cutoff: 4200, decay: 0.3, delaySend: 0.2, distortion: 0.08, release: 0.5, resonance: 1.45, reverbSend: 0.16, sustain: 0.5, unison: 0.55 },
+    source: { detune: 14, engine: 'synth', octaveShift: 0, portamento: 0, waveform: 'fatsawtooth' },
     trackTypes: ['lead', 'pluck', 'pad'],
   },
   {
@@ -705,7 +709,7 @@ export const getTrackVoicePresetDefinitions = (trackType: InstrumentType) => (
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 const clampSampleEdge = (value: number, min: number, max: number) => clamp(value, min, max);
 
-const createId = (prefix: string) => {
+export const createId = (prefix: string) => {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return `${prefix}_${crypto.randomUUID()}`;
   }
@@ -2198,7 +2202,7 @@ export const createPulseRiderProject = (projectName: string = 'Pulse Rider'): Pr
   const { buildProject, tracks, transport } = createProjectFrame(projectName, {
     bpm: 125,
     mode: 'SONG',
-    patternCount: 6,
+    patternCount: 7,
     trackOrder: PULSE_TRACK_ORDER,
   });
   const [kickTrack, snareTrack, hihatTrack, bassTrack, leadTrack, padTrack, fxTrack] = tracks;
@@ -2315,43 +2319,45 @@ export const createPulseRiderProject = (projectName: string = 'Pulse Rider'): Pr
   layKick(5); layClap(5); layBusyHats(5, 0); layMainBass(5); layLead(5, hookVar); layPad(5, 0.32);
   putStep(fxTrack, 5, 12, 'C#5', { gate: 2, velocity: 0.5 });
 
+  // Pattern 6 - final climax (biggest): rolling bass, the supersaw lead up top
+  // with extra accents, fullest hats and FX. The back-third payoff.
+  layKick(6, 0.03); layClap(6, true); layBusyHats(6, 0.1); layRollBass(6);
+  layLead(6, [...hookHigh, { note: 'E6', step: 1, velocity: 0.6 }, { note: 'G#5', step: 9, velocity: 0.62 }], 0.8);
+  layPad(6, 0.4);
+  putStep(fxTrack, 6, 0, 'E5', { gate: 2, velocity: 0.66 });
+  putStep(fxTrack, 6, 4, 'B4', { gate: 2, velocity: 0.5 });
+  putStep(fxTrack, 6, 8, 'E5', { gate: 2, velocity: 0.58 });
+  putStep(fxTrack, 6, 12, 'G#5', { gate: 2, velocity: 0.56 });
+
   padTrack.params.reverbSend = 0.5;
   padTrack.params.chorusSend = 0.22;
   fxTrack.source.engine = 'sample';
   fxTrack.source.samplePlayback = 'oneshot';
 
-  // Full-length arrangement following the reference arc. Each clip loops its
-  // 16-step pattern across its length, so a section is one clip per lane.
+  // Full-length arrangement (~92 bars, ~2:57) following the reference's
+  // dark-to-bright arc and its late, biggest peak. Declared once as ordered
+  // sections; arrangeSections derives the clips and timeline markers from this
+  // single list, so the two can never drift apart. Each clip loops its 16-step
+  // pattern across the section length.
   const full = [kickTrack, snareTrack, hihatTrack, bassTrack, leadTrack, padTrack, fxTrack];
-  const clips: ArrangementClip[] = [];
-  const section = (startBar: number, bars: number, pattern: number, lanes: Track[]) => {
-    lanes.forEach((track) => clips.push(createArrangerClip(track.id, transport, {
-      beatLength: bars * 16,
-      patternIndex: pattern,
-      startBeat: startBar * 16,
-    })));
-  };
-  section(0, 8, 2, [padTrack, bassTrack, hihatTrack]);                       // Intro
-  section(8, 8, 2, [padTrack, bassTrack, hihatTrack, leadTrack, fxTrack]);   // Build
-  section(16, 8, 0, full);                                                   // Drop
-  section(24, 8, 5, full);                                                   // Drop B (variation)
-  section(32, 8, 3, [padTrack, leadTrack, hihatTrack, fxTrack]);             // Breakdown
-  section(40, 4, 2, [padTrack, bassTrack, hihatTrack, leadTrack, fxTrack]);  // Rebuild
-  section(44, 8, 1, full);                                                   // Peak
-  section(52, 8, 4, full);                                                   // Peak B (max)
-  section(60, 8, 2, [padTrack, bassTrack]);                                  // Outro
-
-  return buildProject(clips, [
-    { beat: 0, id: createId('marker'), name: 'Intro' },
-    { beat: 128, id: createId('marker'), name: 'Build' },
-    { beat: 256, id: createId('marker'), name: 'Drop' },
-    { beat: 384, id: createId('marker'), name: 'Drop B' },
-    { beat: 512, id: createId('marker'), name: 'Breakdown' },
-    { beat: 640, id: createId('marker'), name: 'Rebuild' },
-    { beat: 704, id: createId('marker'), name: 'Peak' },
-    { beat: 832, id: createId('marker'), name: 'Peak B' },
-    { beat: 960, id: createId('marker'), name: 'Outro' },
+  const ambient = [padTrack, leadTrack, hihatTrack, fxTrack];
+  const lift = [padTrack, bassTrack, hihatTrack, leadTrack, fxTrack];
+  const { clips, markers } = arrangeSections(transport, [
+    { name: 'Intro', bars: 8, pattern: 2, lanes: [padTrack, bassTrack, hihatTrack] },
+    { name: 'Build', bars: 8, pattern: 2, lanes: lift },
+    { name: 'Drop', bars: 8, pattern: 0, lanes: full },
+    { name: 'Drop B', bars: 8, pattern: 5, lanes: full },
+    { name: 'Breakdown', bars: 8, pattern: 3, lanes: ambient },
+    { name: 'Rebuild', bars: 4, pattern: 2, lanes: lift },
+    { name: 'Peak', bars: 8, pattern: 1, lanes: full },
+    { name: 'Peak B', bars: 8, pattern: 4, lanes: full },
+    { name: 'Bridge', bars: 8, pattern: 3, lanes: [...ambient, bassTrack] },
+    { name: 'Re-lift', bars: 4, pattern: 2, lanes: lift },
+    { name: 'Climax', bars: 12, pattern: 6, lanes: full },
+    { name: 'Outro', bars: 8, pattern: 2, lanes: [padTrack, bassTrack] },
   ]);
+
+  return buildProject(clips, markers);
 };
 
 export const createStarlightParadeProject = (projectName: string = 'Starlight Parade'): Project => {
