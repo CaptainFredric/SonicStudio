@@ -7,9 +7,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port=3000 --host=0.0.0.0",
-    "build": "vite build",
-    "build:local": "vite build --base ./",
-    "build:pages": "vite build --base /SonicStudio/",
+    "build": "tsc --noEmit && vite build",
+    "build:local": "tsc --noEmit && vite build --base ./",
+    "build:pages": "tsc --noEmit && vite build --base /SonicStudio/",
     "serve:dist": "vite preview --port 5500 --strictPort",
     "preview": "vite preview",
     "clean": "rm -rf dist",
