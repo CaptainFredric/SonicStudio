@@ -2194,6 +2194,15 @@ export const createPulseRiderProject = (projectName: string = 'Pulse Rider'): Pr
     { step: 8, notes: ['C#3', 'E3', 'G#3'] },  // C#m (vi)
     { step: 12, notes: ['G#2', 'B2', 'D#3'] }, // G#m (iii)
   ];
+  // The intro and build lean into the relative minor (C#m), then lift up to E so
+  // the drop lands bright. This mirrors the reference's dark-to-bright arc: its
+  // intro sits on D#/F#/C#/G# and only resolves to E major when the beat drops.
+  const introChords = [
+    { step: 0, notes: ['C#3', 'E3', 'G#3'] },  // C#m (vi)
+    { step: 4, notes: ['G#2', 'B2', 'D#3'] },  // G#m (iii)
+    { step: 8, notes: ['B2', 'D#3', 'F#3'] },  // B  (V)
+    { step: 12, notes: ['E3', 'G#3', 'B3'] },  // E  (I) - lifts toward the drop
+  ];
   const bassMain = [
     { root: 'E2', steps: [0, 2], pass: { note: 'B1', step: 3 } },
     { root: 'B1', steps: [4, 6], pass: { note: 'F#2', step: 7 } },
@@ -2203,7 +2212,7 @@ export const createPulseRiderProject = (projectName: string = 'Pulse Rider'): Pr
   type LeadNote = { note: string; step: number; gate?: number; velocity?: number };
 
   // Per-part layer helpers, so the six patterns stay short and consistent.
-  const layPad = (p: number, velocity: number) => padChords.forEach(({ step, notes }) => {
+  const layPad = (p: number, velocity: number, chords = padChords) => chords.forEach(({ step, notes }) => {
     stackStep(padTrack, p, step, notes.map((note) => ({ note, options: { gate: 4, velocity } })));
   });
   const layBusyHats = (p: number, lift: number) => {
@@ -2252,10 +2261,10 @@ export const createPulseRiderProject = (projectName: string = 'Pulse Rider'): Pr
   putStep(fxTrack, 1, 0, 'E5', { gate: 2, velocity: 0.6 });
   putStep(fxTrack, 1, 12, 'B4', { gate: 2, velocity: 0.56 });
 
-  // Pattern 2 - clean build/intro (no kick): pad, pulsing sub, light hats, pickup, riser.
-  layPad(2, 0.5);
+  // Pattern 2 - clean build/intro (no kick): darker C#m-leaning pad, pulsing sub, light hats, pickup, riser.
+  layPad(2, 0.5, introChords);
   for (const [i, step] of [2, 6, 10, 14].entries()) putStep(hihatTrack, 2, step, 'E1', { gate: 0.3, velocity: 0.46 + i * 0.04 });
-  [{ note: 'E2', step: 0 }, { note: 'B1', step: 4 }, { note: 'C#2', step: 8 }, { note: 'G#1', step: 12 }, { note: 'G#1', step: 14 }].forEach(({ note, step }) => {
+  [{ note: 'C#2', step: 0 }, { note: 'G#1', step: 4 }, { note: 'B1', step: 8 }, { note: 'E2', step: 12 }, { note: 'E2', step: 14 }].forEach(({ note, step }) => {
     putStep(bassTrack, 2, step, note, { gate: 0.7, velocity: 0.66 });
   });
   layLead(2, [{ note: 'B4', step: 12, gate: 0.5, velocity: 0.6 }, { note: 'C#5', step: 14, gate: 0.5, velocity: 0.68 }]);
