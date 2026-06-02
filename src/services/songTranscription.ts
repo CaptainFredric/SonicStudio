@@ -97,11 +97,16 @@ export interface TranscriptionOptions {
 // Translate a 0..1 sensitivity into detector parameters. Higher
 // sensitivity loosens the YIN threshold (accepts less-periodic frames)
 // and lowers the silence floor (picks up quieter takes).
-const sensitivityToPitchOptions = (sensitivity: number): { threshold: number; silenceRms: number } => {
+const sensitivityToPitchOptions = (
+  sensitivity: number,
+): { threshold: number; silenceRms: number; clarityFloor: number } => {
   const s = clamp(sensitivity, 0, 1);
   return {
     threshold: 0.10 + s * 0.14, // 0.10 (strict) .. 0.24 (permissive)
     silenceRms: 0.02 - s * 0.015, // 0.02 (ignores quiet) .. 0.005 (hears quiet)
+    // Reject fuzzy, barely-periodic frames so noise and reverb tails do not
+    // spawn phantom notes. Higher sensitivity keeps more of the marginal ones.
+    clarityFloor: 0.35 - s * 0.2, // 0.35 (strict) .. 0.15 (permissive)
   };
 };
 
@@ -166,7 +171,7 @@ export const downsample = (
 
 // --- Pitch detection ------------------------------------------------------
 
-interface FrameAnalysis {
+export interface FrameAnalysis {
   /** Detected fundamental in MIDI (float), or null when unvoiced. */
   midi: number | null;
   /** Root-mean-square loudness of the frame. */
@@ -195,7 +200,7 @@ export const detectPitchHz = (frame: Float32Array, sampleRate: number): number =
 const analyzeFrames = (
   samples: Float32Array,
   sampleRate: number,
-  pitchOptions: { threshold: number; silenceRms: number },
+  pitchOptions: { threshold: number; silenceRms: number; clarityFloor: number },
 ): FrameAnalysis[] => {
   const frames: FrameAnalysis[] = [];
   for (let start = 0; start + WINDOW <= samples.length; start += HOP) {
@@ -212,8 +217,10 @@ const analyzeFrames = (
       threshold: pitchOptions.threshold,
       silenceRms: pitchOptions.silenceRms,
     });
+    // Treat barely-periodic frames as unvoiced so noise does not become notes.
+    const voiced = reading !== null && reading.clarity >= pitchOptions.clarityFloor;
     frames.push({
-      midi: reading ? frequencyToMidi(reading.hz) : null,
+      midi: voiced && reading ? frequencyToMidi(reading.hz) : null,
       rms,
     });
   }
@@ -233,6 +240,59 @@ const smoothPitchTrack = (frames: FrameAnalysis[]): FrameAnalysis[] => {
       }
     }
     return { midi: median(window), rms: frame.rms };
+  });
+};
+
+/**
+ * Fold isolated octave errors back toward the surrounding pitch. Even with
+ * YIN, a tracker occasionally reports a frame one octave off (the difference
+ * function dips almost as hard at twice the true period). Those slips show up
+ * as a jump of close to a whole number of octaves away from the local pitch,
+ * so we fold them back. But if the shift *persists* for several frames we treat
+ * it as a real octave move and let the running reference follow it, so genuine
+ * octave leaps in a melody survive.
+ */
+export const correctOctaveJumps = (frames: FrameAnalysis[]): FrameAnalysis[] => {
+  const REF_WINDOW = 7;
+  const SUSTAIN_FRAMES = 4;
+  const recent: number[] = []; // recent corrected midis, for a robust reference
+  let lastShift = 0;
+  let sustainCount = 0;
+
+  return frames.map((frame) => {
+    if (frame.midi === null) {
+      return frame;
+    }
+    if (recent.length === 0) {
+      recent.push(frame.midi);
+      return frame;
+    }
+
+    const ref = median(recent);
+    const dev = frame.midi - ref;
+    const octaves = Math.round(dev / 12);
+    const residual = Math.abs(dev - octaves * 12);
+    // Only near-exact octave offsets look like slips; a fifth or sixth is a
+    // real interval and must be left alone (residual stays large for those).
+    const shift = octaves !== 0 && residual < 2 ? -octaves * 12 : 0;
+
+    if (shift !== 0 && shift === lastShift) {
+      sustainCount += 1;
+    } else if (shift !== 0) {
+      sustainCount = 1;
+    } else {
+      sustainCount = 0;
+    }
+    lastShift = shift;
+
+    // Fold the slip back, unless it has held long enough to be a real move.
+    const corrected = shift !== 0 && sustainCount < SUSTAIN_FRAMES ? frame.midi + shift : frame.midi;
+
+    recent.push(corrected);
+    if (recent.length > REF_WINDOW) {
+      recent.shift();
+    }
+    return { midi: corrected, rms: frame.rms };
   });
 };
 
@@ -303,15 +363,32 @@ interface RawNote {
   velocity: number;
 }
 
-/** Group a smoothed pitch track into discrete notes. */
-const segmentNotes = (frames: FrameAnalysis[], hopSeconds: number): RawNote[] => {
-  const notes: RawNote[] = [];
-  let current: { startFrame: number; midis: number[]; rmsValues: number[] } | null = null;
+interface OpenNote {
+  startFrame: number;
+  lastVoicedFrame: number;
+  midis: number[];
+  rmsValues: number[];
+  gap: number;
+}
 
-  const commit = (endFrame: number) => {
+/**
+ * Group a smoothed pitch track into discrete notes. A note is held through
+ * very short unvoiced dropouts (a breath, a consonant, a vibrato dip) so a
+ * single sustained tone does not shatter into a stutter of fragments; only a
+ * gap longer than that, or a real pitch change, ends the note.
+ */
+export const segmentNotes = (frames: FrameAnalysis[], hopSeconds: number): RawNote[] => {
+  const notes: RawNote[] = [];
+  // Bridge unvoiced gaps up to ~90 ms; anything longer is treated as a rest.
+  const maxGapFrames = Math.max(1, Math.round(0.09 / hopSeconds));
+  let current: OpenNote | null = null;
+
+  const commit = () => {
     if (!current) return;
     const noteMidi = Math.round(median(current.midis));
     const startSeconds = current.startFrame * hopSeconds;
+    // End at the last voiced frame so a bridged trailing gap is not counted.
+    const endFrame = current.lastVoicedFrame + 1;
     const durationSeconds = Math.max(hopSeconds, (endFrame - current.startFrame) * hopSeconds);
     const avgRms = current.rmsValues.reduce((sum, value) => sum + value, 0) / current.rmsValues.length;
     // Map loudness onto a musical velocity range.
@@ -322,25 +399,32 @@ const segmentNotes = (frames: FrameAnalysis[], hopSeconds: number): RawNote[] =>
 
   frames.forEach((frame, index) => {
     if (frame.midi === null) {
-      commit(index);
+      if (current) {
+        current.gap += 1;
+        if (current.gap > maxGapFrames) {
+          commit();
+        }
+      }
       return;
     }
     if (!current) {
-      current = { startFrame: index, midis: [frame.midi], rmsValues: [frame.rms] };
+      current = { startFrame: index, lastVoicedFrame: index, midis: [frame.midi], rmsValues: [frame.rms], gap: 0 };
       return;
     }
     // A shift of more than ~0.7 semitones from the running pitch starts a
     // fresh note rather than bending the existing one.
     const runningMidi = median(current.midis);
     if (Math.abs(frame.midi - runningMidi) > 0.7) {
-      commit(index);
-      current = { startFrame: index, midis: [frame.midi], rmsValues: [frame.rms] };
+      commit();
+      current = { startFrame: index, lastVoicedFrame: index, midis: [frame.midi], rmsValues: [frame.rms], gap: 0 };
       return;
     }
     current.midis.push(frame.midi);
     current.rmsValues.push(frame.rms);
+    current.lastVoicedFrame = index;
+    current.gap = 0;
   });
-  commit(frames.length);
+  commit();
 
   return notes;
 };
@@ -364,7 +448,8 @@ export const transcribeSamples = (
   const durationSeconds = limited.length / sampleRate;
 
   const rawFrames = analyzeFrames(mono, workingRate, sensitivityToPitchOptions(options.sensitivity ?? 0.5));
-  const frames = smoothPitchTrack(rawFrames);
+  // Fold octave slips back before smoothing, then median-smooth single-frame jitter.
+  const frames = smoothPitchTrack(correctOctaveJumps(rawFrames));
 
   // Confidence + polyphony heuristic. A clean monophonic take holds a steady
   // pitch; a dense mix makes the tracker jump around.

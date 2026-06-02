@@ -2,10 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import {
   buildSessionFromTranscription,
+  correctOctaveJumps,
   detectPitchHz,
   frequencyToMidi,
   midiToNoteName,
+  segmentNotes,
   transcribeSamples,
+  type FrameAnalysis,
   type TranscriptionResult,
 } from './songTranscription';
 
@@ -115,5 +118,66 @@ describe('buildSessionFromTranscription', () => {
       '   ',
     );
     expect(session.project.metadata.name).toBe('Transcribed take');
+  });
+});
+
+const frame = (midi: number | null, rms = 0.5): FrameAnalysis => ({ midi, rms });
+
+describe('correctOctaveJumps', () => {
+  it('folds an isolated octave slip back to the surrounding pitch', () => {
+    const frames = [
+      ...Array(5).fill(0).map(() => frame(60)),
+      frame(72), // a single frame jumps an octave (classic tracker slip)
+      ...Array(5).fill(0).map(() => frame(60)),
+    ];
+    const corrected = correctOctaveJumps(frames);
+    corrected.forEach((f) => {
+      expect(f.midi).not.toBeNull();
+      expect(Math.abs((f.midi as number) - 60)).toBeLessThan(0.5);
+    });
+  });
+
+  it('leaves a real interval (a fifth) untouched', () => {
+    const frames = [
+      ...Array(5).fill(0).map(() => frame(60)),
+      ...Array(5).fill(0).map(() => frame(67)), // perfect fifth, not an octave
+    ];
+    const corrected = correctOctaveJumps(frames);
+    expect(corrected.slice(5).every((f) => Math.abs((f.midi as number) - 67) < 0.5)).toBe(true);
+  });
+
+  it('accepts a sustained octave move instead of fighting it', () => {
+    const frames = [
+      ...Array(5).fill(0).map(() => frame(60)),
+      ...Array(6).fill(0).map(() => frame(72)), // a held octave leap is real
+    ];
+    const corrected = correctOctaveJumps(frames);
+    // The last frame should track the real octave-up move, not be folded down.
+    expect(corrected[corrected.length - 1].midi).toBeCloseTo(72, 0);
+  });
+});
+
+describe('segmentNotes gap bridging', () => {
+  const hopSeconds = 0.04; // matches the analysis hop (480 / 12000)
+
+  it('holds one note through a brief unvoiced dropout', () => {
+    const frames = [
+      ...Array(6).fill(0).map(() => frame(60)),
+      frame(null), // ~40 ms gap, under the bridge threshold
+      ...Array(6).fill(0).map(() => frame(60)),
+    ];
+    const notes = segmentNotes(frames, hopSeconds);
+    expect(notes).toHaveLength(1);
+    expect(notes[0].midi).toBe(60);
+  });
+
+  it('splits into two notes when the gap is long enough to be a rest', () => {
+    const frames = [
+      ...Array(6).fill(0).map(() => frame(60)),
+      ...Array(5).fill(0).map(() => frame(null)), // ~200 ms rest
+      ...Array(6).fill(0).map(() => frame(60)),
+    ];
+    const notes = segmentNotes(frames, hopSeconds);
+    expect(notes).toHaveLength(2);
   });
 });
