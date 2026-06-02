@@ -1,7 +1,10 @@
 {
+  "id": "/SonicStudio/",
   "name": "SonicStudio",
   "short_name": "SonicStudio",
   "description": "A browser-native music studio for sketching beats, melodies, and arrangements.",
+  "lang": "en",
+  "dir": "ltr",
   "start_url": "/SonicStudio/",
   "scope": "/SonicStudio/",
   "display": "standalone",

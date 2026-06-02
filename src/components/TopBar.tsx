@@ -452,8 +452,8 @@ export const TopBar = ({
                 title={mobileHeaderExpanded ? 'Collapse studio details' : 'Project, tempo, and session tools'}
                 type="button"
               >
-                <span className="hidden text-[10px] font-semibold uppercase tracking-[0.14em] sm:inline">
-                  {mobileHeaderExpanded ? 'Less' : 'Details'}
+                <span className="text-[10px] font-semibold uppercase tracking-[0.14em]">
+                  {mobileHeaderExpanded ? 'Less' : 'Setup'}
                 </span>
                 {mobileHeaderExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               </button>
