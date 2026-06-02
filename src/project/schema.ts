@@ -2184,18 +2184,21 @@ export const createPulseRiderProject = (projectName: string = 'Pulse Rider'): Pr
   applyVoicePresetById(leadTrack, 'neon-drive');
   applyVoicePresetById(bassTrack, 'pulse-sub');
 
-  // Sustained pad chords (E - C#m - A - B), reused across patterns.
+  // Sustained pad chords (E - B - C#m - G#m), reused across patterns. This I-V-vi-iii
+  // progression matches the reference's harmony: E is home, and the B and G#m chords
+  // carry the prominent D#/F# the reference leans on. (Its earlier A chord was the one
+  // chord the reference barely touches, so it is gone.)
   const padChords = [
-    { step: 0, notes: ['E3', 'G#3', 'B3'] },
-    { step: 4, notes: ['C#3', 'E3', 'G#3'] },
-    { step: 8, notes: ['A2', 'C#3', 'E3'] },
-    { step: 12, notes: ['B2', 'D#3', 'F#3'] },
+    { step: 0, notes: ['E3', 'G#3', 'B3'] },   // E  (I)
+    { step: 4, notes: ['B2', 'D#3', 'F#3'] },  // B  (V)
+    { step: 8, notes: ['C#3', 'E3', 'G#3'] },  // C#m (vi)
+    { step: 12, notes: ['G#2', 'B2', 'D#3'] }, // G#m (iii)
   ];
   const bassMain = [
     { root: 'E2', steps: [0, 2], pass: { note: 'B1', step: 3 } },
-    { root: 'C#2', steps: [4, 6], pass: { note: 'G#1', step: 7 } },
-    { root: 'A1', steps: [8, 10], pass: { note: 'E2', step: 11 } },
-    { root: 'B1', steps: [12, 14], pass: { note: 'F#2', step: 15 } },
+    { root: 'B1', steps: [4, 6], pass: { note: 'F#2', step: 7 } },
+    { root: 'C#2', steps: [8, 10], pass: { note: 'G#1', step: 11 } },
+    { root: 'G#1', steps: [12, 14], pass: { note: 'D#2', step: 15 } },
   ];
   type LeadNote = { note: string; step: number; gate?: number; velocity?: number };
 
@@ -2220,7 +2223,7 @@ export const createPulseRiderProject = (projectName: string = 'Pulse Rider'): Pr
     steps.forEach((step) => putStep(bassTrack, p, step, root, { gate: 0.45, velocity: 0.82 }));
     putStep(bassTrack, p, pass.step, pass.note, { gate: 0.4, velocity: 0.64 });
   });
-  const layRollBass = (p: number) => [{ note: 'E2', at: 0 }, { note: 'C#2', at: 4 }, { note: 'A1', at: 8 }, { note: 'B1', at: 12 }].forEach(({ note, at }) => {
+  const layRollBass = (p: number) => [{ note: 'E2', at: 0 }, { note: 'B1', at: 4 }, { note: 'C#2', at: 8 }, { note: 'G#1', at: 12 }].forEach(({ note, at }) => {
     [at, at + 1, at + 2, at + 3].forEach((step) => putStep(bassTrack, p, step, note, { gate: 0.3, velocity: 0.82 }));
   });
   const layLead = (p: number, notes: LeadNote[], velocity = 0.74) => notes.forEach((entry) => {
@@ -2252,7 +2255,7 @@ export const createPulseRiderProject = (projectName: string = 'Pulse Rider'): Pr
   // Pattern 2 - clean build/intro (no kick): pad, pulsing sub, light hats, pickup, riser.
   layPad(2, 0.5);
   for (const [i, step] of [2, 6, 10, 14].entries()) putStep(hihatTrack, 2, step, 'E1', { gate: 0.3, velocity: 0.46 + i * 0.04 });
-  [{ note: 'E2', step: 0 }, { note: 'C#2', step: 4 }, { note: 'A1', step: 8 }, { note: 'B1', step: 12 }, { note: 'B1', step: 14 }].forEach(({ note, step }) => {
+  [{ note: 'E2', step: 0 }, { note: 'B1', step: 4 }, { note: 'C#2', step: 8 }, { note: 'G#1', step: 12 }, { note: 'G#1', step: 14 }].forEach(({ note, step }) => {
     putStep(bassTrack, 2, step, note, { gate: 0.7, velocity: 0.66 });
   });
   layLead(2, [{ note: 'B4', step: 12, gate: 0.5, velocity: 0.6 }, { note: 'C#5', step: 14, gate: 0.5, velocity: 0.68 }]);
