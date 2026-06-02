@@ -637,6 +637,18 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
     engine.previewTrack(previewTrack, previewNote);
   }, [initAudio, selectedDetectedNote]);
 
+  // Play a specific detected note through the best-match voice, so tapping a
+  // closest-note candidate actually sounds it out instead of only selecting it.
+  const playDetectedNote = useCallback(async (note: string) => {
+    await initAudio();
+    const suggestion = suggestions[0];
+    const previewTrack = suggestion
+      ? buildCapturePreviewTrack(suggestion)
+      : selectedTrack ?? tracks[0];
+    if (!previewTrack) return;
+    engine.previewTrack(previewTrack, note);
+  }, [initAudio, selectedTrack, suggestions, tracks]);
+
   useEffect(() => {
     if (!capturePreferences.autoPreviewMatch || state !== 'ready' || suggestions.length === 0) {
       autoPreviewKeyRef.current = null;
@@ -825,17 +837,6 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
                 ? 'Record a short idea, review note guesses, and apply the closest lane. Captures stay on this device.'
                 : 'Hum, whistle, sing a phrase, tap, or record a short idea. SonicStudio listens for the main pitch, gives you nearby note guesses, suggests the closest lanes your current capture settings allow, and can keep the raw take locally as a WAV vocal sketch. Everything stays on your device.'}
             </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <span className="rounded-[2px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-secondary)]">
-                Profile {capturePreferences.analysisProfile}
-              </span>
-              <span className="rounded-[2px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-secondary)]">
-                Live matches {capturePreferences.liveSuggestionCount}
-              </span>
-              <span className="rounded-[2px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-secondary)]">
-                Auto preview {capturePreferences.autoPreviewMatch ? 'on' : 'off'}
-              </span>
-            </div>
           </div>
           <button
             aria-label="Close audio capture"
@@ -847,37 +848,7 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
           </button>
         </div>
 
-        <div className="mt-4 hidden gap-3 xl:grid-cols-[minmax(0,1.1fr)_320px] md:grid">
-          <section className="surface-panel-strong p-4">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <div className="section-label">Capture flow</div>
-                <p className="mt-2 text-[12px] leading-5 text-[var(--text-secondary)]">
-                  {captureProfileDescription}
-                </p>
-              </div>
-              <span className="rounded-[2px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-secondary)]">
-                {shelfStateLabel}
-              </span>
-            </div>
-
-            <div className="mt-4 grid gap-3 md:grid-cols-3">
-              {captureWorkflowSteps.map((step) => (
-                <div
-                  className={`rounded-[3px] border px-3 py-3 ${step.state === 'done'
-                    ? 'border-[rgba(114,217,255,0.24)] bg-[rgba(114,217,255,0.06)]'
-                    : step.state === 'current'
-                      ? 'border-[rgba(245,158,11,0.24)] bg-[rgba(245,158,11,0.08)]'
-                      : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]'}`}
-                  key={step.title}
-                >
-                  <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{step.title}</div>
-                  <div className="mt-2 text-[12px] font-medium text-[var(--text-primary)]">{step.body}</div>
-                </div>
-              ))}
-            </div>
-          </section>
-
+        <div className="mt-4 hidden gap-3 md:grid">
           <section className="surface-panel-strong p-4">
             <div className="section-label">Capture storage</div>
             <p className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
@@ -1233,10 +1204,6 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
                       <Detail label="Brightness" value={`${Math.round(result.brightness * 100)}%`} />
                       <Detail label="Attack" value={describeAttack(result.transientDensity)} />
                     </div>
-                    <div className="mt-3 rounded-[2px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3 text-[11px] leading-5 text-[var(--text-secondary)]">
-                      <div className="section-label">Timing fit</div>
-                      <div className="mt-2">{describeTimingFit(result.durationSeconds, result.transientDensity)}</div>
-                    </div>
                     {resultCaptureHint && (
                       <div className="mt-3 rounded-[2px] border border-[rgba(245,158,11,0.28)] bg-[rgba(245,158,11,0.08)] px-3 py-3 text-[11px] leading-5 text-[var(--text-secondary)]">
                         <div className="section-label text-[var(--warning)]">Capture hint</div>
@@ -1324,21 +1291,25 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
                       <div className="mt-3 grid gap-2">
                         {result.noteCandidates.map((candidate, index) => (
                           <button
-                            className="flex items-center justify-between border px-3 py-2 text-left transition-colors"
+                            className="flex items-center justify-between gap-3 border px-3 py-2 text-left transition-colors"
                             data-active={activeNoteCandidate?.note === candidate.note}
                             key={`${candidate.note}-${candidate.midi}`}
-                            onClick={() => setActiveNoteIndex(index)}
+                            onClick={() => { setActiveNoteIndex(index); void playDetectedNote(candidate.note); }}
                             style={{
                               background: activeNoteIndex === index ? 'rgba(114, 217, 255, 0.08)' : 'rgba(255,255,255,0.02)',
                               borderColor: activeNoteIndex === index ? 'rgba(114, 217, 255, 0.28)' : 'var(--border-soft)',
                               borderRadius: '2px',
                             }}
+                            title={`Play ${candidate.note}`}
                             type="button"
                           >
-                            <div>
-                              <div className="font-mono text-[12px] text-[var(--text-primary)]">{candidate.note}</div>
-                              <div className="mt-1 text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
-                                {candidate.centsOff > 0 ? '+' : ''}{candidate.centsOff.toFixed(1)} ct · {candidate.pitchHz.toFixed(1)} Hz
+                            <div className="flex items-center gap-2.5">
+                              <Play className="h-3.5 w-3.5 shrink-0 text-[var(--accent)]" />
+                              <div>
+                                <div className="font-mono text-[12px] text-[var(--text-primary)]">{candidate.note}</div>
+                                <div className="mt-1 text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+                                  {candidate.centsOff > 0 ? '+' : ''}{candidate.centsOff.toFixed(1)} ct · {candidate.pitchHz.toFixed(1)} Hz
+                                </div>
                               </div>
                             </div>
                             <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--accent)]">
@@ -1387,11 +1358,6 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
                   <p className="mt-2 text-[12px] leading-5 text-[var(--text-secondary)]">
                     Best guess first, then any nearby alternatives your live-match limit allows. You can tweak each one before creating a lane or applying it to an existing one.
                   </p>
-
-                  <div className="mt-3 rounded-[2px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3 text-[11px] leading-5 text-[var(--text-secondary)]">
-                    <div className="section-label">Why the top match won</div>
-                    <div className="mt-2">{result.reason}</div>
-                  </div>
 
                   {saveableDetectedNote && (
                     <div className="mt-3 rounded-[2px] border border-[rgba(114,217,255,0.2)] bg-[rgba(114,217,255,0.05)] px-3 py-3">
