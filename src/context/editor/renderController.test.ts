@@ -7,11 +7,11 @@ const renderControllerMocks = vi.hoisted(() => ({
   exportOfflineMix: vi.fn(),
   exportOfflineStems: vi.fn(),
   exportToMIDI: vi.fn(),
-  renderProjectOffline: vi.fn(),
+  renderProjectOfflineChunked: vi.fn(),
 }));
 
 vi.mock('../../audio/offlineRender', () => ({
-  renderProjectOffline: renderControllerMocks.renderProjectOffline,
+  renderProjectOfflineChunked: renderControllerMocks.renderProjectOfflineChunked,
 }));
 
 vi.mock('../../utils/export', () => ({
@@ -73,7 +73,7 @@ describe('renderController', () => {
     expect(call.renderPayload.project.arrangerClips.every((clip: { startBeat: number; beatLength: number }) => (
       clip.startBeat >= 0 && clip.startBeat + clip.beatLength <= 12
     ))).toBe(true);
-    expect(call.renderOffline).toBe(renderControllerMocks.renderProjectOffline);
+    expect(call.renderOffline).toBe(renderControllerMocks.renderProjectOfflineChunked);
     expect(call.setRenderState).toBe(setRenderState);
     expect(dispatchAppendBounceHistory).not.toHaveBeenCalled();
   });

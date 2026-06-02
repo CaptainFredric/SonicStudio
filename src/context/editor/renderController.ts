@@ -1,6 +1,6 @@
 import type { Dispatch, SetStateAction } from 'react';
 
-import { renderProjectOffline } from '../../audio/offlineRender';
+import { renderProjectOfflineChunked } from '../../audio/offlineRender';
 import { type BounceHistoryEntry, type Project } from '../../project/schema';
 import { exportFailureNotice, exportSuccessNotice } from '../../services/exportFeedback';
 import {
@@ -102,7 +102,7 @@ export const createRenderController = ({
         },
         options,
         projectName: currentProject.metadata.name,
-        renderOffline: renderProjectOffline,
+        renderOffline: renderProjectOfflineChunked,
         renderPayload,
         scheduler: browserScheduler,
         setRenderState,
@@ -149,7 +149,7 @@ export const createRenderController = ({
         },
         options,
         projectName: currentProject.metadata.name,
-        renderOffline: renderProjectOffline,
+        renderOffline: renderProjectOfflineChunked,
         renderPayload,
         scheduler: browserScheduler,
         setRenderState,

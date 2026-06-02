@@ -44,7 +44,10 @@ export type RenderStateUpdater = (
 interface OfflineRenderControllerBase {
   options: BounceRenderOptions;
   projectName: string;
-  renderOffline: (project: Project, options: { tailMode?: BounceTailMode }) => Promise<AudioBuffer>;
+  renderOffline: (
+    project: Project,
+    options: { tailMode?: BounceTailMode; onProgress?: (fraction: number) => void },
+  ) => Promise<AudioBuffer>;
   renderPayload: RenderProjectPayload;
   scheduler: RenderScheduler;
   setRenderState: RenderStateUpdater;
@@ -256,12 +259,17 @@ export const exportOfflineMix = async ({
   let progressTimers: number[] = [];
 
   try {
-    progressTimers = queueProgressTimers(scheduler, setRenderState, 0, 1);
     const audioBuffer = await renderOffline(renderPayload.project, {
       tailMode: options.tailMode,
+      // Real progress straight from the chunked renderer, reserving the last
+      // sliver for the encode step that follows.
+      onProgress: (fraction) => setRenderState((current) => (current.active ? {
+        ...current,
+        etaSeconds: null,
+        phase: `Rendering ${renderPayload.label.toLowerCase()} offline`,
+        progress: Math.max(current.progress, Math.min(0.97, fraction * 0.97)),
+      } : current)),
     });
-    clearProgressTimers(scheduler, progressTimers);
-    progressTimers = [];
 
     setRenderState((current) => ({
       ...current,

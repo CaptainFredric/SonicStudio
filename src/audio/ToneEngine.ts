@@ -594,6 +594,17 @@ export class ToneEngine {
     this.stepCallbacks.forEach((callback) => callback(visualStep, this.currentPattern));
   }
 
+  // Start playback at an exact beat for offline chunked rendering. Unlike
+  // togglePlayback this does not skip ahead to the first playable step, so a
+  // render chunk captures exactly the window it was asked for (including a
+  // deliberately silent pre-roll lead-in).
+  public startOfflineAt(beat: number): void {
+    this.updateTransportLoop();
+    this.currentStep = Math.max(0, Math.round(beat));
+    Tone.getTransport().position = this.currentStep * Tone.Time('16n').toSeconds();
+    Tone.getTransport().start();
+  }
+
   public setBpm(bpm: number) {
     Tone.getTransport().bpm.rampTo(bpm, 0.1);
   }
