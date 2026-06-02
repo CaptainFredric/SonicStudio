@@ -19,9 +19,16 @@ export interface WavEncodeRequest {
   options: WavConversionOptions;
 }
 
-export type WavEncodeResponse =
-  | { id: number; ok: true; wav: ArrayBuffer; analysis: AudioRenderAnalysis }
-  | { id: number; ok: false; error: string };
+// A single response shape (rather than a discriminated union) so the client
+// reads it without relying on union narrowing, which this project's tsconfig
+// (strictNullChecks off) does not perform.
+export interface WavEncodeResponse {
+  id: number;
+  ok: boolean;
+  wav?: ArrayBuffer;
+  analysis?: AudioRenderAnalysis;
+  error?: string;
+}
 
 // `self` inside a module worker is the worker global scope; casting to Worker
 // keeps the postMessage/onmessage signatures available without pulling in the
@@ -39,7 +46,7 @@ ctx.onmessage = (event: MessageEvent<WavEncodeRequest>) => {
     };
     const { wav, analysis } = processPcmToWav(pcm, options);
     const response: WavEncodeResponse = { id, ok: true, wav, analysis };
-    ctx.postMessage(response, [wav]);
+    ctx.postMessage(response, [wav as ArrayBuffer]);
   } catch (error) {
     const response: WavEncodeResponse = {
       id,

@@ -54,13 +54,13 @@ const getWorker = (): Worker | null => {
         return;
       }
       pending.delete(data.id);
-      if (data.ok) {
+      if (data.ok && data.wav && data.analysis) {
         entry.resolve({
           analysis: data.analysis,
           wavBlob: new Blob([data.wav], { type: 'audio/wav' }),
         });
       } else {
-        entry.reject(new Error(data.error));
+        entry.reject(new Error(data.error || 'WAV encode worker returned no data.'));
       }
     };
     instance.onerror = () => {
