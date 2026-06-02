@@ -443,6 +443,19 @@ export class ToneEngine {
       return;
     }
 
+    // Filter envelope: open the cutoff on attack, then fall back to the base
+    // over the decay time. Synced to note triggers (shared across the track's
+    // voices), this is what gives plucks, sweeps, and acid lines their motion.
+    if (track.params.filterEnvAmount > 0.001) {
+      const base = Math.max(40, Math.min(18_000, track.params.cutoff));
+      const peak = Math.max(base, Math.min(18_000, base + track.params.filterEnvAmount * (18_000 - base)));
+      const decay = Math.max(0.01, track.params.filterEnvDecay);
+      const cutoffSignal = graph.filter.frequency;
+      cutoffSignal.cancelScheduledValues(time);
+      cutoffSignal.setValueAtTime(peak, time);
+      cutoffSignal.exponentialRampToValueAtTime(base, time + decay);
+    }
+
     switch (track.type) {
       case 'kick':
         (graph.instrument as Tone.MembraneSynth).triggerAttackRelease(step.note || 'C1', duration, time, step.velocity);
@@ -784,6 +797,9 @@ export class ToneEngine {
       params.filterMode,
       params.vibratoRate.toFixed(3),
       params.vibratoDepth.toFixed(3),
+      params.unison.toFixed(3),
+      params.filterEnvAmount.toFixed(3),
+      params.filterEnvDecay.toFixed(3),
       source.engine,
       source.waveform,
       source.detune.toFixed(3),
@@ -1111,20 +1127,36 @@ export class ToneEngine {
     delete this.trackGraphs[trackId];
   }
 
+  // Build the oscillator config for a voice. The fat* shapes are unison
+  // (supersaw) oscillators; their voice count and detune spread come from the
+  // track's unison dial, so the same waveform spans a single saw up to a wide
+  // supersaw without changing instruments.
+  private buildOscillatorConfig(track: Track): Record<string, unknown> {
+    const type = track.source.waveform;
+    if (type.startsWith('fat')) {
+      const unison = Math.max(0, Math.min(1, track.params.unison));
+      return {
+        type,
+        count: 3 + Math.round(unison * 4), // 3..7 stacked voices
+        spread: Math.round(unison * 60), // 0..60 cents of detune width
+      };
+    }
+    return { type };
+  }
+
   private applySourceShape(graph: TrackGraph, track: Track) {
     if (track.source.engine === 'sample') {
       return;
     }
 
     const noteDetune = track.source.detune + track.source.octaveShift * 1200;
+    const oscillator = this.buildOscillatorConfig(track) as Tone.SynthOptions['oscillator'];
 
     if (track.type === 'bass') {
       const instrument = graph.instrument as Tone.MonoSynth;
       instrument.set({
         detune: noteDetune,
-        oscillator: {
-          type: track.source.waveform,
-        },
+        oscillator,
         portamento: track.source.portamento,
       });
       return;
@@ -1134,9 +1166,7 @@ export class ToneEngine {
       const instrument = graph.instrument as Tone.PolySynth;
       instrument.set({
         detune: noteDetune,
-        oscillator: {
-          type: track.source.waveform,
-        },
+        oscillator,
         portamento: track.source.portamento,
       });
     }

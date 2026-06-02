@@ -2,7 +2,9 @@ import React from 'react';
 
 import type { FilterMode, OscillatorShape, SampleTriggerMode } from '../../project/schema';
 
-export const WAVEFORM_OPTIONS: OscillatorShape[] = ['sine', 'triangle', 'sawtooth', 'square'];
+export const WAVEFORM_OPTIONS: OscillatorShape[] = [
+  'sine', 'triangle', 'sawtooth', 'square', 'pulse', 'pwm', 'fatsawtooth', 'fatsquare', 'fattriangle', 'fatsine',
+];
 export const FILTER_OPTIONS: FilterMode[] = ['lowpass', 'bandpass', 'highpass'];
 
 export type RackView = 'SOURCE' | 'SHAPE' | 'SPACE';
@@ -131,6 +133,18 @@ export const waveformLabel = (waveform: OscillatorShape) => {
       return 'Saw';
     case 'triangle':
       return 'Triangle';
+    case 'pwm':
+      return 'PWM';
+    case 'pulse':
+      return 'Pulse';
+    case 'fatsawtooth':
+      return 'Supersaw';
+    case 'fatsquare':
+      return 'Fat square';
+    case 'fattriangle':
+      return 'Fat triangle';
+    case 'fatsine':
+      return 'Fat sine';
     default:
       return waveform.charAt(0).toUpperCase() + waveform.slice(1);
   }

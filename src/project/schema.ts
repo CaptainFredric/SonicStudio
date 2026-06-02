@@ -9,7 +9,17 @@ export type AppView = 'SEQUENCER' | 'PIANO_ROLL' | 'MIXER' | 'ARRANGER' | 'COMPO
 export const APP_VIEW_ORDER: readonly AppView[] = ['SEQUENCER', 'COMPOSE', 'PIANO_ROLL', 'MIXER', 'ARRANGER'];
 export type InstrumentType = 'kick' | 'snare' | 'hihat' | 'bass' | 'lead' | 'pad' | 'pluck' | 'fx' | 'violin' | 'piano' | 'bell';
 export type TransportMode = 'PATTERN' | 'SONG';
-export type OscillatorShape = 'sine' | 'triangle' | 'sawtooth' | 'square';
+export type OscillatorShape =
+  | 'sine'
+  | 'triangle'
+  | 'sawtooth'
+  | 'square'
+  | 'pulse'
+  | 'pwm'
+  | 'fatsawtooth'
+  | 'fatsquare'
+  | 'fattriangle'
+  | 'fatsine';
 export type FilterMode = 'lowpass' | 'bandpass' | 'highpass';
 export type SourceEngine = 'synth' | 'sample';
 export type SamplePlaybackMode = 'pitched' | 'oneshot';
@@ -93,6 +103,12 @@ export interface SynthParams {
   distortion: number;
   vibratoDepth: number;
   vibratoRate: number;
+  /** Supersaw width for the fat* oscillator shapes (0 = mono, 1 = widest). */
+  unison: number;
+  /** Filter envelope depth: how far the cutoff opens on each note attack (0..1). */
+  filterEnvAmount: number;
+  /** Filter envelope fall time back to the base cutoff, in seconds. */
+  filterEnvDecay: number;
 }
 
 export interface TrackSource {
@@ -314,6 +330,9 @@ export const INITIAL_PARAMS: SynthParams = {
   distortion: 0,
   vibratoDepth: 0,
   vibratoRate: 4,
+  unison: 0,
+  filterEnvAmount: 0,
+  filterEnvDecay: 0.2,
 };
 
 export const INITIAL_SOURCE: TrackSource = {
@@ -820,11 +839,12 @@ const isInstrumentType = (value: unknown): value is InstrumentType => (
   || value === 'bell'
 );
 
+const OSCILLATOR_SHAPES: OscillatorShape[] = [
+  'sine', 'triangle', 'sawtooth', 'square', 'pulse', 'pwm', 'fatsawtooth', 'fatsquare', 'fattriangle', 'fatsine',
+];
+
 const isOscillatorShape = (value: unknown): value is OscillatorShape => (
-  value === 'sine'
-  || value === 'triangle'
-  || value === 'sawtooth'
-  || value === 'square'
+  typeof value === 'string' && (OSCILLATOR_SHAPES as string[]).includes(value)
 );
 
 const isSourceEngine = (value: unknown): value is SourceEngine => (
@@ -1038,6 +1058,9 @@ const normalizeParams = (
     distortion: clamp(typeof candidate.distortion === 'number' ? candidate.distortion : presetParams?.distortion ?? INITIAL_PARAMS.distortion, 0, 1),
     vibratoDepth: clamp(typeof candidate.vibratoDepth === 'number' ? candidate.vibratoDepth : presetParams?.vibratoDepth ?? INITIAL_PARAMS.vibratoDepth, 0, 1),
     vibratoRate: clamp(typeof candidate.vibratoRate === 'number' ? candidate.vibratoRate : presetParams?.vibratoRate ?? INITIAL_PARAMS.vibratoRate, 0.1, 12),
+    unison: clamp(typeof candidate.unison === 'number' ? candidate.unison : presetParams?.unison ?? INITIAL_PARAMS.unison, 0, 1),
+    filterEnvAmount: clamp(typeof candidate.filterEnvAmount === 'number' ? candidate.filterEnvAmount : presetParams?.filterEnvAmount ?? INITIAL_PARAMS.filterEnvAmount, 0, 1),
+    filterEnvDecay: clamp(typeof candidate.filterEnvDecay === 'number' ? candidate.filterEnvDecay : presetParams?.filterEnvDecay ?? INITIAL_PARAMS.filterEnvDecay, 0.01, 2),
   };
 };
 

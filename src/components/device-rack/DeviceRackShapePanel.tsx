@@ -60,6 +60,7 @@ export const DeviceRackShapePanel = ({
           <Knob label="Decay" max={2} min={0.01} onChange={(value) => onSetTrackParams({ decay: value })} unit="s" value={track.params.decay} />
           <Knob label="Sustain" max={1} min={0} onChange={(value) => onSetTrackParams({ sustain: value })} value={track.params.sustain} />
           <Knob label="Release" max={4} min={0.01} onChange={(value) => onSetTrackParams({ release: value })} unit="s" value={track.params.release} />
+          <Knob color="#7fd1b9" label="Unison" max={1} min={0} onChange={(value) => onSetTrackParams({ unison: value })} value={track.params.unison} />
         </div>
       </RackSection>
 
@@ -82,6 +83,8 @@ export const DeviceRackShapePanel = ({
           <div className="grid gap-4 sm:grid-cols-2">
             <Knob color="#e7a65f" label="Cutoff" max={15000} min={20} onChange={(value) => onSetTrackParams({ cutoff: value })} unit="Hz" value={track.params.cutoff} />
             <Knob color="#e7a65f" label="Res" max={20} min={0.1} onChange={(value) => onSetTrackParams({ resonance: value })} value={track.params.resonance} />
+            <Knob color="#d9a441" label="Env amt" max={1} min={0} onChange={(value) => onSetTrackParams({ filterEnvAmount: value })} value={track.params.filterEnvAmount} />
+            <Knob color="#d9a441" label="Env fall" max={2} min={0.01} onChange={(value) => onSetTrackParams({ filterEnvDecay: value })} unit="s" value={track.params.filterEnvDecay} />
           </div>
         </div>
       </RackSection>
