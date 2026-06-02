@@ -759,47 +759,6 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
   const resultCaptureHint = result
     ? describeCaptureHint(result.durationSeconds, result.transientDensity, result.clarity)
     : null;
-  const captureProfileDescription = describeCaptureProfile(capturePreferences.analysisProfile);
-  const shelfStateLabel = capturePreferences.keepShelfBetweenTakes
-    ? 'Shelf keeps notes between takes'
-    : 'Shelf resets each take';
-  const captureWorkflowSteps = [
-    {
-      body: state === 'recording'
-        ? 'Listening now. Hold one clear pitch or hit.'
-        : state === 'ready'
-          ? 'Take recorded. You can capture again anytime.'
-          : 'Start with one short, clean take.',
-      state: state === 'idle' || state === 'error' ? 'current' : 'done',
-      title: 'Record',
-    },
-    {
-      body: state === 'ready'
-        ? `${rankedSuggestionCount} lane ${rankedSuggestionCount === 1 ? 'match is' : 'matches are'} ready below.`
-        : liveSuggestions.length > 0
-          ? `${liveSuggestions.length} live ${liveSuggestions.length === 1 ? 'match is' : 'matches are'} settling in.`
-          : 'Watch the note, meter, and lane guesses lock in.',
-      state: state === 'ready'
-        ? 'done'
-        : state === 'recording' || state === 'analyzing'
-          ? 'current'
-          : 'upcoming',
-      title: 'Check match',
-    },
-    {
-      body: pendingRecordedNote || sessionRecordedNotes.length > 0
-        ? `Shelf has ${sessionRecordedNotes.length + (pendingRecordedNote ? 1 : 0)} note${sessionRecordedNotes.length + (pendingRecordedNote ? 1 : 0) === 1 ? '' : 's'} ready or saved this pass.`
-        : result
-          ? 'Save the note shelf, export the take as WAV, or apply a lane below.'
-        : saveableDetectedNote
-          ? 'Name the note once, then save it or apply a match to a track.'
-          : 'Save the note shelf or create/apply a lane once a match appears.',
-      state: pendingRecordedNote || sessionRecordedNotes.length > 0 || state === 'ready'
-        ? 'current'
-        : 'upcoming',
-      title: 'Store or apply',
-    },
-  ] as const;
   const recentRecordedLibrary = recordedNoteLibrary.slice(0, 4);
   const recentVocalTakes = vocalTakeLibrary.slice(0, 4);
   const recordingRemainingSeconds = Math.max(0, CAPTURE_MAX_DURATION_SECONDS - recordingElapsedSeconds);
@@ -1569,18 +1528,6 @@ const describeCaptureHint = (durationSeconds: number, transientDensity: number, 
   }
 
   return null;
-};
-
-const describeCaptureProfile = (profile: CaptureAnalysisProfile) => {
-  switch (profile) {
-    case 'quick':
-      return 'Quick mode commits faster and favors immediate ideas. It works best for short stabs, taps, and fast sketching where speed matters more than a perfectly settled read.';
-    case 'steady':
-      return 'Steady mode waits longer before committing, which is better for held notes, soft tones, and cleaner pitch matching when you want the shelf to be stricter.';
-    case 'balanced':
-    default:
-      return 'Balanced mode is the general-purpose capture path: quick enough for sketches, but patient enough to settle the note, lane match, and saved shelf with less jitter.';
-  }
 };
 
 const SuggestionBadge = ({ type }: { type: InstrumentType }) => {
