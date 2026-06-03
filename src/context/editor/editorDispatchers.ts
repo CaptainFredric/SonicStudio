@@ -37,6 +37,7 @@ export const createEditorDispatchers = (dispatch: Dispatch<EditorAction>) => ({
   loopArrangerClip: (clipId: string, copies: number) => dispatch({ type: 'LOOP_ARRANGER_CLIP', clipId, copies }),
   makeClipPatternUnique: (clipId: string) => dispatch({ type: 'MAKE_CLIP_PATTERN_UNIQUE', clipId }),
   moveTrack: (trackId: string, direction: 'up' | 'down') => dispatch({ type: 'MOVE_TRACK', direction, trackId }),
+  reorderTrack: (trackId: string, toIndex: number) => dispatch({ type: 'REORDER_TRACK', toIndex, trackId }),
   redo: () => dispatch({ type: 'REDO' }),
   removeArrangerClip: (clipId: string) => dispatch({ type: 'REMOVE_ARRANGER_CLIP', clipId }),
   removeSongMarker: (markerId: string) => dispatch({ type: 'REMOVE_SONG_MARKER', markerId }),

@@ -52,6 +52,7 @@ export type EditorAction =
   | { type: 'SPLIT_ARRANGER_CLIP'; clipId: string; splitAtBeat?: number }
   | { type: 'DUPLICATE_TRACK'; trackId: string }
   | { type: 'MOVE_TRACK'; direction: 'up' | 'down'; trackId: string }
+  | { type: 'REORDER_TRACK'; trackId: string; toIndex: number }
   | { type: 'HYDRATE_SESSION'; session: StudioSession }
   | { type: 'REDO' }
   | { type: 'REMOVE_ARRANGER_CLIP'; clipId: string }

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { GripVertical, X } from 'lucide-react';
 
 import { engine } from '../audio/ToneEngine';
 import { resolvePatternStepForPlayback } from '../audio/playbackResolver';
@@ -10,8 +11,8 @@ const SECTION_COLORS = [
 
 const CELL_WIDTH = 20;
 const LANE_HEIGHT = 30;
-const RULER_HEIGHT = 22;
-const GUTTER_WIDTH = 132;
+const RULER_HEIGHT = 26;
+const GUTTER_WIDTH = 140;
 const OVERSCAN = 8;
 
 interface SongTimelineGridProps {
@@ -23,14 +24,19 @@ interface SongTimelineGridProps {
   selectedTrackId: string | null;
   onSelectTrack: (trackId: string) => void;
   onToggleStep: (trackId: string, patternIndex: number, localStep: number) => void;
+  onSeek?: (beat: number) => void;
+  onRenameSection?: (markerId: string, name: string) => void;
+  onRemoveSection?: (markerId: string) => void;
+  onReorderTrack?: (trackId: string, toIndex: number) => void;
 }
 
 // A flattened, scrollable view of the whole arrangement: one lane per track with
 // a cell for every step of the song, so every note that plays is visible (not
 // just the current 16-step pattern). Clicking a cell toggles the note in the
-// pattern that the arrangement loops there, so an edit lands on the source the
-// engine actually plays. Cells are virtualized to a window so a multi-minute
-// song stays smooth.
+// pattern that the arrangement loops there. The section ruler is editable
+// (rename, remove, click to jump) and lanes can be dragged to reorder, so the
+// view works for any song the user builds, not just templates with preset
+// section names. Cells are virtualized to a window so a long song stays smooth.
 export const SongTimelineGrid = ({
   tracks,
   arrangerClips,
@@ -40,16 +46,23 @@ export const SongTimelineGrid = ({
   selectedTrackId,
   onSelectTrack,
   onToggleStep,
+  onSeek,
+  onRenameSection,
+  onRemoveSection,
+  onReorderTrack,
 }: SongTimelineGridProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollLeft, setScrollLeft] = useState(0);
   const [viewportWidth, setViewportWidth] = useState(800);
   const [playBeat, setPlayBeat] = useState(0);
+  const [editingMarkerId, setEditingMarkerId] = useState<string | null>(null);
+  const [draftName, setDraftName] = useState('');
+  const [dragTrackId, setDragTrackId] = useState<string | null>(null);
+  const [dropIndex, setDropIndex] = useState<number | null>(null);
 
   const totalSteps = Math.max(stepsPerPattern, Math.round(songLengthInBeats));
   const totalWidth = totalSteps * CELL_WIDTH;
 
-  // Follow the engine's absolute song position for the playhead.
   useEffect(() => {
     let raf = 0;
     const tick = () => {
@@ -82,6 +95,7 @@ export const SongTimelineGrid = ({
   const sections = useMemo(() => {
     const sorted = [...songMarkers].sort((a, b) => a.beat - b.beat);
     return sorted.map((marker, index) => ({
+      id: marker.id,
       name: marker.name,
       start: marker.beat,
       end: index < sorted.length - 1 ? sorted[index + 1].beat : totalSteps,
@@ -105,7 +119,6 @@ export const SongTimelineGrid = ({
     transportMode: 'SONG',
   });
 
-  // Keep the playhead in view while it advances during playback.
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
@@ -115,26 +128,52 @@ export const SongTimelineGrid = ({
     }
   }, [playBeat, scrollLeft]);
 
+  const commitRename = () => {
+    if (editingMarkerId && onRenameSection) {
+      onRenameSection(editingMarkerId, draftName.trim() || 'Section');
+    }
+    setEditingMarkerId(null);
+  };
+
   const playheadLeft = playBeat * CELL_WIDTH;
-  const barLineEvery = stepsPerPattern; // one pattern == one bar of the timeline
+  const barLineEvery = stepsPerPattern;
 
   return (
     <div className="flex overflow-hidden rounded-[4px] border border-[var(--border-soft)] bg-[rgba(0,0,0,0.18)]">
-      {/* Track-name gutter, aligned row-for-row with the lanes. */}
+      {/* Track-name gutter, aligned row-for-row with the lanes. Drag a lane to reorder. */}
       <div className="shrink-0 border-r border-[var(--border-soft)] bg-[var(--bg-panel-strong)]" style={{ width: GUTTER_WIDTH }}>
-        <div className="border-b border-[var(--border-soft)]" style={{ height: RULER_HEIGHT }} />
-        {tracks.map((track) => (
-          <button
+        <div className="flex items-center border-b border-[var(--border-soft)] px-2.5" style={{ height: RULER_HEIGHT }}>
+          <span className="font-mono text-[9px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">Drag to reorder</span>
+        </div>
+        {tracks.map((track, index) => (
+          <div
             key={track.id}
-            className="flex w-full items-center gap-2 border-b border-[var(--border-soft)] px-2.5 text-left last:border-b-0"
-            data-active={track.id === selectedTrackId}
+            className="flex w-full items-center gap-1.5 border-b border-[var(--border-soft)] px-2 last:border-b-0"
+            data-drop-target={dropIndex === index ? 'true' : undefined}
+            draggable
             onClick={() => onSelectTrack(track.id)}
-            style={{ height: LANE_HEIGHT, background: track.id === selectedTrackId ? 'rgba(125,211,252,0.08)' : undefined }}
-            type="button"
+            onDragStart={(event) => { setDragTrackId(track.id); event.dataTransfer.effectAllowed = 'move'; }}
+            onDragOver={(event) => { if (dragTrackId && dragTrackId !== track.id) { event.preventDefault(); setDropIndex(index); } }}
+            onDragLeave={() => setDropIndex((current) => (current === index ? null : current))}
+            onDrop={(event) => {
+              event.preventDefault();
+              if (dragTrackId && onReorderTrack) onReorderTrack(dragTrackId, index);
+              setDragTrackId(null);
+              setDropIndex(null);
+            }}
+            onDragEnd={() => { setDragTrackId(null); setDropIndex(null); }}
+            style={{
+              height: LANE_HEIGHT,
+              cursor: 'grab',
+              background: track.id === selectedTrackId ? 'rgba(125,211,252,0.08)' : undefined,
+              boxShadow: dropIndex === index ? 'inset 0 2px 0 var(--accent-strong)' : undefined,
+              opacity: dragTrackId === track.id ? 0.45 : 1,
+            }}
           >
+            <GripVertical className="h-3 w-3 shrink-0 text-[var(--text-tertiary)]" />
             <span className="h-2 w-2 shrink-0 rounded-[2px]" style={{ background: track.color }} />
             <span className="truncate text-[11px] font-medium text-[var(--text-secondary)]">{track.name}</span>
-          </button>
+          </div>
         ))}
       </div>
 
@@ -145,17 +184,55 @@ export const SongTimelineGrid = ({
         onScroll={(event) => setScrollLeft(event.currentTarget.scrollLeft)}
       >
         <div className="relative" style={{ width: totalWidth }}>
-          {/* Section ruler. */}
+          {/* Editable section ruler. */}
           <div className="relative border-b border-[var(--border-soft)]" style={{ height: RULER_HEIGHT, width: totalWidth }}>
+            {sections.length === 0 && (
+              <div className="flex h-full items-center px-2 text-[10px] text-[var(--text-tertiary)]">
+                No sections yet. Use Mark section to name parts of the song.
+              </div>
+            )}
             {sections.map((section) => (
               <div
-                key={`${section.start}-${section.name}`}
-                className="absolute top-0 flex h-full items-center overflow-hidden border-l border-[var(--chrome-line)]"
+                key={section.id}
+                className="group absolute top-0 flex h-full items-center overflow-hidden border-l border-[var(--chrome-line)]"
                 style={{ left: section.start * CELL_WIDTH, width: (section.end - section.start) * CELL_WIDTH, background: `${section.color}14` }}
               >
-                <span className="truncate px-1.5 text-[9px] font-semibold uppercase tracking-[0.12em]" style={{ color: section.color }}>
-                  {section.name}
-                </span>
+                {editingMarkerId === section.id ? (
+                  <input
+                    autoFocus
+                    className="mx-1 h-[18px] w-full min-w-0 rounded-[2px] border border-[var(--accent-strong)] bg-[var(--bg-panel-strong)] px-1 text-[10px] text-[var(--text-primary)]"
+                    onBlur={commitRename}
+                    onChange={(event) => setDraftName(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') commitRename();
+                      if (event.key === 'Escape') setEditingMarkerId(null);
+                    }}
+                    value={draftName}
+                  />
+                ) : (
+                  <>
+                    <button
+                      className="flex-1 truncate px-1.5 text-left text-[9px] font-semibold uppercase tracking-[0.12em]"
+                      onClick={() => onSeek?.(section.start)}
+                      onDoubleClick={() => { setEditingMarkerId(section.id); setDraftName(section.name); }}
+                      style={{ color: section.color }}
+                      title={`Jump to ${section.name}. Double-click to rename.`}
+                      type="button"
+                    >
+                      {section.name}
+                    </button>
+                    {onRemoveSection && (
+                      <button
+                        className="mr-0.5 hidden shrink-0 rounded-[2px] p-0.5 text-[var(--text-tertiary)] hover:text-[var(--danger)] group-hover:block"
+                        onClick={() => onRemoveSection(section.id)}
+                        title={`Remove ${section.name}`}
+                        type="button"
+                      >
+                        <X className="h-2.5 w-2.5" />
+                      </button>
+                    )}
+                  </>
+                )}
               </div>
             ))}
           </div>
@@ -184,10 +261,7 @@ export const SongTimelineGrid = ({
                     type="button"
                   >
                     {active && (
-                      <span
-                        className="absolute inset-x-[2px] inset-y-[5px] rounded-[2px]"
-                        style={{ background: track.color, opacity: 0.85 }}
-                      />
+                      <span className="absolute inset-x-[2px] inset-y-[5px] rounded-[2px]" style={{ background: track.color, opacity: 0.85 }} />
                     )}
                   </button>
                 );

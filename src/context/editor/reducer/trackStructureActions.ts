@@ -91,6 +91,32 @@ export const handleTrackStructureAction = (state: EditorState, action: EditorAct
       });
     }
 
+    case 'REORDER_TRACK': {
+      const sourceIndex = present.tracks.findIndex((track) => track.id === action.trackId);
+      if (sourceIndex < 0) {
+        return state;
+      }
+
+      const targetIndex = Math.max(0, Math.min(present.tracks.length - 1, action.toIndex));
+      if (targetIndex === sourceIndex) {
+        return state;
+      }
+
+      const nextTracks = [...present.tracks];
+      const [moved] = nextTracks.splice(sourceIndex, 1);
+      nextTracks.splice(targetIndex, 0, moved);
+
+      return commitProject(state, {
+        ...present,
+        arrangerClips: syncArrangerClips(
+          present.arrangerClips,
+          nextTracks,
+          present.transport.patternCount,
+        ),
+        tracks: nextTracks,
+      });
+    }
+
     case 'REMOVE_TRACK': {
       if (!present.tracks.some((track) => track.id === action.trackId)) {
         return state;

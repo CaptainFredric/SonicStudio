@@ -73,6 +73,24 @@ describe('editorReducer', () => {
     expect(nextState.ui.selectedTrackId).toBe(fallbackTrackId);
   });
 
+  it('reorders a track to an arbitrary index', () => {
+    const state = createEditorState();
+    const tracks = state.history.present.tracks;
+    const firstId = tracks[0]?.id;
+    const thirdId = tracks[2]?.id;
+    if (!firstId || !thirdId) {
+      throw new Error('Expected at least three tracks');
+    }
+
+    const nextState = editorReducer(state, { type: 'REORDER_TRACK', trackId: firstId, toIndex: 2 });
+    const next = nextState.history.present.tracks;
+
+    expect(next[2]?.id).toBe(firstId); // moved track lands at the target index
+    expect(next[1]?.id).toBe(thirdId); // the track that was there shifts up
+    expect(next.length).toBe(tracks.length);
+    expect(new Set(next.map((track) => track.id)).size).toBe(tracks.length);
+  });
+
   it('falls back to a remaining clip when the selected arranger clip is removed', () => {
     const state = createEditorState();
     const removedClipId = state.history.present.arrangerClips[0]?.id;

@@ -129,6 +129,7 @@ interface AudioContextType {
   loopArrangerClip: (clipId: string, copies: number) => void;
   makeClipPatternUnique: (clipId: string) => void;
   moveTrack: (trackId: string, direction: 'up' | 'down') => void;
+  reorderTrack: (trackId: string, toIndex: number) => void;
   motionMode: MotionMode;
   capturePreferences: CapturePreferences;
   accentColor: AccentColor;

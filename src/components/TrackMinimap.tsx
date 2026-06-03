@@ -40,6 +40,7 @@ export const TrackMinimap = () => {
   const sections = useMemo(() => {
     const sorted = [...songMarkers].sort((a, b) => a.beat - b.beat);
     return sorted.map((marker, index) => ({
+      id: marker.id,
       name: marker.name,
       start: marker.beat,
       end: index < sorted.length - 1 ? sorted[index + 1].beat : total,
@@ -137,7 +138,7 @@ export const TrackMinimap = () => {
           <div className="relative border-b border-[var(--border-soft)]" style={{ height: RULER_HEIGHT }}>
             {sections.map((section) => (
               <div
-                key={`${section.start}-${section.name}`}
+                key={section.id}
                 className="absolute top-0 flex h-full items-center overflow-hidden border-l border-[var(--chrome-line)] first:border-l-0"
                 style={{ left: pct(section.start), width: pct(section.end - section.start), background: `${section.color}1f` }}
               >
@@ -157,7 +158,7 @@ export const TrackMinimap = () => {
             >
               {sections.map((section) => (
                 <div
-                  key={`grid-${section.start}`}
+                  key={`grid-${section.id}`}
                   className="absolute top-0 h-full border-l border-[var(--chrome-line)] first:border-l-0"
                   style={{ left: pct(section.start) }}
                 />

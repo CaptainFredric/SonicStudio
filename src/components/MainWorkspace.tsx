@@ -507,6 +507,10 @@ export const MainWorkspace = () => {
     arrangerClips,
     songLengthInBeats,
     songMarkers,
+    createSongMarker,
+    updateSongMarker,
+    removeSongMarker,
+    reorderTrack,
     transposePattern,
     updateStepEvent,
   } = useAudio();
@@ -2166,6 +2170,22 @@ export const MainWorkspace = () => {
                     ? 'Every section laid out end to end. Tap a cell to add or remove its note.'
                     : 'Editing one pattern at a time.'}
                 </span>
+                <div className="flex shrink-0 items-center gap-2">
+                  {songFlatten && (
+                    <button
+                      className="control-chip h-7 px-2.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                      onClick={() => {
+                        const bar = Math.round(engine.currentStep / stepsPerPattern) * stepsPerPattern;
+                        if (!songMarkers.some((marker) => marker.beat === bar)) {
+                          createSongMarker(bar, `Section ${songMarkers.length + 1}`);
+                        }
+                      }}
+                      title="Mark a new section at the playhead. Rename it by double-clicking its label."
+                      type="button"
+                    >
+                      + Mark section
+                    </button>
+                  )}
                 <div className="flex shrink-0 overflow-hidden rounded-[3px] border border-[var(--border-soft)]">
                   <button
                     className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
@@ -2186,6 +2206,7 @@ export const MainWorkspace = () => {
                     One pattern
                   </button>
                 </div>
+                </div>
               </div>
             )}
             {showSongGrid && (
@@ -2198,6 +2219,10 @@ export const MainWorkspace = () => {
                 selectedTrackId={selectedTrackId}
                 onSelectTrack={setSelectedTrackId}
                 onToggleStep={togglePatternStep}
+                onSeek={(beat) => engine.seekToBeat(beat)}
+                onRenameSection={(markerId, name) => updateSongMarker(markerId, { name })}
+                onRemoveSection={removeSongMarker}
+                onReorderTrack={reorderTrack}
               />
             )}
             <div
