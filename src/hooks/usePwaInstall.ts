@@ -34,7 +34,11 @@ export const usePwaInstall = (): PwaInstallState => {
     window.addEventListener('beforeinstallprompt', handlePrompt);
     window.addEventListener('appinstalled', handleInstalled);
 
-    if (window.matchMedia?.('(display-mode: standalone)')?.matches) {
+    // Already running as the installed app: the display-mode media query covers
+    // most browsers; navigator.standalone is the iOS Safari equivalent.
+    const runningStandalone = window.matchMedia?.('(display-mode: standalone)')?.matches
+      || (navigator as unknown as { standalone?: boolean }).standalone === true;
+    if (runningStandalone) {
       setInstalled(true);
     }
 

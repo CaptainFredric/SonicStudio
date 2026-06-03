@@ -442,6 +442,20 @@ export const TopBar = ({
               <h1 className="text-[18px] font-semibold tracking-tight text-[var(--text-primary)]">{brandName}</h1>
               <p className="mt-1 truncate text-xs text-[var(--text-secondary)]">{brandTagline}</p>
             </div>
+            {canInstall && (
+              <button
+                aria-label="Install SonicStudio as an app"
+                className="flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-[4px] border px-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] transition-[filter] hover:brightness-110"
+                onClick={() => { void promptInstall(); }}
+                style={{ borderColor: 'var(--accent)', color: 'var(--accent)', background: 'color-mix(in srgb, var(--accent) 15%, transparent)' }}
+                title="Install SonicStudio as an app so it opens in its own window and works offline"
+                type="button"
+              >
+                <DownloadCloud className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Install app</span>
+                <span className="sm:hidden">Install</span>
+              </button>
+            )}
             {isCompactHeader && (
               <button
                 aria-expanded={mobileHeaderExpanded}
@@ -550,18 +564,6 @@ export const TopBar = ({
           <div className="grid gap-3 border-b border-[var(--border-soft)]/70 pb-3">
             <div className="hidden md:grid md:justify-items-stretch xl:justify-items-end">
               <div className="grid w-full max-w-none gap-2 xl:max-w-[372px]">
-                {canInstall && (
-                  <button
-                    aria-label="Install SonicStudio as an app"
-                    className="ghost-icon-button flex h-9 w-full items-center justify-center gap-1.5 px-2.5 text-[9px] font-semibold uppercase tracking-[0.14em]"
-                    onClick={() => { void promptInstall(); }}
-                    title="Install SonicStudio as an app so it opens in its own window and works offline"
-                    type="button"
-                  >
-                    <DownloadCloud className="h-3.5 w-3.5" />
-                    Install app
-                  </button>
-                )}
                 <div
                   className="grid grid-cols-4 gap-2"
                   style={{
@@ -811,11 +813,6 @@ export const TopBar = ({
                 }}
               >
                 <div className="flex items-center gap-1">
-                  {canInstall && (
-                    <UtilityBtn label="Install app" onClick={() => { void promptInstall(); }}>
-                      <DownloadCloud className="h-3.5 w-3.5" />
-                    </UtilityBtn>
-                  )}
                   <UtilityBtn label="Save" onClick={saveProject} shortcut="⌘S">
                     <Save className="h-3.5 w-3.5" />
                   </UtilityBtn>
