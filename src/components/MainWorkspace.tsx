@@ -63,6 +63,7 @@ import { TrackIcon, getTrackPersonality } from '../utils/trackPersonality';
 import { useMediaQuery } from '../utils/useMediaQuery';
 import { readString, writeString } from '../utils/safeStorage';
 import { TrackMinimap } from './TrackMinimap';
+import { SongTimelineGrid } from './SongTimelineGrid';
 
 const LANE_COLUMN_COLLAPSED_KEY = 'sonicstudio:lane-column-collapsed';
 import { MAX_STEPS_PER_PATTERN, defaultNoteForTrack, type InstrumentType, type NoteEvent, type Track } from '../project/schema';
@@ -498,15 +499,23 @@ export const MainWorkspace = () => {
     superSonicMode,
     superSonicPreferences,
     toggleStep,
+    togglePatternStep,
     toggleMute,
     togglePinnedTrack,
     toggleSolo,
     tracks,
     arrangerClips,
+    songLengthInBeats,
+    songMarkers,
     transposePattern,
     updateStepEvent,
   } = useAudio();
   const [editorMode, setEditorMode] = useState<ComposeEditorMode>('edit');
+  // In Song mode the sequencer can flatten the whole arrangement into one
+  // scrollable grid so every section's notes are visible, not just the current
+  // pattern. Users can flip back to the classic per-pattern editor.
+  const [songFlatten, setSongFlatten] = useState(true);
+  const showSongGrid = transportMode === 'SONG' && songFlatten;
   // The compose rack and track map collapse by default so the step grid
   // leads the view; roomy desktops open them automatically.
   const [composeToolsExpanded, setComposeToolsExpanded] = useState(() => (
@@ -2150,8 +2159,49 @@ export const MainWorkspace = () => {
 
           <div className="flex flex-col md:min-h-0 md:flex-1 md:overflow-hidden">
             <TrackMinimap />
+            {transportMode === 'SONG' && (
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <span className="text-[11px] leading-4 text-[var(--text-secondary)]">
+                  {songFlatten
+                    ? 'Every section laid out end to end. Tap a cell to add or remove its note.'
+                    : 'Editing one pattern at a time.'}
+                </span>
+                <div className="flex shrink-0 overflow-hidden rounded-[3px] border border-[var(--border-soft)]">
+                  <button
+                    className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                    data-active={songFlatten}
+                    onClick={() => setSongFlatten(true)}
+                    style={{ background: songFlatten ? 'var(--accent-soft)' : undefined, color: songFlatten ? 'var(--accent-strong)' : 'var(--text-tertiary)' }}
+                    type="button"
+                  >
+                    Whole song
+                  </button>
+                  <button
+                    className="border-l border-[var(--border-soft)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                    data-active={!songFlatten}
+                    onClick={() => setSongFlatten(false)}
+                    style={{ background: !songFlatten ? 'var(--accent-soft)' : undefined, color: !songFlatten ? 'var(--accent-strong)' : 'var(--text-tertiary)' }}
+                    type="button"
+                  >
+                    One pattern
+                  </button>
+                </div>
+              </div>
+            )}
+            {showSongGrid && (
+              <SongTimelineGrid
+                tracks={visibleTracks}
+                arrangerClips={arrangerClips}
+                stepsPerPattern={stepsPerPattern}
+                songLengthInBeats={songLengthInBeats}
+                songMarkers={songMarkers}
+                selectedTrackId={selectedTrackId}
+                onSelectTrack={setSelectedTrackId}
+                onToggleStep={togglePatternStep}
+              />
+            )}
             <div
-              className="sequencer-grid-scroll overflow-auto rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] md:min-h-0 md:flex-1"
+              className={`sequencer-grid-scroll overflow-auto rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] md:min-h-0 md:flex-1 ${showSongGrid ? 'hidden' : ''}`}
               data-scrolled={gridScrollLeft > 1 ? 'true' : undefined}
               onPointerCancel={() => setPlacementCursor(null)}
               onPointerMove={handlePlacementMove}
