@@ -111,7 +111,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe,
   );
 
   return (
-    <aside className="studio-rail w-full shrink-0 px-2 py-2 md:w-[88px] md:py-3" data-tour-target="views">
+    <aside className="studio-rail w-full shrink-0 px-2 py-2 md:w-[88px] md:py-3 md:min-h-0 md:overflow-y-auto" data-tour-target="views">
       <div className="section-label hidden md:block">Views</div>
       <div className="grid grid-cols-2 gap-2 md:mb-2 md:grid-cols-1">
         <button
