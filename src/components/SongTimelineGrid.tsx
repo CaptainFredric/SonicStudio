@@ -131,6 +131,22 @@ export const SongTimelineGrid = ({
   }, [placementEnabled]);
   useEffect(() => () => cancelClose(), []);
 
+  // While the ladder is open, dismiss it on Escape or any scroll/resize, since
+  // it is pinned to a cell position those would shift out from under it.
+  useEffect(() => {
+    if (!ladder) return undefined;
+    const dismiss = () => setLadder(null);
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') dismiss(); };
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('resize', dismiss);
+    window.addEventListener('scroll', dismiss, true);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('resize', dismiss);
+      window.removeEventListener('scroll', dismiss, true);
+    };
+  }, [ladder]);
+
   const arrangerClipsByTrack = useMemo(() => {
     const map: Record<string, ArrangementClip[]> = {};
     for (const clip of arrangerClips) {
@@ -359,7 +375,7 @@ export const SongTimelineGrid = ({
                 return (
                   <button
                     key={songStep}
-                    className="absolute top-0 h-full transition-colors hover:bg-[rgba(255,255,255,0.05)]"
+                    className="group absolute top-0 h-full transition-colors hover:bg-[rgba(255,255,255,0.05)]"
                     onClick={() => {
                       const target = resolved ?? resolveAt(track, songStep);
                       if (target) onToggleStep(track.id, target.patternIndex, target.stepIndex);
@@ -396,8 +412,8 @@ export const SongTimelineGrid = ({
                     )}
                     {placeable && (
                       <span
-                        className="absolute left-1/2 top-1/2 h-1 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full"
-                        style={{ background: track.color, opacity: 0.28 }}
+                        className="absolute left-1/2 top-1/2 h-1 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full transition-transform group-hover:scale-[1.7]"
+                        style={{ background: track.color, opacity: 0.2 }}
                       />
                     )}
                   </button>
