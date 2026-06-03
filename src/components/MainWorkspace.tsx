@@ -23,6 +23,7 @@ import {
 
 import { meterIntervalForMode } from '../audio/meterTiming';
 import { engine } from '../audio/ToneEngine';
+import { SUPERSONIC_NOTE_OFFSETS, getTrackAnchorNote, shiftPitch } from '../utils/notePlacement';
 import { getSamplePresetMeta } from '../audio/sampleLibrary';
 import { useAudio, usePlaybackStep } from '../context/AudioContext';
 import { SONG_FORM_DEFINITIONS, type SongFormId } from '../context/editor/songFormDefinitions';
@@ -94,7 +95,6 @@ const STEP_OPTIONS = [16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512, 768, 1024
 const SEQUENCER_RUNWAY_STEPS = 6;
 const STEP_ZOOM_MIN = 16;
 const STEP_ZOOM_STEP = 2;
-const SUPERSONIC_NOTE_OFFSETS = [4, 3, 2, 1, 0, -1, -2, -3, -4] as const;
 const SESSION_PLAYER_PATTERN_COUNT = 4;
 const LOOP_BROWSER_FILTERS = [
   { label: 'Matching lane', value: 'MATCHING' as const },
@@ -171,36 +171,7 @@ const getSongFormDefinition = (formId: SongFormId) => (
   SONG_FORM_DEFINITIONS.find((definition) => definition.id === formId) ?? SONG_FORM_DEFINITIONS[0]
 );
 
-const shiftPitch = (note: string, semitones: number): string | null => {
-  const match = note.match(/^([A-G]#?)(-?\d+)$/);
-  if (!match) return null;
-  const [, name, octaveStr] = match;
-  const semitoneIndex = NOTE_NAMES.indexOf(name);
-  if (semitoneIndex < 0) return null;
-  const totalSemitones = Number(octaveStr) * 12 + semitoneIndex + semitones;
-  const newOctave = Math.floor(totalSemitones / 12);
-  const newSemitone = ((totalSemitones % 12) + 12) % 12;
-  return `${NOTE_NAMES[newSemitone]}${newOctave}`;
-};
-
 const cloneStepEvents = (step: NoteEvent[]) => step.map((event) => ({ ...event }));
-
-const getTrackAnchorNote = (track: Track, patternSteps: NoteEvent[][], stepIndex: number) => {
-  const currentNote = patternSteps[stepIndex]?.[0]?.note;
-  if (currentNote) {
-    return currentNote;
-  }
-
-  for (let candidateIndex = stepIndex - 1; candidateIndex >= 0; candidateIndex -= 1) {
-    const candidateNote = patternSteps[candidateIndex]?.[0]?.note;
-    if (candidateNote) {
-      return candidateNote;
-    }
-  }
-
-  const firstPatternNote = patternSteps.find((step) => step.length > 0)?.[0]?.note;
-  return firstPatternNote ?? defaultNoteForTrack(track);
-};
 
 const segmentSpanSteps = (segment: PatternSegment) => {
   let lastActiveStep = -1;
@@ -2217,8 +2188,10 @@ export const MainWorkspace = () => {
                 songLengthInBeats={songLengthInBeats}
                 songMarkers={songMarkers}
                 selectedTrackId={selectedTrackId}
+                superSonicMode={superSonicMode}
                 onSelectTrack={setSelectedTrackId}
                 onToggleStep={togglePatternStep}
+                onPlaceNote={togglePatternStep}
                 onSeek={(beat) => engine.seekToBeat(beat)}
                 onRenameSection={(markerId, name) => updateSongMarker(markerId, { name })}
                 onRemoveSection={removeSongMarker}

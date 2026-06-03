@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { GripVertical, X } from 'lucide-react';
+import type React from 'react';
 
 import { engine } from '../audio/ToneEngine';
 import { resolvePatternStepForPlayback } from '../audio/playbackResolver';
+import { SUPERSONIC_NOTE_OFFSETS, getTrackAnchorNote, shiftPitch } from '../utils/notePlacement';
 import type { ArrangementClip, SongMarker, Track } from '../project/schema';
 
 const SECTION_COLORS = [
   '#22d3ee', '#818cf8', '#f472b6', '#fbbf24', '#34d399', '#fb7185', '#60a5fa', '#a78bfa', '#f59e0b',
 ];
 
-const CELL_WIDTH = 20;
-const LANE_HEIGHT = 30;
 const RULER_HEIGHT = 26;
 const GUTTER_WIDTH = 140;
 const OVERSCAN = 8;
@@ -22,8 +22,10 @@ interface SongTimelineGridProps {
   songLengthInBeats: number;
   songMarkers: SongMarker[];
   selectedTrackId: string | null;
+  superSonicMode?: boolean;
   onSelectTrack: (trackId: string) => void;
   onToggleStep: (trackId: string, patternIndex: number, localStep: number) => void;
+  onPlaceNote?: (trackId: string, patternIndex: number, localStep: number, note: string) => void;
   onSeek?: (beat: number) => void;
   onRenameSection?: (markerId: string, name: string) => void;
   onRemoveSection?: (markerId: string) => void;
@@ -32,11 +34,12 @@ interface SongTimelineGridProps {
 
 // A flattened, scrollable view of the whole arrangement: one lane per track with
 // a cell for every step of the song, so every note that plays is visible (not
-// just the current 16-step pattern). Clicking a cell toggles the note in the
-// pattern that the arrangement loops there. The section ruler is editable
-// (rename, remove, click to jump) and lanes can be dragged to reorder, so the
-// view works for any song the user builds, not just templates with preset
-// section names. Cells are virtualized to a window so a long song stays smooth.
+// just the current 16-step pattern). Editing lands on the pattern the
+// arrangement loops there. The section ruler is editable and lanes can be
+// dragged to reorder. In SuperSonic mode the cells grow and an empty cell shows
+// the pitch ladder on hover, so you can drop a specific pitch straight from the
+// whole-song view (the same placement the per-pattern grid offers). Cells are
+// virtualized to a window so a long song stays smooth.
 export const SongTimelineGrid = ({
   tracks,
   arrangerClips,
@@ -44,8 +47,10 @@ export const SongTimelineGrid = ({
   songLengthInBeats,
   songMarkers,
   selectedTrackId,
+  superSonicMode = false,
   onSelectTrack,
   onToggleStep,
+  onPlaceNote,
   onSeek,
   onRenameSection,
   onRemoveSection,
@@ -59,9 +64,16 @@ export const SongTimelineGrid = ({
   const [draftName, setDraftName] = useState('');
   const [dragTrackId, setDragTrackId] = useState<string | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
+  const [hoverCell, setHoverCell] = useState<{ trackId: string; step: number } | null>(null);
+
+  // SuperSonic mode is for precise placement, so the cells grow to fit the
+  // pitch ladder; otherwise stay dense for the song overview.
+  const cellW = superSonicMode ? 30 : 20;
+  const laneH = superSonicMode ? 46 : 30;
+  const placementEnabled = superSonicMode && Boolean(onPlaceNote);
 
   const totalSteps = Math.max(stepsPerPattern, Math.round(songLengthInBeats));
-  const totalWidth = totalSteps * CELL_WIDTH;
+  const totalWidth = totalSteps * cellW;
 
   useEffect(() => {
     let raf = 0;
@@ -103,8 +115,8 @@ export const SongTimelineGrid = ({
     }));
   }, [songMarkers, totalSteps]);
 
-  const windowStart = Math.max(0, Math.floor(scrollLeft / CELL_WIDTH) - OVERSCAN);
-  const windowEnd = Math.min(totalSteps, Math.ceil((scrollLeft + viewportWidth) / CELL_WIDTH) + OVERSCAN);
+  const windowStart = Math.max(0, Math.floor(scrollLeft / cellW) - OVERSCAN);
+  const windowEnd = Math.min(totalSteps, Math.ceil((scrollLeft + viewportWidth) / cellW) + OVERSCAN);
   const windowSteps: number[] = [];
   for (let step = windowStart; step < windowEnd; step += 1) {
     windowSteps.push(step);
@@ -122,11 +134,11 @@ export const SongTimelineGrid = ({
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    const playX = playBeat * CELL_WIDTH;
+    const playX = playBeat * cellW;
     if (playX < scrollLeft + 40 || playX > scrollLeft + el.clientWidth - 40) {
       el.scrollLeft = Math.max(0, playX - el.clientWidth / 2);
     }
-  }, [playBeat, scrollLeft]);
+  }, [playBeat, scrollLeft, cellW]);
 
   const commitRename = () => {
     if (editingMarkerId && onRenameSection) {
@@ -135,7 +147,7 @@ export const SongTimelineGrid = ({
     setEditingMarkerId(null);
   };
 
-  const playheadLeft = playBeat * CELL_WIDTH;
+  const playheadLeft = playBeat * cellW;
   const barLineEvery = stepsPerPattern;
 
   return (
@@ -163,7 +175,7 @@ export const SongTimelineGrid = ({
             }}
             onDragEnd={() => { setDragTrackId(null); setDropIndex(null); }}
             style={{
-              height: LANE_HEIGHT,
+              height: laneH,
               cursor: 'grab',
               background: track.id === selectedTrackId ? 'rgba(125,211,252,0.08)' : undefined,
               boxShadow: dropIndex === index ? 'inset 0 2px 0 var(--accent-strong)' : undefined,
@@ -195,7 +207,7 @@ export const SongTimelineGrid = ({
               <div
                 key={section.id}
                 className="group absolute top-0 flex h-full items-center overflow-hidden border-l border-[var(--chrome-line)]"
-                style={{ left: section.start * CELL_WIDTH, width: (section.end - section.start) * CELL_WIDTH, background: `${section.color}14` }}
+                style={{ left: section.start * cellW, width: (section.end - section.start) * cellW, background: `${section.color}14` }}
               >
                 {editingMarkerId === section.id ? (
                   <input
@@ -239,11 +251,21 @@ export const SongTimelineGrid = ({
 
           {/* Lanes. */}
           {tracks.map((track) => (
-            <div key={track.id} className="relative border-b border-[var(--border-soft)] last:border-b-0" style={{ height: LANE_HEIGHT, width: totalWidth }}>
+            <div
+              key={track.id}
+              className="relative border-b border-[var(--border-soft)] last:border-b-0"
+              style={{ height: laneH, width: totalWidth }}
+              onPointerLeave={() => setHoverCell((current) => (current?.trackId === track.id ? null : current))}
+            >
               {windowSteps.map((songStep) => {
                 const resolved = resolveAt(track, songStep);
                 const active = Boolean(resolved && resolved.note.length > 0);
                 const isBar = songStep % barLineEvery === 0;
+                const showLadder = placementEnabled && !active && Boolean(resolved)
+                  && hoverCell?.trackId === track.id && hoverCell.step === songStep;
+                const anchorNote = showLadder && resolved
+                  ? getTrackAnchorNote(track, track.patterns[resolved.patternIndex] ?? [], resolved.stepIndex)
+                  : null;
                 return (
                   <button
                     key={songStep}
@@ -252,9 +274,10 @@ export const SongTimelineGrid = ({
                       const target = resolved ?? resolveAt(track, songStep);
                       if (target) onToggleStep(track.id, target.patternIndex, target.stepIndex);
                     }}
+                    onPointerEnter={() => { if (placementEnabled) setHoverCell({ trackId: track.id, step: songStep }); }}
                     style={{
-                      left: songStep * CELL_WIDTH,
-                      width: CELL_WIDTH,
+                      left: songStep * cellW,
+                      width: cellW,
                       borderLeft: isBar ? '1px solid var(--border-soft)' : '1px solid rgba(255,255,255,0.025)',
                     }}
                     title={`Bar ${Math.floor(songStep / barLineEvery) + 1}`}
@@ -262,6 +285,42 @@ export const SongTimelineGrid = ({
                   >
                     {active && (
                       <span className="absolute inset-x-[2px] inset-y-[5px] rounded-[2px]" style={{ background: track.color, opacity: 0.85 }} />
+                    )}
+                    {showLadder && anchorNote && resolved && (
+                      <span
+                        className="supersonic-ladder absolute inset-0 z-[2]"
+                        style={{ '--supersonic-ladder-count': String(SUPERSONIC_NOTE_OFFSETS.length) } as React.CSSProperties}
+                      >
+                        {SUPERSONIC_NOTE_OFFSETS.map((offset) => {
+                          const targetNote = shiftPitch(anchorNote, offset);
+                          if (!targetNote) {
+                            return (
+                              <span
+                                className="supersonic-ladder-step"
+                                key={offset}
+                                style={{ '--ladder-fill': '0.44', '--ladder-glow': track.color } as React.CSSProperties}
+                              />
+                            );
+                          }
+                          return (
+                            <span
+                              className="supersonic-ladder-step"
+                              data-center={offset === 0 ? 'true' : 'false'}
+                              key={offset}
+                              onPointerDown={(event) => {
+                                event.stopPropagation();
+                                onPlaceNote?.(track.id, resolved.patternIndex, resolved.stepIndex, targetNote);
+                              }}
+                              style={{
+                                '--ladder-color': track.color,
+                                '--ladder-fill': `${Math.max(0.38, 0.94 - (Math.abs(offset) * 0.08))}`,
+                                '--ladder-glow': offset === 0 ? 'rgba(255,255,255,0.88)' : `${track.color}88`,
+                              } as React.CSSProperties}
+                              title={`Place ${targetNote}`}
+                            />
+                          );
+                        })}
+                      </span>
                     )}
                   </button>
                 );
@@ -272,7 +331,7 @@ export const SongTimelineGrid = ({
           {/* Playhead across the ruler and every lane. */}
           <div
             className="pointer-events-none absolute top-0 w-[2px] bg-[var(--accent-strong)]"
-            style={{ left: playheadLeft, height: RULER_HEIGHT + tracks.length * LANE_HEIGHT }}
+            style={{ left: playheadLeft, height: RULER_HEIGHT + tracks.length * laneH }}
           />
         </div>
       </div>
