@@ -104,6 +104,9 @@ const LOOP_BROWSER_FILTERS = [
 ] as const;
 
 const clampNumber = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+// Count plus a noun that pluralizes when it should, so summaries never read
+// "1 active steps" or "1 notes".
+const countLabel = (count: number, noun: string) => `${count} ${noun}${count === 1 ? '' : 's'}`;
 const isRhythmTrackType = (trackType: InstrumentType) => (
   trackType === 'kick' || trackType === 'snare' || trackType === 'hihat'
 );
@@ -1710,8 +1713,8 @@ export const MainWorkspace = () => {
                 </div>
                 <div className="mt-1 text-[11px] text-[var(--text-secondary)]">
                   {selectedTrack
-                    ? `${selectedTrackPattern.filter((step) => step.length > 0).length} active steps · ${selectedTrackPattern.reduce((sum, step) => sum + step.length, 0)} notes · ${isSelectedTrackDrum ? 'drum lane' : 'melodic lane'}`
-                    : `${tracks.length} total tracks · ${melodicTrackCount} melodic lanes`}
+                    ? `${countLabel(selectedTrackPattern.filter((step) => step.length > 0).length, 'active step')} · ${countLabel(selectedTrackPattern.reduce((sum, step) => sum + step.length, 0), 'note')} · ${isSelectedTrackDrum ? 'drum lane' : 'melodic lane'}`
+                    : `${countLabel(tracks.length, 'track')} · ${countLabel(melodicTrackCount, 'melodic lane')}`}
                 </div>
               </div>
               <button
@@ -1766,7 +1769,7 @@ export const MainWorkspace = () => {
                 {hiddenPatternContent.hiddenNoteCount > 0 ? (
                   <div className="surface-panel-strong flex flex-wrap items-center gap-2 px-2 py-1.5">
                     <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--warning)]">
-                      {hiddenPatternContent.hiddenNoteCount} hidden notes beyond {stepsPerPattern}
+                      {countLabel(hiddenPatternContent.hiddenNoteCount, 'hidden note')} beyond {stepsPerPattern}
                     </span>
                     <button
                       className="control-chip px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
@@ -1844,7 +1847,7 @@ export const MainWorkspace = () => {
                       />
                     </div>
                     <div className="mt-2 text-[10px] uppercase tracking-[0.12em] text-[var(--text-secondary)]">
-                      {loadWatchSummary.activeLaneCount} lanes · {loadWatchSummary.totalNotes} notes · peak {loadWatchSummary.peakNotes}
+                      {countLabel(loadWatchSummary.activeLaneCount, 'lane')} · {countLabel(loadWatchSummary.totalNotes, 'note')} · peak {loadWatchSummary.peakNotes}
                       {loadWatchSummary.baseLatencyMs !== null ? ` · ${Math.round(loadWatchSummary.baseLatencyMs)}ms base` : ''}
                       {isPlaying ? ` · ${loadWatchSummary.frameDriftMs.toFixed(1)}ms drift` : ''}
                     </div>
@@ -2405,7 +2408,7 @@ export const MainWorkspace = () => {
                             {!isMobileViewport && <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{sourceLabel}</span>}
                             {!isMobileViewport && <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.volume.toFixed(0)} dB</span>}
                             <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-                              {patternSteps.reduce((sum, step) => sum + step.length, 0)} notes
+                              {countLabel(patternSteps.reduce((sum, step) => sum + step.length, 0), 'note')}
                             </span>
                           </div>
                           <div className="mt-2 flex flex-wrap items-center gap-1 pt-1 border-t border-[var(--border-soft)]/60">
@@ -3149,7 +3152,7 @@ export const MainWorkspace = () => {
                               key={`${profile.id}-${deck.patternIndex}`}
                             >
                               <span>{deck.label}</span>
-                              <span>{deck.segments.length} lanes</span>
+                              <span>{countLabel(deck.segments.length, 'lane')}</span>
                             </div>
                           ))}
                         </div>
