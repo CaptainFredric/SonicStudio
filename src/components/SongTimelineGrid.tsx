@@ -1,19 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { GripVertical, X } from 'lucide-react';
+import { GripVertical, Music2, X } from 'lucide-react';
 import type React from 'react';
 
 import { engine } from '../audio/ToneEngine';
 import { resolvePatternStepForPlayback } from '../audio/playbackResolver';
 import { SUPERSONIC_NOTE_OFFSETS, getTrackAnchorNote, shiftPitch } from '../utils/notePlacement';
+import { TrackIcon } from '../utils/trackPersonality';
 import type { ArrangementClip, SongMarker, Track } from '../project/schema';
 
 const SECTION_COLORS = [
   '#22d3ee', '#818cf8', '#f472b6', '#fbbf24', '#34d399', '#fb7185', '#60a5fa', '#a78bfa', '#f59e0b',
 ];
 
-const RULER_HEIGHT = 26;
-const GUTTER_WIDTH = 140;
+const RULER_HEIGHT = 30;
+const GUTTER_WIDTH = 156;
 const OVERSCAN = 8;
 
 interface SongTimelineGridProps {
@@ -98,7 +99,7 @@ export const SongTimelineGrid = ({
   // SuperSonic mode is for precise placement, so the cells grow to fit the
   // pitch ladder; otherwise stay dense for the song overview.
   const cellW = superSonicMode ? 30 : 20;
-  const laneH = superSonicMode ? 46 : 30;
+  const laneH = superSonicMode ? 48 : 34;
   const placementEnabled = superSonicMode && Boolean(onPlaceNote);
 
   const totalSteps = Math.max(stepsPerPattern, Math.round(songLengthInBeats));
@@ -257,42 +258,53 @@ export const SongTimelineGrid = ({
 
   return (
     <>
-    <div className="flex overflow-hidden rounded-[4px] border border-[var(--border-soft)] bg-[rgba(0,0,0,0.18)]">
+    <div className="flex overflow-hidden rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]">
       {/* Track-name gutter, aligned row-for-row with the lanes. Drag a lane to reorder. */}
       <div className="shrink-0 border-r border-[var(--border-soft)] bg-[var(--bg-panel-strong)]" style={{ width: GUTTER_WIDTH }}>
-        <div className="flex items-center border-b border-[var(--border-soft)] px-2.5" style={{ height: RULER_HEIGHT }}>
-          <span className="font-mono text-[9px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">Drag to reorder</span>
+        <div className="flex items-center gap-2 border-b border-[var(--border-soft)] px-3" style={{ height: RULER_HEIGHT }}>
+          <Music2 className="h-3.5 w-3.5 shrink-0 text-[var(--accent)]" />
+          <span className="section-label truncate">Tracks</span>
         </div>
-        {tracks.map((track, index) => (
-          <div
-            key={track.id}
-            className="flex w-full items-center gap-1.5 border-b border-[var(--border-soft)] px-2 last:border-b-0"
-            data-drop-target={dropIndex === index ? 'true' : undefined}
-            draggable
-            onClick={() => onSelectTrack(track.id)}
-            onDragStart={(event) => { setDragTrackId(track.id); event.dataTransfer.effectAllowed = 'move'; }}
-            onDragOver={(event) => { if (dragTrackId && dragTrackId !== track.id) { event.preventDefault(); setDropIndex(index); } }}
-            onDragLeave={() => setDropIndex((current) => (current === index ? null : current))}
-            onDrop={(event) => {
-              event.preventDefault();
-              if (dragTrackId && onReorderTrack) onReorderTrack(dragTrackId, index);
-              setDragTrackId(null);
-              setDropIndex(null);
-            }}
-            onDragEnd={() => { setDragTrackId(null); setDropIndex(null); }}
-            style={{
-              height: laneH,
-              cursor: 'grab',
-              background: track.id === selectedTrackId ? 'rgba(125,211,252,0.08)' : undefined,
-              boxShadow: dropIndex === index ? 'inset 0 2px 0 var(--accent-strong)' : undefined,
-              opacity: dragTrackId === track.id ? 0.45 : 1,
-            }}
-          >
-            <GripVertical className="h-3 w-3 shrink-0 text-[var(--text-tertiary)]" />
-            <span className="h-2 w-2 shrink-0 rounded-[2px]" style={{ background: track.color }} />
-            <span className="truncate text-[11px] font-medium text-[var(--text-secondary)]">{track.name}</span>
-          </div>
-        ))}
+        {tracks.map((track, index) => {
+          const isSelected = track.id === selectedTrackId;
+          return (
+            <div
+              key={track.id}
+              className="group relative flex w-full items-center gap-2 border-b border-[var(--border-soft)] px-2.5 transition-colors last:border-b-0 hover:bg-[rgba(255,255,255,0.02)]"
+              data-drop-target={dropIndex === index ? 'true' : undefined}
+              draggable
+              onClick={() => onSelectTrack(track.id)}
+              onDragStart={(event) => { setDragTrackId(track.id); event.dataTransfer.effectAllowed = 'move'; }}
+              onDragOver={(event) => { if (dragTrackId && dragTrackId !== track.id) { event.preventDefault(); setDropIndex(index); } }}
+              onDragLeave={() => setDropIndex((current) => (current === index ? null : current))}
+              onDrop={(event) => {
+                event.preventDefault();
+                if (dragTrackId && onReorderTrack) onReorderTrack(dragTrackId, index);
+                setDragTrackId(null);
+                setDropIndex(null);
+              }}
+              onDragEnd={() => { setDragTrackId(null); setDropIndex(null); }}
+              style={{
+                height: laneH,
+                cursor: 'grab',
+                background: isSelected ? 'rgba(125,211,252,0.06)' : undefined,
+                boxShadow: dropIndex === index ? 'inset 0 2px 0 var(--accent-strong)' : undefined,
+                opacity: dragTrackId === track.id ? 0.45 : 1,
+              }}
+              title="Drag to reorder"
+            >
+              {isSelected && <span className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-full" style={{ background: track.color }} />}
+              <GripVertical className="h-3.5 w-3.5 shrink-0 text-[var(--text-tertiary)] opacity-50 transition-opacity group-hover:opacity-100" />
+              <span
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[2px]"
+                style={{ border: `1px solid ${track.color}55`, background: `${track.color}1a`, color: track.color }}
+              >
+                <TrackIcon type={track.type} className="h-3.5 w-3.5" />
+              </span>
+              <span className="min-w-0 truncate text-[12px] font-semibold tracking-tight text-[var(--text-primary)]">{track.name}</span>
+            </div>
+          );
+        })}
       </div>
 
       {/* Scrollable, virtualized timeline. */}
@@ -303,7 +315,7 @@ export const SongTimelineGrid = ({
       >
         <div className="relative" style={{ width: totalWidth }}>
           {/* Editable section ruler. */}
-          <div className="relative border-b border-[var(--border-soft)]" style={{ height: RULER_HEIGHT, width: totalWidth }}>
+          <div className="relative border-b border-[var(--border-soft)] bg-[var(--bg-panel-strong)]" style={{ height: RULER_HEIGHT, width: totalWidth }}>
             {sections.length === 0 && (
               <div className="flex h-full items-center px-2 text-[10px] text-[var(--text-tertiary)]">
                 No sections yet. Use Mark section to name parts of the song.
@@ -367,6 +379,7 @@ export const SongTimelineGrid = ({
                 const resolved = resolveAt(track, songStep);
                 const active = Boolean(resolved && resolved.note.length > 0);
                 const isBar = songStep % barLineEvery === 0;
+                const isBeat = songStep % 4 === 0;
                 // Placeable = an empty step that the arrangement actually loops
                 // here (so the note has somewhere to live). Hovering one floats
                 // the pitch ladder anchored to the cell.
@@ -402,13 +415,23 @@ export const SongTimelineGrid = ({
                     style={{
                       left: songStep * cellW,
                       width: cellW,
-                      borderLeft: isBar ? '1px solid var(--border-soft)' : '1px solid rgba(255,255,255,0.025)',
+                      borderLeft: isBar
+                        ? '1px solid rgba(255,255,255,0.16)'
+                        : isBeat
+                          ? '1px solid rgba(255,255,255,0.06)'
+                          : '1px solid rgba(255,255,255,0.02)',
+                      background: isBeat && !isBar ? 'rgba(255,255,255,0.025)' : undefined,
                     }}
                     title={placeable ? `Bar ${bar} · hover to place a pitch` : `Bar ${bar}`}
                     type="button"
                   >
                     {active && (
-                      <span className="absolute inset-x-[2px] inset-y-[5px] rounded-[2px]" style={{ background: track.color, opacity: 0.85 }} />
+                      <span
+                        className="absolute inset-x-[1.5px] inset-y-[3px] overflow-hidden rounded-[2px]"
+                        style={{ background: track.color, opacity: 0.92 }}
+                      >
+                        <span className="absolute inset-x-0 top-0 h-[2px] bg-white/55" />
+                      </span>
                     )}
                     {placeable && (
                       <span
