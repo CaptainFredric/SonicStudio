@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { GripVertical, X } from 'lucide-react';
 import type React from 'react';
 
@@ -64,7 +65,35 @@ export const SongTimelineGrid = ({
   const [draftName, setDraftName] = useState('');
   const [dragTrackId, setDragTrackId] = useState<string | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
-  const [hoverCell, setHoverCell] = useState<{ trackId: string; step: number } | null>(null);
+  // The floating pitch ladder for SuperSonic placement. It lives in a portal so
+  // its tall, tappable rungs are not crushed into a 46px lane or clipped by the
+  // grid's overflow, the way an inline ladder was in the whole-song view.
+  const [ladder, setLadder] = useState<{
+    trackId: string;
+    trackName: string;
+    color: string;
+    patternIndex: number;
+    stepIndex: number;
+    bar: number;
+    anchorNote: string;
+    left: number;
+    right: number;
+    top: number;
+    height: number;
+  } | null>(null);
+  const closeTimer = useRef<number | null>(null);
+  const cancelClose = () => {
+    if (closeTimer.current !== null) {
+      window.clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+  };
+  // A small grace period so moving the pointer from the cell into the popover
+  // (across the gap between them) does not dismiss it.
+  const scheduleClose = () => {
+    cancelClose();
+    closeTimer.current = window.setTimeout(() => setLadder(null), 140);
+  };
 
   // SuperSonic mode is for precise placement, so the cells grow to fit the
   // pitch ladder; otherwise stay dense for the song overview.
@@ -95,6 +124,12 @@ export const SongTimelineGrid = ({
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
+
+  // Drop the ladder when placement turns off, and never leave a timer running.
+  useEffect(() => {
+    if (!placementEnabled) setLadder(null);
+  }, [placementEnabled]);
+  useEffect(() => () => cancelClose(), []);
 
   const arrangerClipsByTrack = useMemo(() => {
     const map: Record<string, ArrangementClip[]> = {};
@@ -150,7 +185,62 @@ export const SongTimelineGrid = ({
   const playheadLeft = playBeat * cellW;
   const barLineEvery = stepsPerPattern;
 
+  // The pitch ladder, floated next to the hovered cell so its rungs are large
+  // enough to read and tap. Each rung is labelled with the pitch it places.
+  const renderLadderPopover = () => {
+    if (!ladder) return null;
+    const rungH = 24;
+    const popoverW = 68;
+    const popoverH = SUPERSONIC_NOTE_OFFSETS.length * rungH + 26;
+    const fitsRight = ladder.right + 6 + popoverW <= window.innerWidth - 8;
+    const left = fitsRight ? ladder.right + 6 : Math.max(8, ladder.left - popoverW - 6);
+    const top = Math.max(8, Math.min(ladder.top + ladder.height / 2 - popoverH / 2, window.innerHeight - popoverH - 8));
+    return createPortal(
+      <div
+        className="fixed z-[60] rounded-[7px] border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] p-1 shadow-[0_14px_36px_rgba(0,0,0,0.6)]"
+        onPointerEnter={cancelClose}
+        onPointerLeave={scheduleClose}
+        style={{ left, top, width: popoverW }}
+      >
+        <div className="pb-1 text-center font-mono text-[8px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+          {ladder.trackName} · Bar {ladder.bar}
+        </div>
+        <div className="grid gap-px" style={{ gridTemplateRows: `repeat(${SUPERSONIC_NOTE_OFFSETS.length}, ${rungH}px)` }}>
+          {SUPERSONIC_NOTE_OFFSETS.map((offset) => {
+            const note = shiftPitch(ladder.anchorNote, offset);
+            const isCenter = offset === 0;
+            return (
+              <button
+                className="flex items-center justify-center rounded-[3px] font-mono text-[10px] font-semibold transition-[filter] hover:brightness-125 disabled:cursor-default disabled:hover:brightness-100"
+                disabled={!note}
+                key={offset}
+                onClick={() => {
+                  if (note) {
+                    onPlaceNote?.(ladder.trackId, ladder.patternIndex, ladder.stepIndex, note);
+                    setLadder(null);
+                  }
+                }}
+                style={{
+                  color: isCenter ? '#06131b' : 'var(--text-primary)',
+                  background: note ? (isCenter ? ladder.color : `${ladder.color}24`) : 'transparent',
+                  border: `1px solid ${isCenter ? ladder.color : 'var(--border-soft)'}`,
+                  opacity: note ? 1 : 0.32,
+                }}
+                title={note ? `Place ${note}` : 'Out of range'}
+                type="button"
+              >
+                {note ?? '—'}
+              </button>
+            );
+          })}
+        </div>
+      </div>,
+      document.body,
+    );
+  };
+
   return (
+    <>
     <div className="flex overflow-hidden rounded-[4px] border border-[var(--border-soft)] bg-[rgba(0,0,0,0.18)]">
       {/* Track-name gutter, aligned row-for-row with the lanes. Drag a lane to reorder. */}
       <div className="shrink-0 border-r border-[var(--border-soft)] bg-[var(--bg-panel-strong)]" style={{ width: GUTTER_WIDTH }}>
@@ -193,7 +283,7 @@ export const SongTimelineGrid = ({
       <div
         ref={scrollRef}
         className="relative flex-1 overflow-x-auto"
-        onScroll={(event) => setScrollLeft(event.currentTarget.scrollLeft)}
+        onScroll={(event) => { setScrollLeft(event.currentTarget.scrollLeft); setLadder(null); }}
       >
         <div className="relative" style={{ width: totalWidth }}>
           {/* Editable section ruler. */}
@@ -255,72 +345,60 @@ export const SongTimelineGrid = ({
               key={track.id}
               className="relative border-b border-[var(--border-soft)] last:border-b-0"
               style={{ height: laneH, width: totalWidth }}
-              onPointerLeave={() => setHoverCell((current) => (current?.trackId === track.id ? null : current))}
+              onPointerLeave={scheduleClose}
             >
               {windowSteps.map((songStep) => {
                 const resolved = resolveAt(track, songStep);
                 const active = Boolean(resolved && resolved.note.length > 0);
                 const isBar = songStep % barLineEvery === 0;
-                const showLadder = placementEnabled && !active && Boolean(resolved)
-                  && hoverCell?.trackId === track.id && hoverCell.step === songStep;
-                const anchorNote = showLadder && resolved
-                  ? getTrackAnchorNote(track, track.patterns[resolved.patternIndex] ?? [], resolved.stepIndex)
-                  : null;
+                // Placeable = an empty step that the arrangement actually loops
+                // here (so the note has somewhere to live). Hovering one floats
+                // the pitch ladder anchored to the cell.
+                const placeable = placementEnabled && !active && Boolean(resolved);
+                const bar = Math.floor(songStep / barLineEvery) + 1;
                 return (
                   <button
                     key={songStep}
-                    className="absolute top-0 h-full"
+                    className="absolute top-0 h-full transition-colors hover:bg-[rgba(255,255,255,0.05)]"
                     onClick={() => {
                       const target = resolved ?? resolveAt(track, songStep);
                       if (target) onToggleStep(track.id, target.patternIndex, target.stepIndex);
                     }}
-                    onPointerEnter={() => { if (placementEnabled) setHoverCell({ trackId: track.id, step: songStep }); }}
+                    onPointerEnter={(event) => {
+                      if (!placementEnabled) return;
+                      if (!placeable || !resolved) { scheduleClose(); return; }
+                      const rect = event.currentTarget.getBoundingClientRect();
+                      cancelClose();
+                      setLadder({
+                        trackId: track.id,
+                        trackName: track.name,
+                        color: track.color,
+                        patternIndex: resolved.patternIndex,
+                        stepIndex: resolved.stepIndex,
+                        bar,
+                        anchorNote: getTrackAnchorNote(track, track.patterns[resolved.patternIndex] ?? [], resolved.stepIndex),
+                        left: rect.left,
+                        right: rect.right,
+                        top: rect.top,
+                        height: rect.height,
+                      });
+                    }}
                     style={{
                       left: songStep * cellW,
                       width: cellW,
                       borderLeft: isBar ? '1px solid var(--border-soft)' : '1px solid rgba(255,255,255,0.025)',
                     }}
-                    title={`Bar ${Math.floor(songStep / barLineEvery) + 1}`}
+                    title={placeable ? `Bar ${bar} · hover to place a pitch` : `Bar ${bar}`}
                     type="button"
                   >
                     {active && (
                       <span className="absolute inset-x-[2px] inset-y-[5px] rounded-[2px]" style={{ background: track.color, opacity: 0.85 }} />
                     )}
-                    {showLadder && anchorNote && resolved && (
+                    {placeable && (
                       <span
-                        className="supersonic-ladder absolute inset-0 z-[2]"
-                        style={{ '--supersonic-ladder-count': String(SUPERSONIC_NOTE_OFFSETS.length) } as React.CSSProperties}
-                      >
-                        {SUPERSONIC_NOTE_OFFSETS.map((offset) => {
-                          const targetNote = shiftPitch(anchorNote, offset);
-                          if (!targetNote) {
-                            return (
-                              <span
-                                className="supersonic-ladder-step"
-                                key={offset}
-                                style={{ '--ladder-fill': '0.44', '--ladder-glow': track.color } as React.CSSProperties}
-                              />
-                            );
-                          }
-                          return (
-                            <span
-                              className="supersonic-ladder-step"
-                              data-center={offset === 0 ? 'true' : 'false'}
-                              key={offset}
-                              onPointerDown={(event) => {
-                                event.stopPropagation();
-                                onPlaceNote?.(track.id, resolved.patternIndex, resolved.stepIndex, targetNote);
-                              }}
-                              style={{
-                                '--ladder-color': track.color,
-                                '--ladder-fill': `${Math.max(0.38, 0.94 - (Math.abs(offset) * 0.08))}`,
-                                '--ladder-glow': offset === 0 ? 'rgba(255,255,255,0.88)' : `${track.color}88`,
-                              } as React.CSSProperties}
-                              title={`Place ${targetNote}`}
-                            />
-                          );
-                        })}
-                      </span>
+                        className="absolute left-1/2 top-1/2 h-1 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full"
+                        style={{ background: track.color, opacity: 0.28 }}
+                      />
                     )}
                   </button>
                 );
@@ -336,5 +414,7 @@ export const SongTimelineGrid = ({
         </div>
       </div>
     </div>
+    {renderLadderPopover()}
+    </>
   );
 };
