@@ -16,6 +16,7 @@ import {
   Zap,
 } from 'lucide-react';
 
+import { engine } from '../audio/ToneEngine';
 import { useAudio, usePlaybackStep } from '../context/AudioContext';
 import { detectKey, getEffectiveKey } from '../services/keyDetector';
 import {
@@ -178,8 +179,12 @@ export const PianoRoll = () => {
   const currentStep = usePlaybackStep();
   const {
     applyTrackVoicePreset,
+    arrangerClips,
     clearTrack,
     currentPattern,
+    setCurrentPattern,
+    songMarkers,
+    transportMode,
     humanizePattern,
     moveNoteToStep,
     selectedTrackId,
@@ -202,6 +207,22 @@ export const PianoRoll = () => {
   } = useAudio();
   const track = tracks.find((candidate) => candidate.id === selectedTrackId);
   const playbackStep = stepsPerPattern > 0 ? currentStep % stepsPerPattern : 0;
+  const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
+  // For the selected track, the song's sections mapped to the pattern the
+  // arrangement loops there, so the Piano Roll can jump to (and edit) any
+  // section's notes instead of being stuck on one pattern in Song mode.
+  const songSections = useMemo(() => {
+    if (!track || transportMode !== 'SONG') {
+      return [] as Array<{ id: string; name: string; beat: number; pattern: number | null }>;
+    }
+    const clips = arrangerClips.filter((clip) => clip.trackId === track.id);
+    return [...songMarkers]
+      .sort((left, right) => left.beat - right.beat)
+      .map((marker) => {
+        const clip = clips.find((candidate) => marker.beat >= candidate.startBeat && marker.beat < candidate.startBeat + candidate.beatLength);
+        return { id: marker.id, name: marker.name, beat: marker.beat, pattern: clip ? clip.patternIndex : null };
+      });
+  }, [track, transportMode, arrangerClips, songMarkers]);
   const [noteWindow, setNoteWindow] = useState<NoteWindowKey>('MID');
   const [selectedStepIndex, setSelectedStepIndex] = useState<number | null>(null);
   const [selectedNoteIndex, setSelectedNoteIndex] = useState<number | null>(null);
@@ -1220,6 +1241,37 @@ export const PianoRoll = () => {
 
       <div className="flex flex-col gap-4 p-4 md:min-h-0 md:flex-1 xl:flex-row xl:items-stretch">
         <div className="flex min-w-0 flex-col md:min-h-[min(80vh,680px)] md:flex-1 md:overflow-hidden">
+          {songSections.length > 0 && (
+            <div className="mb-2 flex shrink-0 items-center gap-1.5 overflow-x-auto pb-1">
+              <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">Jump to</span>
+              {songSections.map((section) => {
+                const arranged = section.pattern !== null;
+                const isActive = section.id === activeSectionId
+                  || (activeSectionId === null && arranged && section.pattern === currentPattern);
+                return (
+                  <button
+                    key={section.id}
+                    className="shrink-0 rounded-[3px] border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] transition-colors disabled:cursor-default disabled:opacity-35"
+                    disabled={!arranged}
+                    onClick={() => {
+                      if (section.pattern !== null) setCurrentPattern(section.pattern);
+                      setActiveSectionId(section.id);
+                      engine.seekToBeat(section.beat);
+                    }}
+                    style={{
+                      borderColor: isActive ? 'var(--accent-strong)' : 'var(--border-soft)',
+                      color: isActive ? 'var(--accent-strong)' : 'var(--text-secondary)',
+                      background: isActive ? 'var(--accent-soft)' : undefined,
+                    }}
+                    title={arranged ? `Edit ${section.name} (Pattern ${String.fromCharCode(65 + (section.pattern ?? 0))})` : `${track?.name ?? 'This track'} has no clip in ${section.name}`}
+                    type="button"
+                  >
+                    {section.name}
+                  </button>
+                );
+              })}
+            </div>
+          )}
           <div
             className="sequencer-grid-scroll overflow-auto rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] md:min-h-0 md:flex-1"
             data-scrolled={gridScrollLeft > 1 ? 'true' : undefined}
