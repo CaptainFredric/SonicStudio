@@ -847,6 +847,31 @@ export const MainWorkspace = () => {
     };
   }, [compactLanes, laneScope, laneHeaderWidth, stepCellWidth, stepsPerPattern, visibleTrackSections.length]);
 
+  // Mouse wheel scrolls the step grid sideways: with Shift, when the wheel is
+  // already horizontal, or when the lanes fit (so a plain vertical wheel has
+  // nothing to scroll down). Lane scrolling still wins when lanes overflow.
+  useEffect(() => {
+    const node = gridViewportRef.current;
+    if (!node) return undefined;
+    const onWheel = (event: WheelEvent) => {
+      if (event.ctrlKey || event.altKey) return;
+      const canScrollX = node.scrollWidth > node.clientWidth + 1;
+      if (!canScrollX) return;
+      const canScrollY = node.scrollHeight > node.clientHeight + 1;
+      const horizontalIntent = event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY) || !canScrollY;
+      if (!horizontalIntent) return;
+      const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+      if (delta === 0) return;
+      const atStart = node.scrollLeft <= 0;
+      const atEnd = node.scrollLeft >= node.scrollWidth - node.clientWidth - 1;
+      if ((delta < 0 && atStart) || (delta > 0 && atEnd)) return;
+      event.preventDefault();
+      node.scrollLeft += delta;
+    };
+    node.addEventListener('wheel', onWheel, { passive: false });
+    return () => node.removeEventListener('wheel', onWheel);
+  }, []);
+
   useEffect(() => {
     if (!isMobileViewport) {
       setMobileTrackMapOpen(true);

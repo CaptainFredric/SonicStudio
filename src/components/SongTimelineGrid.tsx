@@ -107,14 +107,28 @@ export const SongTimelineGrid = ({
 
   useEffect(() => {
     let raf = 0;
+    let lastBeat = -1;
     const tick = () => {
       const beat = engine.currentStep;
-      setPlayBeat((prev) => (prev === beat ? prev : beat));
+      if (beat !== lastBeat) {
+        lastBeat = beat;
+        setPlayBeat(beat);
+        // Follow the playhead only when it actually moves (during playback or a
+        // seek). Doing it here, instead of in an effect keyed on scrollLeft,
+        // means a manual scroll while stopped is never yanked back.
+        const el = scrollRef.current;
+        if (el) {
+          const playX = beat * cellW;
+          if (playX < el.scrollLeft + 40 || playX > el.scrollLeft + el.clientWidth - 40) {
+            el.scrollLeft = Math.max(0, playX - el.clientWidth / 2);
+          }
+        }
+      }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, []);
+  }, [cellW]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -124,6 +138,27 @@ export const SongTimelineGrid = ({
     const observer = new ResizeObserver(measure);
     observer.observe(el);
     return () => observer.disconnect();
+  }, []);
+
+  // Plain mouse wheel scrolls the timeline sideways (this grid has no vertical
+  // scroll of its own), so a mouse with no horizontal wheel can still move
+  // across the song. At either end the event bubbles so the page can scroll.
+  useEffect(() => {
+    const node = scrollRef.current;
+    if (!node) return undefined;
+    const onWheel = (event: WheelEvent) => {
+      if (event.ctrlKey || event.altKey) return;
+      if (node.scrollWidth <= node.clientWidth) return;
+      const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+      if (delta === 0) return;
+      const atStart = node.scrollLeft <= 0;
+      const atEnd = node.scrollLeft >= node.scrollWidth - node.clientWidth - 1;
+      if ((delta < 0 && atStart) || (delta > 0 && atEnd)) return;
+      event.preventDefault();
+      node.scrollLeft += delta;
+    };
+    node.addEventListener('wheel', onWheel, { passive: false });
+    return () => node.removeEventListener('wheel', onWheel);
   }, []);
 
   // Drop the ladder when placement turns off, and never leave a timer running.
@@ -183,14 +218,6 @@ export const SongTimelineGrid = ({
     transportMode: 'SONG',
   });
 
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    const playX = playBeat * cellW;
-    if (playX < scrollLeft + 40 || playX > scrollLeft + el.clientWidth - 40) {
-      el.scrollLeft = Math.max(0, playX - el.clientWidth / 2);
-    }
-  }, [playBeat, scrollLeft, cellW]);
 
   const commitRename = () => {
     if (editingMarkerId && onRenameSection) {
