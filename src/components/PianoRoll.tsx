@@ -54,6 +54,7 @@ import {
   snapNoteGate,
 } from '../utils/noteEditing';
 import { useMediaQuery } from '../utils/useMediaQuery';
+import { SUPERSONIC_NOTE_OFFSETS, shiftPitch } from '../utils/notePlacement';
 import { loadRecordedNotePresets, subscribeRecordedNotePresets, type RecordedNotePreset } from '../services/recordedNoteLibrary';
 import { captureSuggestionControlsToTrackParams, captureSuggestionControlsToTrackSource } from '../services/audioRecording';
 
@@ -102,19 +103,6 @@ const STEP_ZOOM_MAX = 120;
 const STEP_ZOOM_MIN = 20;
 const STEP_ZOOM_STEP = 2;
 const STEP_OPTIONS = [16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512, 768, 1024, 1536, 2048, 3072, 4096] as const;
-const SUPERSONIC_NOTE_OFFSETS = [4, 3, 2, 1, 0, -1, -2, -3, -4] as const;
-
-const shiftPitch = (note: string, semitones: number): string | null => {
-  const match = note.match(/^([A-G]#?)(-?\d+)$/);
-  if (!match) return null;
-  const [, name, octaveStr] = match;
-  const semitoneIndex = NOTE_NAMES.indexOf(name);
-  if (semitoneIndex < 0) return null;
-  const totalSemitones = Number(octaveStr) * 12 + semitoneIndex + semitones;
-  const newOctave = Math.floor(totalSemitones / 12);
-  const newSemitone = ((totalSemitones % 12) + 12) % 12;
-  return `${NOTE_NAMES[newSemitone]}${newOctave}`;
-};
 const NOTE_WINDOWS = {
   HIGH: buildNoteRange(6, 4),
   LOW: buildNoteRange(4, 2),
