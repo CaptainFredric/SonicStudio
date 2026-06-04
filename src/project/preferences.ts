@@ -3,7 +3,7 @@ import { readJson, writeJson } from '../utils/safeStorage';
 export type MotionMode = 'fluid' | 'focus' | 'still';
 export type AccentColor = 'aqua' | 'violet' | 'amber' | 'rose' | 'mint';
 export type Density = 'comfortable' | 'compact';
-export type DefaultWorkspace = 'compose' | 'arranger' | 'piano-roll' | 'mixer' | 'sequencer';
+export type DefaultWorkspace = 'arranger' | 'piano-roll' | 'mixer' | 'sequencer';
 export type CaptureAnalysisProfile = 'quick' | 'balanced' | 'steady';
 export type CaptureSuggestionCount = 1 | 2 | 3;
 export type SuperSonicWaveIntensity = 'off' | 'faint' | 'flow';
@@ -45,7 +45,7 @@ export const DEFAULT_STUDIO_PREFERENCES: StudioPreferences = {
   midiRecordEnabled: false,
   accentColor: 'aqua',
   density: 'comfortable',
-  defaultWorkspace: 'piano-roll',
+  defaultWorkspace: 'sequencer',
   superSonicMode: false,
   stickyMobileTransport: true,
   audioStabilityMode: 'auto',
@@ -124,7 +124,7 @@ const isDensity = (value: unknown): value is Density => (
 );
 
 const isDefaultWorkspace = (value: unknown): value is DefaultWorkspace => (
-  value === 'compose' || value === 'arranger' || value === 'piano-roll' || value === 'mixer' || value === 'sequencer'
+  value === 'arranger' || value === 'piano-roll' || value === 'mixer' || value === 'sequencer'
 );
 
 const isCaptureAnalysisProfile = (value: unknown): value is CaptureAnalysisProfile => (
@@ -159,7 +159,7 @@ export const normalizeStudioPreferences = (value: unknown): StudioPreferences =>
       : false,
     accentColor: isAccentColor(candidate.accentColor) ? candidate.accentColor : 'aqua',
     density: isDensity(candidate.density) ? candidate.density : 'comfortable',
-    defaultWorkspace: isDefaultWorkspace(candidate.defaultWorkspace) ? candidate.defaultWorkspace : 'piano-roll',
+    defaultWorkspace: isDefaultWorkspace(candidate.defaultWorkspace) ? candidate.defaultWorkspace : 'sequencer',
     superSonicMode: typeof candidate.superSonicMode === 'boolean' ? candidate.superSonicMode : false,
     stickyMobileTransport: typeof candidate.stickyMobileTransport === 'boolean'
       ? candidate.stickyMobileTransport

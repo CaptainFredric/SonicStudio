@@ -15,8 +15,6 @@ const SETTINGS_TABS: SettingsTab[] = ['WORKSPACE', 'TRACK', 'OUTPUT'];
 const VIEW_ALIASES: Record<string, AppView> = {
   arrange: 'ARRANGER',
   arranger: 'ARRANGER',
-  compose: 'COMPOSE',
-  composer: 'COMPOSE',
   grid: 'SEQUENCER',
   mix: 'MIXER',
   mixer: 'MIXER',
@@ -111,7 +109,9 @@ export const applyStudioRouteToSession = (
     ...session,
     ui: {
       ...session.ui,
-      activeView: routeState.requestedView ?? session.ui.activeView,
+      // The studio always opens on the Sequencer, not whatever view was last
+      // left open, unless a deep link explicitly asks for a specific view.
+      activeView: routeState.requestedView ?? 'SEQUENCER',
       isSettingsOpen: routeState.shouldOpenSettings,
     },
   };

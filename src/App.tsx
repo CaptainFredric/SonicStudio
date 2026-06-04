@@ -10,7 +10,6 @@ import { Arranger } from './components/Arranger';
 import { TapToPlay } from './components/TapToPlay';
 import { Launchpad } from './components/Launchpad';
 import { ShortcutOverlay } from './components/ShortcutOverlay';
-import { ComposeView } from './components/ComposeView';
 import { ShareDialog } from './components/ShareDialog';
 import { AudioCapture } from './components/AudioCapture';
 import { SuperSonicAssistBar } from './components/SuperSonicAssistBar';
@@ -33,7 +32,7 @@ import { useMediaQuery } from './utils/useMediaQuery';
 import { readString } from './utils/safeStorage';
 import { playSupersonicToggleSound } from './audio/uiSounds';
 import { getSupersonicTransitionOrigin, runSupersonicTransition } from './utils/supersonicTransition';
-import { AudioWaveform, LayoutGrid, Volume2, Settings, Sparkles, Rows2, Share2, Coffee } from 'lucide-react';
+import { AudioWaveform, LayoutGrid, Volume2, Settings, Sparkles, Share2, Coffee } from 'lucide-react';
 import { Circle, Maximize2, Minimize2, Minus, Pause, Play, Plus, Square, Zap } from 'lucide-react';
 
 const SUPPORT_URL = 'https://buymeacoffee.com/captainarm1';
@@ -64,7 +63,6 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe,
       label: 'Sequencer',
       title: 'Sequencer: build step timing and groove',
     },
-    { id: 'COMPOSE', icon: withSuperFill(<Rows2 size={20} />, 'studio-icon-fill-compose-core'), label: 'Compose', title: 'Compose: sketch ideas and audition quickly' },
     { id: 'PIANO_ROLL', icon: withSuperFill(<LayoutGrid size={20} />, 'studio-icon-fill-grid-core'), label: 'Piano Roll', title: 'Piano Roll: edit pitch, velocity, and phrasing' },
     { id: 'MIXER', icon: withSuperFill(<Volume2 size={20} />, 'studio-icon-fill-mixer-core'), label: 'Mixer', title: 'Mixer: balance levels, pan, and tone' },
     {
@@ -237,9 +235,6 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe,
 
 const ViewRouter = () => {
   const { activeView } = useAudio();
-  if (activeView === 'COMPOSE') {
-    return <ComposeView />;
-  }
   return (
     <main className="relative flex min-h-[44vh] flex-col md:min-h-0 md:min-w-0 md:flex-1 md:overflow-y-auto md:overflow-x-hidden">
       {activeView === 'SEQUENCER' && <Sequencer />}

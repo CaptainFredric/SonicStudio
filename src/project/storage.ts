@@ -38,9 +38,8 @@ const normalizeUiState = (value: unknown, project: Project): StudioUIState => {
     || candidate.activeView === 'MIXER'
     || candidate.activeView === 'ARRANGER'
     || candidate.activeView === 'SEQUENCER'
-    || candidate.activeView === 'COMPOSE'
     ? candidate.activeView
-    : 'PIANO_ROLL';
+    : 'SEQUENCER';
   const selectedTrackId = typeof candidate.selectedTrackId === 'string'
     ? candidate.selectedTrackId
     : project.tracks[0]?.id ?? null;
@@ -114,14 +113,13 @@ export const hydrateSessionPayload = (value: unknown): StudioSession | null => {
 };
 
 const WORKSPACE_TO_VIEW: Record<string, AppView> = {
-  compose: 'COMPOSE',
   arranger: 'ARRANGER',
   'piano-roll': 'PIANO_ROLL',
   mixer: 'MIXER',
   sequencer: 'SEQUENCER',
 };
 
-const readDefaultWorkspaceView = (): AppView => {
+export const readDefaultWorkspaceView = (): AppView => {
   // Every new session opens in the Sequencer — the step grid is the most
   // direct surface to start sketching on. A returning user's saved
   // defaultWorkspace preference still wins.

@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { Database, HardDrive, Keyboard, Palette, Rows2, Trash2, Type, Volume2, Waves, Zap } from 'lucide-react';
+import { Database, HardDrive, Keyboard, Palette, Trash2, Type, Volume2, Waves, Zap } from 'lucide-react';
 
 import { ACCENT_PRESETS, type AccentColor, type DefaultWorkspace, type Density, type MotionMode } from '../../project/preferences';
 import { getSupersonicTransitionOrigin, runSupersonicTransition } from '../../utils/supersonicTransition';
@@ -57,19 +57,6 @@ export const PreferencesPanel = ({
   onDefaultWorkspaceChange,
 }: PreferencesPanelProps) => (
   <div className="space-y-4">
-    <PanelCard icon={<Rows2 className="h-4 w-4 text-[var(--accent)]" />} title="Default workspace">
-      <p className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
-        Which view opens when you start a new session. Compose shows the arranger and piano roll together.
-      </p>
-      <div className="mt-3 grid grid-cols-3 gap-2">
-        <SegmentButton active={defaultWorkspace === 'compose'} label="Compose" onClick={() => onDefaultWorkspaceChange('compose')} />
-        <SegmentButton active={defaultWorkspace === 'arranger'} label="Arranger" onClick={() => onDefaultWorkspaceChange('arranger')} />
-        <SegmentButton active={defaultWorkspace === 'piano-roll'} label="Piano roll" onClick={() => onDefaultWorkspaceChange('piano-roll')} />
-        <SegmentButton active={defaultWorkspace === 'mixer'} label="Mixer" onClick={() => onDefaultWorkspaceChange('mixer')} />
-        <SegmentButton active={defaultWorkspace === 'sequencer'} label="Sequencer" onClick={() => onDefaultWorkspaceChange('sequencer')} />
-      </div>
-    </PanelCard>
-
     <PanelCard icon={<Palette className="h-4 w-4 text-[var(--accent)]" />} title="Accent color">
       <p className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
         Used for active tabs, focus rings, and highlights.
