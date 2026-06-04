@@ -1599,8 +1599,8 @@ export const MainWorkspace = () => {
 
     setCurrentPattern(0);
     applySongForm(formId);
-    setActiveView('ARRANGER');
-    setSessionPlayerNotice(`${profile.label} built as ${getSongFormDefinition(formId).label}. The arrangement is ready in Song view.`);
+    setActiveView('SEQUENCER');
+    setSessionPlayerNotice(`${profile.label} built as ${getSongFormDefinition(formId).label}. Open the Arrangement panel to shape it.`);
   }, [applyPatternSegment, applySongForm, clearPatternAt, createTrack, patternCount, sessionPlayerPatternDecks, setActiveView, setCurrentPattern, setPatternCount, setStepsPerPattern, stepsPerPattern, tracks]);
 
   useEffect(() => {
@@ -1962,7 +1962,7 @@ export const MainWorkspace = () => {
                     )}
                     <button
                       className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                      onClick={() => setActiveView(canDeepEditSelectedTrack ? 'PIANO_ROLL' : 'ARRANGER')}
+                      onClick={() => setActiveView(canDeepEditSelectedTrack ? 'PIANO_ROLL' : 'SEQUENCER')}
                       type="button"
                     >
                       <SlidersHorizontal className="h-3.5 w-3.5" />
@@ -2768,7 +2768,7 @@ export const MainWorkspace = () => {
                   </div>
                   <button
                     className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                    onClick={() => setActiveView(canDeepEditSelectedTrack ? 'PIANO_ROLL' : 'ARRANGER')}
+                    onClick={() => setActiveView(canDeepEditSelectedTrack ? 'PIANO_ROLL' : 'SEQUENCER')}
                   >
                     <SlidersHorizontal className="h-3.5 w-3.5" />
                     {canDeepEditSelectedTrack ? 'Deep edit' : 'Song tools'}
@@ -2806,13 +2806,12 @@ export const MainWorkspace = () => {
                   <div className="mt-3 rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-2.5">
                     <div className="section-label">View roles</div>
                     <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
-                      Sequencer shapes timing and groove. Roll handles pitch and phrase detail. Mixer balances level and tone. Arranger lays out full song structure.
+                      Sequencer shapes timing, groove, and song structure. Roll handles pitch and phrase detail. Mixer balances level and tone.
                     </div>
-                    <div className="mt-3 grid grid-cols-2 gap-2">
+                    <div className="mt-3 grid grid-cols-3 gap-2">
                       <button className="control-chip h-8 px-2 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => setActiveView('SEQUENCER')} type="button">Seq</button>
                       <button className="control-chip h-8 px-2 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => setActiveView('PIANO_ROLL')} type="button">Roll</button>
                       <button className="control-chip h-8 px-2 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => setActiveView('MIXER')} type="button">Mix</button>
-                      <button className="control-chip h-8 px-2 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => setActiveView('ARRANGER')} type="button">Arrange</button>
                     </div>
                   </div>
                 )}

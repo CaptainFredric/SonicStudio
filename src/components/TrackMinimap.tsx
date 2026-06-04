@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { engine } from '../audio/ToneEngine';
+import { resolvePatternStepForPlayback } from '../audio/playbackResolver';
 import { useAudio } from '../context/AudioContext';
+import type { ArrangementClip } from '../project/schema';
 
 const SECTION_COLORS = [
   '#22d3ee', '#818cf8', '#f472b6', '#fbbf24', '#34d399', '#fb7185', '#60a5fa', '#a78bfa', '#f59e0b',
@@ -19,6 +21,7 @@ const GUTTER_WIDTH = 64;
 export const TrackMinimap = () => {
   const { songLengthInBeats, songMarkers, transportMode, stepsPerPattern, arrangerClips, tracks, isPlaying, setIsPlaying } = useAudio();
   const [playBeat, setPlayBeat] = useState(0);
+  const [areaWidth, setAreaWidth] = useState(320);
   const areaRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef(false);
   // Remember whether the transport was running when a scrub began, so playback
@@ -38,6 +41,18 @@ export const TrackMinimap = () => {
     return () => cancelAnimationFrame(raf);
   }, []);
 
+  // Track the timeline width so note ticks can keep a legible minimum size even
+  // when a long song packs many steps into a narrow strip.
+  useEffect(() => {
+    const el = areaRef.current;
+    if (!el) return undefined;
+    const measure = () => setAreaWidth(el.clientWidth || 320);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   const total = Math.max(1, songLengthInBeats);
 
   const sections = useMemo(() => {
@@ -51,15 +66,46 @@ export const TrackMinimap = () => {
     }));
   }, [songMarkers, total]);
 
-  // One lane per track, carrying the clips that place it in the song.
-  const lanes = useMemo(() => tracks.map((track) => ({
-    id: track.id,
-    name: track.name,
-    color: track.color,
-    clips: arrangerClips
-      .filter((clip) => clip.trackId === track.id)
-      .map((clip) => ({ id: clip.id, start: clip.startBeat, length: clip.beatLength })),
-  })), [tracks, arrangerClips]);
+  const arrangerClipsByTrack = useMemo(() => {
+    const map: Record<string, ArrangementClip[]> = {};
+    for (const clip of arrangerClips) {
+      (map[clip.trackId] ??= []).push(clip);
+    }
+    return map;
+  }, [arrangerClips]);
+
+  // One lane per track: the clip regions that place it in the song, plus the
+  // individual notes inside those regions. Resolving every step against the
+  // arrangement means the lane shows the real rhythm (onsets, sustains, and the
+  // gaps between them) instead of one flat block per clip.
+  const lanes = useMemo(() => tracks.map((track) => {
+    const clips = arrangerClipsByTrack[track.id] ?? [];
+    const notes: Array<{ step: number; length: number }> = [];
+    for (const clip of clips) {
+      const end = clip.startBeat + clip.beatLength;
+      for (let step = Math.floor(clip.startBeat); step < end; step += 1) {
+        const resolved = resolvePatternStepForPlayback({
+          arrangerClipsByTrack,
+          currentPattern: 0,
+          songStep: step,
+          stepsPerPattern,
+          track,
+          transportMode: 'SONG',
+        });
+        if (resolved && resolved.note.length > 0) {
+          const gate = Math.max(...resolved.note.map((event) => event.gate || 1));
+          notes.push({ step, length: Math.max(0.6, Math.min(gate, end - step)) });
+        }
+      }
+    }
+    return {
+      id: track.id,
+      name: track.name,
+      color: track.color,
+      clips: clips.map((clip) => ({ id: clip.id, start: clip.startBeat, length: clip.beatLength })),
+      notes,
+    };
+  }), [tracks, arrangerClipsByTrack, stepsPerPattern]);
 
   // Shown for any SONG-mode scene, including single-bar loop templates, so the
   // timeline is always there to scrub.
@@ -97,6 +143,9 @@ export const TrackMinimap = () => {
     setPlayBeat(beat);
   };
   const pct = (beats: number) => `${(beats / total) * 100}%`;
+  // Smallest note width, in step units, that still renders ~1.4px wide at the
+  // current timeline width, so individual notes never vanish on a long song.
+  const minNoteUnits = Math.max(0.5, (1.4 * total) / Math.max(1, areaWidth));
 
   const playPct = Math.max(0, Math.min(100, (playBeat / total) * 100));
   const currentBar = Math.floor(playBeat / stepsPerPattern) + 1;
@@ -192,13 +241,32 @@ export const TrackMinimap = () => {
                   style={{ left: pct(section.start) }}
                 />
               ))}
+              {/* Faint clip region for context, then the actual notes on top. */}
               {lane.clips.map((clip) => (
                 <div
                   key={clip.id}
                   className="absolute rounded-[1px]"
-                  style={{ left: pct(clip.start), width: pct(clip.length), top: 2, bottom: 2, background: lane.color, opacity: 0.78 }}
+                  style={{ left: pct(clip.start), width: pct(clip.length), top: 2, bottom: 2, background: lane.color, opacity: 0.14 }}
                 />
               ))}
+              {lane.notes.length > 0 && (
+                <svg
+                  className="pointer-events-none absolute inset-0 h-full w-full"
+                  preserveAspectRatio="none"
+                  viewBox={`0 0 ${total} 1`}
+                >
+                  {lane.notes.map((note, index) => (
+                    <rect
+                      key={index}
+                      fill={lane.color}
+                      height={0.72}
+                      width={Math.max(minNoteUnits, note.length * 0.86)}
+                      x={note.step}
+                      y={0.14}
+                    />
+                  ))}
+                </svg>
+              )}
             </div>
           ))}
 
