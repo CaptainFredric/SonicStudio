@@ -60,6 +60,12 @@ export const Knob = ({
   const needleStart = pointOnKnob(angle, KNOB_NEEDLE_INNER_RADIUS);
   const needleEnd = pointOnKnob(angle, KNOB_NEEDLE_OUTER_RADIUS);
 
+  const precision = normalizedStep >= 1 ? 0 : Math.min(4, Math.max(0, `${normalizedStep}`.split('.')[1]?.length ?? 0));
+  const commitValue = (raw: number) => {
+    const steppedValue = min + Math.round((raw - min) / normalizedStep) * normalizedStep;
+    onChange(Number(Math.max(min, Math.min(max, steppedValue)).toFixed(precision)));
+  };
+
   const applyPointerValue = (clientX: number, clientY: number) => {
     const knob = knobRef.current;
     if (!knob || disabled) {
@@ -74,17 +80,36 @@ export const Knob = ({
     const pointerAngle = Math.atan2(deltaX, -deltaY) * (180 / Math.PI);
     const clampedAngle = Math.max(KNOB_MIN_ANGLE, Math.min(KNOB_MAX_ANGLE, pointerAngle));
     const pointerRatio = (clampedAngle - KNOB_MIN_ANGLE) / KNOB_SWEEP;
-    const rawValue = min + (max - min) * pointerRatio;
-    const steppedValue = min + Math.round((rawValue - min) / normalizedStep) * normalizedStep;
-    const precision = normalizedStep >= 1 ? 0 : Math.min(4, Math.max(0, `${normalizedStep}`.split('.')[1]?.length ?? 0));
-
-    onChange(Number(Math.max(min, Math.min(max, steppedValue)).toFixed(precision)));
+    commitValue(min + (max - min) * pointerRatio);
   };
 
   return (
     <div className={`flex flex-col items-center gap-2 ${disabled ? 'opacity-45' : ''}`}>
       <div
-        className={`relative flex h-14 w-14 items-center justify-center border border-[var(--border-soft)] bg-[var(--bg-control)] ${disabled ? 'cursor-not-allowed' : 'cursor-ns-resize'}`}
+        aria-disabled={disabled || undefined}
+        aria-label={label}
+        aria-valuemax={max}
+        aria-valuemin={min}
+        aria-valuenow={value}
+        aria-valuetext={formattedValue}
+        className={`relative flex h-14 w-14 items-center justify-center border border-[var(--border-soft)] bg-[var(--bg-control)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] ${disabled ? 'cursor-not-allowed' : 'cursor-ns-resize'}`}
+        onKeyDown={(event) => {
+          if (disabled) {
+            return;
+          }
+
+          let next: number | null = null;
+          if (event.key === 'ArrowUp' || event.key === 'ArrowRight') next = value + normalizedStep;
+          else if (event.key === 'ArrowDown' || event.key === 'ArrowLeft') next = value - normalizedStep;
+          else if (event.key === 'Home') next = min;
+          else if (event.key === 'End') next = max;
+          if (next === null) {
+            return;
+          }
+
+          event.preventDefault();
+          commitValue(next);
+        }}
         onPointerDown={(event) => {
           if (disabled) {
             return;
@@ -102,7 +127,9 @@ export const Knob = ({
           applyPointerValue(event.clientX, event.clientY);
         }}
         ref={knobRef}
+        role="slider"
         style={{ borderRadius: '2px', touchAction: 'none' }}
+        tabIndex={disabled ? -1 : 0}
       >
         <svg className="absolute inset-0 h-full w-full" viewBox="0 0 56 56">
           <path d={backgroundArc} fill="none" stroke="rgba(255,255,255,0.08)" strokeLinecap="round" strokeWidth="4" />
