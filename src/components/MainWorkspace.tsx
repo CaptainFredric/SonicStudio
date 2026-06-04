@@ -11,6 +11,7 @@ import {
   Eraser,
   Focus,
   Minus,
+  Mic,
   Music2,
   Pin,
   Play,
@@ -1166,10 +1167,25 @@ export const MainWorkspace = () => {
   // fresh lane announces itself — it auditions its voice and scrolls
   // into view — rather than appearing silently off-screen.
   const laneJustAddedRef = useRef(false);
+  // A captured note string to drop onto the next lane this component creates.
+  const pendingCaptureSegmentRef = useRef<PatternSegment | null>(null);
   const prevTrackCountRef = useRef(tracks.length);
   const handleCreateLane = useCallback((trackType: InstrumentType) => {
     laneJustAddedRef.current = true;
     createTrack(trackType);
+  }, [createTrack]);
+
+  // Spin up a fresh melodic lane seeded from the most recent saved capture.
+  const handleCreateLaneFromCapture = useCallback(() => {
+    const captures = loadCapturedNoteStrings();
+    if (captures.length === 0) {
+      setSessionPlayerNotice('Capture or record a sound first, then add it here as a new lane.');
+      return;
+    }
+    const captured = captures[0];
+    pendingCaptureSegmentRef.current = noteStringToPatternSegment(captured, captured.name, 'lead');
+    laneJustAddedRef.current = true;
+    createTrack('lead');
   }, [createTrack]);
 
   useEffect(() => {
@@ -1181,7 +1197,14 @@ export const MainWorkspace = () => {
     laneJustAddedRef.current = false;
     const newest = tracks[tracks.length - 1];
     if (!newest) {
+      pendingCaptureSegmentRef.current = null;
       return;
+    }
+    const pendingSegment = pendingCaptureSegmentRef.current;
+    if (pendingSegment) {
+      pendingCaptureSegmentRef.current = null;
+      applyPatternSegment(newest.id, currentPattern, pendingSegment.steps, pendingSegment.automation);
+      setSessionPlayerNotice(`Added "${pendingSegment.name}" from your captures as a new lane.`);
     }
     void previewTrack(newest.id);
     window.requestAnimationFrame(() => {
@@ -1192,7 +1215,7 @@ export const MainWorkspace = () => {
       const newLaneHeader = scrollEl.querySelector('.grid-freeze-col[data-selected="true"]');
       newLaneHeader?.closest('.flex.border-b')?.scrollIntoView({ block: 'nearest' });
     });
-  }, [tracks, previewTrack]);
+  }, [tracks, previewTrack, applyPatternSegment, currentPattern]);
 
   const handleSeqCellPointerDown = (
     trackId: string,
@@ -1712,11 +1735,31 @@ export const MainWorkspace = () => {
             className="add-lane-strip mt-2 flex items-stretch gap-2 overflow-x-auto pb-1"
             ref={addLaneStripRef}
           >
+            <button
+              className="add-lane-pill shrink-0 rounded-[4px] border px-2.5 py-2 text-left transition-colors"
+              onClick={handleCreateLaneFromCapture}
+              style={{ borderColor: 'var(--accent-strong)', background: 'rgba(114,217,255,0.08)' }}
+              title="Add a new lane from your most recent capture or recording"
+              type="button"
+            >
+              <div className="flex items-center gap-2">
+                <span className="flex h-6 w-6 items-center justify-center rounded-[2px] border border-[var(--accent-strong)] bg-[rgba(114,217,255,0.12)] text-[var(--accent-strong)]">
+                  <Mic className="h-3.5 w-3.5" />
+                </span>
+                <span>
+                  <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-primary)]">
+                    <Plus className="h-3 w-3 text-[var(--accent-strong)]" strokeWidth={3} />From capture
+                  </span>
+                  <span className="block text-[9px] uppercase tracking-[0.12em] text-[var(--text-tertiary)]">recorded</span>
+                </span>
+              </div>
+            </button>
             {TRACK_BUTTONS.map((button) => (
               <button
                 className="control-chip add-lane-pill shrink-0 px-2.5 py-2 text-left"
                 key={button.type}
                 onClick={() => handleCreateLane(button.type)}
+                title={`Add a ${button.label} lane`}
                 type="button"
               >
                 <div className="flex items-center gap-2">
@@ -1724,7 +1767,9 @@ export const MainWorkspace = () => {
                     <TrackIcon className="h-3.5 w-3.5" type={button.type} />
                   </span>
                   <span>
-                    <span className="block text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-primary)]">{button.label}</span>
+                    <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-primary)]">
+                      <Plus className="h-3 w-3 text-[var(--accent)]" strokeWidth={3} />{button.label}
+                    </span>
                     <span className="block text-[9px] uppercase tracking-[0.12em] text-[var(--text-tertiary)]">{button.family}</span>
                   </span>
                 </div>
