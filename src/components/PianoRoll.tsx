@@ -1007,6 +1007,7 @@ export const PianoRoll = () => {
                 className="sonic-scroll-strip w-24"
                 max={STEP_ZOOM_MAX}
                 min={STEP_ZOOM_MIN}
+                aria-label="Horizontal zoom"
                 onChange={(event) => updateHorizontalZoom(Number(event.target.value))}
                 step={STEP_ZOOM_STEP}
                 type="range"
@@ -1579,6 +1580,7 @@ export const PianoRoll = () => {
 
                     gridViewportRef.current.scrollLeft = Number(event.target.value);
                   }}
+                  aria-label="Scroll the piano roll"
                   step={stepCellWidth}
                   type="range"
                   value={Math.min(gridScrollLeft, maxGridScrollLeft)}
@@ -1848,6 +1850,7 @@ export const PianoRoll = () => {
                   disabled={!selectedNote || normalizedSelectedNoteIndex === null}
                   max="1"
                   min="0.1"
+                  aria-label="Selected note velocity"
                   onChange={(event) => normalizedSelectedNoteIndex !== null && updateStepEvent(track.id, selectedStepIndex, normalizedSelectedNoteIndex, { velocity: Number(event.target.value) })}
                   step="0.01"
                   type="range"
@@ -1867,6 +1870,7 @@ export const PianoRoll = () => {
                   disabled={!selectedNote || normalizedSelectedNoteIndex === null}
                   max={NOTE_GATE_MAX}
                   min={NOTE_GATE_MIN}
+                  aria-label="Selected note length"
                   onChange={(event) => normalizedSelectedNoteIndex !== null && updateStepEvent(track.id, selectedStepIndex, normalizedSelectedNoteIndex, { gate: clampNoteGate(Number(event.target.value)) })}
                   step={NOTE_GATE_FINE_STEP}
                   type="range"

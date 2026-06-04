@@ -134,6 +134,7 @@ export const OutputSettingsPanel = () => {
             className="mt-3"
             max="1"
             min="0"
+            aria-label="Glue compression"
             onChange={(event) => setMasterSettings({ glueCompression: Number(event.target.value) })}
             step="0.01"
             type="range"
@@ -150,6 +151,7 @@ export const OutputSettingsPanel = () => {
             className="mt-3"
             max="1"
             min="0"
+            aria-label="Tone"
             onChange={(event) => setMasterSettings({ tone: Number(event.target.value) })}
             step="0.01"
             type="range"
@@ -166,6 +168,7 @@ export const OutputSettingsPanel = () => {
             className="mt-3"
             max="1"
             min="0"
+            aria-label="Stereo width"
             onChange={(event) => setMasterSettings({ stereoWidth: Number(event.target.value) })}
             step="0.01"
             type="range"
@@ -183,6 +186,7 @@ export const OutputSettingsPanel = () => {
               className="mt-3"
               max="240"
               min="20"
+              aria-label="Low cut frequency"
               onChange={(event) => setMasterSettings({ lowCutHz: Number(event.target.value) })}
               step="1"
               type="range"
@@ -199,6 +203,7 @@ export const OutputSettingsPanel = () => {
               className="mt-3"
               max="20000"
               min="6000"
+              aria-label="High cut frequency"
               onChange={(event) => setMasterSettings({ highCutHz: Number(event.target.value) })}
               step="100"
               type="range"
@@ -216,6 +221,7 @@ export const OutputSettingsPanel = () => {
             className="mt-3"
             max="12"
             min="-12"
+            aria-label="Output gain"
             onChange={(event) => setMasterSettings({ outputGain: Number(event.target.value) })}
             step="0.5"
             type="range"
@@ -232,6 +238,7 @@ export const OutputSettingsPanel = () => {
             className="mt-3"
             max="0"
             min="-1.2"
+            aria-label="Limiter ceiling"
             onChange={(event) => setMasterSettings({ limiterCeiling: Number(event.target.value) })}
             step="0.05"
             type="range"
