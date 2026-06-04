@@ -102,7 +102,7 @@ export const SettingsSidebar = ({
           </button>
         </div>
 
-        <nav className="mt-3 flex gap-1.5 overflow-x-auto pb-1" aria-label="Settings sections">
+        <nav className="mt-3 flex flex-wrap gap-1.5" aria-label="Settings sections">
           {TAB_DEFINITIONS.map((tab) => {
             const isActive = settingsTab === tab.id;
             return (
