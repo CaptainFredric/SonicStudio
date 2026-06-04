@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { GripVertical, Music2, X } from 'lucide-react';
+import { ChevronsLeft, ChevronsRight, GripVertical, Music2, X } from 'lucide-react';
 import type React from 'react';
 
 import { engine } from '../audio/ToneEngine';
 import { resolvePatternStepForPlayback } from '../audio/playbackResolver';
-import { SUPERSONIC_NOTE_OFFSETS, getTrackAnchorNote, shiftPitch } from '../utils/notePlacement';
+import { NOTE_NAMES, SUPERSONIC_NOTE_OFFSETS, getTrackAnchorNote, shiftPitch } from '../utils/notePlacement';
 import { TrackIcon } from '../utils/trackPersonality';
 import type { ArrangementClip, SongMarker, Track } from '../project/schema';
 
@@ -15,6 +15,15 @@ const SECTION_COLORS = [
 
 const RULER_HEIGHT = 30;
 const GUTTER_WIDTH = 156;
+
+// A sortable pitch value (octave * 12 + pitch class) so a step's notes can be
+// stacked highest-to-lowest when shown as subnotes.
+const pitchRank = (note: string): number => {
+  const match = note.match(/^([A-G]#?)(-?\d+)$/);
+  if (!match) return 0;
+  const pitchClass = NOTE_NAMES.indexOf(match[1]);
+  return Number(match[2]) * 12 + (pitchClass < 0 ? 0 : pitchClass);
+};
 const OVERSCAN = 8;
 
 interface SongTimelineGridProps {
@@ -66,6 +75,9 @@ export const SongTimelineGrid = ({
   const [draftName, setDraftName] = useState('');
   const [dragTrackId, setDragTrackId] = useState<string | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
+  // The track gutter slides shut to a thin icon strip so a long song gets the
+  // full width, then back open on toggle.
+  const [gutterCollapsed, setGutterCollapsed] = useState(false);
   // The floating pitch ladder for SuperSonic placement. It lives in a portal so
   // its tall, tappable rungs are not crushed into a 46px lane or clipped by the
   // grid's overflow, the way an inline ladder was in the whole-song view.
@@ -286,18 +298,35 @@ export const SongTimelineGrid = ({
   return (
     <>
     <div className="flex overflow-hidden rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]">
-      {/* Track-name gutter, aligned row-for-row with the lanes. Drag a lane to reorder. */}
-      <div className="shrink-0 border-r border-[var(--border-soft)] bg-[var(--bg-panel-strong)]" style={{ width: GUTTER_WIDTH }}>
-        <div className="flex items-center gap-2 border-b border-[var(--border-soft)] px-3" style={{ height: RULER_HEIGHT }}>
-          <Music2 className="h-3.5 w-3.5 shrink-0 text-[var(--accent)]" />
-          <span className="section-label truncate">Tracks</span>
+      {/* Track-name gutter, aligned row-for-row with the lanes. Slides shut to a
+          thin icon strip; drag a lane to reorder. */}
+      <div className="shrink-0 border-r border-[var(--border-soft)] bg-[var(--bg-panel-strong)] transition-[width] duration-200" style={{ width: gutterCollapsed ? 36 : GUTTER_WIDTH }}>
+        <div
+          className={`flex items-center border-b border-[var(--border-soft)] ${gutterCollapsed ? 'justify-center' : 'justify-between px-3'}`}
+          style={{ height: RULER_HEIGHT }}
+        >
+          {!gutterCollapsed && (
+            <div className="flex min-w-0 items-center gap-2">
+              <Music2 className="h-3.5 w-3.5 shrink-0 text-[var(--accent)]" />
+              <span className="section-label truncate">Tracks</span>
+            </div>
+          )}
+          <button
+            aria-label={gutterCollapsed ? 'Show track names' : 'Hide track names'}
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[3px] text-[var(--text-tertiary)] transition-colors hover:bg-[rgba(255,255,255,0.06)] hover:text-[var(--text-primary)]"
+            onClick={() => setGutterCollapsed((value) => !value)}
+            title={gutterCollapsed ? 'Slide the track list open' : 'Slide the track list shut for more timeline width'}
+            type="button"
+          >
+            {gutterCollapsed ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
+          </button>
         </div>
         {tracks.map((track, index) => {
           const isSelected = track.id === selectedTrackId;
           return (
             <div
               key={track.id}
-              className="group relative flex w-full items-center gap-2 border-b border-[var(--border-soft)] px-2.5 transition-colors last:border-b-0 hover:bg-[rgba(255,255,255,0.02)]"
+              className={`group relative flex w-full items-center border-b border-[var(--border-soft)] transition-colors last:border-b-0 hover:bg-[rgba(255,255,255,0.02)] ${gutterCollapsed ? 'justify-center' : 'gap-2 px-2.5'}`}
               data-drop-target={dropIndex === index ? 'true' : undefined}
               draggable
               onClick={() => onSelectTrack(track.id)}
@@ -318,17 +347,17 @@ export const SongTimelineGrid = ({
                 boxShadow: dropIndex === index ? 'inset 0 2px 0 var(--accent-strong)' : undefined,
                 opacity: dragTrackId === track.id ? 0.45 : 1,
               }}
-              title="Drag to reorder"
+              title={gutterCollapsed ? track.name : 'Drag to reorder'}
             >
               {isSelected && <span className="absolute left-0 top-1.5 bottom-1.5 w-[2px] rounded-full" style={{ background: track.color }} />}
-              <GripVertical className="h-3.5 w-3.5 shrink-0 text-[var(--text-tertiary)] opacity-50 transition-opacity group-hover:opacity-100" />
+              {!gutterCollapsed && <GripVertical className="h-3.5 w-3.5 shrink-0 text-[var(--text-tertiary)] opacity-50 transition-opacity group-hover:opacity-100" />}
               <span
                 className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[2px]"
                 style={{ border: `1px solid ${track.color}55`, background: `${track.color}1a`, color: track.color }}
               >
                 <TrackIcon type={track.type} className="h-3.5 w-3.5" />
               </span>
-              <span className="min-w-0 truncate text-[12px] font-semibold tracking-tight text-[var(--text-primary)]">{track.name}</span>
+              {!gutterCollapsed && <span className="min-w-0 truncate text-[12px] font-semibold tracking-tight text-[var(--text-primary)]">{track.name}</span>}
             </div>
           );
         })}
@@ -452,14 +481,36 @@ export const SongTimelineGrid = ({
                     title={placeable ? `Bar ${bar} · hover to place a pitch` : `Bar ${bar}`}
                     type="button"
                   >
-                    {active && (
-                      <span
-                        className="absolute inset-x-[1.5px] inset-y-[3px] overflow-hidden rounded-[2px]"
-                        style={{ background: track.color, opacity: 0.92 }}
-                      >
-                        <span className="absolute inset-x-0 top-0 h-[2px] bg-white/55" />
-                      </span>
-                    )}
+                    {active && (() => {
+                      const events = (resolved && track.patterns[resolved.patternIndex]?.[resolved.stepIndex]) || [];
+                      // In SuperSonic mode a step's chord shows each note as its
+                      // own stacked sub-bar (highest pitch on top), so the parts
+                      // are visible instead of one flat block.
+                      if (superSonicMode && events.length > 1) {
+                        const sorted = [...events].sort((left, right) => pitchRank(right.note) - pitchRank(left.note));
+                        return (
+                          <span className="absolute inset-x-[1.5px] inset-y-[3px] flex flex-col gap-px overflow-hidden rounded-[2px]">
+                            {sorted.map((event, noteIndex) => (
+                              <span
+                                className="min-h-0 flex-1 rounded-[1px]"
+                                key={`${event.note}-${noteIndex}`}
+                                style={{ background: track.color, opacity: 0.95 - noteIndex * 0.12 }}
+                                title={event.note}
+                              />
+                            ))}
+                          </span>
+                        );
+                      }
+                      return (
+                        <span
+                          className="absolute inset-x-[1.5px] inset-y-[3px] overflow-hidden rounded-[2px]"
+                          style={{ background: track.color, opacity: 0.92 }}
+                          title={events[0]?.note}
+                        >
+                          <span className="absolute inset-x-0 top-0 h-[2px] bg-white/55" />
+                        </span>
+                      );
+                    })()}
                     {placeable && (
                       <span
                         className="absolute left-1/2 top-1/2 h-1 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full transition-transform group-hover:scale-[1.7]"

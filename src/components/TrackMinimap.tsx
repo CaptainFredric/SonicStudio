@@ -17,10 +17,13 @@ const GUTTER_WIDTH = 64;
 // transport. Only shown for SONG-mode scenes longer than a single bar, where
 // there is an arrangement worth navigating.
 export const TrackMinimap = () => {
-  const { songLengthInBeats, songMarkers, transportMode, stepsPerPattern, arrangerClips, tracks } = useAudio();
+  const { songLengthInBeats, songMarkers, transportMode, stepsPerPattern, arrangerClips, tracks, isPlaying, setIsPlaying } = useAudio();
   const [playBeat, setPlayBeat] = useState(0);
   const areaRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef(false);
+  // Remember whether the transport was running when a scrub began, so playback
+  // can resume from the dropped spot on release.
+  const wasPlayingRef = useRef(false);
 
   // Follow the engine's absolute song position (the React step state is only
   // the within-bar step, so we read the engine directly).
@@ -58,9 +61,28 @@ export const TrackMinimap = () => {
       .map((clip) => ({ id: clip.id, start: clip.startBeat, length: clip.beatLength })),
   })), [tracks, arrangerClips]);
 
-  if (transportMode !== 'SONG' || total <= stepsPerPattern) {
+  // Shown for any SONG-mode scene, including single-bar loop templates, so the
+  // timeline is always there to scrub.
+  if (transportMode !== 'SONG') {
     return null;
   }
+
+  // Pause the transport while scrubbing so the playhead stays exactly where it
+  // is dragged and does not keep advancing while held; resume on release.
+  const beginScrub = () => {
+    wasPlayingRef.current = isPlaying;
+    if (isPlaying) {
+      engine.togglePlayback();
+      setIsPlaying(false);
+    }
+  };
+  const endScrub = () => {
+    if (wasPlayingRef.current) {
+      engine.togglePlayback();
+      setIsPlaying(true);
+    }
+    wasPlayingRef.current = false;
+  };
 
   const beatFromClientX = (clientX: number): number => {
     const el = areaRef.current;
@@ -119,8 +141,9 @@ export const TrackMinimap = () => {
           tabIndex={0}
           onPointerDown={(event) => {
             draggingRef.current = true;
-            event.currentTarget.setPointerCapture(event.pointerId);
+            beginScrub();
             seek(event.clientX);
+            try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* ignore */ }
           }}
           onPointerMove={(event) => {
             if (draggingRef.current) seek(event.clientX);
@@ -128,6 +151,12 @@ export const TrackMinimap = () => {
           onPointerUp={(event) => {
             draggingRef.current = false;
             try { event.currentTarget.releasePointerCapture(event.pointerId); } catch { /* ignore */ }
+            endScrub();
+          }}
+          onPointerCancel={(event) => {
+            draggingRef.current = false;
+            try { event.currentTarget.releasePointerCapture(event.pointerId); } catch { /* ignore */ }
+            endScrub();
           }}
           onKeyDown={(event) => {
             if (event.key === 'ArrowLeft') { engine.seekToBeat(playBeat - stepsPerPattern); setPlayBeat((b) => Math.max(0, b - stepsPerPattern)); }
