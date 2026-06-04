@@ -460,15 +460,15 @@ export const TopBar = ({
               <button
                 aria-expanded={mobileHeaderExpanded}
                 aria-label={mobileHeaderExpanded ? 'Collapse studio details' : 'Expand studio details'}
-                className="ghost-icon-button flex h-9 shrink-0 items-center justify-center gap-1.5 px-2.5"
+                className="control-chip flex h-10 shrink-0 items-center gap-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                data-active={mobileHeaderExpanded ? 'true' : undefined}
                 data-ui-sound="tab"
                 onClick={() => setMobileHeaderExpanded((current) => !current)}
                 title={mobileHeaderExpanded ? 'Collapse studio details' : 'Project, tempo, and session tools'}
                 type="button"
               >
-                <span className="text-[10px] font-semibold uppercase tracking-[0.14em]">
-                  {mobileHeaderExpanded ? 'Less' : 'Setup'}
-                </span>
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                <span>{mobileHeaderExpanded ? 'Less' : 'Setup'}</span>
                 {mobileHeaderExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
               </button>
             )}

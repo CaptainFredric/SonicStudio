@@ -82,7 +82,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe,
     },
   ];
 
-  // Keep the rail in the one canonical order so the tabs and the Alt+1..5
+  // Keep the rail in the one canonical order so the tabs and the Alt+1..4
   // shortcuts can never drift apart.
   const orderedNavItems = [...navItems].sort(
     (left, right) => APP_VIEW_ORDER.indexOf(left.id as AppView) - APP_VIEW_ORDER.indexOf(right.id as AppView),
@@ -178,7 +178,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe,
         </button>
       </div>
 
-      <div className="mt-2 grid grid-cols-5 gap-1.5 md:mt-0 md:hidden">
+      <div className="mt-2 grid grid-cols-4 gap-1.5 md:mt-0 md:hidden">
         {orderedNavItems.map(renderViewButton)}
       </div>
 
