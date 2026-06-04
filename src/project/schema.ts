@@ -2264,9 +2264,11 @@ export const createPulseRiderProject = (projectName: string = 'Pulse Rider'): Pr
     stackStep(padTrack, p, step, notes.map((note) => ({ note, options: { gate: 4, velocity } })));
   });
   const layBusyHats = (p: number, lift: number) => {
-    for (const step of [2, 6, 10, 14]) putStep(hihatTrack, p, step, 'E1', { gate: 0.34, velocity: 0.62 + lift });
+    // Open hats on the offbeat 8ths give the four-on-the-floor its house "skip";
+    // the closed 16th fills sit tight and quiet underneath them.
+    for (const step of [2, 6, 10, 14]) putStep(hihatTrack, p, step, 'E1', { gate: 1.4, velocity: 0.6 + lift });
     for (const [i, step] of [1, 3, 5, 7, 9, 11, 13, 15].entries()) {
-      putStep(hihatTrack, p, step, 'E1', { gate: 0.26, velocity: (i % 2 === 0 ? 0.4 : 0.5) + lift });
+      putStep(hihatTrack, p, step, 'E1', { gate: 0.2, velocity: (i % 2 === 0 ? 0.36 : 0.46) + lift });
     }
   };
   const layKick = (p: number, hot = 0) => {
@@ -2352,6 +2354,8 @@ export const createPulseRiderProject = (projectName: string = 'Pulse Rider'): Pr
 
   padTrack.params.reverbSend = 0.5;
   padTrack.params.chorusSend = 0.22;
+  // A little room on the clap so the backbeat sits in space instead of dead center.
+  snareTrack.params.reverbSend = 0.16;
   fxTrack.source.engine = 'sample';
   fxTrack.source.samplePlayback = 'oneshot';
 
