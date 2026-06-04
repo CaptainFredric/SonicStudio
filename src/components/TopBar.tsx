@@ -4,11 +4,14 @@ import {
   ChevronUp,
   Circle,
   DownloadCloud,
+  Library,
   Mic,
   Pause,
   Play,
   Redo2,
   Save,
+  Settings2,
+  Share2,
   SlidersHorizontal,
   Square,
   Trash2,
@@ -71,10 +74,14 @@ export const TopBar = ({
   firstImpression = false,
   isCaptureOpen = false,
   onOpenCapture,
+  onOpenLibrary,
+  onOpenShare,
 }: {
   firstImpression?: boolean;
   isCaptureOpen?: boolean;
   onOpenCapture?: () => void;
+  onOpenLibrary?: () => void;
+  onOpenShare?: () => void;
 }) => {
   const {
     activeView,
@@ -106,6 +113,7 @@ export const TopBar = ({
     selectedTrackId,
     setBpm,
     setCountInBars,
+    exportSession,
     setCurrentPattern,
     setLoopRange,
     setSettingsOpen,
@@ -131,6 +139,26 @@ export const TopBar = ({
   const [isRestartDisarming, setIsRestartDisarming] = useState(false);
   const [showSupersonicOffPreview, setShowSupersonicOffPreview] = useState(false);
   const [showAudioNerdStats, setShowAudioNerdStats] = useState(false);
+  // Setup quick-actions dropdown (compact header).
+  const [setupMenuOpen, setSetupMenuOpen] = useState(false);
+  const setupMenuRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!setupMenuOpen) return undefined;
+    const onPointerDown = (event: PointerEvent) => {
+      if (setupMenuRef.current && !setupMenuRef.current.contains(event.target as Node)) {
+        setSetupMenuOpen(false);
+      }
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setSetupMenuOpen(false);
+    };
+    window.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [setupMenuOpen]);
   const [showSessionDetail, setShowSessionDetail] = useState(false);
   const [mobileHeaderExpanded, setMobileHeaderExpanded] = useState(false);
   const [tapTempoLabel, setTapTempoLabel] = useState<string | null>(null);
@@ -454,20 +482,48 @@ export const TopBar = ({
               </button>
             )}
             {isCompactHeader && (
-              <button
-                aria-expanded={mobileHeaderExpanded}
-                aria-label={mobileHeaderExpanded ? 'Collapse studio details' : 'Expand studio details'}
-                className="control-chip flex h-10 shrink-0 items-center gap-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                data-active={mobileHeaderExpanded ? 'true' : undefined}
-                data-ui-sound="tab"
-                onClick={() => setMobileHeaderExpanded((current) => !current)}
-                title={mobileHeaderExpanded ? 'Collapse studio details' : 'Project, tempo, and session tools'}
-                type="button"
-              >
-                <SlidersHorizontal className="h-3.5 w-3.5" />
-                <span>{mobileHeaderExpanded ? 'Less' : 'Setup'}</span>
-                {mobileHeaderExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-              </button>
+              <div className="relative shrink-0" ref={setupMenuRef}>
+                <button
+                  aria-expanded={setupMenuOpen}
+                  aria-haspopup="menu"
+                  aria-label="Setup and quick actions"
+                  className="control-chip flex h-10 items-center gap-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                  data-active={setupMenuOpen ? 'true' : undefined}
+                  data-ui-sound="tab"
+                  onClick={() => setSetupMenuOpen((current) => !current)}
+                  title="Settings, templates, sharing, and studio details"
+                  type="button"
+                >
+                  <SlidersHorizontal className="h-3.5 w-3.5" />
+                  <span>Setup</span>
+                  {setupMenuOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </button>
+                {setupMenuOpen && (
+                  <div
+                    className="surface-panel-strong absolute right-0 top-[calc(100%+6px)] z-50 w-56 overflow-hidden rounded-[6px] border border-[var(--border-soft)] p-1 shadow-[0_14px_34px_rgba(0,0,0,0.55)]"
+                    role="menu"
+                  >
+                    {[
+                      { icon: <SlidersHorizontal className="h-3.5 w-3.5" />, label: mobileHeaderExpanded ? 'Hide studio details' : 'Show studio details', run: () => setMobileHeaderExpanded((current) => !current) },
+                      { icon: <Settings2 className="h-3.5 w-3.5" />, label: 'Open settings', run: () => setSettingsOpen(true) },
+                      { icon: <Library className="h-3.5 w-3.5" />, label: 'Templates and library', run: () => onOpenLibrary?.(), hide: !onOpenLibrary },
+                      { icon: <Share2 className="h-3.5 w-3.5" />, label: 'Share this session', run: () => onOpenShare?.(), hide: !onOpenShare },
+                      { icon: <DownloadCloud className="h-3.5 w-3.5" />, label: 'Export session file', run: () => exportSession() },
+                    ].filter((item) => !item.hide).map((item) => (
+                      <button
+                        className="flex w-full items-center gap-2.5 rounded-[4px] px-2.5 py-2 text-left text-[12px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[rgba(255,255,255,0.06)] hover:text-[var(--text-primary)]"
+                        key={item.label}
+                        onClick={() => { item.run(); setSetupMenuOpen(false); }}
+                        role="menuitem"
+                        type="button"
+                      >
+                        <span className="text-[var(--accent)]">{item.icon}</span>
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
           </div>
 

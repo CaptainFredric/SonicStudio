@@ -719,7 +719,13 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
       <div className="flex min-h-screen min-w-0 flex-col md:h-full md:min-h-0 md:flex-1 md:overflow-hidden">
         {!focusMode && (
           <div className="px-3 pt-3">
-            <TopBar firstImpression={isFirstImpression} isCaptureOpen={isRecordOpen} onOpenCapture={openCapture} />
+            <TopBar
+              firstImpression={isFirstImpression}
+              isCaptureOpen={isRecordOpen}
+              onOpenCapture={openCapture}
+              onOpenLibrary={() => setLaunchpadOpen(true)}
+              onOpenShare={() => setShareOpen(true)}
+            />
           </div>
         )}
         <CompactTransportBar forceVisible={focusMode} />
