@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AudioProvider, useAudio } from './context/AudioContext';
 import { TopBar } from './components/TopBar';
 import { MainWorkspace as Sequencer } from './components/MainWorkspace';
-import { PianoRoll } from './components/PianoRoll';
+import { PianoRollView } from './components/PianoRollView';
 import { Mixer } from './components/Mixer';
 import { DeviceRack } from './components/DeviceRack';
 import { SettingsSidebar } from './components/SettingsSidebar';
@@ -238,7 +238,7 @@ const ViewRouter = () => {
   return (
     <main className="relative flex min-h-[44vh] flex-col md:min-h-0 md:min-w-0 md:flex-1 md:overflow-y-auto md:overflow-x-hidden">
       {activeView === 'SEQUENCER' && <Sequencer />}
-      {activeView === 'PIANO_ROLL' && <PianoRoll />}
+      {activeView === 'PIANO_ROLL' && <PianoRollView />}
       {activeView === 'MIXER' && <Mixer />}
       {activeView === 'ARRANGER' && <Arranger />}
     </main>
