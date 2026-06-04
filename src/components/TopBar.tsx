@@ -3,9 +3,7 @@ import {
   ChevronDown,
   ChevronUp,
   Circle,
-  Compass,
   DownloadCloud,
-  Layers3,
   Mic,
   Pause,
   Play,
@@ -106,7 +104,6 @@ export const TopBar = ({
     saveStatus,
     selectedArrangerClipId,
     selectedTrackId,
-    setActiveView,
     setBpm,
     setCountInBars,
     setCurrentPattern,
@@ -261,11 +258,11 @@ export const TopBar = ({
   const brandTagline = superSonicMode
     ? 'Sharper lanes, faster edits, same session.'
     : 'Sketch, arrange, and mix in one place.';
-  const focusTitle = isFirstImpression
-    ? projectName
-    : selectedTrack
-      ? `${selectedTrack.name} · ${selectedTrack.type}${selectedArrangerClipId ? ' · clip' : ''}`
-      : 'Workspace';
+  // Never echo the project name here (the Project field shows it right above);
+  // "Current focus" is about the lane you are working on.
+  const focusTitle = selectedTrack
+    ? `${selectedTrack.name} · ${selectedTrack.type}${selectedArrangerClipId ? ' · clip' : ''}`
+    : 'Whole session';
   const focusMeta = isFirstImpression
     ? 'Song view'
     : selectedTrack
@@ -517,7 +514,7 @@ export const TopBar = ({
             )}
           </div>
 
-          <div className={`${headerSectionVisible ? 'grid' : 'hidden'} gap-3 border-t border-[var(--border-soft)] pt-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end`}>
+          <div className={`${headerSectionVisible ? 'grid' : 'hidden'} gap-3 border-t border-[var(--border-soft)] pt-3`}>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-3">
                 <span className="section-label">Current focus</span>
@@ -535,27 +532,6 @@ export const TopBar = ({
                   <div className="mt-2 hidden text-[11px] leading-5 text-[var(--text-secondary)] xl:block">{focusMeta}</div>
                 </>
               )}
-            </div>
-
-            <div className="flex flex-wrap gap-4 border-t border-[var(--border-soft)] pt-3 xl:border-t-0 xl:pt-0 xl:justify-end">
-              <WorkflowButton
-                active={activeView === 'SEQUENCER'}
-                icon={<Compass className="h-3.5 w-3.5" />}
-                label="Grid"
-                onClick={() => setActiveView('SEQUENCER')}
-              />
-              <WorkflowButton
-                active={activeView === 'PIANO_ROLL'}
-                icon={<SlidersHorizontal className="h-3.5 w-3.5" />}
-                label="Notes"
-                onClick={() => setActiveView('PIANO_ROLL')}
-              />
-              <WorkflowButton
-                active={activeView === 'ARRANGER'}
-                icon={<Layers3 className="h-3.5 w-3.5" />}
-                label="Song"
-                onClick={() => setActiveView('ARRANGER')}
-              />
             </div>
           </div>
         </div>
@@ -1254,34 +1230,6 @@ const ModeButton = ({
     onClick={onClick}
     type="button"
   >
-    {label}
-  </button>
-);
-
-const WorkflowButton = ({
-  active,
-  icon,
-  label,
-  onClick,
-}: {
-  active: boolean;
-  icon: React.ReactNode;
-  label: string;
-  onClick: () => void;
-}) => (
-  <button
-    className="flex items-center gap-2 border-b border-transparent px-1 pb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-secondary)] transition-colors hover:text-[var(--text-primary)]"
-    data-active={active}
-    data-ui-sound="nav"
-    onClick={onClick}
-    style={active
-      ? {
-          borderBottomColor: 'color-mix(in srgb, var(--accent) 56%, transparent)',
-          color: 'var(--accent-strong)',
-        }
-      : undefined}
-  >
-    {icon}
     {label}
   </button>
 );
