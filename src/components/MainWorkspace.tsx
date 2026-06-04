@@ -544,6 +544,8 @@ export const MainWorkspace = () => {
   const [addLaneMaxScrollLeft, setAddLaneMaxScrollLeft] = useState(0);
   const [addLaneScrollLeft, setAddLaneScrollLeft] = useState(0);
   const [addLaneOpen, setAddLaneOpen] = useState(true);
+  // Two-step arm for the destructive "Delete all lanes" action.
+  const [confirmClearLanes, setConfirmClearLanes] = useState(false);
   const [gridScrollLeft, setGridScrollLeft] = useState(0);
   const [gridViewportWidth, setGridViewportWidth] = useState(0);
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
@@ -1643,6 +1645,31 @@ export const MainWorkspace = () => {
           <div className="flex items-center justify-between gap-3">
             <span className="section-label shrink-0">Add lane</span>
             <div className="flex items-center gap-1.5">
+              {tracks.length > 0 && (
+                <button
+                  aria-label={confirmClearLanes ? 'Confirm delete all lanes' : 'Delete all lanes'}
+                  className="flex h-8 shrink-0 items-center gap-1.5 rounded-[4px] border px-2.5 transition-colors"
+                  onClick={() => {
+                    if (confirmClearLanes) {
+                      tracks.forEach((track) => removeTrack(track.id));
+                      setConfirmClearLanes(false);
+                    } else {
+                      setConfirmClearLanes(true);
+                      window.setTimeout(() => setConfirmClearLanes(false), 3500);
+                    }
+                  }}
+                  style={{
+                    borderColor: confirmClearLanes ? 'var(--danger)' : 'var(--border-soft)',
+                    background: confirmClearLanes ? 'rgba(244,63,94,0.12)' : 'rgba(255,255,255,0.02)',
+                    color: confirmClearLanes ? 'var(--danger)' : 'var(--text-tertiary)',
+                  }}
+                  title={confirmClearLanes ? 'Tap again to remove every lane' : 'Delete all lanes'}
+                  type="button"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.14em]">{confirmClearLanes ? 'Confirm' : 'Delete all'}</span>
+                </button>
+              )}
               {addLaneOpen && (
                 <>
                   <button
