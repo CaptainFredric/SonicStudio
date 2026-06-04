@@ -64,6 +64,7 @@ import { TrackIcon, getTrackPersonality } from '../utils/trackPersonality';
 import { useMediaQuery } from '../utils/useMediaQuery';
 import { readString, writeString } from '../utils/safeStorage';
 import { TrackMinimap } from './TrackMinimap';
+import { openNotesPanel } from './notesPanelStore';
 import { SongTimelineGrid } from './SongTimelineGrid';
 
 const LANE_COLUMN_COLLAPSED_KEY = 'sonicstudio:lane-column-collapsed';
@@ -1909,7 +1910,7 @@ export const MainWorkspace = () => {
                     Super lane tools
                     <button
                       className="control-chip px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                      onClick={() => setActiveView('PIANO_ROLL')}
+                      onClick={() => { setActiveView('SEQUENCER'); openNotesPanel(); }}
                       type="button"
                     >
                       Deep edit roll
@@ -1962,7 +1963,7 @@ export const MainWorkspace = () => {
                     )}
                     <button
                       className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                      onClick={() => setActiveView(canDeepEditSelectedTrack ? 'PIANO_ROLL' : 'SEQUENCER')}
+                      onClick={() => { setActiveView('SEQUENCER'); if (canDeepEditSelectedTrack) openNotesPanel(); }}
                       type="button"
                     >
                       <SlidersHorizontal className="h-3.5 w-3.5" />
@@ -2810,7 +2811,7 @@ export const MainWorkspace = () => {
                     </div>
                     <div className="mt-3 grid grid-cols-3 gap-2">
                       <button className="control-chip h-8 px-2 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => setActiveView('SEQUENCER')} type="button">Seq</button>
-                      <button className="control-chip h-8 px-2 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => setActiveView('PIANO_ROLL')} type="button">Roll</button>
+                      <button className="control-chip h-8 px-2 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => { setActiveView('SEQUENCER'); openNotesPanel(); }} type="button">Roll</button>
                       <button className="control-chip h-8 px-2 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => setActiveView('MIXER')} type="button">Mix</button>
                     </div>
                   </div>

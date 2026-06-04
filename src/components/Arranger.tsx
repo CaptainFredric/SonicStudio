@@ -8,6 +8,7 @@ import {
 } from '../services/noteStringLibrary';
 import { useQueuedNoteStringId } from '../services/noteStringQueue';
 import { useMediaQuery } from '../utils/useMediaQuery';
+import { openNotesPanel } from './notesPanelStore';
 import { ArrangerHeader } from './arranger/ArrangerHeader';
 import { ArrangerInspector } from './arranger/ArrangerInspector';
 import { buildLaneData, buildLaneSections, buildSectionRanges, isDrumTrack } from './arranger/arrangerSelectors';
@@ -71,7 +72,6 @@ export const Arranger = () => {
     selectSampleSlice,
     selectedArrangerClipId,
     selectedTrackId,
-    setActiveView,
     setClipPatternStepSlice,
     setCurrentPattern,
     setLoopRange,
@@ -524,7 +524,7 @@ export const Arranger = () => {
           onJumpToBoundary={jumpToBoundary}
           onRemoveSongMarker={removeSongMarker}
           onSelectSampleSlice={selectSampleSlice}
-          onSetActiveView={setActiveView}
+          onSetActiveView={() => openNotesPanel()}
           onSetCurrentPattern={setCurrentPattern}
           onSetInspectorTab={setInspectorTab}
           onSetLoopRange={setLoopRange}

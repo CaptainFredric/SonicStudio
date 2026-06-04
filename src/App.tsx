@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { AudioProvider, useAudio } from './context/AudioContext';
 import { TopBar } from './components/TopBar';
 import { MainWorkspace as Sequencer } from './components/MainWorkspace';
-import { PianoRollView } from './components/PianoRollView';
+import { NotesPanel } from './components/NotesPanel';
 import { Mixer } from './components/Mixer';
 import { DeviceRack } from './components/DeviceRack';
 import { SettingsSidebar } from './components/SettingsSidebar';
@@ -63,7 +63,6 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe,
       label: 'Sequencer',
       title: 'Sequencer: build step timing and groove',
     },
-    { id: 'PIANO_ROLL', icon: withSuperFill(<LayoutGrid size={20} />, 'studio-icon-fill-grid-core'), label: 'Piano Roll', title: 'Piano Roll: edit pitch, velocity, and phrasing' },
     { id: 'MIXER', icon: withSuperFill(<Volume2 size={20} />, 'studio-icon-fill-mixer-core'), label: 'Mixer', title: 'Mixer: balance levels, pan, and tone' },
   ];
 
@@ -87,7 +86,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe,
       <div className="flex flex-col items-center gap-2">
         {item.icon}
         <span className="font-mono text-[9px] uppercase tracking-[0.18em]">
-          {item.label === 'Piano Roll' ? 'Roll' : item.label === 'Sequencer' ? 'Seq' : item.label === 'Mixer' ? 'Mix' : item.label}
+          {item.label === 'Sequencer' ? 'Seq' : item.label === 'Mixer' ? 'Mix' : item.label}
         </span>
       </div>
     </button>
@@ -223,7 +222,6 @@ const ViewRouter = () => {
   return (
     <main className="relative flex min-h-[44vh] flex-col md:min-h-0 md:min-w-0 md:flex-1 md:overflow-y-auto md:overflow-x-hidden">
       {activeView === 'SEQUENCER' && <Sequencer />}
-      {activeView === 'PIANO_ROLL' && <PianoRollView />}
       {activeView === 'MIXER' && <Mixer />}
     </main>
   );
@@ -742,6 +740,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
             <div className="flex flex-col gap-3 md:min-h-[300px] md:flex-row md:flex-1">
               <ViewRouter />
             </div>
+            <NotesPanel />
             <ArrangementPanel />
             <DeviceRack />
           </div>

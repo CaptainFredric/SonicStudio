@@ -840,7 +840,7 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
                   </div>
                 ) : (
                   <div className="mt-3 text-[11px] leading-5 text-[var(--text-secondary)]">
-                    No saved capture notes yet. Once you save a note from this modal it will appear here and in the Piano Roll menu.
+                    No saved capture notes yet. Once you save a note from this modal it will appear here and in the Notes panel.
                   </div>
                 )}
               </div>
@@ -1284,7 +1284,7 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
                     <div className="border-t border-[var(--border-soft)] pt-4">
                       <div className="section-label">Recorded note shelf</div>
                       <p className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
-                        Notes saved during this pass stay here after you stop. They also land in your saved note library for quick recall from the Piano Roll menu.
+                        Notes saved during this pass stay here after you stop. They also land in your saved note library for quick recall from the Notes panel.
                       </p>
                       {pendingRecordedNote && (
                         <PendingRecordedNoteCard
@@ -1324,7 +1324,7 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
                         <div>
                           <div className="section-label">Store this capture</div>
                           <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
-                            Name the detected note once, then save any option below with its own voice settings. Saved notes show up later in the Piano Roll menu.
+                            Name the detected note once, then save any option below with its own voice settings. Saved notes show up later in the Notes panel.
                           </div>
                         </div>
                         <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--accent-strong)]">

@@ -20,10 +20,7 @@ const GROUPS: Array<{ title: string; entries: ShortcutEntry[] }> = [
     title: 'Views and modes',
     entries: [
       { keys: '⌥ 1', label: 'Open Sequencer' },
-      { keys: '⌥ 2', label: 'Open Compose view' },
-      { keys: '⌥ 3', label: 'Open Piano Roll' },
-      { keys: '⌥ 4', label: 'Open Mixer' },
-      { keys: '⌥ 5', label: 'Open Arranger' },
+      { keys: '⌥ 2', label: 'Open Mixer' },
       { keys: '⌥ S', label: 'Toggle SuperSonic mode' },
     ],
   },
@@ -32,7 +29,7 @@ const GROUPS: Array<{ title: string; entries: ShortcutEntry[] }> = [
     entries: [
       { keys: '⌥ C', label: 'Quick capture a note string from anywhere' },
       { keys: '⌥ 1-5', label: 'Recall a recent capture (inside Quick capture)' },
-      { keys: '⇧ paint', label: 'Snap painted notes to the session key (Piano Roll)' },
+      { keys: '⇧ paint', label: 'Snap painted notes to the session key (Notes panel)' },
     ],
   },
   {

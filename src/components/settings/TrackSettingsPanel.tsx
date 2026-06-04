@@ -108,7 +108,7 @@ export const TrackSettingsPanel = () => {
         </div>
       ) : (
         <div className="mt-4 rounded-[4px] border border-dashed border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-4 py-6 text-sm text-[var(--text-secondary)]">
-          Pick a track in the sequencer, piano roll, or mixer to edit its name and channel settings.
+          Pick a track in the sequencer or mixer to edit its name and channel settings.
         </div>
       )}
     </section>

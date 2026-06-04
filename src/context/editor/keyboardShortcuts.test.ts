@@ -40,22 +40,22 @@ const viewsFrom = (dispatch: ReturnType<typeof makeHandler>['dispatch']): AppVie
 );
 
 describe('Alt+digit view shortcuts', () => {
-  it('follows the on-screen tab order for Alt+1 through Alt+3', async () => {
+  it('follows the on-screen tab order for Alt+1 through Alt+2', async () => {
     const { handler, dispatch } = makeHandler();
-    for (let digit = 1; digit <= 3; digit += 1) {
+    for (let digit = 1; digit <= 2; digit += 1) {
       await handler(altDigit(digit));
     }
     expect(viewsFrom(dispatch)).toEqual([...APP_VIEW_ORDER]);
   });
 
-  it('lands Alt+2 on the Piano Roll, the second visible tab', async () => {
+  it('lands Alt+2 on the Mixer, the second visible tab', async () => {
     const { handler, dispatch } = makeHandler();
     await handler(altDigit(2));
-    expect(dispatch).toHaveBeenCalledWith({ type: 'SET_ACTIVE_VIEW', view: 'PIANO_ROLL' });
+    expect(dispatch).toHaveBeenCalledWith({ type: 'SET_ACTIVE_VIEW', view: 'MIXER' });
   });
 
   it('keeps a canonical order that covers every view exactly once', () => {
-    const everyView: AppView[] = ['SEQUENCER', 'PIANO_ROLL', 'MIXER'];
+    const everyView: AppView[] = ['SEQUENCER', 'MIXER'];
     expect([...APP_VIEW_ORDER].sort()).toEqual([...everyView].sort());
     expect(APP_VIEW_ORDER[0]).toBe('SEQUENCER');
   });

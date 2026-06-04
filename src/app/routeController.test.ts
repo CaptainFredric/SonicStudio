@@ -19,7 +19,7 @@ describe('routeController', () => {
     expect(resolveStudioRoute('?setup=output&view=notes', true)).toEqual({
       requestedTemplate: null,
       requestedSettingsTab: 'OUTPUT',
-      requestedView: 'PIANO_ROLL',
+      requestedView: 'SEQUENCER',
       showGuide: false,
       showLaunchpad: false,
       shouldOpenSettings: true,

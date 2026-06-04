@@ -29,9 +29,10 @@ describe('createInitialEditorState route entry', () => {
     storageMocks.loadPersistedSession.mockReturnValue(persistedSession);
 
     const state = createInitialEditorState(resolveStudioRoute('?setup=output&view=notes', true));
+    // 'notes' now routes to the Sequencer, where the note editor lives as a panel.
 
     expect(state.history.present.metadata.id).toBe(persistedSession.project.metadata.id);
-    expect(state.ui.activeView).toBe('PIANO_ROLL');
+    expect(state.ui.activeView).toBe('SEQUENCER');
     expect(state.ui.isSettingsOpen).toBe(true);
     expect(state.ui.selectedTrackId).toBe(persistedSession.ui.selectedTrackId);
   });

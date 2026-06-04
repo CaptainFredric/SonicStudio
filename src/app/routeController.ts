@@ -20,9 +20,11 @@ const VIEW_ALIASES: Record<string, AppView> = {
   grid: 'SEQUENCER',
   mix: 'MIXER',
   mixer: 'MIXER',
-  notes: 'PIANO_ROLL',
-  'piano-roll': 'PIANO_ROLL',
-  roll: 'PIANO_ROLL',
+  // The note editor is now a panel inside the Sequencer, so its old route tokens
+  // land there.
+  notes: 'SEQUENCER',
+  'piano-roll': 'SEQUENCER',
+  roll: 'SEQUENCER',
   seq: 'SEQUENCER',
   sequencer: 'SEQUENCER',
   song: 'SEQUENCER',

@@ -34,8 +34,7 @@ const isRecord = (value: unknown): value is Record<string, unknown> => (
 
 const normalizeUiState = (value: unknown, project: Project): StudioUIState => {
   const candidate = isRecord(value) ? value : {};
-  const activeView = candidate.activeView === 'PIANO_ROLL'
-    || candidate.activeView === 'MIXER'
+  const activeView = candidate.activeView === 'MIXER'
     || candidate.activeView === 'SEQUENCER'
     ? candidate.activeView
     : 'SEQUENCER';
@@ -113,7 +112,7 @@ export const hydrateSessionPayload = (value: unknown): StudioSession | null => {
 
 const WORKSPACE_TO_VIEW: Record<string, AppView> = {
   arranger: 'SEQUENCER',
-  'piano-roll': 'PIANO_ROLL',
+  'piano-roll': 'SEQUENCER',
   mixer: 'MIXER',
   sequencer: 'SEQUENCER',
 };

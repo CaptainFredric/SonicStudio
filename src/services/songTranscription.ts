@@ -634,7 +634,7 @@ export const buildSessionFromTranscription = (
   return {
     project,
     ui: {
-      activeView: 'PIANO_ROLL',
+      activeView: 'SEQUENCER',
       isSettingsOpen: false,
       loopRangeEndBeat: null,
       loopRangeStartBeat: null,
