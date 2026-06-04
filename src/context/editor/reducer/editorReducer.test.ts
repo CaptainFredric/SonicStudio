@@ -28,7 +28,7 @@ describe('editorReducer', () => {
       session: {
         project: session.project,
         ui: {
-          activeView: 'ARRANGER',
+          activeView: 'MIXER',
           isSettingsOpen: true,
           loopRangeEndBeat: null,
           loopRangeStartBeat: null,

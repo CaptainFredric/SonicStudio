@@ -42,7 +42,7 @@ describe('createInitialEditorState route entry', () => {
     const state = createInitialEditorState(resolveStudioRoute('?setup=track&view=song', false));
 
     expect(state.history.present.metadata.name).toBe('Blank Grid');
-    expect(state.ui.activeView).toBe('ARRANGER');
+    expect(state.ui.activeView).toBe('SEQUENCER');
     expect(state.ui.isSettingsOpen).toBe(true);
     expect(state.history.present.tracks.some((track) => track.id === state.ui.selectedTrackId)).toBe(true);
   });
@@ -54,7 +54,7 @@ describe('createInitialEditorState route entry', () => {
     const state = createInitialEditorState(resolveStudioRoute('?demo=night-transit&view=song', true));
 
     expect(state.history.present.metadata.name).toBe('Night Transit');
-    expect(state.ui.activeView).toBe('ARRANGER');
+    expect(state.ui.activeView).toBe('SEQUENCER');
     expect(state.ui.isSettingsOpen).toBe(false);
   });
 });

@@ -30,7 +30,7 @@ describe('routeController', () => {
     expect(resolveStudioRoute('?setup=workspace&view=song', true)).toEqual({
       requestedTemplate: null,
       requestedSettingsTab: 'WORKSPACE',
-      requestedView: 'ARRANGER',
+      requestedView: 'SEQUENCER',
       showGuide: false,
       showLaunchpad: false,
       shouldOpenSettings: true,
@@ -41,7 +41,7 @@ describe('routeController', () => {
     expect(resolveStudioRoute('?demo=night-transit&view=song', false)).toEqual({
       requestedTemplate: 'night-transit',
       requestedSettingsTab: 'WORKSPACE',
-      requestedView: 'ARRANGER',
+      requestedView: 'SEQUENCER',
       showGuide: false,
       showLaunchpad: false,
       shouldOpenSettings: false,
@@ -52,7 +52,7 @@ describe('routeController', () => {
     expect(resolveStudioRoute('?demo=night-transit&view=song&guide=1', false)).toEqual({
       requestedTemplate: 'night-transit',
       requestedSettingsTab: 'WORKSPACE',
-      requestedView: 'ARRANGER',
+      requestedView: 'SEQUENCER',
       showGuide: true,
       showLaunchpad: false,
       shouldOpenSettings: false,
@@ -63,7 +63,7 @@ describe('routeController', () => {
     expect(resolveStudioRoute('?demo=club&view=song', false)).toEqual({
       requestedTemplate: 'club-horizon',
       requestedSettingsTab: 'WORKSPACE',
-      requestedView: 'ARRANGER',
+      requestedView: 'SEQUENCER',
       showGuide: false,
       showLaunchpad: false,
       shouldOpenSettings: false,

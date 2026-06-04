@@ -6,7 +6,7 @@ import { PianoRollView } from './components/PianoRollView';
 import { Mixer } from './components/Mixer';
 import { DeviceRack } from './components/DeviceRack';
 import { SettingsSidebar } from './components/SettingsSidebar';
-import { Arranger } from './components/Arranger';
+import { ArrangementPanel } from './components/ArrangementPanel';
 import { TapToPlay } from './components/TapToPlay';
 import { Launchpad } from './components/Launchpad';
 import { ShortcutOverlay } from './components/ShortcutOverlay';
@@ -65,24 +65,9 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe,
     },
     { id: 'PIANO_ROLL', icon: withSuperFill(<LayoutGrid size={20} />, 'studio-icon-fill-grid-core'), label: 'Piano Roll', title: 'Piano Roll: edit pitch, velocity, and phrasing' },
     { id: 'MIXER', icon: withSuperFill(<Volume2 size={20} />, 'studio-icon-fill-mixer-core'), label: 'Mixer', title: 'Mixer: balance levels, pan, and tone' },
-    {
-      id: 'ARRANGER',
-      icon: (
-        <span className="studio-icon-shell">
-          <svg aria-hidden="true" className="h-5 w-5 studio-arrange-icon" viewBox="0 0 20 20">
-            <rect className="studio-arrange-top-fill" height="4" rx="1" width="12" x="4" y="2.5" />
-            <rect className="studio-arrange-outline" height="4" rx="1" width="12" x="4" y="2.5" />
-            <rect className="studio-arrange-outline" height="4" rx="1" width="14" x="3" y="8" />
-            <rect className="studio-arrange-outline" height="4" rx="1" width="16" x="2" y="13.5" />
-          </svg>
-        </span>
-      ),
-      label: 'Arranger',
-      title: 'Arranger: place clips and shape full song structure',
-    },
   ];
 
-  // Keep the rail in the one canonical order so the tabs and the Alt+1..4
+  // Keep the rail in the one canonical order so the tabs and the Alt+1..3
   // shortcuts can never drift apart.
   const orderedNavItems = [...navItems].sort(
     (left, right) => APP_VIEW_ORDER.indexOf(left.id as AppView) - APP_VIEW_ORDER.indexOf(right.id as AppView),
@@ -102,7 +87,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe,
       <div className="flex flex-col items-center gap-2">
         {item.icon}
         <span className="font-mono text-[9px] uppercase tracking-[0.18em]">
-          {item.label === 'Piano Roll' ? 'Roll' : item.label === 'Sequencer' ? 'Seq' : item.label === 'Mixer' ? 'Mix' : item.label === 'Arranger' ? 'Arrange' : item.label}
+          {item.label === 'Piano Roll' ? 'Roll' : item.label === 'Sequencer' ? 'Seq' : item.label === 'Mixer' ? 'Mix' : item.label}
         </span>
       </div>
     </button>
@@ -240,7 +225,6 @@ const ViewRouter = () => {
       {activeView === 'SEQUENCER' && <Sequencer />}
       {activeView === 'PIANO_ROLL' && <PianoRollView />}
       {activeView === 'MIXER' && <Mixer />}
-      {activeView === 'ARRANGER' && <Arranger />}
     </main>
   );
 };
@@ -758,6 +742,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
             <div className="flex flex-col gap-3 md:min-h-[300px] md:flex-row md:flex-1">
               <ViewRouter />
             </div>
+            <ArrangementPanel />
             <DeviceRack />
           </div>
         </div>

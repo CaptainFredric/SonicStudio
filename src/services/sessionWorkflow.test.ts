@@ -23,7 +23,7 @@ const createSession = (name = 'Recovered Session'): StudioSession => ({
     },
   },
   ui: {
-    activeView: 'ARRANGER',
+    activeView: 'MIXER',
     isSettingsOpen: false,
     loopRangeEndBeat: null,
     loopRangeStartBeat: null,

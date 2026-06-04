@@ -9,14 +9,14 @@ describe('studio preferences', () => {
   });
 
   it('preserves supported motion, sound, accent, density, and workspace preferences', () => {
-    expect(normalizeStudioPreferences({ motionMode: 'focus', uiSoundsEnabled: false, accentColor: 'violet', density: 'compact', defaultWorkspace: 'arranger', superSonicMode: true, stickyMobileTransport: false, audioStabilityMode: 'resilient', capture: { analysisProfile: 'steady', autoPreviewMatch: true, keepShelfBetweenTakes: false, liveSuggestionCount: 2 }, superSonic: { guidanceBadges: false, waveIntensity: 'flow' } })).toEqual({
+    expect(normalizeStudioPreferences({ motionMode: 'focus', uiSoundsEnabled: false, accentColor: 'violet', density: 'compact', defaultWorkspace: 'mixer', superSonicMode: true, stickyMobileTransport: false, audioStabilityMode: 'resilient', capture: { analysisProfile: 'steady', autoPreviewMatch: true, keepShelfBetweenTakes: false, liveSuggestionCount: 2 }, superSonic: { guidanceBadges: false, waveIntensity: 'flow' } })).toEqual({
       motionMode: 'focus',
       uiSoundsEnabled: false,
       midiInputEnabled: false,
       midiRecordEnabled: false,
       accentColor: 'violet',
       density: 'compact',
-      defaultWorkspace: 'arranger',
+      defaultWorkspace: 'mixer',
       superSonicMode: true,
       stickyMobileTransport: false,
       audioStabilityMode: 'resilient',

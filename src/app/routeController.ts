@@ -13,8 +13,10 @@ export interface StudioRouteState {
 
 const SETTINGS_TABS: SettingsTab[] = ['WORKSPACE', 'TRACK', 'OUTPUT'];
 const VIEW_ALIASES: Record<string, AppView> = {
-  arrange: 'ARRANGER',
-  arranger: 'ARRANGER',
+  // The Arranger is now a panel inside the Sequencer view, so its old route
+  // tokens land there.
+  arrange: 'SEQUENCER',
+  arranger: 'SEQUENCER',
   grid: 'SEQUENCER',
   mix: 'MIXER',
   mixer: 'MIXER',
@@ -23,7 +25,7 @@ const VIEW_ALIASES: Record<string, AppView> = {
   roll: 'PIANO_ROLL',
   seq: 'SEQUENCER',
   sequencer: 'SEQUENCER',
-  song: 'ARRANGER',
+  song: 'SEQUENCER',
 };
 
 const TEMPLATE_ALIASES: Record<string, SessionTemplateId> = {

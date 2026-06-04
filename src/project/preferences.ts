@@ -3,7 +3,7 @@ import { readJson, writeJson } from '../utils/safeStorage';
 export type MotionMode = 'fluid' | 'focus' | 'still';
 export type AccentColor = 'aqua' | 'violet' | 'amber' | 'rose' | 'mint';
 export type Density = 'comfortable' | 'compact';
-export type DefaultWorkspace = 'arranger' | 'piano-roll' | 'mixer' | 'sequencer';
+export type DefaultWorkspace = 'piano-roll' | 'mixer' | 'sequencer';
 export type CaptureAnalysisProfile = 'quick' | 'balanced' | 'steady';
 export type CaptureSuggestionCount = 1 | 2 | 3;
 export type SuperSonicWaveIntensity = 'off' | 'faint' | 'flow';
@@ -124,7 +124,7 @@ const isDensity = (value: unknown): value is Density => (
 );
 
 const isDefaultWorkspace = (value: unknown): value is DefaultWorkspace => (
-  value === 'arranger' || value === 'piano-roll' || value === 'mixer' || value === 'sequencer'
+  value === 'piano-roll' || value === 'mixer' || value === 'sequencer'
 );
 
 const isCaptureAnalysisProfile = (value: unknown): value is CaptureAnalysisProfile => (
