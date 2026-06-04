@@ -97,6 +97,7 @@ const VUChannel: React.FC<{ anySolo: boolean; isPlaying: boolean; selected: bool
           className="mt-3"
           max="1"
           min="-1"
+          aria-label={`${track.name} pan`}
           onChange={(event) => updateTrackPan(track.id, Number(event.target.value))}
           step="0.1"
           type="range"
@@ -116,6 +117,7 @@ const VUChannel: React.FC<{ anySolo: boolean; isPlaying: boolean; selected: bool
         </div>
 
         <VerticalFader
+          ariaLabel={`${track.name} volume`}
           max={6}
           min={-60}
           onChange={(value) => updateTrackVolume(track.id, value)}
@@ -329,6 +331,7 @@ export const Mixer = () => {
                     className="mt-3"
                     max="1"
                     min="0"
+                    aria-label="Master glue compression"
                     onChange={(event) => setMasterSettings({ glueCompression: Number(event.target.value) })}
                     step="0.01"
                     type="range"
@@ -345,6 +348,7 @@ export const Mixer = () => {
                     className="mt-3"
                     max="1"
                     min="0"
+                    aria-label="Master tone"
                     onChange={(event) => setMasterSettings({ tone: Number(event.target.value) })}
                     step="0.01"
                     type="range"
@@ -361,6 +365,7 @@ export const Mixer = () => {
                     className="mt-3"
                     max="1"
                     min="0"
+                    aria-label="Master stereo width"
                     onChange={(event) => setMasterSettings({ stereoWidth: Number(event.target.value) })}
                     step="0.01"
                     type="range"
@@ -381,6 +386,7 @@ export const Mixer = () => {
                 </div>
 
                 <VerticalFader
+                  ariaLabel="Master output level"
                   max={12}
                   min={-12}
                   onChange={(value) => setMasterSettings({ outputGain: value })}
@@ -413,6 +419,7 @@ export const Mixer = () => {
                     className="mt-3"
                     max="240"
                     min="20"
+                    aria-label="Master low cut frequency"
                     onChange={(event) => setMasterSettings({ lowCutHz: Number(event.target.value) })}
                     step="1"
                     type="range"
@@ -428,6 +435,7 @@ export const Mixer = () => {
                     className="mt-3"
                     max="20000"
                     min="6000"
+                    aria-label="Master high cut frequency"
                     onChange={(event) => setMasterSettings({ highCutHz: Number(event.target.value) })}
                     step="100"
                     type="range"
@@ -443,6 +451,7 @@ export const Mixer = () => {
                     className="mt-3"
                     max="0"
                     min="-1.2"
+                    aria-label="Master limiter ceiling"
                     onChange={(event) => setMasterSettings({ limiterCeiling: Number(event.target.value) })}
                     step="0.05"
                     type="range"
@@ -503,6 +512,7 @@ export const Mixer = () => {
               {Math.round(mixerScrollLeft)}
             </span>
             <input
+              aria-label="Scroll mixer strips"
               className="sonic-scroll-strip"
               max={maxMixerScrollLeft}
               min={0}
@@ -545,12 +555,14 @@ const StateBtn = ({ active, label, onClick }: { active: boolean; label: string; 
 );
 
 const VerticalFader = ({
+  ariaLabel,
   max,
   min,
   onChange,
   step = 1,
   value,
 }: {
+  ariaLabel: string;
   max: number;
   min: number;
   onChange: (value: number) => void;
@@ -561,19 +573,36 @@ const VerticalFader = ({
   const clampedPercentage = Math.max(0, Math.min(100, percentage));
   const thumbBottom = `calc(${clampedPercentage}% - 14px)`;
 
+  const clampValue = (next: number) => Number(Math.max(min, Math.min(max, next)).toFixed(step >= 1 ? 0 : 2));
+
   const updateFromPointer = (element: HTMLDivElement, clientY: number) => {
     const bounds = element.getBoundingClientRect();
     const ratio = 1 - ((clientY - bounds.top) / bounds.height);
     const clampedRatio = Math.max(0, Math.min(1, ratio));
     const rawValue = min + ((max - min) * clampedRatio);
-    const steppedValue = min + (Math.round((rawValue - min) / step) * step);
-    onChange(Number(Math.max(min, Math.min(max, steppedValue)).toFixed(step >= 1 ? 0 : 2)));
+    onChange(clampValue(min + (Math.round((rawValue - min) / step) * step)));
   };
 
   return (
     <div className="flex h-[160px] sm:h-[220px] w-9 items-center justify-center">
       <div
-        className="group relative flex h-full w-6 cursor-ns-resize items-center justify-center rounded-full border border-[var(--border-soft)] bg-[rgba(255,255,255,0.025)]"
+        aria-label={ariaLabel}
+        aria-orientation="vertical"
+        aria-valuemax={max}
+        aria-valuemin={min}
+        aria-valuenow={value}
+        className="group relative flex h-full w-6 cursor-ns-resize items-center justify-center rounded-full border border-[var(--border-soft)] bg-[rgba(255,255,255,0.025)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]"
+        onKeyDown={(event) => {
+          let next: number | null = null;
+          if (event.key === 'ArrowUp' || event.key === 'ArrowRight') next = value + step;
+          else if (event.key === 'ArrowDown' || event.key === 'ArrowLeft') next = value - step;
+          else if (event.key === 'Home') next = min;
+          else if (event.key === 'End') next = max;
+          if (next !== null) {
+            event.preventDefault();
+            onChange(clampValue(next));
+          }
+        }}
         onPointerDown={(event) => {
           event.preventDefault();
           (event.currentTarget as HTMLDivElement).setPointerCapture(event.pointerId);
@@ -586,7 +615,9 @@ const VerticalFader = ({
 
           updateFromPointer(event.currentTarget as HTMLDivElement, event.clientY);
         }}
+        role="slider"
         style={{ touchAction: 'none' }}
+        tabIndex={0}
       >
         <div className="absolute inset-[5px] rounded-full bg-[rgba(255,255,255,0.035)]" />
         <div
