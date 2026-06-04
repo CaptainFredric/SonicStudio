@@ -88,6 +88,36 @@ const START_OPTIONS: StartOption[] = [
     mark: 'PR',
   },
   {
+    body: 'Halftime 808 trap in G minor: booming sub, rattling triplet hats, a backbeat clap, and a dark bell hook.',
+    focus: 'Halftime trap',
+    genre: 'Trap',
+    bpm: 140,
+    id: 'midnight-trap',
+    label: 'Midnight Trap',
+    swatch: ['#a78bfa', '#7c3aed', '#f43f5e'],
+    mark: 'MT',
+  },
+  {
+    body: 'A 174 BPM two-step break, a growling reese sub, stabbed lead, and a wide atmosphere pad.',
+    focus: 'Drum and bass',
+    genre: 'Drum & bass',
+    bpm: 174,
+    id: 'neon-breaks',
+    label: 'Neon Breaks',
+    swatch: ['#22d3ee', '#34d399', '#a3e635'],
+    mark: 'NB',
+  },
+  {
+    body: 'Deep house warmth: four-on-the-floor, offbeat open hats, a round bass, and lush ninth-chord pads.',
+    focus: 'Deep house',
+    genre: 'Deep house',
+    bpm: 122,
+    id: 'sunset-house',
+    label: 'Sunset House',
+    swatch: ['#fb923c', '#f472b6', '#f59e0b'],
+    mark: 'SH',
+  },
+  {
     body: 'Bright pop drums, glossy lead hooks, and a counter-pluck for fast topline writing.',
     focus: 'Bright pop motion',
     genre: 'Pop shimmer',
@@ -169,7 +199,7 @@ const START_OPTIONS: StartOption[] = [
   },
 ];
 
-const FEATURED_IDS: SessionTemplateId[] = ['pulse-rider', 'night-transit', 'twilight-frame', 'club-horizon', 'starlight-parade', 'velvet-suite'];
+const FEATURED_IDS: SessionTemplateId[] = ['pulse-rider', 'night-transit', 'midnight-trap', 'sunset-house', 'twilight-frame', 'club-horizon', 'neon-breaks', 'starlight-parade', 'velvet-suite'];
 
 const LIBRARY_FILTERS: Array<{ id: LibraryFilterId; label: string }> = [
   { id: 'featured', label: 'Featured' },
@@ -186,7 +216,8 @@ const matchesLibraryFilter = (option: StartOption, filterId: LibraryFilterId) =>
     case 'featured':
       return FEATURED_IDS.includes(option.id);
     case 'club':
-      return option.id === 'club-horizon' || option.id === 'beat-lab' || option.id === 'pulse-rider';
+      return option.id === 'club-horizon' || option.id === 'beat-lab' || option.id === 'pulse-rider'
+        || option.id === 'midnight-trap' || option.id === 'neon-breaks' || option.id === 'sunset-house';
     case 'hooks':
       return option.id === 'night-transit' || option.id === 'starlight-parade' || option.id === 'synthwave-drive' || option.id === 'crystal-garden';
     case 'drift':

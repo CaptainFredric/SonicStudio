@@ -29,7 +29,7 @@ export type SourceEngine = 'synth' | 'sample';
 export type SamplePlaybackMode = 'pitched' | 'oneshot';
 export type SampleTriggerMode = 'active-slice' | 'full-source' | 'step-mapped';
 export type SamplePreset = 'kick-thud' | 'snare-crack' | 'hat-air' | 'bass-pluck' | 'lead-glass' | 'pad-haze' | 'pluck-mallet' | 'fx-rise';
-export type SessionTemplateId = 'blank-grid' | 'night-transit' | 'beat-lab' | 'ambient-drift' | 'lofi-sunday' | 'synthwave-drive' | 'club-horizon' | 'starlight-parade' | 'velvet-suite' | 'crystal-garden' | 'twilight-frame' | 'late-hours' | 'pulse-rider';
+export type SessionTemplateId = 'blank-grid' | 'night-transit' | 'beat-lab' | 'ambient-drift' | 'lofi-sunday' | 'synthwave-drive' | 'club-horizon' | 'starlight-parade' | 'velvet-suite' | 'crystal-garden' | 'twilight-frame' | 'late-hours' | 'pulse-rider' | 'midnight-trap' | 'neon-breaks' | 'sunset-house';
 
 export interface SessionTemplateDefinition {
   description: string;
@@ -449,6 +449,9 @@ const AMBIENT_TRACK_ORDER: InstrumentType[] = ['pad', 'pad', 'bass', 'lead', 'fx
 const LOFI_TRACK_ORDER: InstrumentType[] = ['kick', 'snare', 'hihat', 'bass', 'pad', 'lead'];
 const SYNTHWAVE_TRACK_ORDER: InstrumentType[] = ['kick', 'snare', 'hihat', 'bass', 'lead', 'pad'];
 const CLUB_TRACK_ORDER: InstrumentType[] = ['kick', 'snare', 'hihat', 'bass', 'pluck', 'pad', 'fx'];
+const TRAP_TRACK_ORDER: InstrumentType[] = ['kick', 'snare', 'hihat', 'bass', 'bell', 'pad'];
+const DNB_TRACK_ORDER: InstrumentType[] = ['kick', 'snare', 'hihat', 'bass', 'lead', 'pad'];
+const HOUSE_TRACK_ORDER: InstrumentType[] = ['kick', 'snare', 'hihat', 'bass', 'pad', 'pluck'];
 const PULSE_TRACK_ORDER: InstrumentType[] = ['kick', 'snare', 'hihat', 'bass', 'lead', 'pad', 'fx'];
 const STARLIGHT_TRACK_ORDER: InstrumentType[] = ['kick', 'snare', 'hihat', 'bass', 'lead', 'pad', 'pluck'];
 const VELVET_SUITE_TRACK_ORDER: InstrumentType[] = ['bass', 'piano', 'pad', 'violin'];
@@ -534,6 +537,24 @@ export const SESSION_TEMPLATE_DEFINITIONS: SessionTemplateDefinition[] = [
     focus: 'New voices showcase',
     id: 'late-hours',
     label: 'Late Hours',
+  },
+  {
+    description: 'Halftime trap in G minor at 140 BPM: a booming 808, rattling triplet hats, a backbeat clap, a dark bell hook, and a low pad.',
+    focus: 'Halftime trap',
+    id: 'midnight-trap',
+    label: 'Midnight Trap',
+  },
+  {
+    description: 'Drum and bass at 174 BPM in A minor: a two-step break, a growling reese sub, a stabbed lead, and a wide atmosphere pad.',
+    focus: 'Drum and bass roller',
+    id: 'neon-breaks',
+    label: 'Neon Breaks',
+  },
+  {
+    description: 'Deep house in A minor at 122 BPM: four-on-the-floor kick, offbeat open hats, a round bassline, lush ninth-chord pads, and an organ pluck.',
+    focus: 'Deep house groove',
+    id: 'sunset-house',
+    label: 'Sunset House',
   },
 ];
 
@@ -2877,6 +2898,185 @@ export const createLateHoursProject = (projectName: string = 'Late Hours'): Proj
   ]);
 };
 
+export const createMidnightTrapProject = (projectName: string = 'Midnight Trap'): Project => {
+  const { buildProject, tracks, transport } = createProjectFrame(projectName, {
+    bpm: 140,
+    mode: 'SONG',
+    trackOrder: TRAP_TRACK_ORDER,
+  });
+  const [kickTrack, snareTrack, hatTrack, bassTrack, bellTrack, padTrack] = tracks;
+
+  // Sparse halftime kick with a syncopated pickup.
+  putStep(kickTrack, 0, 0, 'C1', { velocity: 0.96 });
+  putStep(kickTrack, 0, 6, 'C1', { velocity: 0.7 });
+  putStep(kickTrack, 0, 10, 'C1', { velocity: 0.82 });
+  // Backbeat clap on beat 3.
+  putStep(snareTrack, 0, 8, 'C1', { velocity: 0.82 });
+  // Rattling hats: straight 16ths with a triplet-feel roll into the bar end.
+  for (let step = 0; step < 16; step += 1) {
+    if (step === 13 || step === 15) continue;
+    putStep(hatTrack, 0, step, 'C1', { gate: 0.3, velocity: step % 4 === 0 ? 0.6 : 0.4 });
+  }
+  for (const step of [13, 15]) {
+    putStep(hatTrack, 0, step, 'C1', { gate: 0.18, velocity: 0.5 });
+  }
+  // 808 bass walking Gm - Bb - Eb - F with long glides.
+  putStep(bassTrack, 0, 0, 'G1', { gate: 5.5, velocity: 0.92 });
+  putStep(bassTrack, 0, 6, 'A#1', { gate: 2, velocity: 0.78 });
+  putStep(bassTrack, 0, 8, 'D#1', { gate: 3.5, velocity: 0.82 });
+  putStep(bassTrack, 0, 12, 'F1', { gate: 3.5, velocity: 0.8 });
+  // Dark bell hook in G minor.
+  putStep(bellTrack, 0, 0, 'G4', { gate: 1.2, velocity: 0.6 });
+  putStep(bellTrack, 0, 3, 'A#4', { gate: 1, velocity: 0.52 });
+  putStep(bellTrack, 0, 6, 'D5', { gate: 1.5, velocity: 0.58 });
+  putStep(bellTrack, 0, 10, 'F5', { gate: 1, velocity: 0.5 });
+  putStep(bellTrack, 0, 12, 'D5', { gate: 2, velocity: 0.54 });
+  // Low held pad chord.
+  stackStep(padTrack, 0, 0, [
+    { note: 'G2', options: { gate: 8, velocity: 0.34 } },
+    { note: 'A#2', options: { gate: 8, velocity: 0.3 } },
+    { note: 'D3', options: { gate: 8, velocity: 0.3 } },
+  ]);
+
+  bassTrack.source.octaveShift = -1;
+  bassTrack.params.distortion = 0.18;
+  bellTrack.params.reverbSend = 0.4;
+  bellTrack.params.delaySend = 0.42;
+  padTrack.params.reverbSend = 0.5;
+  hatTrack.source.engine = 'sample';
+  hatTrack.source.samplePlayback = 'oneshot';
+  hatTrack.source.sampleTriggerMode = 'step-mapped';
+
+  return buildProject([
+    createArrangerClip(kickTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(snareTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(hatTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(bassTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(bellTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(padTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+  ], [
+    { beat: 0, id: createId('marker'), name: 'Trap loop' },
+  ]);
+};
+
+export const createNeonBreaksProject = (projectName: string = 'Neon Breaks'): Project => {
+  const { buildProject, tracks, transport } = createProjectFrame(projectName, {
+    bpm: 174,
+    mode: 'SONG',
+    trackOrder: DNB_TRACK_ORDER,
+  });
+  const [kickTrack, snareTrack, hatTrack, bassTrack, leadTrack, padTrack] = tracks;
+
+  // Classic two-step break: kick on 1 and the and-of-3, snare on 2 and 4.
+  putStep(kickTrack, 0, 0, 'C1', { velocity: 0.95 });
+  putStep(kickTrack, 0, 10, 'C1', { velocity: 0.82 });
+  putStep(snareTrack, 0, 4, 'C1', { velocity: 0.85 });
+  putStep(snareTrack, 0, 12, 'C1', { velocity: 0.85 });
+  // Busy hats with ghosted offbeats.
+  for (let step = 2; step < 16; step += 2) {
+    putStep(hatTrack, 0, step, 'C1', { gate: 0.28, velocity: step % 4 === 0 ? 0.5 : 0.32 });
+  }
+  // Reese sub in A minor, long and growling.
+  putStep(bassTrack, 0, 0, 'A1', { gate: 6, velocity: 0.9 });
+  putStep(bassTrack, 0, 8, 'G1', { gate: 3.5, velocity: 0.82 });
+  putStep(bassTrack, 0, 12, 'F1', { gate: 3.5, velocity: 0.82 });
+  // Stabbed lead riff.
+  putStep(leadTrack, 0, 0, 'A4', { gate: 0.75, velocity: 0.6 });
+  putStep(leadTrack, 0, 3, 'C5', { gate: 0.75, velocity: 0.56 });
+  putStep(leadTrack, 0, 6, 'E5', { gate: 1, velocity: 0.62 });
+  putStep(leadTrack, 0, 11, 'D5', { gate: 0.75, velocity: 0.54 });
+  putStep(leadTrack, 0, 14, 'A4', { gate: 1, velocity: 0.5 });
+  // Wide atmosphere pad.
+  stackStep(padTrack, 0, 0, [
+    { note: 'A3', options: { gate: 8, velocity: 0.32 } },
+    { note: 'C4', options: { gate: 8, velocity: 0.28 } },
+    { note: 'E4', options: { gate: 8, velocity: 0.28 } },
+    { note: 'G4', options: { gate: 8, velocity: 0.26 } },
+  ]);
+
+  bassTrack.source.octaveShift = -1;
+  bassTrack.source.waveform = 'fatsawtooth';
+  bassTrack.params.distortion = 0.14;
+  leadTrack.params.delaySend = 0.34;
+  leadTrack.params.reverbSend = 0.3;
+  padTrack.params.reverbSend = 0.58;
+  padTrack.params.chorusSend = 0.3;
+  hatTrack.source.engine = 'sample';
+  hatTrack.source.samplePlayback = 'oneshot';
+  hatTrack.source.sampleTriggerMode = 'step-mapped';
+
+  return buildProject([
+    createArrangerClip(kickTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(snareTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(hatTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(bassTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(leadTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(padTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+  ], [
+    { beat: 0, id: createId('marker'), name: 'Breaks roller' },
+  ]);
+};
+
+export const createSunsetHouseProject = (projectName: string = 'Sunset House'): Project => {
+  const { buildProject, tracks, transport } = createProjectFrame(projectName, {
+    bpm: 122,
+    mode: 'SONG',
+    trackOrder: HOUSE_TRACK_ORDER,
+  });
+  const [kickTrack, clapTrack, hatTrack, bassTrack, padTrack, pluckTrack] = tracks;
+
+  // Four-on-the-floor with an offbeat-open-hat house groove.
+  for (const step of [0, 4, 8, 12]) {
+    putStep(kickTrack, 0, step, 'C1', { velocity: step === 0 ? 0.94 : 0.86 });
+  }
+  for (const step of [4, 12]) {
+    putStep(clapTrack, 0, step, 'C1', { velocity: 0.74 });
+  }
+  for (const step of [2, 6, 10, 14]) {
+    putStep(hatTrack, 0, step, 'C1', { gate: 0.5, velocity: 0.56 });
+  }
+  // Round offbeat bass outlining Am - F - C - G.
+  putStep(bassTrack, 0, 2, 'A1', { gate: 0.8, velocity: 0.78 });
+  putStep(bassTrack, 0, 6, 'F1', { gate: 0.8, velocity: 0.74 });
+  putStep(bassTrack, 0, 10, 'C2', { gate: 0.8, velocity: 0.74 });
+  putStep(bassTrack, 0, 14, 'G1', { gate: 0.8, velocity: 0.74 });
+  // Lush ninth-chord pad bed.
+  stackStep(padTrack, 0, 0, [
+    { note: 'A3', options: { gate: 8, velocity: 0.36 } },
+    { note: 'C4', options: { gate: 8, velocity: 0.32 } },
+    { note: 'E4', options: { gate: 8, velocity: 0.3 } },
+    { note: 'G4', options: { gate: 8, velocity: 0.3 } },
+    { note: 'B4', options: { gate: 8, velocity: 0.26 } },
+  ]);
+  // Organ pluck comping on the offbeats.
+  for (const step of [1, 5, 9, 13]) {
+    stackStep(pluckTrack, 0, step, [
+      { note: 'C5', options: { gate: 0.5, velocity: 0.5 } },
+      { note: 'E5', options: { gate: 0.5, velocity: 0.46 } },
+    ]);
+  }
+
+  bassTrack.source.octaveShift = -1;
+  padTrack.params.reverbSend = 0.5;
+  padTrack.params.chorusSend = 0.32;
+  pluckTrack.params.delaySend = 0.3;
+  pluckTrack.params.reverbSend = 0.34;
+  hatTrack.source.engine = 'sample';
+  hatTrack.source.samplePlayback = 'oneshot';
+  hatTrack.source.sampleTriggerMode = 'step-mapped';
+
+  return buildProject([
+    createArrangerClip(kickTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(clapTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(hatTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(bassTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(padTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(pluckTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+  ], [
+    { beat: 0, id: createId('marker'), name: 'House groove' },
+  ]);
+};
+
 export const createProjectFromTemplate = (
   templateId: SessionTemplateId,
 ): Project => {
@@ -2905,6 +3105,12 @@ export const createProjectFromTemplate = (
       return createTwilightFrameProject();
     case 'late-hours':
       return createLateHoursProject();
+    case 'midnight-trap':
+      return createMidnightTrapProject();
+    case 'neon-breaks':
+      return createNeonBreaksProject();
+    case 'sunset-house':
+      return createSunsetHouseProject();
     case 'night-transit':
     default:
       return createNightTransitProject();
