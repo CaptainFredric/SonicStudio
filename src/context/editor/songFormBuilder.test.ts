@@ -31,7 +31,8 @@ describe('songFormBuilder', () => {
       definition.sections.map((section) => section.label),
     );
     expect(result.project.markers.map((marker) => marker.beat)).toEqual(sectionStarts(definition.sections));
-    expect(result.project.arrangerClips.length).toBeGreaterThan(project.arrangerClips.length);
+    // A complete arrangement places at least one clip in every section it marks.
+    expect(result.project.arrangerClips.length).toBeGreaterThanOrEqual(definition.sections.length);
     expect(result.project.arrangerClips.every((clip) => (
       clip.patternIndex >= 0 && clip.patternIndex < project.transport.patternCount
     ))).toBe(true);

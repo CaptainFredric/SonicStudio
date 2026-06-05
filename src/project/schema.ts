@@ -1827,30 +1827,32 @@ export const createNightTransitProject = (projectName: string = 'Night Transit')
   padTrack.params.delaySend = 0.22;
   padTrack.params.chorusSend = 0.28;
 
-  return buildProject([
-      createArrangerClip(kickTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
-      createArrangerClip(snareTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
-      createArrangerClip(hihatTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
-      createArrangerClip(bassTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
-      createArrangerClip(leadTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 8 }),
-      createArrangerClip(padTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
-      createArrangerClip(kickTrack.id, transport, { beatLength: 16, patternIndex: 1, startBeat: 16 }),
-      createArrangerClip(snareTrack.id, transport, { beatLength: 16, patternIndex: 1, startBeat: 16 }),
-      createArrangerClip(hihatTrack.id, transport, { beatLength: 16, patternIndex: 1, startBeat: 16 }),
-      createArrangerClip(bassTrack.id, transport, { beatLength: 16, patternIndex: 1, startBeat: 16 }),
-      createArrangerClip(leadTrack.id, transport, { beatLength: 16, patternIndex: 1, startBeat: 16 }),
-      createArrangerClip(padTrack.id, transport, { beatLength: 16, patternIndex: 1, startBeat: 16 }),
-      createArrangerClip(kickTrack.id, transport, { beatLength: 16, patternIndex: 2, startBeat: 32 }),
-      createArrangerClip(snareTrack.id, transport, { beatLength: 16, patternIndex: 2, startBeat: 32 }),
-      createArrangerClip(hihatTrack.id, transport, { beatLength: 16, patternIndex: 2, startBeat: 32 }),
-      createArrangerClip(bassTrack.id, transport, { beatLength: 16, patternIndex: 2, startBeat: 32 }),
-      createArrangerClip(leadTrack.id, transport, { beatLength: 16, patternIndex: 2, startBeat: 32 }),
-      createArrangerClip(padTrack.id, transport, { beatLength: 16, patternIndex: 2, startBeat: 32 }),
-    ], [
-      { beat: 0, id: createId('marker'), name: 'Intro' },
-      { beat: 16, id: createId('marker'), name: 'Lift' },
-      { beat: 32, id: createId('marker'), name: 'Drive' },
-    ]);
+  // A fuller arc that reuses the three patterns as a journey rather than a
+  // single pass: the groove eases in, builds, drives, pulls back for a breath,
+  // hits its peak, then lands. Roughly twice the length of the old loop, so
+  // Night Transit reads as a proper medium-length scene next to the long
+  // Pulse Rider and the short one-bar loops.
+  const nightTransitTracks = [kickTrack, snareTrack, hihatTrack, bassTrack, leadTrack, padTrack];
+  const nightTransitSections: Array<{ start: number; pattern: number; name: string }> = [
+    { start: 0, pattern: 0, name: 'Intro' },
+    { start: 16, pattern: 1, name: 'Lift' },
+    { start: 32, pattern: 2, name: 'Drive' },
+    { start: 48, pattern: 0, name: 'Breath' },
+    { start: 64, pattern: 2, name: 'Peak' },
+    { start: 80, pattern: 0, name: 'Outro' },
+  ];
+  const nightTransitClips = nightTransitSections.flatMap((section) => (
+    nightTransitTracks.map((track) => (
+      // Keep the original intro nuance: the lead drifts in halfway through bar one.
+      section.start === 0 && track === leadTrack
+        ? createArrangerClip(track.id, transport, { beatLength: 8, patternIndex: 0, startBeat: 8 })
+        : createArrangerClip(track.id, transport, { beatLength: 16, patternIndex: section.pattern, startBeat: section.start })
+    ))
+  ));
+  return buildProject(
+    nightTransitClips,
+    nightTransitSections.map((section) => ({ beat: section.start, id: createId('marker'), name: section.name })),
+  );
 };
 
 export const createBlankProject = (projectName: string = 'Blank Grid'): Project => {

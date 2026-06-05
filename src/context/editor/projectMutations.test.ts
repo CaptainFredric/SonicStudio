@@ -106,8 +106,18 @@ describe('projectMutations', () => {
 
   it('does nothing when a clip is already unique', () => {
     const project = createProjectFromTemplate('night-transit');
+    // A clip is already unique when no other clip on the same track shares its
+    // pattern, so "make unique" has nothing to retarget.
+    const uniqueClip = project.arrangerClips.find((clip) => (
+      project.arrangerClips.filter((other) => (
+        other.trackId === clip.trackId && other.patternIndex === clip.patternIndex
+      )).length === 1
+    ));
+    if (!uniqueClip) {
+      throw new Error('Expected at least one already-unique clip in the fixture');
+    }
 
-    expect(makeClipPatternUniqueProject(project, project.arrangerClips[0].id)).toBeNull();
+    expect(makeClipPatternUniqueProject(project, uniqueClip.id)).toBeNull();
   });
 
   it('does nothing when no free pattern slot exists for uniqueness', () => {
