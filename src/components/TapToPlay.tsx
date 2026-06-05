@@ -554,7 +554,7 @@ export const TapToPlay = () => {
             data-needs-attention="true"
             onClick={() => void initAudio()}
             type="button"
-            title="Enable audio engine"
+            title="Wake up the sound so the keys play"
           >
             <Power className="h-3 w-3" />
             Enable audio

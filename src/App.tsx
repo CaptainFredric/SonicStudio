@@ -61,9 +61,9 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe,
         </span>
       ),
       label: 'Sequencer',
-      title: 'Sequencer: build step timing and groove',
+      title: 'Sequencer · lay down the groove, step by step',
     },
-    { id: 'MIXER', icon: withSuperFill(<Volume2 size={20} />, 'studio-icon-fill-mixer-core'), label: 'Mixer', title: 'Mixer: balance levels, pan, and tone' },
+    { id: 'MIXER', icon: withSuperFill(<Volume2 size={20} />, 'studio-icon-fill-mixer-core'), label: 'Mixer', title: 'Mixer · balance the levels, panning, and tone' },
   ];
 
   // Keep the rail in the one canonical order so the tabs and the Alt+1..3
@@ -101,7 +101,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe,
           data-tour-target="sessions"
           data-ui-sound="nav"
           onClick={onOpenLaunchpad}
-          title="Open session library"
+          title="Browse starter scenes and your saved sessions"
           type="button"
         >
           <div className="flex items-center justify-center gap-2 md:flex-col">
@@ -149,7 +149,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe,
           data-tour-target="options"
           data-ui-sound="settings"
           onClick={toggleSettings}
-          title="Options"
+          title="Studio settings"
           type="button"
         >
           <div className="flex items-center justify-center gap-2 md:flex-col">
@@ -188,7 +188,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe,
           className="studio-nav-button w-full"
           data-ui-sound="settings"
           onClick={onToggleFocus}
-          title="Focus mode: hide the chrome and fill the screen with the workspace"
+          title="Focus mode · hide the panels, keep just your work"
           type="button"
         >
           <div className="flex items-center justify-center gap-2 md:flex-col">
