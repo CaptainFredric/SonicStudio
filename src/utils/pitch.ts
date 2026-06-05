@@ -59,3 +59,27 @@ export const noteFitsKey = (note: string, root: number, mode: ScaleMode): boolea
   if (pc === null) return false;
   return inKeyPitchClasses(root, mode).has(pc);
 };
+
+/**
+ * The semitone shift (within -5..+6) that lands the most of these pitch classes
+ * on the key's scale. Used to transpose a captured phrase into the session key
+ * while preserving its internal intervals (a transpose, not a per-note snap).
+ * Ties break toward the smallest move, so an already-in-key phrase stays put.
+ */
+export const bestKeyTranspose = (pitchClasses: number[], root: number, mode: ScaleMode): number => {
+  if (pitchClasses.length === 0) return 0;
+  const inKey = inKeyPitchClasses(root, mode);
+  let best = 0;
+  let bestScore = -1;
+  for (let shift = -5; shift <= 6; shift += 1) {
+    let score = 0;
+    for (const pc of pitchClasses) {
+      if (inKey.has((((pc + shift) % 12) + 12) % 12)) score += 1;
+    }
+    if (score > bestScore || (score === bestScore && Math.abs(shift) < Math.abs(best))) {
+      best = shift;
+      bestScore = score;
+    }
+  }
+  return best;
+};

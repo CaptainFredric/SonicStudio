@@ -25,6 +25,7 @@ import {
 import { meterIntervalForMode } from '../audio/meterTiming';
 import { engine } from '../audio/ToneEngine';
 import { SUPERSONIC_NOTE_OFFSETS, getTrackAnchorNote, shiftPitch } from '../utils/notePlacement';
+import { bestKeyTranspose, pitchClassFromNote } from '../utils/pitch';
 import { getSamplePresetMeta } from '../audio/sampleLibrary';
 import { useAudio, usePlaybackStep } from '../context/AudioContext';
 import { SONG_FORM_DEFINITIONS, type SongFormId } from '../context/editor/songFormDefinitions';
@@ -1183,10 +1184,31 @@ export const MainWorkspace = () => {
       return;
     }
     const captured = captures[0];
-    pendingCaptureSegmentRef.current = noteStringToPatternSegment(captured, captured.name, 'lead');
+    const segment = noteStringToPatternSegment(captured, captured.name, 'lead');
+    // Transpose the captured phrase into the detected session key so the new
+    // lane sits in the song instead of clashing with it (a transpose, so the
+    // phrase keeps its own shape).
+    const sessionKey = getEffectiveKey(tracks);
+    const pitchClasses: number[] = [];
+    for (const step of segment.steps) {
+      for (const event of step) {
+        const pc = pitchClassFromNote(event.note);
+        if (pc !== null) pitchClasses.push(pc);
+      }
+    }
+    const shift = bestKeyTranspose(pitchClasses, sessionKey.root, sessionKey.mode);
+    pendingCaptureSegmentRef.current = shift === 0
+      ? segment
+      : {
+        ...segment,
+        steps: segment.steps.map((step) => step.map((event) => ({
+          ...event,
+          note: shiftPitch(event.note, shift) ?? event.note,
+        }))),
+      };
     laneJustAddedRef.current = true;
     createTrack('lead');
-  }, [createTrack]);
+  }, [createTrack, tracks]);
 
   useEffect(() => {
     const grew = tracks.length > prevTrackCountRef.current;
@@ -1204,7 +1226,7 @@ export const MainWorkspace = () => {
     if (pendingSegment) {
       pendingCaptureSegmentRef.current = null;
       applyPatternSegment(newest.id, currentPattern, pendingSegment.steps, pendingSegment.automation);
-      setSessionPlayerNotice(`Added "${pendingSegment.name}" from your captures as a new lane.`);
+      setSessionPlayerNotice(`Added "${pendingSegment.name}" from your captures, tuned to your session key.`);
     }
     void previewTrack(newest.id);
     window.requestAnimationFrame(() => {

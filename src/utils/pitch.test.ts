@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  bestKeyTranspose,
   inKeyPitchClasses,
   noteFitsKey,
   NOTE_NAMES_SHARP,
@@ -63,5 +64,20 @@ describe('noteFitsKey', () => {
     expect(noteFitsKey('A#3', root, 'minor')).toBe(true); // Bb in key
     expect(noteFitsKey('B3', root, 'minor')).toBe(false); // B natural not in G minor
     expect(noteFitsKey('F#4', root, 'minor')).toBe(false);
+  });
+});
+
+describe('bestKeyTranspose', () => {
+  it('leaves an already in-key phrase untouched', () => {
+    expect(bestKeyTranspose([0, 2, 4, 7], 0, 'major')).toBe(0); // C D E G in C major
+  });
+
+  it('shifts an out-of-key phrase onto the scale', () => {
+    // B, C#, D#, F#: a semitone up lands on C, D, E, G (all in C major).
+    expect(bestKeyTranspose([11, 1, 3, 6], 0, 'major')).toBe(1);
+  });
+
+  it('returns 0 for an empty phrase', () => {
+    expect(bestKeyTranspose([], 9, 'minor')).toBe(0);
   });
 });
