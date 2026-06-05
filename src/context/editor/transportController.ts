@@ -79,11 +79,13 @@ export const createTransportController = ({
     setIsPlaying(false);
   };
 
-  const startPlaybackWithCountIn = async () => {
+  // Plays the metronome lead-in, if one is configured. Resolves true when it
+  // finished and false when it was cancelled mid-count. Leaves the transport
+  // untouched so callers can start playback or recording on the downbeat.
+  const runCountIn = async (): Promise<boolean> => {
     const bars = currentProject.transport.countInBars;
     if (bars <= 0) {
-      setIsPlaying(engine.togglePlayback());
-      return;
+      return true;
     }
 
     const beatDurationMs = (60 / currentProject.transport.bpm) * 1000;
@@ -95,7 +97,7 @@ export const createTransportController = ({
 
     for (let beatIndex = 0; beatIndex < totalBeats; beatIndex += 1) {
       if (countInTokenRef.current !== token) {
-        return;
+        return false;
       }
 
       engine.previewMetronomeTick(beatIndex % 4 === 0);
@@ -107,12 +109,18 @@ export const createTransportController = ({
     }
 
     if (countInTokenRef.current !== token) {
-      return;
+      return false;
     }
 
     setCountInActive(false);
     setCountInBeatsRemaining(0);
-    setIsPlaying(engine.togglePlayback());
+    return true;
+  };
+
+  const startPlaybackWithCountIn = async () => {
+    if (await runCountIn()) {
+      setIsPlaying(engine.togglePlayback());
+    }
   };
 
   const togglePlay = async () => {
@@ -146,12 +154,20 @@ export const createTransportController = ({
       return;
     }
 
+    if (!isPlaying) {
+      // Count the take in first, then arm recording and roll the transport
+      // together on the downbeat so the first notes land on the grid.
+      if (!(await runCountIn())) {
+        return;
+      }
+      await engine.startRecording();
+      setIsRecording(true);
+      setIsPlaying(engine.togglePlayback());
+      return;
+    }
+
     await engine.startRecording();
     setIsRecording(true);
-
-    if (!isPlaying) {
-      await togglePlay();
-    }
   };
 
   const previewTrack = async (trackId: string, note?: string, sampleSliceIndex?: number, velocity?: number) => {
