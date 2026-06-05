@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronsLeft, ChevronsRight, GripVertical, Music2, X } from 'lucide-react';
+import { ChevronsLeft, ChevronsRight, GripVertical, Music2, Pencil, Trash2, X } from 'lucide-react';
 import type React from 'react';
 
 import { engine } from '../audio/ToneEngine';
@@ -40,6 +40,7 @@ interface SongTimelineGridProps {
   onRenameSection?: (markerId: string, name: string) => void;
   onRemoveSection?: (markerId: string) => void;
   onReorderTrack?: (trackId: string, toIndex: number) => void;
+  onDeleteTrack?: (trackId: string) => void;
 }
 
 // A flattened, scrollable view of the whole arrangement: one lane per track with
@@ -65,6 +66,7 @@ export const SongTimelineGrid = ({
   onRenameSection,
   onRemoveSection,
   onReorderTrack,
+  onDeleteTrack,
 }: SongTimelineGridProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollLeft, setScrollLeft] = useState(0);
@@ -258,7 +260,19 @@ export const SongTimelineGrid = ({
               >
                 <TrackIcon type={track.type} className="h-3.5 w-3.5" />
               </span>
-              {!gutterCollapsed && <span className="min-w-0 truncate text-[12px] font-semibold tracking-tight text-[var(--text-primary)]">{track.name}</span>}
+              {!gutterCollapsed && <span className="min-w-0 flex-1 truncate text-[12px] font-semibold tracking-tight text-[var(--text-primary)]">{track.name}</span>}
+              {!gutterCollapsed && onDeleteTrack && (
+                <button
+                  aria-label={`Remove the ${track.name} lane`}
+                  className="shrink-0 rounded-[2px] p-1 text-[var(--text-tertiary)] opacity-60 transition-colors hover:bg-[rgba(244,63,94,0.14)] hover:text-[var(--danger)] hover:opacity-100"
+                  onClick={(event) => { event.stopPropagation(); onDeleteTrack(track.id); }}
+                  onPointerDown={(event) => event.stopPropagation()}
+                  title={`Remove the ${track.name} lane`}
+                  type="button"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
           );
         })}
@@ -303,14 +317,26 @@ export const SongTimelineGrid = ({
                       onClick={() => onSeek?.(section.start)}
                       onDoubleClick={() => { setEditingMarkerId(section.id); setDraftName(section.name); }}
                       style={{ color: section.color }}
-                      title={`Jump to ${section.name}. Double-click to rename.`}
+                      title={`Tap to jump to ${section.name}`}
                       type="button"
                     >
                       {section.name}
                     </button>
+                    {onRenameSection && (
+                      <button
+                        aria-label={`Rename ${section.name}`}
+                        className="shrink-0 rounded-[2px] p-0.5 text-[var(--text-tertiary)] transition-colors hover:text-[var(--text-primary)]"
+                        onClick={() => { setEditingMarkerId(section.id); setDraftName(section.name); }}
+                        title={`Rename ${section.name}`}
+                        type="button"
+                      >
+                        <Pencil className="h-2.5 w-2.5" />
+                      </button>
+                    )}
                     {onRemoveSection && (
                       <button
-                        className="mr-0.5 hidden shrink-0 rounded-[2px] p-0.5 text-[var(--text-tertiary)] hover:text-[var(--danger)] group-hover:block"
+                        aria-label={`Remove ${section.name}`}
+                        className="mr-0.5 shrink-0 rounded-[2px] p-0.5 text-[var(--text-tertiary)] transition-colors hover:text-[var(--danger)]"
                         onClick={() => onRemoveSection(section.id)}
                         title={`Remove ${section.name}`}
                         type="button"

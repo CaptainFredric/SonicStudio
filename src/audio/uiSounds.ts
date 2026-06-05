@@ -57,6 +57,11 @@ const resolveRecipe = (variant: UiSoundVariant, mode: UiSoundMode): UiSoundRecip
 class UiSoundEngine {
   private context: AudioContext | null = null;
   private lastPlaybackAt = 0;
+  // The SuperSonic power up/down is a deliberate, important cue, so it keeps its
+  // own debounce instead of sharing the rapid click-sound one. Otherwise the
+  // capture-phase click handler fires a tiny UI tick a few ms earlier and the
+  // shared guard swallows the transition every time.
+  private lastTransitionAt = 0;
 
   private ensureContext() {
     if (typeof window === 'undefined') {
@@ -148,10 +153,10 @@ class UiSoundEngine {
     }
 
     const now = context.currentTime;
-    if (now - this.lastPlaybackAt < 0.05) {
+    if (now - this.lastTransitionAt < 0.12) {
       return;
     }
-    this.lastPlaybackAt = now;
+    this.lastTransitionAt = now;
 
     if (enabled) {
       this.playPowerUp(context, now);

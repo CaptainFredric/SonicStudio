@@ -2291,12 +2291,19 @@ export const MainWorkspace = () => {
                 selectedTrackId={selectedTrackId}
                 superSonicMode={superSonicMode}
                 onSelectTrack={setSelectedTrackId}
-                onToggleStep={togglePatternStep}
-                onPlaceNote={togglePatternStep}
+                onToggleStep={(trackId, patternIndex, localStep) => {
+                  togglePatternStep(trackId, patternIndex, localStep);
+                  void previewTrack(trackId);
+                }}
+                onPlaceNote={(trackId, patternIndex, localStep, note) => {
+                  togglePatternStep(trackId, patternIndex, localStep, note);
+                  void previewTrack(trackId, note);
+                }}
                 onSeek={(beat) => engine.seekToBeat(beat)}
                 onRenameSection={(markerId, name) => updateSongMarker(markerId, { name })}
                 onRemoveSection={removeSongMarker}
                 onReorderTrack={reorderTrack}
+                onDeleteTrack={removeTrack}
               />
             )}
             <div
