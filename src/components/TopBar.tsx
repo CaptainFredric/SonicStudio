@@ -6,6 +6,7 @@ import {
   DownloadCloud,
   Library,
   Mic,
+  Music4,
   Pause,
   Play,
   Redo2,
@@ -114,6 +115,7 @@ export const TopBar = ({
     setBpm,
     setCountInBars,
     exportSession,
+    exportMidi,
     setCurrentPattern,
     setLoopRange,
     setSettingsOpen,
@@ -509,6 +511,7 @@ export const TopBar = ({
                       { icon: <Library className="h-3.5 w-3.5" />, label: 'Templates and library', run: () => onOpenLibrary?.(), hide: !onOpenLibrary },
                       { icon: <Share2 className="h-3.5 w-3.5" />, label: 'Share this session', run: () => onOpenShare?.(), hide: !onOpenShare },
                       { icon: <DownloadCloud className="h-3.5 w-3.5" />, label: 'Export session file', run: () => exportSession() },
+                      { icon: <Music4 className="h-3.5 w-3.5" />, label: 'Export MIDI', run: () => { void exportMidi(); } },
                     ].filter((item) => !item.hide).map((item) => (
                       <button
                         className="flex w-full items-center gap-2.5 rounded-[4px] px-2.5 py-2 text-left text-[12px] font-medium text-[var(--text-secondary)] transition-colors hover:bg-[rgba(255,255,255,0.06)] hover:text-[var(--text-primary)]"
