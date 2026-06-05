@@ -19,6 +19,7 @@ import {
   SlidersHorizontal,
   Trash2,
   VolumeX,
+  Wand2,
   Zap,
 } from 'lucide-react';
 
@@ -478,6 +479,7 @@ export const MainWorkspace = () => {
     toggleStep,
     togglePatternStep,
     toggleMute,
+    setTrackParams,
     togglePinnedTrack,
     toggleSolo,
     tracks,
@@ -2568,6 +2570,16 @@ export const MainWorkspace = () => {
                               }}
                             >
                               <Pin className="h-3.5 w-3.5" />
+                            </StateActionBtn>
+                            <StateActionBtn
+                              active={(track.params.humanize ?? 0) > 0}
+                              label={(track.params.humanize ?? 0) > 0 ? 'Humanize on · loosen timing and velocity' : 'Humanize off · play exactly on the grid'}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setTrackParams(track.id, { humanize: (track.params.humanize ?? 0) > 0 ? 0 : 0.5 });
+                              }}
+                            >
+                              <Wand2 className="h-3.5 w-3.5" />
                             </StateActionBtn>
                             {!isMobileViewport && <RowActionBtn label="Move track up" onClick={(event) => {
                               event.stopPropagation();

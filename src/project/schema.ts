@@ -113,6 +113,8 @@ export interface SynthParams {
   filterEnvAmount: number;
   /** Filter envelope fall time back to the base cutoff, in seconds. */
   filterEnvDecay: number;
+  /** Per-lane looseness: velocity and micro-timing jitter (0 = locked to the grid, 1 = loosest). */
+  humanize: number;
 }
 
 export interface TrackSource {
@@ -337,6 +339,7 @@ export const INITIAL_PARAMS: SynthParams = {
   unison: 0,
   filterEnvAmount: 0,
   filterEnvDecay: 0.2,
+  humanize: 0,
 };
 
 export const INITIAL_SOURCE: TrackSource = {
@@ -1104,6 +1107,7 @@ const normalizeParams = (
     unison: clamp(typeof candidate.unison === 'number' ? candidate.unison : presetParams?.unison ?? INITIAL_PARAMS.unison, 0, 1),
     filterEnvAmount: clamp(typeof candidate.filterEnvAmount === 'number' ? candidate.filterEnvAmount : presetParams?.filterEnvAmount ?? INITIAL_PARAMS.filterEnvAmount, 0, 1),
     filterEnvDecay: clamp(typeof candidate.filterEnvDecay === 'number' ? candidate.filterEnvDecay : presetParams?.filterEnvDecay ?? INITIAL_PARAMS.filterEnvDecay, 0.01, 2),
+    humanize: clamp(typeof candidate.humanize === 'number' ? candidate.humanize : presetParams?.humanize ?? INITIAL_PARAMS.humanize, 0, 1),
   };
 };
 

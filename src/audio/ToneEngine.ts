@@ -1,5 +1,7 @@
 import * as Tone from 'tone';
 
+import { humanizeTime, humanizeVelocity } from '../utils/humanize';
+
 import { getSamplePresetMeta, getSampleUrl } from './sampleLibrary';
 import { findFirstPlayableStepInLoop, hasPlayableStepAt, isTrackAudible, resolvePatternStepForPlayback } from './playbackResolver';
 import type { AudioStabilityMode } from '../project/preferences';
@@ -518,8 +520,16 @@ export class ToneEngine {
 
       this.applyAutomationStep(graph, track, resolved.patternIndex, resolved.stepIndex, time);
 
+      // Per-lane Humanize: one shared micro-timing nudge per step keeps a chord
+      // together, while each note gets its own small velocity wobble. Clamped so
+      // the time never lands in the past.
+      const humanize = track.params.humanize ?? 0;
+      const stepTime = humanizeTime(time, humanize, Math.random() * 2 - 1, Tone.now() + 0.001);
       resolved.note.forEach((event) => {
-        this.triggerTrack(graph, track, event, time);
+        const playedEvent = humanize > 0
+          ? { ...event, velocity: humanizeVelocity(event.velocity, humanize, Math.random() * 2 - 1) }
+          : event;
+        this.triggerTrack(graph, track, playedEvent, stepTime);
       });
     });
 
