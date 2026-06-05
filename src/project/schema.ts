@@ -2610,8 +2610,8 @@ export const createVelvetSuiteProject = (projectName: string = 'Velvet Suite'): 
 
   padTrack.params.reverbSend = 0.56;
   padTrack.params.chorusSend = 0.22;
-  violinTrack.params.reverbSend = 0.42;
-  violinTrack.params.chorusSend = 0.18;
+  // A wide string section gives the chamber sketch its "just air" lift.
+  applyVoicePresetById(violinTrack, 'string-ensemble');
   pianoTrack.params.reverbSend = 0.28;
 
   return buildProject([
@@ -2798,8 +2798,8 @@ export const createTwilightFrameProject = (projectName: string = 'Twilight Frame
 
   padTrack.params.reverbSend = 0.54;
   padTrack.params.chorusSend = 0.24;
-  violinTrack.params.reverbSend = 0.44;
-  violinTrack.params.chorusSend = 0.18;
+  // The expressive bowed voice for this scene's singing violin line.
+  applyVoicePresetById(violinTrack, 'bowed-ribbon');
   pianoTrack.params.reverbSend = 0.3;
   bellTrack.params.reverbSend = 0.46;
   bellTrack.params.delaySend = 0.24;
