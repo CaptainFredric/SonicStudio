@@ -201,6 +201,35 @@ const START_OPTIONS: StartOption[] = [
 
 const FEATURED_IDS: SessionTemplateId[] = ['pulse-rider', 'night-transit', 'midnight-trap', 'sunset-house', 'twilight-frame', 'club-horizon', 'neon-breaks', 'starlight-parade', 'velvet-suite'];
 
+// The hero "featured" scene rotates once per calendar day from a weighted pool,
+// so a returning visitor meets a different scene rather than the same one every
+// time. Weights lean toward the longer, newer builds (Pulse Rider and the most
+// recent additions) without ever excluding the rest.
+const FEATURED_POOL: Array<{ id: SessionTemplateId; weight: number }> = [
+  { id: 'pulse-rider', weight: 5 },
+  { id: 'midnight-trap', weight: 4 },
+  { id: 'neon-breaks', weight: 4 },
+  { id: 'sunset-house', weight: 4 },
+  { id: 'twilight-frame', weight: 3 },
+  { id: 'club-horizon', weight: 3 },
+  { id: 'starlight-parade', weight: 3 },
+  { id: 'night-transit', weight: 2 },
+  { id: 'velvet-suite', weight: 2 },
+];
+
+const pickDailyFeatured = (dayIndex: number): SessionTemplateId => {
+  const total = FEATURED_POOL.reduce((sum, entry) => sum + entry.weight, 0);
+  // A cheap deterministic hash of the day index gives a stable per-day pick.
+  let hash = (dayIndex * 2654435761) >>> 0;
+  hash = (hash ^ (hash >>> 13)) >>> 0;
+  let target = (hash / 4294967296) * total;
+  for (const entry of FEATURED_POOL) {
+    target -= entry.weight;
+    if (target < 0) return entry.id;
+  }
+  return FEATURED_POOL[0].id;
+};
+
 const LIBRARY_FILTERS: Array<{ id: LibraryFilterId; label: string }> = [
   { id: 'featured', label: 'Featured' },
   { id: 'all', label: 'All scenes' },
@@ -293,7 +322,12 @@ export const Launchpad = ({
   const [scoresheetDraft, setScoresheetDraft] = useState(projectName);
   const [storageFlash, setStorageFlash] = useState<'saved' | null>(null);
   const recommended = useMemo(
-    () => START_OPTIONS.find((option) => option.id === 'night-transit') ?? START_OPTIONS[0],
+    () => {
+      const featuredId = pickDailyFeatured(Math.floor(Date.now() / 86_400_000));
+      return START_OPTIONS.find((option) => option.id === featuredId)
+        ?? START_OPTIONS.find((option) => option.id === 'night-transit')
+        ?? START_OPTIONS[0];
+    },
     [],
   );
   const blankGrid = useMemo(

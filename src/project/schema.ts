@@ -721,6 +721,24 @@ export const TRACK_VOICE_PRESET_DEFINITIONS: TrackVoicePresetDefinition[] = [
     source: { detune: 0, octaveShift: -1, portamento: 0.02, samplePlayback: 'pitched', waveform: 'sine' },
     trackTypes: ['bass'],
   },
+  {
+    description: 'Short plucked strings with a woody snap and almost no tail. Bright and rhythmic, made for staccato lines and counter-melodies.',
+    focus: 'Pizzicato strings',
+    id: 'pizzicato-strings',
+    label: 'Pizzicato Strings',
+    params: { attack: 0.004, cutoff: 3200, decay: 0.16, delaySend: 0.12, release: 0.26, resonance: 1.25, reverbSend: 0.3, sustain: 0.12 },
+    source: { detune: 4, octaveShift: 0, portamento: 0, samplePlayback: 'pitched', waveform: 'triangle' },
+    trackTypes: ['violin', 'pluck', 'lead'],
+  },
+  {
+    description: 'A wide string section: detuned unison, a slow swell, and a long hall tail. Fills the back of a cinematic mix with warmth.',
+    focus: 'String ensemble',
+    id: 'string-ensemble',
+    label: 'String Ensemble',
+    params: { attack: 0.34, chorusSend: 0.5, cutoff: 2600, decay: 0.5, delaySend: 0.16, release: 2.2, resonance: 1.1, reverbSend: 0.58, sustain: 0.86, vibratoDepth: 0.14, vibratoRate: 4.6 },
+    source: { detune: 14, octaveShift: 0, portamento: 0.06, samplePlayback: 'pitched', waveform: 'sawtooth' },
+    trackTypes: ['violin', 'pad', 'lead'],
+  },
 ];
 
 export const getTrackVoicePresetDefinitions = (trackType: InstrumentType) => (
