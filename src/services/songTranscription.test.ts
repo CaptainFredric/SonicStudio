@@ -180,4 +180,15 @@ describe('segmentNotes gap bridging', () => {
     const notes = segmentNotes(frames, hopSeconds);
     expect(notes).toHaveLength(2);
   });
+
+  it('drops a lone voiced frame as a transient but keeps a sustained note', () => {
+    const frames = [
+      frame(60), // single voiced frame ~40 ms: a click, below the keep threshold
+      ...Array(5).fill(0).map(() => frame(null)),
+      ...Array(4).fill(0).map(() => frame(67)), // sustained ~160 ms note: kept
+    ];
+    const notes = segmentNotes(frames, hopSeconds);
+    expect(notes).toHaveLength(1);
+    expect(notes[0].midi).toBe(67);
+  });
 });

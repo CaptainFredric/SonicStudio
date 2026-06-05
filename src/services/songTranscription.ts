@@ -381,10 +381,18 @@ export const segmentNotes = (frames: FrameAnalysis[], hopSeconds: number): RawNo
   const notes: RawNote[] = [];
   // Bridge unvoiced gaps up to ~90 ms; anything longer is treated as a rest.
   const maxGapFrames = Math.max(1, Math.round(0.09 / hopSeconds));
+  // Drop notes that never sustain past ~60 ms of voiced signal: a lone voiced
+  // frame is almost always a click, a consonant, or a reverb flicker rather
+  // than a played note, and keeping them litters the transcription with stutter.
+  const minVoicedFrames = Math.max(2, Math.round(0.06 / hopSeconds));
   let current: OpenNote | null = null;
 
   const commit = () => {
     if (!current) return;
+    if (current.midis.length < minVoicedFrames) {
+      current = null;
+      return;
+    }
     const noteMidi = Math.round(median(current.midis));
     const startSeconds = current.startFrame * hopSeconds;
     // End at the last voiced frame so a bridged trailing gap is not counted.

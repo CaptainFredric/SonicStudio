@@ -789,12 +789,12 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
               <span className="section-label text-[var(--accent)]">Audio capture</span>
             </div>
             <h2 className="mt-1.5 text-lg font-semibold tracking-tight text-[var(--text-primary)]">
-              Record a vocal take or sound and we'll suggest the closest notes and lanes.
+              Make a sound and SonicStudio finds the notes and lane to match.
             </h2>
             <p className="mt-1 text-[12px] leading-5 text-[var(--text-secondary)]">
               {useShortGuidanceCopy
-                ? 'Record a short idea, review note guesses, and apply the closest lane. Captures stay on this device.'
-                : 'Hum, whistle, sing a phrase, tap, or record a short idea. SonicStudio listens for the main pitch, gives you nearby note guesses, suggests the closest lanes your current capture settings allow, and can keep the raw take locally as a WAV vocal sketch. Everything stays on your device.'}
+                ? 'It listens through your mic, so anything nearby works. Record, check the note guesses, drop it on a lane. Captures stay on this device.'
+                : 'It listens through your mic, so anything near you works: your voice, a guitar, a piano, a tap on the desk, even a track playing from a speaker across the room. Hum or play a phrase and SonicStudio follows the main pitch, offers a few nearby notes, points you at the closest lanes, and can keep the raw take as a local WAV. Nothing leaves your device.'}
             </p>
           </div>
           <button
