@@ -413,12 +413,12 @@ export const Launchpad = ({
 
       <div className="grid gap-7 xl:grid-cols-[minmax(0,1.08fr)_360px] xl:items-start">
         <div className="min-w-0 grid gap-6">
-          <div className="border-b border-[var(--border-soft)] pb-5">
+          <div className="border-b border-[var(--border-soft)] pb-4 md:pb-5">
             <div className="section-label text-[var(--accent-strong)]">Start here</div>
-            <h1 className="mt-3 max-w-[11ch] text-[clamp(2.35rem,5vw,4.7rem)] font-semibold leading-[0.92] tracking-[-0.06em]">
+            <h1 className="mt-2.5 max-w-[12ch] text-[clamp(1.9rem,5vw,4.7rem)] font-semibold leading-[0.95] tracking-[-0.05em] md:mt-3 md:leading-[0.92] md:tracking-[-0.06em]">
               Pick a starting point and get moving.
             </h1>
-            <p className="mt-5 max-w-[60ch] text-sm leading-6 text-[var(--text-secondary)] md:text-[15px]">
+            <p className="mt-3 max-w-[60ch] text-sm leading-6 text-[var(--text-secondary)] md:mt-5 md:text-[15px]">
               Open a full scene to hear ideas right away, or choose Blank Grid and build it up one lane at a time.
             </p>
           </div>
