@@ -2,7 +2,10 @@ import { useState } from 'react';
 import { ChevronDown, ChevronUp, Layers3 } from 'lucide-react';
 
 import { useAudio } from '../context/AudioContext';
+import { readString, writeString } from '../utils/safeStorage';
 import { Arranger } from './Arranger';
+
+const ARRANGEMENT_PANEL_KEY = 'sonicstudio:arrangement-panel-open';
 
 // The Arranger used to be its own top-level tab. It now lives inside the
 // Sequencer view as a collapsible panel, so clip and section editing sits
@@ -12,7 +15,15 @@ import { Arranger } from './Arranger';
 // scroll.
 export const ArrangementPanel = () => {
   const { activeView } = useAudio();
-  const [open, setOpen] = useState(false);
+  // Collapsed by default for a clean first view; a returning user who opened it
+  // keeps it open next session.
+  const [open, setOpen] = useState(() => readString(ARRANGEMENT_PANEL_KEY) === 'true');
+
+  const toggleOpen = () => setOpen((value) => {
+    const next = !value;
+    void writeString(ARRANGEMENT_PANEL_KEY, next ? 'true' : 'false');
+    return next;
+  });
 
   if (activeView !== 'SEQUENCER') {
     return null;
@@ -23,7 +34,7 @@ export const ArrangementPanel = () => {
       <button
         aria-expanded={open}
         className="surface-panel flex items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-[rgba(255,255,255,0.02)]"
-        onClick={() => setOpen((value) => !value)}
+        onClick={toggleOpen}
         type="button"
       >
         <span className="flex min-w-0 items-center gap-2.5">
