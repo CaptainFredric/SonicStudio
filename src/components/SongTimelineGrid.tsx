@@ -216,7 +216,7 @@ export const SongTimelineGrid = ({
           )}
           <button
             aria-label={gutterCollapsed ? 'Show track names' : 'Hide track names'}
-            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[3px] text-[var(--text-tertiary)] transition-colors hover:bg-[rgba(255,255,255,0.06)] hover:text-[var(--text-primary)]"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[3px] text-[var(--text-tertiary)] transition-colors hover:bg-[rgba(255,255,255,0.06)] hover:text-[var(--text-primary)]"
             onClick={() => setGutterCollapsed((value) => !value)}
             title={gutterCollapsed ? 'Slide the track list open' : 'Slide the track list shut for more timeline width'}
             type="button"
@@ -264,7 +264,7 @@ export const SongTimelineGrid = ({
               {!gutterCollapsed && onDeleteTrack && (
                 <button
                   aria-label={`Remove the ${track.name} lane`}
-                  className="shrink-0 rounded-[2px] p-1 text-[var(--text-tertiary)] opacity-60 transition-colors hover:bg-[rgba(244,63,94,0.14)] hover:text-[var(--danger)] hover:opacity-100"
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[3px] text-[var(--text-tertiary)] opacity-75 transition-colors hover:bg-[rgba(244,63,94,0.14)] hover:text-[var(--danger)] hover:opacity-100"
                   onClick={(event) => { event.stopPropagation(); onDeleteTrack(track.id); }}
                   onPointerDown={(event) => event.stopPropagation()}
                   title={`Remove the ${track.name} lane`}

@@ -466,7 +466,9 @@ export const Mixer = () => {
               No mixer strips match the current scope.
             </div>
           ) : mixerSections.map(({ key, label, tracks: sectionTracks }) => (
-            <div key={key} className="scroll-snap-align-start">
+            // Groups are not snap targets themselves; a section can be wider
+            // than a phone, so snapping happens on the strips inside it instead.
+            <div key={key}>
               <div className="flex h-full min-h-[360px] flex-col rounded-[6px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.015)] p-2.5 md:min-h-[560px] md:p-3">
                 <button
                   className="flex items-center justify-between gap-3 rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-2.5 text-left md:px-4 md:py-3"
