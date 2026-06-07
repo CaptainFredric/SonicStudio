@@ -95,7 +95,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe,
   return (
     <aside className="studio-rail w-full shrink-0 px-2 py-2 md:w-[88px] md:py-3 md:min-h-0 md:overflow-y-auto" data-tour-target="views">
       <div className="section-label hidden md:block">Views</div>
-      <div className="grid grid-cols-2 gap-2 md:mb-2 md:grid-cols-1">
+      <div className="grid grid-cols-4 gap-1.5 md:mb-2 md:grid-cols-1 md:gap-2">
         <button
           className="studio-nav-button w-full"
           data-tour-target="sessions"
@@ -104,7 +104,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe,
           title="Browse starter scenes and your saved sessions"
           type="button"
         >
-          <div className="flex items-center justify-center gap-2 md:flex-col">
+          <div className="flex flex-col items-center justify-center gap-1 md:gap-2">
             {withSuperFill(<Sparkles size={20} className="text-[var(--accent)]" />, 'studio-icon-fill-spark-core')}
             <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Library</span>
           </div>
@@ -118,7 +118,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe,
           title="Record a vocal, sound, or note and match it to a lane"
           type="button"
         >
-          <div className="flex items-center justify-center gap-2 md:flex-col">
+          <div className="flex flex-col items-center justify-center gap-1 md:gap-2">
             <span className="studio-icon-shell text-[var(--danger)]">
               <svg aria-hidden="true" className="h-5 w-5 studio-mic-icon" viewBox="0 0 20 20">
                 <rect className="studio-mic-capsule-fill" height="10" rx="3" width="6" x="7" y="2.5" />
@@ -138,7 +138,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe,
           title="Transcribe a recording or song into editable notes"
           type="button"
         >
-          <div className="flex items-center justify-center gap-2 md:flex-col">
+          <div className="flex flex-col items-center justify-center gap-1 md:gap-2">
             {withSuperFill(<AudioWaveform size={20} className="text-[var(--accent)]" />, 'studio-icon-fill-spark-core')}
             <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Transcribe</span>
           </div>
@@ -152,7 +152,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe,
           title="Studio settings"
           type="button"
         >
-          <div className="flex items-center justify-center gap-2 md:flex-col">
+          <div className="flex flex-col items-center justify-center gap-1 md:gap-2">
             <span className="studio-icon-shell studio-icon-shell-gear">
               <Settings size={20} />
               <span className="studio-icon-fill studio-icon-fill-gear-core" />
@@ -179,7 +179,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe,
           title="Share this session"
           type="button"
         >
-          <div className="flex items-center justify-center gap-2 md:flex-col">
+          <div className="flex flex-col items-center justify-center gap-1 md:gap-2">
             {withSuperFill(<Share2 size={20} className="text-[var(--accent)]" />, 'studio-icon-fill-share-core')}
             <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Share</span>
           </div>
@@ -191,7 +191,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe,
           title="Focus mode · hide the panels, keep just your work"
           type="button"
         >
-          <div className="flex items-center justify-center gap-2 md:flex-col">
+          <div className="flex flex-col items-center justify-center gap-1 md:gap-2">
             <span className="studio-icon-shell">
               <Maximize2 size={20} className="text-[var(--accent)]" />
             </span>
@@ -207,7 +207,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe,
           target="_blank"
           title="Support SonicStudio on Buy Me a Coffee"
         >
-          <div className="flex items-center justify-center gap-2 md:flex-col">
+          <div className="flex flex-col items-center justify-center gap-1 md:gap-2">
             {withSuperFill(<Coffee size={20} className="text-[var(--accent)]" />, 'studio-icon-fill-support-core')}
             <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Support</span>
           </div>

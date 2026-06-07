@@ -1396,7 +1396,7 @@ html[data-supersonic="true"] .studio-rail {
   position: relative;
   border: 1px solid rgba(190, 208, 228, 0.16);
   border-radius: 2px;
-  padding: 0.7rem 0.55rem;
+  padding: 0.5rem 0.4rem;
   min-height: 48px;
   color: var(--text-secondary);
   background:
