@@ -1826,14 +1826,14 @@ export const MainWorkspace = () => {
 
       <div className="flex flex-col gap-3 overflow-visible p-4 md:min-h-0 md:flex-1 xl:flex-row xl:items-start">
         <div className="flex min-w-0 flex-col overflow-visible md:min-h-[min(58vh,520px)] md:flex-1">
-          <div className="surface-panel-muted mb-3 px-4 py-3">
+          <div className="surface-panel-muted mb-2 px-4 py-2.5 sm:mb-3 sm:py-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <div className="section-label">Compose</div>
-                <div className="mt-1 text-sm font-medium text-[var(--text-primary)]">
+                <div className="section-label hidden sm:block">Compose</div>
+                <div className="text-sm font-medium text-[var(--text-primary)] sm:mt-1">
                   {selectedTrack ? `${selectedTrack.name} in Pattern ${String.fromCharCode(65 + currentPattern)}` : 'Pick a lane to start writing'}
                 </div>
-                <div className="mt-1 text-[11px] text-[var(--text-secondary)]">
+                <div className="mt-1 hidden text-[11px] text-[var(--text-secondary)] sm:block">
                   {selectedTrack
                     ? `${countLabel(selectedTrackPattern.filter((step) => step.length > 0).length, 'active step')} · ${countLabel(selectedTrackPattern.reduce((sum, step) => sum + step.length, 0), 'note')} · ${isSelectedTrackDrum ? 'drum lane' : 'melodic lane'}`
                     : `${countLabel(tracks.length, 'track')} · ${countLabel(melodicTrackCount, 'melodic lane')}`}
