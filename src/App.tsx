@@ -729,7 +729,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
           </div>
         )}
         <CompactTransportBar forceVisible={focusMode} />
-        <div className="studio-shell-grid flex min-w-0 flex-col gap-3 px-3 pb-3 md:min-h-0 md:flex-1 md:flex-row">
+        <div className="studio-shell-grid flex min-w-0 flex-col gap-2 px-3 pb-3 md:min-h-0 md:flex-1 md:flex-row md:gap-3">
           {!focusMode && (
             <SideNav
               onOpenLaunchpad={() => setLaunchpadOpen(true)}
@@ -742,7 +742,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
               }}
             />
           )}
-          <div className="studio-workbench flex min-w-0 flex-col gap-3 md:min-h-0 md:flex-1 md:overflow-y-auto">
+          <div className="studio-workbench flex min-w-0 flex-col gap-2 md:min-h-0 md:flex-1 md:overflow-y-auto md:gap-3">
             <div className="flex flex-col gap-3 md:min-h-[300px] md:flex-row md:flex-1">
               <ViewRouter />
             </div>

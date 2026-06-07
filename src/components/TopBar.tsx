@@ -467,7 +467,7 @@ export const TopBar = ({
             </div>
             <div className="min-w-0 flex-1">
               <h1 className="truncate text-[18px] font-semibold leading-tight tracking-tight text-[var(--text-primary)]">{brandName}</h1>
-              <p className="mt-1 truncate text-xs text-[var(--text-secondary)]">{brandTagline}</p>
+              <p className="mt-1 hidden truncate text-xs text-[var(--text-secondary)] sm:block">{brandTagline}</p>
             </div>
             {canInstall && (
               <button
