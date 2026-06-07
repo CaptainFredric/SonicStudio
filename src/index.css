@@ -248,6 +248,7 @@ html[data-density="compact"] header.surface-panel {
 @media (prefers-reduced-motion: reduce) {
   body::after,
   .studio-play-pulse,
+  .seq-place-cursor,
   .studio-shell-grid,
   .studio-workbench,
   .settings-sheet,
