@@ -746,9 +746,9 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
             <div className="flex flex-col gap-3 md:min-h-[300px] md:flex-row md:flex-1">
               <ViewRouter />
             </div>
+            <DeviceRack />
             <NotesPanel />
             <ArrangementPanel />
-            <DeviceRack />
           </div>
         </div>
         {!focusMode && (

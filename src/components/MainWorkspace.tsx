@@ -1831,7 +1831,7 @@ export const MainWorkspace = () => {
       </div>
 
       <div className="flex flex-col gap-3 overflow-visible p-4 md:min-h-0 md:flex-1 xl:flex-row xl:items-start">
-        <div className="flex min-w-0 flex-col overflow-visible md:min-h-[min(58vh,520px)] md:flex-1">
+        <div className="flex min-w-0 flex-col overflow-visible md:min-h-[min(74vh,720px)] md:flex-1">
           <div className="surface-panel-muted mb-2 px-4 py-2.5 sm:mb-3 sm:py-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -2337,7 +2337,7 @@ export const MainWorkspace = () => {
               />
             )}
             <div
-              className={`sequencer-grid-scroll overflow-auto rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] md:min-h-0 md:flex-1 ${showSongGrid ? 'hidden' : ''}`}
+              className={`sequencer-grid-scroll overflow-auto rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] min-h-[clamp(320px,52vh,600px)] md:flex-1 xl:min-h-0 ${showSongGrid ? 'hidden' : ''}`}
               data-scrolled={gridScrollLeft > 1 ? 'true' : undefined}
               onPointerCancel={() => setPlacementCursor(null)}
               onPointerMove={handlePlacementMove}
