@@ -1735,7 +1735,7 @@ export const createNightTransitProject = (projectName: string = 'Night Transit')
   putStep(bassTrack, 0, 0, 'C2', { gate: 1.5, velocity: 0.8 });
   putStep(bassTrack, 0, 4, 'G1', { gate: 1.1, velocity: 0.66 });
   putStep(bassTrack, 0, 8, 'D#2', { gate: 1.25, velocity: 0.76 });
-  putStep(bassTrack, 0, 12, 'G1', { gate: 1.1, velocity: 0.68 });
+  putStep(bassTrack, 0, 12, 'C2', { gate: 1.5, velocity: 0.72 });
   putStep(bassTrack, 1, 0, 'A#1', { gate: 1.5, velocity: 0.78 });
   putStep(bassTrack, 1, 4, 'F2', { gate: 1.25, velocity: 0.72 });
   putStep(bassTrack, 1, 8, 'D2', { gate: 1.25, velocity: 0.74 });
@@ -1747,9 +1747,9 @@ export const createNightTransitProject = (projectName: string = 'Night Transit')
 
   putStep(leadTrack, 0, 0, 'C5', { gate: 1, velocity: 0.84 });
   putStep(leadTrack, 0, 3, 'D#5', { gate: 0.9, velocity: 0.76 });
-  putStep(leadTrack, 0, 8, 'G4', { gate: 1.25, velocity: 0.86 });
+  putStep(leadTrack, 0, 8, 'D5', { gate: 1.25, velocity: 0.82 });
   putStep(leadTrack, 0, 11, 'A#4', { gate: 1, velocity: 0.78 });
-  putStep(leadTrack, 0, 14, 'G4', { gate: 1, velocity: 0.74 });
+  putStep(leadTrack, 0, 14, 'C5', { gate: 1.2, velocity: 0.78 });
   putStep(leadTrack, 1, 0, 'D#5', { gate: 1, velocity: 0.84 });
   putStep(leadTrack, 1, 4, 'F5', { gate: 1.1, velocity: 0.8 });
   putStep(leadTrack, 1, 8, 'G5', { gate: 1.1, velocity: 0.88 });
@@ -1777,9 +1777,9 @@ export const createNightTransitProject = (projectName: string = 'Night Transit')
     { note: 'F4', options: { gate: 2.25, velocity: 0.52 } },
   ]);
   stackStep(padTrack, 0, 12, [
-    { note: 'G3', options: { gate: 2.25, velocity: 0.54 } },
-    { note: 'A#3', options: { gate: 2.25, velocity: 0.5 } },
-    { note: 'D4', options: { gate: 2.25, velocity: 0.52 } },
+    { note: 'C4', options: { gate: 2.5, velocity: 0.56 } },
+    { note: 'D#4', options: { gate: 2.5, velocity: 0.5 } },
+    { note: 'G4', options: { gate: 2.5, velocity: 0.52 } },
   ]);
   stackStep(padTrack, 1, 0, [
     { note: 'A#3', options: { gate: 2.5, velocity: 0.6 } },
@@ -1852,13 +1852,20 @@ export const createNightTransitProject = (projectName: string = 'Night Transit')
     { start: 64, pattern: 2, name: 'Peak' },
     { start: 80, pattern: 0, name: 'Outro' },
   ];
+  const outroStart = nightTransitSections[nightTransitSections.length - 1].start;
   const nightTransitClips = nightTransitSections.flatMap((section) => (
-    nightTransitTracks.map((track) => (
+    nightTransitTracks.flatMap((track) => {
       // Keep the original intro nuance: the lead drifts in halfway through bar one.
-      section.start === 0 && track === leadTrack
-        ? createArrangerClip(track.id, transport, { beatLength: 8, patternIndex: 0, startBeat: 8 })
-        : createArrangerClip(track.id, transport, { beatLength: 16, patternIndex: section.pattern, startBeat: section.start })
-    ))
+      if (section.start === 0 && track === leadTrack) {
+        return [createArrangerClip(track.id, transport, { beatLength: 8, patternIndex: 0, startBeat: 8 })];
+      }
+      // Let the outro breathe: drop the hi-hat in the final section so the piece
+      // lands on the resolved chord instead of ticking out at full density.
+      if (section.start === outroStart && track === hihatTrack) {
+        return [];
+      }
+      return [createArrangerClip(track.id, transport, { beatLength: 16, patternIndex: section.pattern, startBeat: section.start })];
+    })
   ));
   return buildProject(
     nightTransitClips,
