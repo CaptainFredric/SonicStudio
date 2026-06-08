@@ -761,7 +761,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
       {focusMode && (
         <button
           aria-label="Exit focus mode"
-          className="control-chip fixed right-3 top-3 z-[70] flex items-center gap-1.5 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+          className="control-chip fixed right-3 top-3 z-[70] flex items-center gap-1.5 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] shadow-lg max-md:top-auto max-md:bottom-5"
           data-ui-sound="nav"
           onClick={() => setFocusMode(false)}
           title="Exit focus mode (Esc)"

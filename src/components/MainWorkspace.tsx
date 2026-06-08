@@ -1182,7 +1182,13 @@ export const MainWorkspace = () => {
   const handleCreateLaneFromCapture = useCallback(() => {
     const captures = loadCapturedNoteStrings();
     if (captures.length === 0) {
-      setSessionPlayerNotice('Capture or record a sound first, then add it here as a new lane.');
+      // Nothing captured yet, so this button would otherwise feel dead. Open the
+      // quick-capture overlay so a hum, note, or nearby sound can be turned into
+      // a lane right away, then this button picks it up on the next press.
+      setSessionPlayerNotice('Nothing captured yet. Sing, hum, or play a sound and it lands here as a new lane.');
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('sonicstudio:open-quick-capture'));
+      }
       return;
     }
     const captured = captures[0];
