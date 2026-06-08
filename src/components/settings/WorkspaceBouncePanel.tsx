@@ -73,7 +73,7 @@ const qualityChip = (entry: BounceHistoryEntryView): ReactNode => (
       color: entry.quality === 'silent' || entry.quality === 'hot' ? '#fca5a5' : entry.quality === 'quiet' ? '#fde68a' : '#b6f1ff',
     }}
   >
-    {entry.quality === 'silent' ? 'Silent — no audio' : entry.quality === 'hot' ? 'Hot print' : entry.quality === 'quiet' ? 'Quiet print' : 'Clean print'}
+    {entry.quality === 'silent' ? 'No audio' : entry.quality === 'hot' ? 'Hot print' : entry.quality === 'quiet' ? 'Quiet print' : 'Clean print'}
   </span>
 );
 
