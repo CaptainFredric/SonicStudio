@@ -29,7 +29,7 @@ export type SourceEngine = 'synth' | 'sample';
 export type SamplePlaybackMode = 'pitched' | 'oneshot';
 export type SampleTriggerMode = 'active-slice' | 'full-source' | 'step-mapped';
 export type SamplePreset = 'kick-thud' | 'snare-crack' | 'hat-air' | 'bass-pluck' | 'lead-glass' | 'pad-haze' | 'pluck-mallet' | 'fx-rise';
-export type SessionTemplateId = 'blank-grid' | 'night-transit' | 'beat-lab' | 'ambient-drift' | 'lofi-sunday' | 'synthwave-drive' | 'club-horizon' | 'starlight-parade' | 'velvet-suite' | 'crystal-garden' | 'twilight-frame' | 'late-hours' | 'pulse-rider' | 'midnight-trap' | 'neon-breaks' | 'sunset-house';
+export type SessionTemplateId = 'blank-grid' | 'night-transit' | 'beat-lab' | 'ambient-drift' | 'lofi-sunday' | 'synthwave-drive' | 'club-horizon' | 'starlight-parade' | 'velvet-suite' | 'crystal-garden' | 'twilight-frame' | 'late-hours' | 'pulse-rider' | 'midnight-trap' | 'neon-breaks' | 'sunset-house' | 'palm-hour';
 
 export interface SessionTemplateDefinition {
   description: string;
@@ -461,6 +461,7 @@ const VELVET_SUITE_TRACK_ORDER: InstrumentType[] = ['bass', 'piano', 'pad', 'vio
 const CRYSTAL_GARDEN_TRACK_ORDER: InstrumentType[] = ['kick', 'bass', 'piano', 'pad', 'bell'];
 const TWILIGHT_FRAME_TRACK_ORDER: InstrumentType[] = ['kick', 'bass', 'piano', 'pad', 'violin', 'bell'];
 const LATE_HOURS_TRACK_ORDER: InstrumentType[] = ['kick', 'bass', 'pad', 'violin', 'lead', 'bell'];
+const PALM_HOUR_TRACK_ORDER: InstrumentType[] = ['kick', 'snare', 'hihat', 'bass', 'piano', 'pad'];
 
 export const SESSION_TEMPLATE_DEFINITIONS: SessionTemplateDefinition[] = [
   {
@@ -558,6 +559,12 @@ export const SESSION_TEMPLATE_DEFINITIONS: SessionTemplateDefinition[] = [
     focus: 'Deep house groove',
     id: 'sunset-house',
     label: 'Sunset House',
+  },
+  {
+    description: 'Amapiano at 112 BPM in A minor: a soft four-on-the-floor kick, shuffled shakers, a bouncing log-drum bass, warm piano chords, and a wide pad.',
+    focus: 'Amapiano log-drum groove',
+    id: 'palm-hour',
+    label: 'Palm Hour',
   },
 ];
 
@@ -3105,6 +3112,106 @@ export const createSunsetHouseProject = (projectName: string = 'Sunset House'): 
   ]);
 };
 
+export const createPalmHourProject = (projectName: string = 'Palm Hour'): Project => {
+  const { buildProject, tracks, transport } = createProjectFrame(projectName, {
+    bpm: 112,
+    mode: 'SONG',
+    trackOrder: PALM_HOUR_TRACK_ORDER,
+  });
+  const [kickTrack, clapTrack, shakerTrack, logTrack, pianoTrack, padTrack] = tracks;
+
+  // Soft four-on-the-floor kick, beat 1 leading.
+  putStep(kickTrack, 0, 0, 'C1', { velocity: 0.9 });
+  putStep(kickTrack, 0, 4, 'C1', { velocity: 0.8 });
+  putStep(kickTrack, 0, 8, 'C1', { velocity: 0.82 });
+  putStep(kickTrack, 0, 12, 'C1', { velocity: 0.8 });
+  // Clap on the backbeat (beats 2 and 4).
+  putStep(clapTrack, 0, 4, 'C1', { velocity: 0.66 });
+  putStep(clapTrack, 0, 12, 'C1', { velocity: 0.66 });
+  // Shuffled shakers: busy sixteenths with the offbeats pushed for the swing.
+  for (let step = 0; step < 16; step += 1) {
+    if (step === 7) continue; // a small breath before beat 3
+    const onBeat = step % 4 === 0;
+    const offbeat = step % 2 === 1;
+    putStep(shakerTrack, 0, step, 'C1', { gate: 0.22, velocity: offbeat ? 0.5 : onBeat ? 0.34 : 0.3 });
+  }
+  // Log drum: a bouncing sub that walks the Am - F - C - G roots and their fifths.
+  putStep(logTrack, 0, 0, 'A1', { gate: 0.9, velocity: 0.92 });
+  putStep(logTrack, 0, 2, 'A1', { gate: 0.5, velocity: 0.7 });
+  putStep(logTrack, 0, 3, 'E2', { gate: 0.5, velocity: 0.66 });
+  putStep(logTrack, 0, 6, 'F1', { gate: 0.9, velocity: 0.82 });
+  putStep(logTrack, 0, 8, 'C2', { gate: 0.7, velocity: 0.8 });
+  putStep(logTrack, 0, 10, 'C2', { gate: 0.5, velocity: 0.64 });
+  putStep(logTrack, 0, 11, 'G1', { gate: 0.5, velocity: 0.62 });
+  putStep(logTrack, 0, 12, 'G1', { gate: 0.9, velocity: 0.84 });
+  putStep(logTrack, 0, 14, 'D2', { gate: 0.6, velocity: 0.66 });
+  // Warm piano triads on each change.
+  stackStep(pianoTrack, 0, 0, [
+    { note: 'A3', options: { gate: 3, velocity: 0.44 } },
+    { note: 'C4', options: { gate: 3, velocity: 0.4 } },
+    { note: 'E4', options: { gate: 3, velocity: 0.4 } },
+  ]);
+  stackStep(pianoTrack, 0, 4, [
+    { note: 'F3', options: { gate: 3, velocity: 0.42 } },
+    { note: 'A3', options: { gate: 3, velocity: 0.38 } },
+    { note: 'C4', options: { gate: 3, velocity: 0.38 } },
+  ]);
+  stackStep(pianoTrack, 0, 8, [
+    { note: 'C4', options: { gate: 3, velocity: 0.42 } },
+    { note: 'E4', options: { gate: 3, velocity: 0.38 } },
+    { note: 'G4', options: { gate: 3, velocity: 0.38 } },
+  ]);
+  stackStep(pianoTrack, 0, 12, [
+    { note: 'G3', options: { gate: 3, velocity: 0.42 } },
+    { note: 'B3', options: { gate: 3, velocity: 0.38 } },
+    { note: 'D4', options: { gate: 3, velocity: 0.38 } },
+  ]);
+  // Offbeat top-note echoes for the amapiano piano skip.
+  putStep(pianoTrack, 0, 2, 'E4', { gate: 0.6, velocity: 0.26 });
+  putStep(pianoTrack, 0, 6, 'C4', { gate: 0.6, velocity: 0.26 });
+  putStep(pianoTrack, 0, 10, 'G4', { gate: 0.6, velocity: 0.26 });
+  putStep(pianoTrack, 0, 14, 'D4', { gate: 0.6, velocity: 0.26 });
+  // Wide pad bed following the same changes, soft and sustained.
+  stackStep(padTrack, 0, 0, [
+    { note: 'A2', options: { gate: 4, velocity: 0.26 } },
+    { note: 'E3', options: { gate: 4, velocity: 0.22 } },
+  ]);
+  stackStep(padTrack, 0, 4, [
+    { note: 'F2', options: { gate: 4, velocity: 0.26 } },
+    { note: 'C3', options: { gate: 4, velocity: 0.22 } },
+  ]);
+  stackStep(padTrack, 0, 8, [
+    { note: 'C3', options: { gate: 4, velocity: 0.26 } },
+    { note: 'G3', options: { gate: 4, velocity: 0.22 } },
+  ]);
+  stackStep(padTrack, 0, 12, [
+    { note: 'G2', options: { gate: 4, velocity: 0.26 } },
+    { note: 'D3', options: { gate: 4, velocity: 0.22 } },
+  ]);
+
+  logTrack.source.octaveShift = -1;
+  logTrack.source.waveform = 'triangle';
+  logTrack.source.portamento = 0.04;
+  logTrack.params.distortion = 0.12;
+  pianoTrack.params.reverbSend = 0.26;
+  padTrack.params.reverbSend = 0.52;
+  padTrack.params.chorusSend = 0.3;
+  shakerTrack.source.engine = 'sample';
+  shakerTrack.source.samplePlayback = 'oneshot';
+  shakerTrack.source.sampleTriggerMode = 'step-mapped';
+
+  return buildProject([
+    createArrangerClip(kickTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(clapTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(shakerTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(logTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(pianoTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(padTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+  ], [
+    { beat: 0, id: createId('marker'), name: 'Palm Hour groove' },
+  ]);
+};
+
 export const createProjectFromTemplate = (
   templateId: SessionTemplateId,
 ): Project => {
@@ -3139,6 +3246,8 @@ export const createProjectFromTemplate = (
       return createNeonBreaksProject();
     case 'sunset-house':
       return createSunsetHouseProject();
+    case 'palm-hour':
+      return createPalmHourProject();
     case 'night-transit':
     default:
       return createNightTransitProject();
