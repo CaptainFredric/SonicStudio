@@ -159,12 +159,49 @@ export const downsample = (
   const ratio = fromRate / toRate;
   const outLength = Math.floor(samples.length / ratio);
   const out = new Float32Array(outLength);
+  // Average each input window down to one output sample. This box average is a
+  // cheap anti-aliasing low-pass: plain interpolation would fold everything
+  // above the new Nyquist (~6 kHz here) back into the pitch range, so bright
+  // cymbals, sibilance, and room hiss became phantom pitches. Averaging the
+  // window attenuates that content before it can alias, which matters most for
+  // the "capture any nearby sound" case where the input is not a clean tone.
   for (let i = 0; i < outLength; i += 1) {
-    const sourceIndex = i * ratio;
-    const low = Math.floor(sourceIndex);
-    const high = Math.min(samples.length - 1, low + 1);
-    const fraction = sourceIndex - low;
-    out[i] = samples[low] * (1 - fraction) + samples[high] * fraction;
+    const startF = i * ratio;
+    const start = Math.floor(startF);
+    const end = Math.max(start + 1, Math.min(samples.length, Math.ceil(startF + ratio)));
+    let sum = 0;
+    for (let j = start; j < end; j += 1) {
+      sum += samples[j];
+    }
+    out[i] = sum / (end - start);
+  }
+  return out;
+};
+
+/**
+ * One-pole high-pass to strip sub-sonic rumble (DC offset, handling thumps,
+ * 50/60 Hz hum) below the lowest note we track. That energy sits under MIN_HZ
+ * so it never becomes a note, but it inflates the YIN difference function at
+ * every lag and drags clarity down, so removing it makes quiet, real-world
+ * input read as more confidently pitched.
+ */
+export const highPassFilter = (
+  samples: Float32Array,
+  sampleRate: number,
+  cutoffHz: number,
+): Float32Array => {
+  if (samples.length === 0) return samples;
+  const dt = 1 / sampleRate;
+  const rc = 1 / (2 * Math.PI * cutoffHz);
+  const alpha = rc / (rc + dt);
+  const out = new Float32Array(samples.length);
+  let prevIn = samples[0];
+  let prevOut = 0;
+  for (let i = 0; i < samples.length; i += 1) {
+    const x = samples[i];
+    prevOut = alpha * (prevOut + x - prevIn);
+    prevIn = x;
+    out[i] = prevOut;
   }
   return out;
 };
@@ -455,7 +492,10 @@ export const transcribeSamples = (
   const hopSeconds = HOP / workingRate;
   const durationSeconds = limited.length / sampleRate;
 
-  const rawFrames = analyzeFrames(mono, workingRate, sensitivityToPitchOptions(options.sensitivity ?? 0.5));
+  // Strip DC offset and sub-sonic rumble (cutoff sits below the lowest tracked
+  // note at 65 Hz, so notes survive while floor noise does not).
+  const conditioned = highPassFilter(mono, workingRate, 40);
+  const rawFrames = analyzeFrames(conditioned, workingRate, sensitivityToPitchOptions(options.sensitivity ?? 0.5));
   // Fold octave slips back before smoothing, then median-smooth single-frame jitter.
   const frames = smoothPitchTrack(correctOctaveJumps(rawFrames));
 

@@ -5,6 +5,7 @@ import {
   correctOctaveJumps,
   detectPitchHz,
   frequencyToMidi,
+  highPassFilter,
   midiToNoteName,
   segmentNotes,
   transcribeSamples,
@@ -190,5 +191,23 @@ describe('segmentNotes gap bridging', () => {
     const notes = segmentNotes(frames, hopSeconds);
     expect(notes).toHaveLength(1);
     expect(notes[0].midi).toBe(67);
+  });
+});
+
+describe('highPassFilter', () => {
+  it('removes a DC offset while preserving a mid tone', () => {
+    const tone = sineTone(220, 0.3, 0.5);
+    const withDc = tone.map((sample) => sample + 0.4);
+    const filtered = highPassFilter(withDc, SAMPLE_RATE, 40);
+    // The +0.4 DC offset should collapse toward zero after the high-pass.
+    const mean = filtered.reduce((sum, sample) => sum + sample, 0) / filtered.length;
+    expect(Math.abs(mean)).toBeLessThan(0.02);
+    // The 220 Hz tone sits well above the 40 Hz cutoff, so its energy survives.
+    const rms = Math.sqrt(filtered.reduce((sum, sample) => sum + sample * sample, 0) / filtered.length);
+    expect(rms).toBeGreaterThan(0.25);
+  });
+
+  it('leaves an empty buffer untouched', () => {
+    expect(highPassFilter(new Float32Array(0), SAMPLE_RATE, 40).length).toBe(0);
   });
 });
