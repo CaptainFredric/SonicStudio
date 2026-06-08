@@ -6,16 +6,16 @@ SonicStudio is a browser-native composition studio built with React and Tone.js.
 
 The current build supports an actual writing flow:
 
-1. build phrases in the sequencer or piano roll
-2. arrange clips in song view
+1. build phrases in the step sequencer
+2. arrange clips and order sections in the same view
 3. shape lanes with synth and sample sources
-4. print references as WAV
-5. move work in and out through MIDI
+4. bounce a mix to WAV
+5. import and export MIDI
 6. recover safely with checkpoints and snapshots
 
 ## Current capabilities
 
-1. Sequencer, piano roll, mixer, arranger, and sound desk tied to one serializable project state
+1. A step sequencer with inline piano-roll, arrangement, and timeline panels, plus a mixer and a sound desk, all tied to one serializable project state
 2. Synth lanes and sample lanes with slice-aware triggering
 3. Song markers, loop ranges, clip editing, pattern transforms, and section duplication
 4. MIDI import and scoped MIDI export
@@ -65,9 +65,9 @@ The main remaining refactor targets are now:
 1. Start the dev server or open the hosted build
 2. Use the launch surface to open a real scene, start blank, or import MIDI
 3. Load `Beat Lab` for rhythm work or `Night Transit` for a fuller song sketch
-4. Open `Song` view to inspect clips and structure
-5. Open `Notes` to inspect tighter pitch and gate editing
-6. Try `Export MIDI` or a WAV bounce from the Output tab
+4. Open the Arrangement panel in the sequencer to inspect clips and sections
+5. Open the Notes panel for tighter pitch and gate editing
+6. Export MIDI from the Setup menu, or bounce a WAV from Output settings
 
 ## Run locally
 
