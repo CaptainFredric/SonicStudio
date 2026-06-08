@@ -54,11 +54,16 @@ The codebase is now split around a few real boundaries:
 13. `src/components/arranger/*`
    Arranger selector logic, interaction utilities, clip drag and paint hooks, viewport and shortcut hooks, inspector panels, and hero-surface view modules.
 
-The main remaining refactor targets are now:
+The reducer is now split across small, focused action maps (the largest is under
+300 lines), and every provider seam has its own test file: transport, session
+restore and checkpoints, render and export scope, and route-driven entry. The
+per-keystroke corpus summary has also been moved off the edit hot path — it
+recomputes after edits settle rather than on every toggle.
 
-1. reducer ownership still concentrated in `src/context/editor/reducer/trackNotePatternActions.ts` and `src/context/editor/reducer/trackClipPatternStepActions.ts`
-2. deeper controller and reducer integration correctness coverage around transport, restore, export scope replay, and route-driven session entry
-3. device-rack source ownership still concentrated in the slice and source-window authoring path
+The remaining targets are smaller and more contained:
+
+1. device-rack source ownership is still concentrated in the slice and source-window authoring path
+2. the audio context value is one large object, so an edit re-renders every consumer; splitting the frequently-changing editor state from the stable callbacks would cut render churn on large projects
 
 ## Quick start
 

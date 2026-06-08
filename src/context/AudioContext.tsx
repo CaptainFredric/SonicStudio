@@ -642,7 +642,21 @@ export const AudioProvider = ({
     );
   }, [project]);
 
-  const trainingCorpusSummary = useMemo(() => summarizeTrainingCorpus(project), [project]);
+  // The corpus summary walks every track, pattern, and step, but it only feeds
+  // the passive readout in Studio Settings, not playback or editing. Recomputing
+  // it on every keystroke made painting on a large project repeat that whole walk
+  // per toggle, so it is debounced: editing stays smooth and the readout catches
+  // up ~250 ms after edits settle. The first value is computed eagerly so the
+  // panel is correct on mount.
+  const [trainingCorpusSummary, setTrainingCorpusSummary] = useState<TrainingCorpusSummary>(
+    () => summarizeTrainingCorpus(project),
+  );
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      setTrainingCorpusSummary(summarizeTrainingCorpus(project));
+    }, 250);
+    return () => window.clearTimeout(handle);
+  }, [project]);
 
   const importSession = useCallback(async (file: File) => {
     const outcome = await importSessionFromController(file);
