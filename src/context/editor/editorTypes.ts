@@ -30,6 +30,7 @@ export interface EditorState {
 
 export type EditorAction =
   | { type: 'ADD_ARRANGER_CLIP'; trackId?: string }
+  | { type: 'PLACE_SONG_STEP'; trackId: string; songStep: number; note?: string }
   | { type: 'APPLY_SONG_FORM'; formId: SongFormId }
   | { type: 'APPLY_TRACK_VOICE_PRESET'; presetId: string; trackId: string }
   | { type: 'APPLY_TRACK_SNAPSHOT'; snapshotId: string; trackId: string }

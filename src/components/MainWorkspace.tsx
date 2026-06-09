@@ -478,6 +478,7 @@ export const MainWorkspace = () => {
     superSonicPreferences,
     toggleStep,
     togglePatternStep,
+    placeSongStep,
     toggleMute,
     setTrackParams,
     togglePinnedTrack,
@@ -2327,6 +2328,10 @@ export const MainWorkspace = () => {
                 }}
                 onPlaceNote={(trackId, patternIndex, localStep, note) => {
                   togglePatternStep(trackId, patternIndex, localStep, note);
+                  void previewTrack(trackId, note);
+                }}
+                onAddSongNote={(trackId, songStep, note) => {
+                  placeSongStep(trackId, songStep, note);
                   void previewTrack(trackId, note);
                 }}
                 onSeek={(beat) => engine.seekToBeat(beat)}

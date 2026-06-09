@@ -17,6 +17,7 @@ import type { SongFormId } from './songFormDefinitions';
 
 export const createEditorDispatchers = (dispatch: Dispatch<EditorAction>) => ({
   addArrangerClip: (trackId?: string) => dispatch({ type: 'ADD_ARRANGER_CLIP', trackId }),
+  placeSongStep: (trackId: string, songStep: number, note?: string) => dispatch({ type: 'PLACE_SONG_STEP', note, songStep, trackId }),
   applySongForm: (formId: SongFormId) => dispatch({ type: 'APPLY_SONG_FORM', formId }),
   applyMasterSnapshot: (snapshotId: string) => dispatch({ type: 'APPLY_MASTER_SNAPSHOT', snapshotId }),
   applyPatternSegment: (trackId: string, patternIndex: number, steps: NoteEvent[][], automation?: PatternAutomation) => dispatch({ type: 'APPLY_PATTERN_SEGMENT', automation, patternIndex, steps, trackId }),

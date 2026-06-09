@@ -101,6 +101,7 @@ export interface StudioNotice {
 interface AudioContextType {
   activeView: AppView;
   addArrangerClip: (trackId?: string) => void;
+  placeSongStep: (trackId: string, songStep: number, note?: string) => void;
   applySongForm: (formId: SongFormId) => void;
   applyTrackVoicePreset: (trackId: string, presetId: string) => void;
   applyTrackSnapshot: (trackId: string, snapshotId: string) => void;

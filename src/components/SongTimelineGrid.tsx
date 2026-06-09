@@ -36,6 +36,7 @@ interface SongTimelineGridProps {
   onSelectTrack: (trackId: string) => void;
   onToggleStep: (trackId: string, patternIndex: number, localStep: number) => void;
   onPlaceNote?: (trackId: string, patternIndex: number, localStep: number, note: string) => void;
+  onAddSongNote?: (trackId: string, songStep: number, note?: string) => void;
   onSeek?: (beat: number) => void;
   onRenameSection?: (markerId: string, name: string) => void;
   onRemoveSection?: (markerId: string) => void;
@@ -62,6 +63,7 @@ export const SongTimelineGrid = ({
   onSelectTrack,
   onToggleStep,
   onPlaceNote,
+  onAddSongNote,
   onSeek,
   onRenameSection,
   onRemoveSection,
@@ -378,7 +380,13 @@ export const SongTimelineGrid = ({
                     className="group absolute top-0 h-full transition-colors hover:bg-[rgba(255,255,255,0.05)]"
                     onClick={() => {
                       const target = resolved ?? resolveAt(track, songStep);
-                      if (target) onToggleStep(track.id, target.patternIndex, target.stepIndex);
+                      if (target) {
+                        onToggleStep(track.id, target.patternIndex, target.stepIndex);
+                      } else {
+                        // No clip covers this song step yet: drop one here and
+                        // place a note in a single gesture.
+                        onAddSongNote?.(track.id, songStep);
+                      }
                     }}
                     onPointerEnter={() => { if (placeable) setHoverCell({ trackId: track.id, step: songStep }); }}
                     style={{
@@ -397,7 +405,7 @@ export const SongTimelineGrid = ({
                         ? `Bar ${bar} · click to remove`
                         : resolved
                           ? `Bar ${bar} · click to add a note`
-                          : `Bar ${bar} · no clip plays here yet`}
+                          : `Bar ${bar} · click to start a clip here`}
                     type="button"
                   >
                     {active && (() => {

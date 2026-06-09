@@ -11,6 +11,7 @@ import {
   ARRANGER_SNAP,
   buildSongRangeDuplicate,
   commitProject,
+  updateStepPattern,
 } from './reducerUtils';
 
 export const handleArrangerAction = (state: EditorState, action: EditorAction): EditorState | null => {
@@ -133,6 +134,52 @@ export const handleArrangerAction = (state: EditorState, action: EditorAction): 
           present.transport.patternCount,
         ),
       }, targetTrackId, nextClip.id);
+    }
+
+    case 'PLACE_SONG_STEP': {
+      const track = present.tracks.find((candidate) => candidate.id === action.trackId);
+      if (!track) {
+        return state;
+      }
+      const stepsPer = present.transport.stepsPerPattern;
+      // Resolve the clicked song step to a clip that already covers it.
+      const covering = present.arrangerClips
+        .filter((clip) => clip.trackId === action.trackId)
+        .find((clip) => action.songStep >= clip.startBeat && action.songStep < clip.startBeat + clip.beatLength);
+
+      let patternIndex: number;
+      let localStep: number;
+      let clips = present.arrangerClips;
+      let newClipId: string | undefined;
+
+      if (covering) {
+        patternIndex = covering.patternIndex;
+        localStep = (action.songStep - covering.startBeat) % stepsPer;
+      } else {
+        // No clip here yet: drop a one-pattern clip on the bar the user clicked
+        // (snapped to the pattern grid) using the current pattern, so the note
+        // has somewhere to live and the song grows to meet the click.
+        patternIndex = present.transport.currentPattern;
+        const startBeat = Math.floor(action.songStep / stepsPer) * stepsPer;
+        localStep = action.songStep - startBeat;
+        newClipId = `clip_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+        clips = [
+          ...present.arrangerClips,
+          { beatLength: stepsPer, id: newClipId, patternIndex, startBeat, trackId: action.trackId } satisfies ArrangementClip,
+        ];
+      }
+
+      const nextTracks = present.tracks.map((candidate) => (
+        candidate.id === action.trackId
+          ? updateStepPattern(candidate, patternIndex, stepsPer, localStep, action.note)
+          : candidate
+      ));
+
+      return commitProject(state, {
+        ...present,
+        arrangerClips: syncArrangerClips(clips, nextTracks, present.transport.patternCount),
+        tracks: nextTracks,
+      }, action.trackId, newClipId);
     }
 
     case 'REMOVE_ARRANGER_CLIP': {

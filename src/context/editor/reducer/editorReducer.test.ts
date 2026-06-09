@@ -265,4 +265,46 @@ describe('editorReducer', () => {
     const afterRepeat = editorReducer(afterSecond, { type: 'RECORD_STEP_NOTE', note: 'C4', stepIndex: 2, trackId: leadTrackId });
     expect(notesAtStep(afterRepeat).sort()).toEqual(['C4', 'E4']);
   });
+
+  it('PLACE_SONG_STEP drops a clip and places a note in an empty song region', () => {
+    const state = createEditorState('blank-grid');
+    const present = state.history.present;
+    const stepsPer = present.transport.stepsPerPattern;
+    const track = present.tracks[4];
+    const laneTail = present.arrangerClips
+      .filter((clip) => clip.trackId === track.id)
+      .reduce((max, clip) => Math.max(max, clip.startBeat + clip.beatLength), 0);
+    const songStep = laneTail + stepsPer + 5; // clearly past any existing clip
+    const expectedStart = Math.floor(songStep / stepsPer) * stepsPer;
+
+    const next = editorReducer(state, { type: 'PLACE_SONG_STEP', note: 'C3', songStep, trackId: track.id });
+    const np = next.history.present;
+
+    const newClip = np.arrangerClips.find((clip) => clip.trackId === track.id && clip.startBeat === expectedStart);
+    expect(newClip).toBeDefined();
+    expect(newClip?.patternIndex).toBe(present.transport.currentPattern);
+    const localStep = songStep - expectedStart;
+    const nextTrack = np.tracks.find((candidate) => candidate.id === track.id);
+    expect((nextTrack?.patterns[newClip?.patternIndex ?? 0]?.[localStep] ?? []).some((event) => event.note === 'C3')).toBe(true);
+  });
+
+  it('PLACE_SONG_STEP edits inside an existing clip without adding one', () => {
+    const state = createEditorState('blank-grid');
+    const present = state.history.present;
+    const track = present.tracks[4];
+    const existing = present.arrangerClips.find((clip) => clip.trackId === track.id);
+    if (!existing) {
+      throw new Error('Expected a clip for the track');
+    }
+    const clipsBefore = present.arrangerClips.filter((clip) => clip.trackId === track.id).length;
+    const songStep = existing.startBeat + 1;
+
+    const next = editorReducer(state, { type: 'PLACE_SONG_STEP', note: 'D3', songStep, trackId: track.id });
+    const np = next.history.present;
+
+    expect(np.arrangerClips.filter((clip) => clip.trackId === track.id).length).toBe(clipsBefore);
+    const localStep = (songStep - existing.startBeat) % present.transport.stepsPerPattern;
+    const nextTrack = np.tracks.find((candidate) => candidate.id === track.id);
+    expect((nextTrack?.patterns[existing.patternIndex]?.[localStep] ?? []).some((event) => event.note === 'D3')).toBe(true);
+  });
 });
