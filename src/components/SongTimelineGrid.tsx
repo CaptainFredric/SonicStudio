@@ -37,6 +37,7 @@ interface SongTimelineGridProps {
   onToggleStep: (trackId: string, patternIndex: number, localStep: number) => void;
   onPlaceNote?: (trackId: string, patternIndex: number, localStep: number, note: string) => void;
   onAddSongNote?: (trackId: string, songStep: number, note?: string) => void;
+  onEraseStep?: (trackId: string, patternIndex: number, localStep: number) => void;
   onSeek?: (beat: number) => void;
   onRenameSection?: (markerId: string, name: string) => void;
   onRemoveSection?: (markerId: string) => void;
@@ -64,6 +65,7 @@ export const SongTimelineGrid = ({
   onToggleStep,
   onPlaceNote,
   onAddSongNote,
+  onEraseStep,
   onSeek,
   onRenameSection,
   onRemoveSection,
@@ -84,6 +86,22 @@ export const SongTimelineGrid = ({
   // Which empty, placeable cell the pointer is over, so the SuperSonic pitch
   // ladder shows inline in just that cell.
   const [hoverCell, setHoverCell] = useState<{ trackId: string; step: number } | null>(null);
+
+  // Erase drag: press a filled cell and drag across to wipe that run of notes in
+  // one gesture, so deleting a small strip is not a click-per-cell chore. A plain
+  // click is unchanged, and adding stays single-click. Mouse/trackpad for now
+  // (touch keeps pointer capture, so sibling cells do not get pointerenter).
+  const erasingRef = useRef(false);
+  const suppressClickRef = useRef(false);
+  useEffect(() => {
+    const end = () => { erasingRef.current = false; };
+    window.addEventListener('pointerup', end);
+    window.addEventListener('pointercancel', end);
+    return () => {
+      window.removeEventListener('pointerup', end);
+      window.removeEventListener('pointercancel', end);
+    };
+  }, []);
 
   // SuperSonic mode is for precise placement, so the cells grow to fit the
   // pitch ladder; otherwise stay dense for the song overview.
@@ -385,7 +403,23 @@ export const SongTimelineGrid = ({
                   <button
                     key={songStep}
                     className="group absolute top-0 h-full transition-colors hover:bg-[rgba(255,255,255,0.05)]"
+                    onPointerDown={(event) => {
+                      // Start an erase drag from a filled cell: clear it now and
+                      // anything dragged over. Suppress the click that follows so
+                      // it is not re-added. Empty cells fall through to the click
+                      // path (add / start a clip).
+                      if (event.button !== 0 || !active) return;
+                      const target = resolved ?? resolveAt(track, songStep);
+                      if (!target) return;
+                      erasingRef.current = true;
+                      suppressClickRef.current = true;
+                      (onEraseStep ?? onToggleStep)(track.id, target.patternIndex, target.stepIndex);
+                    }}
                     onClick={() => {
+                      if (suppressClickRef.current) {
+                        suppressClickRef.current = false;
+                        return;
+                      }
                       const target = resolved ?? resolveAt(track, songStep);
                       if (target) {
                         onToggleStep(track.id, target.patternIndex, target.stepIndex);
@@ -395,7 +429,14 @@ export const SongTimelineGrid = ({
                         onAddSongNote?.(track.id, songStep);
                       }
                     }}
-                    onPointerEnter={() => { if (placeable) setHoverCell({ trackId: track.id, step: songStep }); }}
+                    onPointerEnter={() => {
+                      if (placeable) setHoverCell({ trackId: track.id, step: songStep });
+                      // Continue an erase drag across filled cells only.
+                      if (erasingRef.current && active) {
+                        const target = resolved ?? resolveAt(track, songStep);
+                        if (target) (onEraseStep ?? onToggleStep)(track.id, target.patternIndex, target.stepIndex);
+                      }
+                    }}
                     style={{
                       left: songStep * cellW,
                       width: cellW,

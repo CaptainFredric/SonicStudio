@@ -2334,6 +2334,11 @@ export const MainWorkspace = () => {
                   placeSongStep(trackId, songStep, note);
                   void previewTrack(trackId, note);
                 }}
+                onEraseStep={(trackId, patternIndex, localStep) => {
+                  // Erase drag: clear the step without auditioning, so dragging
+                  // across a strip does not machine-gun the lane.
+                  togglePatternStep(trackId, patternIndex, localStep);
+                }}
                 onSeek={(beat) => engine.seekToBeat(beat)}
                 onRenameSection={(markerId, name) => updateSongMarker(markerId, { name })}
                 onRemoveSection={removeSongMarker}
