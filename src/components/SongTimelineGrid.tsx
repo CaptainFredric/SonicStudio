@@ -415,16 +415,26 @@ export const SongTimelineGrid = ({
                       // are visible instead of one flat block.
                       if (superSonicMode && events.length > 1) {
                         const sorted = [...events].sort((left, right) => pitchRank(right.note) - pitchRank(left.note));
+                        // The faint full-cell fill is the "big note" block (how it
+                        // reads in normal mode); the brighter inset sub-bars are the
+                        // individual subnotes you place in SuperSonic. Nesting them
+                        // overlaps the larger note and its parts in one cell.
                         return (
-                          <span className="absolute inset-x-[1.5px] inset-y-[3px] flex flex-col gap-px overflow-hidden rounded-[2px]">
-                            {sorted.map((event, noteIndex) => (
-                              <span
-                                className="min-h-0 flex-1 rounded-[1px]"
-                                key={`${event.note}-${noteIndex}`}
-                                style={{ background: track.color, opacity: 0.95 - noteIndex * 0.12 }}
-                                title={event.note}
-                              />
-                            ))}
+                          <span
+                            aria-hidden
+                            className="absolute inset-x-[1.5px] inset-y-[3px] rounded-[2px]"
+                            style={{ background: track.color, opacity: 0.2 }}
+                          >
+                            <span className="absolute inset-[1.5px] flex flex-col gap-px overflow-hidden rounded-[1px]">
+                              {sorted.map((event, noteIndex) => (
+                                <span
+                                  className="min-h-0 flex-1 rounded-[1px]"
+                                  key={`${event.note}-${noteIndex}`}
+                                  style={{ background: track.color, opacity: 0.95 - noteIndex * 0.12 }}
+                                  title={event.note}
+                                />
+                              ))}
+                            </span>
                           </span>
                         );
                       }
