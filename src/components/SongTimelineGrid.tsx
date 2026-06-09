@@ -408,6 +408,10 @@ export const SongTimelineGrid = ({
                       // anything dragged over. Suppress the click that follows so
                       // it is not re-added. Empty cells fall through to the click
                       // path (add / start a clip).
+                      // Reset first: a prior drag that ended on another cell (or
+                      // off-grid) fires no click to self-clear the flag, so without
+                      // this the next plain click would be swallowed.
+                      suppressClickRef.current = false;
                       if (event.button !== 0 || !active) return;
                       const target = resolved ?? resolveAt(track, songStep);
                       if (!target) return;
