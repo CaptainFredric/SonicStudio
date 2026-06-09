@@ -2806,8 +2806,11 @@ export const MainWorkspace = () => {
                             type="button"
                           >
                             <div className="flex h-full min-h-[38px] flex-col items-start justify-center px-3">
-                              <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-secondary)]">Keep writing</span>
-                              <span className="mt-1 text-[10px] text-[var(--text-tertiary)]">extend this pattern</span>
+                              <span className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-secondary)]">
+                                <Plus className="h-3 w-3 text-[var(--accent-strong)]" strokeWidth={3} />
+                                Add a bar
+                              </span>
+                              <span className="mt-1 text-[10px] text-[var(--text-tertiary)]">16 more steps to write into</span>
                             </div>
                           </button>
                         </div>

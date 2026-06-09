@@ -391,7 +391,13 @@ export const SongTimelineGrid = ({
                           : '1px solid rgba(255,255,255,0.02)',
                       background: isBeat && !isBar ? 'rgba(255,255,255,0.025)' : undefined,
                     }}
-                    title={placeable ? `Bar ${bar} · hover to place a pitch` : `Bar ${bar}`}
+                    title={placeable
+                      ? `Bar ${bar} · hover to place a pitch`
+                      : active
+                        ? `Bar ${bar} · click to remove`
+                        : resolved
+                          ? `Bar ${bar} · click to add a note`
+                          : `Bar ${bar} · no clip plays here yet`}
                     type="button"
                   >
                     {active && (() => {
