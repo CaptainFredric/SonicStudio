@@ -9,6 +9,37 @@ export const isTrackAudible = (
   anySolo: boolean,
 ): boolean => !track.muted && (!anySolo || track.solo);
 
+/**
+ * The highest step index (across every track) that holds a note in the given
+ * pattern, or -1 if the pattern is empty. Used to trim the PATTERN-mode audition
+ * loop so an over-extended pattern (e.g. stretched to 32 steps but only filled
+ * to step 24) repeats right after the last note instead of playing dead air to
+ * the end. Internal gaps before that note are preserved; only the trailing empty
+ * tail is dropped. The stored pattern length is untouched, so SONG playback and
+ * the grid still use the full length.
+ */
+export const lastActivePatternStep = (
+  tracks: Track[],
+  patternIndex: number,
+  stepsPerPattern: number,
+): number => {
+  let last = -1;
+  for (const track of tracks) {
+    const pattern = track.patterns[patternIndex];
+    if (!pattern) {
+      continue;
+    }
+    const limit = Math.min(pattern.length, stepsPerPattern);
+    for (let step = limit - 1; step > last; step -= 1) {
+      if (pattern[step] && pattern[step].length > 0) {
+        last = step;
+        break;
+      }
+    }
+  }
+  return last;
+};
+
 export interface ResolvedPatternStep {
   note: StepValue;
   patternIndex: number;

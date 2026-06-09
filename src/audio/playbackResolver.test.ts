@@ -5,6 +5,7 @@ import {
   findFirstPlayableStepInLoop,
   hasPlayableStepAt,
   isTrackAudible,
+  lastActivePatternStep,
   resolvePatternStepForPlayback,
 } from './playbackResolver';
 
@@ -197,5 +198,32 @@ describe('playbackResolver', () => {
     });
 
     expect(playable).toBe(false);
+  });
+});
+
+describe('lastActivePatternStep', () => {
+  it('returns -1 for an empty pattern', () => {
+    const project = createProjectFromTemplate('blank-grid');
+    clearPatternNotes(project);
+    expect(lastActivePatternStep(project.tracks, 0, project.transport.stepsPerPattern)).toBe(-1);
+  });
+
+  it('finds the last placed note across tracks and ignores the empty tail', () => {
+    const project = createProjectFromTemplate('blank-grid');
+    clearPatternNotes(project);
+    // A note early on track 0 and a later one on track 1, inside a 32-step span.
+    project.tracks[0].patterns[0][2] = [{ gate: 1, note: 'C3', velocity: 0.9 }];
+    project.tracks[1].patterns[0][24] = [{ gate: 1, note: 'E3', velocity: 0.8 }];
+    // Trailing steps 25..31 stay empty.
+    expect(lastActivePatternStep(project.tracks, 0, 32)).toBe(24);
+  });
+
+  it('never reports a step at or beyond the allocated length', () => {
+    const project = createProjectFromTemplate('blank-grid');
+    clearPatternNotes(project);
+    project.tracks[0].patterns[0][20] = [{ gate: 1, note: 'C3', velocity: 0.9 }];
+    // Even if a stray note sits past the length, the loop stays within bounds.
+    project.tracks[0].patterns[0][40] = [{ gate: 1, note: 'C3', velocity: 0.9 }];
+    expect(lastActivePatternStep(project.tracks, 0, 32)).toBe(20);
   });
 });

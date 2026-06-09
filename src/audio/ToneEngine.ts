@@ -3,7 +3,7 @@ import * as Tone from 'tone';
 import { humanizeTime, humanizeVelocity } from '../utils/humanize';
 
 import { getSamplePresetMeta, getSampleUrl } from './sampleLibrary';
-import { findFirstPlayableStepInLoop, hasPlayableStepAt, isTrackAudible, resolvePatternStepForPlayback } from './playbackResolver';
+import { findFirstPlayableStepInLoop, hasPlayableStepAt, isTrackAudible, lastActivePatternStep, resolvePatternStepForPlayback } from './playbackResolver';
 import type { AudioStabilityMode } from '../project/preferences';
 import type {
   ArrangementClip,
@@ -351,8 +351,14 @@ export class ToneEngine {
     }
 
     if (this.transportMode === 'PATTERN') {
+      // Loop right after the last placed note so an over-extended pattern does
+      // not audition dead air before repeating. Internal gaps stay; only the
+      // trailing empty tail is trimmed. Keep at least one beat, and fall back to
+      // the full length for an empty pattern. The stored length is unchanged, so
+      // SONG playback and the grid are unaffected.
+      const lastActive = lastActivePatternStep(this.tracksState, this.currentPattern, this.stepsPerPattern);
       return {
-        endBeat: this.stepsPerPattern,
+        endBeat: lastActive >= 0 ? Math.max(lastActive + 1, 4) : this.stepsPerPattern,
         startBeat: 0,
       };
     }
