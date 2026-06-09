@@ -91,7 +91,13 @@ export const SongTimelineGrid = ({
   const laneH = superSonicMode ? 48 : 34;
   const placementEnabled = superSonicMode && Boolean(onPlaceNote);
 
-  const totalSteps = Math.max(stepsPerPattern, Math.round(songLengthInBeats));
+  const songSteps = Math.max(stepsPerPattern, Math.round(songLengthInBeats));
+  // Render a couple of empty bars past the song's end so there is always
+  // somewhere to add onto: clicking into this trailing zone drops a clip and
+  // grows the song. This works for any loaded scene, so a library song can be
+  // extended from the whole-song view without touching the arranger.
+  const trailingSteps = stepsPerPattern * 2;
+  const totalSteps = songSteps + trailingSteps;
   const totalWidth = totalSteps * cellW;
 
   useEffect(() => {
@@ -169,10 +175,10 @@ export const SongTimelineGrid = ({
       id: marker.id,
       name: marker.name,
       start: marker.beat,
-      end: index < sorted.length - 1 ? sorted[index + 1].beat : totalSteps,
+      end: index < sorted.length - 1 ? sorted[index + 1].beat : songSteps,
       color: SECTION_COLORS[index % SECTION_COLORS.length],
     }));
-  }, [songMarkers, totalSteps]);
+  }, [songMarkers, songSteps]);
 
   const windowStart = Math.max(0, Math.floor(scrollLeft / cellW) - OVERSCAN);
   const windowEnd = Math.min(totalSteps, Math.ceil((scrollLeft + viewportWidth) / cellW) + OVERSCAN);
@@ -370,6 +376,7 @@ export const SongTimelineGrid = ({
                 // the pitch ladder anchored to the cell.
                 const placeable = placementEnabled && !active && Boolean(resolved);
                 const bar = Math.floor(songStep / barLineEvery) + 1;
+                const inTrailing = songStep >= songSteps;
                 const showLadder = placeable && hoverCell?.trackId === track.id && hoverCell.step === songStep;
                 const anchorNote = showLadder && resolved
                   ? getTrackAnchorNote(track, track.patterns[resolved.patternIndex] ?? [], resolved.stepIndex)
@@ -397,9 +404,13 @@ export const SongTimelineGrid = ({
                         : isBeat
                           ? '1px solid rgba(255,255,255,0.06)'
                           : '1px solid rgba(255,255,255,0.02)',
-                      background: isBeat && !isBar ? 'rgba(255,255,255,0.025)' : undefined,
+                      background: inTrailing
+                        ? 'rgba(114,217,255,0.06)'
+                        : isBeat && !isBar ? 'rgba(255,255,255,0.025)' : undefined,
                     }}
-                    title={placeable
+                    title={inTrailing
+                      ? `Bar ${bar} · click to extend the song here`
+                      : placeable
                       ? `Bar ${bar} · hover to place a pitch`
                       : active
                         ? `Bar ${bar} · click to remove`
