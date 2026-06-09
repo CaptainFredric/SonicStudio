@@ -87,14 +87,21 @@ export const SongTimelineGrid = ({
   // ladder shows inline in just that cell.
   const [hoverCell, setHoverCell] = useState<{ trackId: string; step: number } | null>(null);
 
-  // Erase drag: press a filled cell and drag across to wipe that run of notes in
-  // one gesture, so deleting a small strip is not a click-per-cell chore. A plain
-  // click is unchanged, and adding stays single-click. Mouse/trackpad for now
-  // (touch keeps pointer capture, so sibling cells do not get pointerenter).
-  const erasingRef = useRef(false);
+  // Drag editing, decided by the starting cell: press a filled cell and drag to
+  // erase every filled cell crossed (gaps are skipped), or press an empty cell
+  // and drag to paint notes into the empty cells crossed (existing notes are
+  // left alone). The drag stays on the lane it started in. A plain click still
+  // toggles one cell. On touch, erase works too (filled cells allow vertical
+  // panning only, so a sideways pull erases); painting stays mouse/pen, because
+  // a touch drag from empty space is how the grid scrolls.
+  const dragEditRef = useRef<{ mode: 'erase' | 'paint'; trackId: string } | null>(null);
+  const lastDragCellRef = useRef<string | null>(null);
   const suppressClickRef = useRef(false);
   useEffect(() => {
-    const end = () => { erasingRef.current = false; };
+    const end = () => {
+      dragEditRef.current = null;
+      lastDragCellRef.current = null;
+    };
     window.addEventListener('pointerup', end);
     window.addEventListener('pointercancel', end);
     return () => {
@@ -214,6 +221,28 @@ export const SongTimelineGrid = ({
     transportMode: 'SONG',
   });
 
+  // Apply the active drag to a cell. Resolves fresh (a paint drag may have just
+  // created the clip that now covers this bar) and re-checks fill so revisiting
+  // a cell mid-drag is a no-op: erase only clears filled cells, paint only fills
+  // empty ones.
+  const applyDragToCell = (track: Track, songStep: number) => {
+    const drag = dragEditRef.current;
+    if (!drag || drag.trackId !== track.id) return;
+    const key = `${track.id}:${songStep}`;
+    if (lastDragCellRef.current === key) return;
+    lastDragCellRef.current = key;
+    const resolved = resolveAt(track, songStep);
+    const filled = Boolean(resolved && resolved.note.length > 0);
+    if (drag.mode === 'erase' && resolved && filled) {
+      (onEraseStep ?? onToggleStep)(track.id, resolved.patternIndex, resolved.stepIndex);
+    } else if (drag.mode === 'paint' && !filled) {
+      if (resolved) {
+        onToggleStep(track.id, resolved.patternIndex, resolved.stepIndex);
+      } else {
+        onAddSongNote?.(track.id, songStep);
+      }
+    }
+  };
 
   const commitRename = () => {
     if (editingMarkerId && onRenameSection) {
@@ -403,21 +432,38 @@ export const SongTimelineGrid = ({
                   <button
                     key={songStep}
                     className="group absolute top-0 h-full transition-colors hover:bg-[rgba(255,255,255,0.05)]"
+                    data-song-cell="true"
+                    data-track-id={track.id}
+                    data-song-step={songStep}
                     onPointerDown={(event) => {
-                      // Start an erase drag from a filled cell: clear it now and
-                      // anything dragged over. Suppress the click that follows so
-                      // it is not re-added. Empty cells fall through to the click
-                      // path (add / start a clip).
                       // Reset first: a prior drag that ended on another cell (or
                       // off-grid) fires no click to self-clear the flag, so without
                       // this the next plain click would be swallowed.
                       suppressClickRef.current = false;
-                      if (event.button !== 0 || !active) return;
-                      const target = resolved ?? resolveAt(track, songStep);
-                      if (!target) return;
-                      erasingRef.current = true;
+                      if (event.button !== 0) return;
+                      if (active) {
+                        // Filled start: erase this cell and everything filled the
+                        // drag crosses on this lane.
+                        const target = resolved ?? resolveAt(track, songStep);
+                        if (!target) return;
+                        dragEditRef.current = { mode: 'erase', trackId: track.id };
+                        lastDragCellRef.current = `${track.id}:${songStep}`;
+                        suppressClickRef.current = true;
+                        (onEraseStep ?? onToggleStep)(track.id, target.patternIndex, target.stepIndex);
+                        return;
+                      }
+                      // Empty start: paint into the empty cells the drag crosses.
+                      // Mouse/pen only (a touch drag from empty space scrolls), and
+                      // not while the SuperSonic ladder owns empty-cell placement.
+                      if (event.pointerType === 'touch' || placementEnabled) return;
+                      dragEditRef.current = { mode: 'paint', trackId: track.id };
+                      lastDragCellRef.current = `${track.id}:${songStep}`;
                       suppressClickRef.current = true;
-                      (onEraseStep ?? onToggleStep)(track.id, target.patternIndex, target.stepIndex);
+                      if (resolved) {
+                        onToggleStep(track.id, resolved.patternIndex, resolved.stepIndex);
+                      } else {
+                        onAddSongNote?.(track.id, songStep);
+                      }
                     }}
                     onClick={() => {
                       if (suppressClickRef.current) {
@@ -435,15 +481,27 @@ export const SongTimelineGrid = ({
                     }}
                     onPointerEnter={() => {
                       if (placeable) setHoverCell({ trackId: track.id, step: songStep });
-                      // Continue an erase drag across filled cells only.
-                      if (erasingRef.current && active) {
-                        const target = resolved ?? resolveAt(track, songStep);
-                        if (target) (onEraseStep ?? onToggleStep)(track.id, target.patternIndex, target.stepIndex);
-                      }
+                      applyDragToCell(track, songStep);
+                    }}
+                    onPointerMove={(event) => {
+                      // Touch keeps implicit pointer capture, so sibling cells never
+                      // get pointerenter; walk the finger via elementFromPoint the
+                      // way the per-pattern grid does.
+                      if (event.pointerType !== 'touch' || !dragEditRef.current) return;
+                      const under = document.elementFromPoint(event.clientX, event.clientY);
+                      const cellEl = under instanceof Element ? under.closest('[data-song-cell="true"]') : null;
+                      if (!(cellEl instanceof HTMLElement)) return;
+                      const overTrack = tracks.find((candidate) => candidate.id === cellEl.dataset.trackId);
+                      const overStep = Number(cellEl.dataset.songStep);
+                      if (!overTrack || Number.isNaN(overStep)) return;
+                      applyDragToCell(overTrack, overStep);
                     }}
                     style={{
                       left: songStep * cellW,
                       width: cellW,
+                      // Filled cells keep vertical panning but claim sideways touch
+                      // pulls for the erase drag; empty cells scroll freely.
+                      touchAction: active ? 'pan-y' : undefined,
                       borderLeft: isBar
                         ? '1px solid rgba(255,255,255,0.16)'
                         : isBeat
