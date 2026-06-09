@@ -128,6 +128,16 @@ const START_OPTIONS: StartOption[] = [
     mark: 'PH',
   },
   {
+    body: 'A skippy two-step kick, shuffled hats, a bouncing sub, and chopped stabs over a warm pad.',
+    focus: 'Two-step shuffle',
+    genre: 'UK garage',
+    bpm: 133,
+    id: 'pirate-radio',
+    label: 'Pirate Radio',
+    swatch: ['#a78bfa', '#22d3ee', '#f472b6'],
+    mark: 'PR',
+  },
+  {
     body: 'Bright pop drums, glossy lead hooks, and a counter-pluck for fast topline writing.',
     focus: 'Bright pop motion',
     genre: 'Pop shimmer',
@@ -209,7 +219,7 @@ const START_OPTIONS: StartOption[] = [
   },
 ];
 
-const FEATURED_IDS: SessionTemplateId[] = ['pulse-rider', 'night-transit', 'midnight-trap', 'sunset-house', 'palm-hour', 'twilight-frame', 'club-horizon', 'neon-breaks', 'starlight-parade', 'velvet-suite'];
+const FEATURED_IDS: SessionTemplateId[] = ['pulse-rider', 'night-transit', 'midnight-trap', 'sunset-house', 'palm-hour', 'pirate-radio', 'twilight-frame', 'club-horizon', 'neon-breaks', 'starlight-parade', 'velvet-suite'];
 
 // The hero "featured" scene rotates once per calendar day from a weighted pool,
 // so a returning visitor meets a different scene rather than the same one every
@@ -221,6 +231,7 @@ const FEATURED_POOL: Array<{ id: SessionTemplateId; weight: number }> = [
   { id: 'neon-breaks', weight: 4 },
   { id: 'sunset-house', weight: 4 },
   { id: 'palm-hour', weight: 4 },
+  { id: 'pirate-radio', weight: 4 },
   { id: 'twilight-frame', weight: 3 },
   { id: 'club-horizon', weight: 3 },
   { id: 'starlight-parade', weight: 3 },
@@ -258,7 +269,7 @@ const matchesLibraryFilter = (option: StartOption, filterId: LibraryFilterId) =>
     case 'club':
       return option.id === 'club-horizon' || option.id === 'beat-lab' || option.id === 'pulse-rider'
         || option.id === 'midnight-trap' || option.id === 'neon-breaks' || option.id === 'sunset-house'
-        || option.id === 'palm-hour';
+        || option.id === 'palm-hour' || option.id === 'pirate-radio';
     case 'hooks':
       return option.id === 'night-transit' || option.id === 'starlight-parade' || option.id === 'synthwave-drive' || option.id === 'crystal-garden';
     case 'drift':

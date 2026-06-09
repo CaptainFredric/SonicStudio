@@ -29,7 +29,7 @@ export type SourceEngine = 'synth' | 'sample';
 export type SamplePlaybackMode = 'pitched' | 'oneshot';
 export type SampleTriggerMode = 'active-slice' | 'full-source' | 'step-mapped';
 export type SamplePreset = 'kick-thud' | 'snare-crack' | 'hat-air' | 'bass-pluck' | 'lead-glass' | 'pad-haze' | 'pluck-mallet' | 'fx-rise';
-export type SessionTemplateId = 'blank-grid' | 'night-transit' | 'beat-lab' | 'ambient-drift' | 'lofi-sunday' | 'synthwave-drive' | 'club-horizon' | 'starlight-parade' | 'velvet-suite' | 'crystal-garden' | 'twilight-frame' | 'late-hours' | 'pulse-rider' | 'midnight-trap' | 'neon-breaks' | 'sunset-house' | 'palm-hour';
+export type SessionTemplateId = 'blank-grid' | 'night-transit' | 'beat-lab' | 'ambient-drift' | 'lofi-sunday' | 'synthwave-drive' | 'club-horizon' | 'starlight-parade' | 'velvet-suite' | 'crystal-garden' | 'twilight-frame' | 'late-hours' | 'pulse-rider' | 'midnight-trap' | 'neon-breaks' | 'sunset-house' | 'palm-hour' | 'pirate-radio';
 
 export interface SessionTemplateDefinition {
   description: string;
@@ -565,6 +565,12 @@ export const SESSION_TEMPLATE_DEFINITIONS: SessionTemplateDefinition[] = [
     focus: 'Amapiano log-drum groove',
     id: 'palm-hour',
     label: 'Palm Hour',
+  },
+  {
+    description: 'UK garage at 133 BPM in A minor: a skippy two-step kick, crisp backbeat snares, shuffled hats, a bouncing sub, and chopped stabs over a warm pad.',
+    focus: 'UK garage two-step',
+    id: 'pirate-radio',
+    label: 'Pirate Radio',
   },
 ];
 
@@ -3219,6 +3225,90 @@ export const createPalmHourProject = (projectName: string = 'Palm Hour'): Projec
   ]);
 };
 
+export const createPirateRadioProject = (projectName: string = 'Pirate Radio'): Project => {
+  const { buildProject, tracks, transport } = createProjectFrame(projectName, {
+    bpm: 133,
+    mode: 'SONG',
+    trackOrder: HOUSE_TRACK_ORDER,
+  });
+  const [kickTrack, snareTrack, hatTrack, bassTrack, padTrack, pluckTrack] = tracks;
+
+  // Two-step kick: beat 1, the and-of-2, and a lighter push before beat 3.
+  // No four-on-the-floor; the missing beats are what makes it skip.
+  putStep(kickTrack, 0, 0, 'C1', { velocity: 0.95 });
+  putStep(kickTrack, 0, 6, 'C1', { velocity: 0.8 });
+  putStep(kickTrack, 0, 10, 'C1', { velocity: 0.72 });
+  // Crisp snares on the backbeat with a ghost skipping into the next bar.
+  putStep(snareTrack, 0, 4, 'C1', { velocity: 0.78 });
+  putStep(snareTrack, 0, 12, 'C1', { velocity: 0.85 });
+  putStep(snareTrack, 0, 15, 'C1', { gate: 0.5, velocity: 0.38 });
+  // Shuffled hats: uneven 16th placements and a longer open hat read as swing
+  // on the straight grid.
+  putStep(hatTrack, 0, 2, 'C1', { gate: 0.3, velocity: 0.5 });
+  putStep(hatTrack, 0, 3, 'C1', { gate: 0.18, velocity: 0.32 });
+  putStep(hatTrack, 0, 5, 'C1', { gate: 0.22, velocity: 0.36 });
+  putStep(hatTrack, 0, 7, 'C1', { gate: 0.6, velocity: 0.55 });
+  putStep(hatTrack, 0, 11, 'C1', { gate: 0.18, velocity: 0.34 });
+  putStep(hatTrack, 0, 13, 'C1', { gate: 0.3, velocity: 0.5 });
+  putStep(hatTrack, 0, 14, 'C1', { gate: 0.22, velocity: 0.4 });
+  // Bouncing sub walking Am - F - G with a pickup back to A.
+  putStep(bassTrack, 0, 0, 'A1', { gate: 1.25, velocity: 0.9 });
+  putStep(bassTrack, 0, 3, 'E2', { gate: 0.5, velocity: 0.68 });
+  putStep(bassTrack, 0, 6, 'A1', { gate: 0.9, velocity: 0.82 });
+  putStep(bassTrack, 0, 8, 'F1', { gate: 1.25, velocity: 0.85 });
+  putStep(bassTrack, 0, 11, 'C2', { gate: 0.5, velocity: 0.66 });
+  putStep(bassTrack, 0, 12, 'G1', { gate: 1.5, velocity: 0.84 });
+  putStep(bassTrack, 0, 15, 'A1', { gate: 0.5, velocity: 0.6 });
+  // Chopped stabs: short offbeat hits with a heavy delay send for the
+  // cut-up-vocal feel.
+  putStep(pluckTrack, 0, 2, 'A4', { gate: 0.5, velocity: 0.6 });
+  putStep(pluckTrack, 0, 5, 'C5', { gate: 0.45, velocity: 0.54 });
+  putStep(pluckTrack, 0, 7, 'E5', { gate: 0.5, velocity: 0.6 });
+  putStep(pluckTrack, 0, 10, 'D5', { gate: 0.4, velocity: 0.52 });
+  putStep(pluckTrack, 0, 14, 'C5', { gate: 0.5, velocity: 0.56 });
+  // Warm pad bed following the same changes.
+  stackStep(padTrack, 0, 0, [
+    { note: 'A2', options: { gate: 8, velocity: 0.3 } },
+    { note: 'C3', options: { gate: 8, velocity: 0.26 } },
+    { note: 'E3', options: { gate: 8, velocity: 0.26 } },
+  ]);
+  stackStep(padTrack, 0, 8, [
+    { note: 'F2', options: { gate: 4, velocity: 0.3 } },
+    { note: 'A2', options: { gate: 4, velocity: 0.26 } },
+    { note: 'C3', options: { gate: 4, velocity: 0.26 } },
+  ]);
+  stackStep(padTrack, 0, 12, [
+    { note: 'G2', options: { gate: 4, velocity: 0.3 } },
+    { note: 'B2', options: { gate: 4, velocity: 0.26 } },
+    { note: 'D3', options: { gate: 4, velocity: 0.26 } },
+  ]);
+
+  bassTrack.source.octaveShift = -1;
+  bassTrack.source.waveform = 'sine';
+  bassTrack.source.portamento = 0.03;
+  bassTrack.params.distortion = 0.08;
+  pluckTrack.params.delaySend = 0.38;
+  pluckTrack.params.reverbSend = 0.22;
+  padTrack.params.reverbSend = 0.55;
+  padTrack.params.chorusSend = 0.28;
+  kickTrack.source.samplePlayback = 'oneshot';
+  snareTrack.source.samplePlayback = 'oneshot';
+  hatTrack.source.engine = 'sample';
+  hatTrack.source.samplePlayback = 'oneshot';
+  hatTrack.source.sampleTriggerMode = 'step-mapped';
+
+  return buildProject([
+    createArrangerClip(kickTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(snareTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(hatTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(bassTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(padTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+    createArrangerClip(pluckTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
+  ], [
+    { beat: 0, id: createId('marker'), name: 'Two-step loop' },
+  ]);
+};
+
 export const createProjectFromTemplate = (
   templateId: SessionTemplateId,
 ): Project => {
@@ -3255,6 +3345,8 @@ export const createProjectFromTemplate = (
       return createSunsetHouseProject();
     case 'palm-hour':
       return createPalmHourProject();
+    case 'pirate-radio':
+      return createPirateRadioProject();
     case 'night-transit':
     default:
       return createNightTransitProject();
