@@ -87,7 +87,6 @@ export const WorkspaceSettingsPanel = () => {
     stickyMobileTransport,
     audioStabilityMode,
     songLengthInBeats,
-    songMarkers,
     stepsPerPattern,
     toggleStep,
     trainingCorpusSummary,

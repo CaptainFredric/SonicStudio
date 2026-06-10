@@ -21,7 +21,6 @@ import { applyStudioRouteToSession, type StudioRouteState } from '../../../app/r
 import { createDefaultSession, createSessionFromTemplate, loadPersistedSession } from '../../../project/storage';
 import {
   syncArrangerClips,
-  updateTrack,
 } from '../projectMutations';
 import type { EditorState } from '../editorTypes';
 

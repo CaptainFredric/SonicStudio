@@ -9,7 +9,6 @@ import type {
   ArrangementClip,
   MasterSettings,
   NoteEvent,
-  PatternAutomation,
   Project,
   SampleSliceMemory,
   StepValue,
@@ -936,7 +935,7 @@ export class ToneEngine {
       player.start(time, windowStart, scheduledDuration);
       player.stop(time + scheduledDuration + 0.06);
       graph.samplePlayerAvailableAt[playerIndex] = time + scheduledDuration + 0.06;
-    } catch (err) {
+    } catch {
       // Silently handle play errors (e.g., note already playing)
       graph.samplePlayerAvailableAt[playerIndex] = time;
     }

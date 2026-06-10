@@ -85,7 +85,6 @@ export const TopBar = ({
   onOpenShare?: () => void;
 }) => {
   const {
-    activeView,
     bpm,
     canRedo,
     canUndo,
@@ -98,7 +97,6 @@ export const TopBar = ({
     isInitialized,
     isPlaying,
     isRecording,
-    isSettingsOpen,
     lastSavedAt,
     loopRangeEndBeat,
     loopRangeStartBeat,

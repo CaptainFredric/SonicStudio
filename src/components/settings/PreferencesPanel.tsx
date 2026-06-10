@@ -46,7 +46,6 @@ export const PreferencesPanel = ({
   midiInputEnabled,
   midiRecordEnabled,
   midiSupported,
-  defaultWorkspace,
   onAccentChange,
   onDensityChange,
   onMotionModeChange,
@@ -54,7 +53,6 @@ export const PreferencesPanel = ({
   onUiSoundsEnabledChange,
   onMidiInputEnabledChange,
   onMidiRecordEnabledChange,
-  onDefaultWorkspaceChange,
 }: PreferencesPanelProps) => (
   <div className="space-y-4">
     <PanelCard icon={<Palette className="h-4 w-4 text-[var(--accent)]" />} title="Accent color">

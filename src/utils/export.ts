@@ -8,7 +8,6 @@ import {
   createStepEvent,
   createTrack,
   type InstrumentType,
-  type NoteEvent,
   type Project,
   type StudioSession,
   type Track,

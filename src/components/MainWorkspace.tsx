@@ -71,7 +71,7 @@ import { openNotesPanel } from './notesPanelStore';
 import { SongTimelineGrid } from './SongTimelineGrid';
 
 const LANE_COLUMN_COLLAPSED_KEY = 'sonicstudio:lane-column-collapsed';
-import { MAX_STEPS_PER_PATTERN, defaultNoteForTrack, type InstrumentType, type NoteEvent, type Track } from '../project/schema';
+import { MAX_STEPS_PER_PATTERN, type InstrumentType, type NoteEvent, type Track } from '../project/schema';
 
 const TRACK_BUTTONS = [
   { label: 'Kick', type: 'kick' as const, family: 'Rhythm' },

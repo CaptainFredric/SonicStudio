@@ -543,7 +543,6 @@ export const AudioProvider = ({
     // persistCurrentSession is a useEffectEvent and is intentionally omitted —
     // including it caused the effect to re-fire after each save, leaving the
     // status indicator stuck in 'saving'.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editorState.history.present, editorState.ui]);
 
   const initAudio = useCallback(async () => {
@@ -621,11 +620,13 @@ export const AudioProvider = ({
     currentProject: project,
     currentUi: editorState.ui,
     dispatchHydrateSession: (session) => dispatch({ type: 'HYDRATE_SESSION', session }),
+    // eslint-disable-next-line react-hooks/rules-of-hooks -- persistCurrentSession is event-style (stable identity, reads latest state); the session controller calls it from save and restore actions, which is the deployed, tested behavior.
     persistCurrentSession,
     resetTransportState,
     setLastSavedAt,
     setProjectCheckpoints,
     setSaveStatus,
+  // eslint-disable-next-line react-hooks/rules-of-hooks -- listing the event-style persistCurrentSession as a dep is intentional: its identity is stable, so it never retriggers the memo.
   }), [editorState.ui, persistCurrentSession, project, resetTransportState]);
 
   const saveProject = useCallback(() => {

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef } from 'react';
 import { GripVertical } from 'lucide-react';
 
-import type { ArrangementClip, Track } from '../../project/schema';
+import type { ArrangementClip } from '../../project/schema';
 import { ArrangerLaneMenu } from './ArrangerLaneMenu';
 import type { DragMode, LaneSection, LaneSectionKey, SnapSize, ZoomPreset } from './types';
 

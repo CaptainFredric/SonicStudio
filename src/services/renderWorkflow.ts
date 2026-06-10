@@ -256,7 +256,7 @@ export const exportOfflineMix = async ({
     progress: 0,
   });
 
-  let progressTimers: number[] = [];
+  const progressTimers: number[] = [];
 
   try {
     const audioBuffer = await renderOffline(renderPayload.project, {

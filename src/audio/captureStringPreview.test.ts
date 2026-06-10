@@ -15,7 +15,6 @@ describe('schedulePreview', () => {
   it('triggers each non-rest note at its cumulative step offset', () => {
     const calls: Array<{ note: string; offset: number }> = [];
     const tokens = parseNoteString('C4 . E4 G4').tokens;
-    let elapsed = 0;
     const start = Date.now();
     const fakeNow = () => Date.now() - start;
 
@@ -24,7 +23,6 @@ describe('schedulePreview', () => {
     }, { stepMs: 100 });
 
     vi.advanceTimersByTime(400);
-    elapsed += 400;
 
     expect(calls).toEqual([
       { note: 'C4', offset: 0 },

@@ -32,7 +32,7 @@ import { useMediaQuery } from './utils/useMediaQuery';
 import { readString } from './utils/safeStorage';
 import { playSupersonicToggleSound } from './audio/uiSounds';
 import { getSupersonicTransitionOrigin, runSupersonicTransition } from './utils/supersonicTransition';
-import { AudioWaveform, LayoutGrid, Volume2, Settings, Sparkles, Share2, Coffee } from 'lucide-react';
+import { AudioWaveform, Volume2, Settings, Sparkles, Share2, Coffee } from 'lucide-react';
 import { Circle, Maximize2, Minimize2, Minus, Pause, Play, Plus, Square, Zap } from 'lucide-react';
 
 const SUPPORT_URL = 'https://buymeacoffee.com/captainarm1';
@@ -79,7 +79,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe,
       className="studio-nav-button w-full"
       data-active={activeView === item.id}
       data-ui-sound="nav"
-      onClick={() => setActiveView(item.id as any)}
+      onClick={() => setActiveView(item.id as AppView)}
       title={item.title}
       type="button"
     >

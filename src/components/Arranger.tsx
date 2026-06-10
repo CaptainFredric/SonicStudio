@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useAudio, usePlaybackStep } from '../context/AudioContext';
-import { type ArrangementClip } from '../project/schema';
 import {
   loadCapturedNoteStrings,
   noteStringToPatternSegment,
@@ -66,7 +65,6 @@ export const Arranger = () => {
     loopRangeStartBeat,
     makeClipPatternUnique,
     moveTrack,
-    patternCount,
     pinnedTrackIds,
     removeArrangerClip,
     selectSampleSlice,
@@ -282,7 +280,6 @@ export const Arranger = () => {
   const visibleEndStep = Math.min(timelineSteps, Math.ceil((scrollLeft + viewportWidth) / pixelsPerStep));
   const maxTimelineScrollLeft = Math.max(0, timelineWidth - viewportWidth);
   const selectedPhraseActiveSteps = selectedClipPattern.filter((step) => step.length > 0).length;
-  const selectedPhraseNoteCount = selectedClipPattern.reduce((sum, step) => sum + step.length, 0);
   const selectedAutomationLevel = selectedClipAutomation.level[selectedPhraseStepIndex] ?? 0.5;
   const selectedAutomationTone = selectedClipAutomation.tone[selectedPhraseStepIndex] ?? 0.5;
   const selectedPhraseSliceIndex = selectedPhraseStep[0]?.sampleSliceIndex ?? null;

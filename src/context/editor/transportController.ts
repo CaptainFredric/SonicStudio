@@ -38,7 +38,6 @@ export const createTransportController = ({
   currentProject,
   engine,
   initAudio,
-  isInitialized,
   isPlaying,
   isRecording,
   setCountInActive,

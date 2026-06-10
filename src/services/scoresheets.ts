@@ -2,7 +2,7 @@ import { type StudioSession } from '../project/schema';
 import { hydrateSessionPayload } from '../project/storage';
 import { readJson, removeKey, writeJson } from '../utils/safeStorage';
 import { detectKey, type KeyMode } from './keyDetector';
-import { getManualKeyOverride, setManualKeyOverride, type ManualKeyOverride } from './manualKeyOverride';
+import { getManualKeyOverride, type ManualKeyOverride } from './manualKeyOverride';
 
 const STORAGE_KEY = 'sonicstudio:scoresheets:v1';
 const MAX_SCORESHEETS = 24;

@@ -18,7 +18,7 @@ import {
 
 import { engine } from '../audio/ToneEngine';
 import { useAudio, usePlaybackStep } from '../context/AudioContext';
-import { detectKey, getEffectiveKey } from '../services/keyDetector';
+import { getEffectiveKey } from '../services/keyDetector';
 import {
   inKeyPitchClasses,
   NOTE_NAMES_SHARP,
@@ -31,7 +31,7 @@ import { setQueuedNoteStringId } from '../services/noteStringQueue';
 import { readString, removeKey, writeString } from '../utils/safeStorage';
 
 const SCALE_LOCK_KEY = 'sonicstudio:piano-roll:scale-locked:v1';
-import { MAX_STEPS_PER_PATTERN, type NoteEvent } from '../project/schema';
+import { MAX_STEPS_PER_PATTERN, type NoteEvent, type Track } from '../project/schema';
 import { TrackIcon, getTrackPersonality } from '../utils/trackPersonality';
 import {
   KEY_OPTIONS,
@@ -162,7 +162,7 @@ interface NoteResizeState {
   edge?: 'start' | 'end';
 }
 
-export const PianoRoll = () => {
+const PianoRollEditor = ({ track }: { track: Track }) => {
   const isMobileViewport = useMediaQuery('(max-width: 767px)');
   const currentStep = usePlaybackStep();
   const {
@@ -175,7 +175,6 @@ export const PianoRoll = () => {
     transportMode,
     humanizePattern,
     moveNoteToStep,
-    selectedTrackId,
     setTrackParams,
     setTrackSource,
     setLoopRange,
@@ -190,10 +189,8 @@ export const PianoRoll = () => {
     toggleStep,
     tracks,
     transposePattern,
-    transposePatternAt,
     updateStepEvent,
   } = useAudio();
-  const track = tracks.find((candidate) => candidate.id === selectedTrackId);
   const playbackStep = stepsPerPattern > 0 ? currentStep % stepsPerPattern : 0;
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
   // For the selected track, the song's sections mapped to the pattern the
@@ -306,17 +303,6 @@ export const PianoRoll = () => {
     setSelectedStepIndex(nextStepIndex);
     setSelectedNoteIndex(steps[nextStepIndex]?.length ? 0 : null);
   }, [currentPattern, stepsPerPattern, track?.id]);
-
-  if (!track) {
-    return (
-      <section className="surface-panel flex flex-1 items-center justify-center">
-        <div className="text-center">
-          <div className="section-label">Piano roll</div>
-          <p className="mt-3 text-sm text-[var(--text-secondary)]">Pick a track to open the note grid.</p>
-        </div>
-      </section>
-    );
-  }
 
   const isDrum = track.type === 'kick' || track.type === 'snare' || track.type === 'hihat';
   const patternSteps = track.patterns[currentPattern] ?? Array.from({ length: stepsPerPattern }, () => []);
@@ -2110,3 +2096,25 @@ function midiToNote(midi: number) {
 function clampNumber(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
 }
+
+// Guard wrapper: the editor's hooks only ever run while a track exists. The
+// editor used to early-return above its own hooks, so deleting the selected
+// track while the note grid was open changed the hook order mid-flight and
+// crashed to the error boundary.
+export const PianoRoll = () => {
+  const { selectedTrackId, tracks } = useAudio();
+  const track = tracks.find((candidate) => candidate.id === selectedTrackId);
+
+  if (!track) {
+    return (
+      <section className="surface-panel flex flex-1 items-center justify-center">
+        <div className="text-center">
+          <div className="section-label">Piano roll</div>
+          <p className="mt-3 text-sm text-[var(--text-secondary)]">Pick a track to open the note grid.</p>
+        </div>
+      </section>
+    );
+  }
+
+  return <PianoRollEditor track={track} />;
+};
