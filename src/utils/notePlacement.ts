@@ -7,6 +7,15 @@ export const NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A',
 // a ladder rung drops a note at that pitch straight from the grid.
 export const SUPERSONIC_NOTE_OFFSETS = [4, 3, 2, 1, 0, -1, -2, -3, -4] as const;
 
+// A sortable pitch value (octave * 12 + pitch class) so a step's notes can be
+// stacked highest-to-lowest when shown as subnotes.
+export const pitchRank = (note: string): number => {
+  const match = note.match(/^([A-G]#?)(-?\d+)$/);
+  if (!match) return 0;
+  const pitchClass = NOTE_NAMES.indexOf(match[1]);
+  return Number(match[2]) * 12 + (pitchClass < 0 ? 0 : pitchClass);
+};
+
 // Transpose a note name by a number of semitones, preserving the "C#4" form.
 // Returns null for anything that is not a parseable pitch.
 export const shiftPitch = (note: string, semitones: number): string | null => {

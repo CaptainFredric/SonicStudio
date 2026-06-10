@@ -4,7 +4,7 @@ import type React from 'react';
 
 import { engine } from '../audio/ToneEngine';
 import { resolvePatternStepForPlayback } from '../audio/playbackResolver';
-import { NOTE_NAMES, SUPERSONIC_NOTE_OFFSETS, getTrackAnchorNote, shiftPitch } from '../utils/notePlacement';
+import { SUPERSONIC_NOTE_OFFSETS, getTrackAnchorNote, pitchRank, shiftPitch } from '../utils/notePlacement';
 import { TrackIcon } from '../utils/trackPersonality';
 import type { ArrangementClip, SongMarker, Track } from '../project/schema';
 
@@ -15,14 +15,6 @@ const SECTION_COLORS = [
 const RULER_HEIGHT = 30;
 const GUTTER_WIDTH = 156;
 
-// A sortable pitch value (octave * 12 + pitch class) so a step's notes can be
-// stacked highest-to-lowest when shown as subnotes.
-const pitchRank = (note: string): number => {
-  const match = note.match(/^([A-G]#?)(-?\d+)$/);
-  if (!match) return 0;
-  const pitchClass = NOTE_NAMES.indexOf(match[1]);
-  return Number(match[2]) * 12 + (pitchClass < 0 ? 0 : pitchClass);
-};
 const OVERSCAN = 8;
 
 interface SongTimelineGridProps {

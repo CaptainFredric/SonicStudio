@@ -25,7 +25,7 @@ import {
 
 import { meterIntervalForMode } from '../audio/meterTiming';
 import { engine } from '../audio/ToneEngine';
-import { SUPERSONIC_NOTE_OFFSETS, getTrackAnchorNote, shiftPitch } from '../utils/notePlacement';
+import { SUPERSONIC_NOTE_OFFSETS, getTrackAnchorNote, pitchRank, shiftPitch } from '../utils/notePlacement';
 import { bestKeyTranspose, pitchClassFromNote } from '../utils/pitch';
 import { getSamplePresetMeta } from '../audio/sampleLibrary';
 import { useAudio, usePlaybackStep } from '../context/AudioContext';
@@ -2649,6 +2649,10 @@ export const MainWorkspace = () => {
                             const showStepNoteLabel = stepCellWidth >= 36;
                             const showStepCount = stepCellWidth >= 26;
                             const anchorNote = getTrackAnchorNote(track, patternSteps, stepIndex);
+                            // SuperSonic shows a chord as bright sub-bars nested in
+                            // a faint full-cell block, so the big note and its
+                            // subnotes overlap, matching the whole-song grid.
+                            const showSubnoteStack = superSonicMode && isActive && value.length > 1;
 
                             return (
                               <button
@@ -2723,7 +2727,9 @@ export const MainWorkspace = () => {
                                 }}
                                 style={isActive
                                   ? {
-                                      background: isCurrent ? track.color : `${track.color}cc`,
+                                      background: showSubnoteStack
+                                        ? `${track.color}33`
+                                        : isCurrent ? track.color : `${track.color}cc`,
                                       boxShadow: isCurrent
                                         ? `inset 0 0 0 1px rgba(255, 255, 255, 0.76), 0 0 0 1px rgba(15, 23, 42, 0.14), 0 0 18px ${track.color}44`
                                         : 'inset 0 0 0 1px rgba(15, 23, 42, 0.12)',
@@ -2746,6 +2752,18 @@ export const MainWorkspace = () => {
                                       opacity: isActive ? 1 : 0.74,
                                     }}
                                   />
+                                )}
+                                {showSubnoteStack && (
+                                  <span aria-hidden className="absolute inset-x-[2px] inset-y-[4px] flex flex-col gap-px overflow-hidden rounded-[2px]">
+                                    {[...value].sort((left, right) => pitchRank(right.note) - pitchRank(left.note)).map((event, noteIndex) => (
+                                      <span
+                                        className="min-h-0 flex-1 rounded-[1px]"
+                                        key={`${event.note}-${noteIndex}`}
+                                        style={{ background: track.color, opacity: 0.95 - noteIndex * 0.12 }}
+                                        title={event.note}
+                                      />
+                                    ))}
+                                  </span>
                                 )}
                                 {isActive && showStepNoteLabel && (track.source.engine === 'sample' || !['kick', 'snare', 'hihat'].includes(track.type)) && leadEvent && (
                                   <span className="absolute bottom-1 right-1 font-mono text-[9px] font-medium text-black/60">
