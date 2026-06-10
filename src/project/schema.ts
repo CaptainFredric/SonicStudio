@@ -884,6 +884,12 @@ const stackStep = (
   track.patterns[patternIndex][stepIndex] = notes.map((entry) => createStepEvent(entry.note, entry.options));
 };
 
+// Copy one authored pattern onto another slot, so an arrangement variant can
+// start from the groove and tweak it instead of being retyped note by note.
+const copyPattern = (track: Track, fromIndex: number, toIndex: number) => {
+  track.patterns[toIndex] = (track.patterns[fromIndex] ?? []).map((step) => step.map((event) => ({ ...event })));
+};
+
 const isInstrumentType = (value: unknown): value is InstrumentType => (
   value === 'kick'
   || value === 'snare'
@@ -3202,6 +3208,30 @@ export const createPalmHourProject = (projectName: string = 'Palm Hour'): Projec
     { note: 'D3', options: { gate: 4, velocity: 0.22 } },
   ]);
 
+  // Pattern 1 (the lift): the groove plus extra log-drum bounce and piano
+  // echoes an octave up, so the arc has somewhere to rise to.
+  const palmLanes = [kickTrack, clapTrack, shakerTrack, logTrack, pianoTrack, padTrack];
+  palmLanes.forEach((lane) => copyPattern(lane, 0, 1));
+  putStep(logTrack, 1, 4, 'E2', { gate: 0.5, velocity: 0.62 });
+  putStep(logTrack, 1, 13, 'A2', { gate: 0.5, velocity: 0.6 });
+  putStep(pianoTrack, 1, 1, 'E5', { gate: 0.5, velocity: 0.3 });
+  putStep(pianoTrack, 1, 9, 'G5', { gate: 0.5, velocity: 0.3 });
+
+  // Pattern 2 (the breath): drums out, soft piano and log-drum roots over the pad.
+  copyPattern(padTrack, 0, 2);
+  stackStep(pianoTrack, 2, 0, [
+    { note: 'A3', options: { gate: 4, velocity: 0.36 } },
+    { note: 'C4', options: { gate: 4, velocity: 0.32 } },
+    { note: 'E4', options: { gate: 4, velocity: 0.32 } },
+  ]);
+  stackStep(pianoTrack, 2, 8, [
+    { note: 'C4', options: { gate: 4, velocity: 0.34 } },
+    { note: 'E4', options: { gate: 4, velocity: 0.3 } },
+    { note: 'G4', options: { gate: 4, velocity: 0.3 } },
+  ]);
+  putStep(logTrack, 2, 0, 'A1', { gate: 1.5, velocity: 0.6 });
+  putStep(logTrack, 2, 8, 'C2', { gate: 1.5, velocity: 0.55 });
+
   logTrack.source.octaveShift = -1;
   logTrack.source.waveform = 'triangle';
   logTrack.source.portamento = 0.04;
@@ -3213,16 +3243,26 @@ export const createPalmHourProject = (projectName: string = 'Palm Hour'): Projec
   shakerTrack.source.samplePlayback = 'oneshot';
   shakerTrack.source.sampleTriggerMode = 'step-mapped';
 
-  return buildProject([
-    createArrangerClip(kickTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
-    createArrangerClip(clapTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
-    createArrangerClip(shakerTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
-    createArrangerClip(logTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
-    createArrangerClip(pianoTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
-    createArrangerClip(padTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
-  ], [
-    { beat: 0, id: createId('marker'), name: 'Palm Hour groove' },
-  ]);
+  // A short arc instead of a single bar: warm in on the breath pattern, settle
+  // into the groove, lift, breathe, peak, and land with the shaker dropped.
+  const palmSections: Array<{ start: number; pattern: number; name: string }> = [
+    { start: 0, pattern: 2, name: 'Warm-up' },
+    { start: 16, pattern: 0, name: 'Groove' },
+    { start: 32, pattern: 1, name: 'Lift' },
+    { start: 48, pattern: 2, name: 'Breath' },
+    { start: 64, pattern: 1, name: 'Peak' },
+    { start: 80, pattern: 0, name: 'Out' },
+  ];
+  const palmOutStart = palmSections[palmSections.length - 1].start;
+  return buildProject(
+    palmSections.flatMap((section) => palmLanes.flatMap((lane) => {
+      if (section.start === palmOutStart && lane === shakerTrack) {
+        return [];
+      }
+      return [createArrangerClip(lane.id, transport, { beatLength: 16, patternIndex: section.pattern, startBeat: section.start })];
+    })),
+    palmSections.map((section) => ({ beat: section.start, id: createId('marker'), name: section.name })),
+  );
 };
 
 export const createPirateRadioProject = (projectName: string = 'Pirate Radio'): Project => {
@@ -3283,6 +3323,21 @@ export const createPirateRadioProject = (projectName: string = 'Pirate Radio'): 
     { note: 'D3', options: { gate: 4, velocity: 0.26 } },
   ]);
 
+  // Pattern 1 (the push): the two-step plus an extra hat skip, a stab answer,
+  // and a bass pickup, for the sections that lean forward.
+  const pirateLanes = [kickTrack, snareTrack, hatTrack, bassTrack, padTrack, pluckTrack];
+  pirateLanes.forEach((lane) => copyPattern(lane, 0, 1));
+  putStep(hatTrack, 1, 9, 'C1', { gate: 0.18, velocity: 0.34 });
+  putStep(pluckTrack, 1, 12, 'A5', { gate: 0.4, velocity: 0.5 });
+  putStep(bassTrack, 1, 14, 'E2', { gate: 0.4, velocity: 0.6 });
+
+  // Pattern 2 (the cut): drums out, the sub and stabs carry it over the pad.
+  copyPattern(padTrack, 0, 2);
+  copyPattern(pluckTrack, 0, 2);
+  putStep(bassTrack, 2, 0, 'A1', { gate: 2, velocity: 0.8 });
+  putStep(bassTrack, 2, 8, 'F1', { gate: 1.5, velocity: 0.75 });
+  putStep(bassTrack, 2, 12, 'G1', { gate: 1.5, velocity: 0.75 });
+
   bassTrack.source.octaveShift = -1;
   bassTrack.source.waveform = 'sine';
   bassTrack.source.portamento = 0.03;
@@ -3297,16 +3352,26 @@ export const createPirateRadioProject = (projectName: string = 'Pirate Radio'): 
   hatTrack.source.samplePlayback = 'oneshot';
   hatTrack.source.sampleTriggerMode = 'step-mapped';
 
-  return buildProject([
-    createArrangerClip(kickTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
-    createArrangerClip(snareTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
-    createArrangerClip(hatTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
-    createArrangerClip(bassTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
-    createArrangerClip(padTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
-    createArrangerClip(pluckTrack.id, transport, { beatLength: 16, patternIndex: 0, startBeat: 0 }),
-  ], [
-    { beat: 0, id: createId('marker'), name: 'Two-step loop' },
-  ]);
+  // The set list: ease in on the cut, find the step, push, drop to the cut,
+  // peak, and land with the hats out.
+  const pirateSections: Array<{ start: number; pattern: number; name: string }> = [
+    { start: 0, pattern: 2, name: 'Intro' },
+    { start: 16, pattern: 0, name: 'Step' },
+    { start: 32, pattern: 1, name: 'Push' },
+    { start: 48, pattern: 2, name: 'Cut' },
+    { start: 64, pattern: 1, name: 'Peak' },
+    { start: 80, pattern: 0, name: 'Out' },
+  ];
+  const pirateOutStart = pirateSections[pirateSections.length - 1].start;
+  return buildProject(
+    pirateSections.flatMap((section) => pirateLanes.flatMap((lane) => {
+      if (section.start === pirateOutStart && lane === hatTrack) {
+        return [];
+      }
+      return [createArrangerClip(lane.id, transport, { beatLength: 16, patternIndex: section.pattern, startBeat: section.start })];
+    })),
+    pirateSections.map((section) => ({ beat: section.start, id: createId('marker'), name: section.name })),
+  );
 };
 
 export const createProjectFromTemplate = (

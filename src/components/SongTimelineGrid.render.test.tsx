@@ -29,9 +29,11 @@ afterEach(() => {
   cleanup();
 });
 
-/** Render the grid with a real template project and spy callbacks. */
+/** Render the grid with a real template project and spy callbacks. Midnight
+ * Trap stays a single 16-step bar (kick on 0, 6, 10; snare on 8), which keeps
+ * the cell math here simple. */
 const renderGrid = (overrides: Partial<Parameters<typeof SongTimelineGrid>[0]> = {}) => {
-  const project = createProjectFromTemplate('palm-hour');
+  const project = createProjectFromTemplate('midnight-trap');
   const props = {
     tracks: project.tracks,
     arrangerClips: project.arrangerClips,
@@ -74,7 +76,6 @@ describe('SongTimelineGrid', () => {
   it('erases a filled cell on press without toggling it back on the click', () => {
     const { cell, project, props } = renderGrid();
     const kick = project.tracks[0];
-    // Palm Hour's kick plays four-on-the-floor, so step 0 is filled.
     const filled = cell(kick.id, 0);
     fireEvent.pointerDown(filled, { button: 0 });
     fireEvent.click(filled);
@@ -104,9 +105,9 @@ describe('SongTimelineGrid', () => {
     const kick = project.tracks[0];
     fireEvent.pointerDown(cell(kick.id, 0), { button: 0 });
     fireEvent.pointerOver(cell(kick.id, 1)); // empty gap: skipped
-    fireEvent.pointerOver(cell(kick.id, 4)); // filled: erased
+    fireEvent.pointerOver(cell(kick.id, 6)); // filled: erased
     expect(props.onEraseStep).toHaveBeenCalledTimes(2);
-    expect(props.onEraseStep).toHaveBeenNthCalledWith(2, kick.id, 0, 4);
+    expect(props.onEraseStep).toHaveBeenNthCalledWith(2, kick.id, 0, 6);
     expect(props.onToggleStep).not.toHaveBeenCalled();
   });
 
@@ -115,7 +116,7 @@ describe('SongTimelineGrid', () => {
     const kick = project.tracks[0];
     fireEvent.pointerDown(cell(kick.id, 1), { button: 0 });
     fireEvent.pointerOver(cell(kick.id, 2)); // empty: painted
-    fireEvent.pointerOver(cell(kick.id, 4)); // filled: left alone
+    fireEvent.pointerOver(cell(kick.id, 6)); // filled: left alone
     expect(props.onToggleStep).toHaveBeenCalledTimes(2);
     expect(props.onToggleStep).toHaveBeenNthCalledWith(2, kick.id, 0, 2);
     expect(props.onEraseStep).not.toHaveBeenCalled();
@@ -124,9 +125,9 @@ describe('SongTimelineGrid', () => {
   it('keeps a drag on the lane it started in', () => {
     const { cell, project, props } = renderGrid();
     const kick = project.tracks[0];
-    const clap = project.tracks[1];
+    const snare = project.tracks[1];
     fireEvent.pointerDown(cell(kick.id, 0), { button: 0 });
-    fireEvent.pointerOver(cell(clap.id, 4)); // Palm Hour clap on step 4: another lane, untouched
+    fireEvent.pointerOver(cell(snare.id, 8)); // snare's backbeat: another lane, untouched
     expect(props.onEraseStep).toHaveBeenCalledTimes(1);
   });
 
@@ -135,7 +136,7 @@ describe('SongTimelineGrid', () => {
     const kick = project.tracks[0];
     fireEvent.pointerDown(cell(kick.id, 0), { button: 0 });
     fireEvent.pointerUp(window); // drag ends off-cell, no click fires
-    fireEvent.pointerDown(cell(kick.id, 4), { button: 0 });
+    fireEvent.pointerDown(cell(kick.id, 6), { button: 0 });
     expect(props.onEraseStep).toHaveBeenCalledTimes(2);
   });
 });
