@@ -1,9 +1,12 @@
-import { useEffect, useRef } from 'react';
+import { Suspense, lazy, useEffect, useRef } from 'react';
 import { ChevronDown, ChevronUp, Music4 } from 'lucide-react';
 
 import { useAudio } from '../context/AudioContext';
-import { PianoRollView } from './PianoRollView';
 import { setNotesPanelOpen, useNotesPanelOpen } from './notesPanelStore';
+
+// The Piano Roll is one of the heaviest components in the app and the panel
+// starts collapsed, so its chunk only loads the first time Notes opens.
+const PianoRollView = lazy(() => import('./PianoRollView').then((module) => ({ default: module.PianoRollView })));
 
 // The Piano Roll note editor used to be its own top-level tab. It now lives
 // inside the Sequencer view as a collapsible "Notes" panel, so pitch, velocity,
@@ -45,7 +48,9 @@ export const NotesPanel = () => {
       </button>
       {open && (
         <div ref={bodyRef} className="flex min-h-0 flex-col" style={{ height: 'clamp(420px, 64vh, 720px)' }}>
-          <PianoRollView />
+          <Suspense fallback={<div className="surface-panel flex flex-1 items-center justify-center text-sm text-[var(--text-secondary)]">Opening the note grid</div>}>
+            <PianoRollView />
+          </Suspense>
         </div>
       )}
     </div>

@@ -21,11 +21,13 @@ export default defineConfig(({ command }) => {
     build: {
       rollupOptions: {
         output: {
+          // The lazy-loaded surfaces (Launchpad, capture, transcribe,
+          // settings, Mixer, Piano Roll) split into their own chunks through
+          // dynamic imports; pinning them here would drag them back into the
+          // boot path. Only the always-needed groups stay manual.
           manualChunks: {
             'tone-engine': ['./src/audio/ToneEngine.ts'],
             'project-core': ['./src/project/schema.ts', './src/project/storage.ts'],
-            'components-main': ['./src/components/MainWorkspace.tsx', './src/components/PianoRoll.tsx'],
-            'components-device': ['./src/components/Mixer.tsx', './src/components/DeviceRack.tsx'],
             'vendor': ['react', 'react-dom', 'tone', 'lucide-react'],
           },
         },

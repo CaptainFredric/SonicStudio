@@ -1,21 +1,14 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
 import { AudioProvider, useAudio } from './context/AudioContext';
 import { TopBar } from './components/TopBar';
 import { MainWorkspace as Sequencer } from './components/MainWorkspace';
 import { NotesPanel } from './components/NotesPanel';
-import { Mixer } from './components/Mixer';
 import { DeviceRack } from './components/DeviceRack';
-import { SettingsSidebar } from './components/SettingsSidebar';
 import { ArrangementPanel } from './components/ArrangementPanel';
 import { TapToPlay } from './components/TapToPlay';
-import { Launchpad } from './components/Launchpad';
 import { ShortcutOverlay } from './components/ShortcutOverlay';
-import { ShareDialog } from './components/ShareDialog';
-import { AudioCapture } from './components/AudioCapture';
 import { SuperSonicAssistBar } from './components/SuperSonicAssistBar';
-import { OnboardingGuide } from './components/OnboardingGuide';
 import { QuickCaptureBar } from './components/QuickCaptureBar';
-import { SongTranscriber } from './components/SongTranscriber';
 import { useDialogFocus } from './hooks/useDialogFocus';
 import { MidiKeyboardBridge } from './components/MidiKeyboardBridge';
 import { setManualKeyOverride } from './services/manualKeyOverride';
@@ -36,6 +29,18 @@ import { AudioWaveform, Volume2, Settings, Sparkles, Share2, Coffee } from 'luci
 import { Circle, Maximize2, Minimize2, Minus, Pause, Play, Plus, Square, Zap } from 'lucide-react';
 
 const SUPPORT_URL = 'https://buymeacoffee.com/captainarm1';
+
+// Everything a visitor does not need for the first paint loads on demand: the
+// library overlay, the capture and transcribe dialogs, settings, sharing, the
+// onboarding tour, and the Mixer view. This keeps the boot bundle to the
+// sequencer path; each surface fetches its own chunk the first time it opens.
+const Mixer = lazy(() => import('./components/Mixer').then((module) => ({ default: module.Mixer })));
+const Launchpad = lazy(() => import('./components/Launchpad').then((module) => ({ default: module.Launchpad })));
+const SettingsSidebar = lazy(() => import('./components/SettingsSidebar').then((module) => ({ default: module.SettingsSidebar })));
+const AudioCapture = lazy(() => import('./components/AudioCapture').then((module) => ({ default: module.AudioCapture })));
+const SongTranscriber = lazy(() => import('./components/SongTranscriber').then((module) => ({ default: module.SongTranscriber })));
+const ShareDialog = lazy(() => import('./components/ShareDialog').then((module) => ({ default: module.ShareDialog })));
+const OnboardingGuide = lazy(() => import('./components/OnboardingGuide').then((module) => ({ default: module.OnboardingGuide })));
 
 const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe, onToggleFocus }: { onOpenLaunchpad: () => void; onOpenShare: () => void; onOpenRecord: () => void; onOpenTranscribe: () => void; onToggleFocus: () => void }) => {
   const { activeView, isSettingsOpen, setActiveView, toggleSettings } = useAudio();
@@ -222,7 +227,11 @@ const ViewRouter = () => {
   return (
     <main className="relative flex min-h-[44vh] flex-col md:min-h-0 md:min-w-0 md:flex-1 md:overflow-y-auto md:overflow-x-hidden">
       {activeView === 'SEQUENCER' && <Sequencer />}
-      {activeView === 'MIXER' && <Mixer />}
+      {activeView === 'MIXER' && (
+        <Suspense fallback={<div className="surface-panel flex flex-1 items-center justify-center text-sm text-[var(--text-secondary)]">Opening the mixer</div>}>
+          <Mixer />
+        </Suspense>
+      )}
     </main>
   );
 };
@@ -661,23 +670,39 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
     <div className="app-shell min-h-screen w-full antialiased text-[var(--text-primary)] md:flex md:flex-row md:h-screen md:min-h-0 md:overflow-hidden">
       <MidiKeyboardBridge />
       <ToastStack toasts={toasts} onDismiss={dismissToast} />
-      <OnboardingGuide
-        onComplete={() => {
-          autoGuidePendingRef.current = false;
-          markOnboardingCompleted();
-          setGuideOpen(false);
-        }}
-        onSkip={() => {
-          autoGuidePendingRef.current = false;
-          markOnboardingSkipped();
-          setGuideOpen(false);
-        }}
-        open={isGuideOpen && !isLaunchpadOpen && !isShareOpen && !isRecordOpen && !isTranscribeOpen}
-      />
+      {isGuideOpen && !isLaunchpadOpen && !isShareOpen && !isRecordOpen && !isTranscribeOpen && (
+        <Suspense fallback={null}>
+          <OnboardingGuide
+            onComplete={() => {
+              autoGuidePendingRef.current = false;
+              markOnboardingCompleted();
+              setGuideOpen(false);
+            }}
+            onSkip={() => {
+              autoGuidePendingRef.current = false;
+              markOnboardingSkipped();
+              setGuideOpen(false);
+            }}
+            open
+          />
+        </Suspense>
+      )}
       <ShortcutOverlay />
-      <ShareDialog open={isShareOpen} onClose={() => setShareOpen(false)} onNotify={pushToast} />
-      <AudioCapture open={isRecordOpen} onClose={() => setRecordOpen(false)} />
-      <SongTranscriber open={isTranscribeOpen} onClose={() => setTranscribeOpen(false)} onNotify={pushToast} />
+      {isShareOpen && (
+        <Suspense fallback={null}>
+          <ShareDialog open onClose={() => setShareOpen(false)} onNotify={pushToast} />
+        </Suspense>
+      )}
+      {isRecordOpen && (
+        <Suspense fallback={null}>
+          <AudioCapture open onClose={() => setRecordOpen(false)} />
+        </Suspense>
+      )}
+      {isTranscribeOpen && (
+        <Suspense fallback={null}>
+          <SongTranscriber open onClose={() => setTranscribeOpen(false)} onNotify={pushToast} />
+        </Suspense>
+      )}
       <QuickCaptureBar open={isQuickCaptureOpen} onClose={() => setQuickCaptureOpen(false)} onNotify={pushToast} />
       <input
         ref={fileInputRef}
@@ -689,17 +714,19 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
       />
       {isLaunchpadOpen ? (
         <div ref={launchpadRef} className="fixed inset-0 z-[60] overflow-auto bg-[var(--bg-app)] p-3">
-          <Launchpad
-            isInitialized={isInitialized}
-            isOpen={isLaunchpadOpen}
-            onClose={() => setLaunchpadOpen(false)}
-            onImportMidi={handleImportMidi}
-            onPlayDemo={handlePlayDemo}
-            onSelectTemplate={handleSelectTemplate}
-            onStartGuide={handleStartGuide}
-            onTranscribeSong={openTranscribe}
-            onWakeAudio={() => void initAudio()}
-          />
+          <Suspense fallback={null}>
+            <Launchpad
+              isInitialized={isInitialized}
+              isOpen={isLaunchpadOpen}
+              onClose={() => setLaunchpadOpen(false)}
+              onImportMidi={handleImportMidi}
+              onPlayDemo={handlePlayDemo}
+              onSelectTemplate={handleSelectTemplate}
+              onStartGuide={handleStartGuide}
+              onTranscribeSong={openTranscribe}
+              onWakeAudio={() => void initAudio()}
+            />
+          </Suspense>
         </div>
       ) : null}
       {isSettingsOpen ? (
@@ -712,7 +739,9 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
             type="button"
           />
           <div ref={settingsPanelRef} className="fixed inset-x-3 bottom-3 top-3 z-[65] md:static md:inset-auto md:z-auto md:flex md:min-h-0 md:w-[380px] md:max-w-[380px] md:flex-col">
-            <SettingsSidebar requestedTab={routeState.requestedSettingsTab} />
+            <Suspense fallback={null}>
+              <SettingsSidebar requestedTab={routeState.requestedSettingsTab} />
+            </Suspense>
           </div>
         </>
       ) : null}
