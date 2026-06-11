@@ -1,5 +1,9 @@
 # SonicStudio
 
+**[Open the studio](https://captainfredric.github.io/SonicStudio/)** and press Play. No install, no account.
+
+![The SonicStudio workspace: step sequencer, track timeline, and transport](public/share/sonicstudio-hero.png)
+
 SonicStudio is a browser-native composition studio built with React and Tone.js. It is aimed at fast song sketching, sound design, arrangement editing, and practical workflow exits inside the browser.
 
 ## Why it matters
