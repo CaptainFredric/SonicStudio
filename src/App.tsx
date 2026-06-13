@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { AudioProvider, useAudio } from './context/AudioContext';
 import { TopBar } from './components/TopBar';
 import { MainWorkspace as Sequencer } from './components/MainWorkspace';
@@ -23,6 +23,7 @@ import { APP_VIEW_ORDER, type AppView, type SessionTemplateId } from './project/
 import { markOnboardingCompleted, markOnboardingSkipped, shouldAutoOpenOnboarding } from './services/onboardingState';
 import { useMediaQuery } from './utils/useMediaQuery';
 import { readString } from './utils/safeStorage';
+import { lazyWithRetry } from './utils/lazyWithRetry';
 import { playSupersonicToggleSound } from './audio/uiSounds';
 import { getSupersonicTransitionOrigin, runSupersonicTransition } from './utils/supersonicTransition';
 import { AudioWaveform, Volume2, Settings, Sparkles, Share2, Coffee } from 'lucide-react';
@@ -34,13 +35,13 @@ const SUPPORT_URL = 'https://buymeacoffee.com/captainarm1';
 // library overlay, the capture and transcribe dialogs, settings, sharing, the
 // onboarding tour, and the Mixer view. This keeps the boot bundle to the
 // sequencer path; each surface fetches its own chunk the first time it opens.
-const Mixer = lazy(() => import('./components/Mixer').then((module) => ({ default: module.Mixer })));
-const Launchpad = lazy(() => import('./components/Launchpad').then((module) => ({ default: module.Launchpad })));
-const SettingsSidebar = lazy(() => import('./components/SettingsSidebar').then((module) => ({ default: module.SettingsSidebar })));
-const AudioCapture = lazy(() => import('./components/AudioCapture').then((module) => ({ default: module.AudioCapture })));
-const SongTranscriber = lazy(() => import('./components/SongTranscriber').then((module) => ({ default: module.SongTranscriber })));
-const ShareDialog = lazy(() => import('./components/ShareDialog').then((module) => ({ default: module.ShareDialog })));
-const OnboardingGuide = lazy(() => import('./components/OnboardingGuide').then((module) => ({ default: module.OnboardingGuide })));
+const Mixer = lazyWithRetry(() => import('./components/Mixer').then((module) => ({ default: module.Mixer })), 'mixer');
+const Launchpad = lazyWithRetry(() => import('./components/Launchpad').then((module) => ({ default: module.Launchpad })), 'launchpad');
+const SettingsSidebar = lazyWithRetry(() => import('./components/SettingsSidebar').then((module) => ({ default: module.SettingsSidebar })), 'settings');
+const AudioCapture = lazyWithRetry(() => import('./components/AudioCapture').then((module) => ({ default: module.AudioCapture })), 'capture');
+const SongTranscriber = lazyWithRetry(() => import('./components/SongTranscriber').then((module) => ({ default: module.SongTranscriber })), 'transcriber');
+const ShareDialog = lazyWithRetry(() => import('./components/ShareDialog').then((module) => ({ default: module.ShareDialog })), 'share');
+const OnboardingGuide = lazyWithRetry(() => import('./components/OnboardingGuide').then((module) => ({ default: module.OnboardingGuide })), 'guide');
 
 const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe, onToggleFocus }: { onOpenLaunchpad: () => void; onOpenShare: () => void; onOpenRecord: () => void; onOpenTranscribe: () => void; onToggleFocus: () => void }) => {
   const { activeView, isSettingsOpen, setActiveView, toggleSettings } = useAudio();
