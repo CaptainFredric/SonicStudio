@@ -40,6 +40,7 @@ import {
 } from '../project/schema';
 import { getSupersonicTransitionOrigin, runSupersonicTransition } from '../utils/supersonicTransition';
 import { BrandMark } from './BrandMark';
+import { TransportSpectrum } from './TransportSpectrum';
 
 const MASTER_MATCH_EPSILON = 0.015;
 const SUPERSONIC_WIPE_DURATION_MS = 240;
@@ -680,6 +681,9 @@ export const TopBar = ({
                     >
                       <Circle className="h-4 w-4 fill-current" />
                     </TransportBtn>
+                  </div>
+                  <div className="mt-2 overflow-hidden rounded-md border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] px-2 py-1.5">
+                    <TransportSpectrum active={isPlaying} />
                   </div>
                   {compactStart && (
                     <div

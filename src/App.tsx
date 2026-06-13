@@ -24,6 +24,7 @@ import { markOnboardingCompleted, markOnboardingSkipped, shouldAutoOpenOnboardin
 import { useMediaQuery } from './utils/useMediaQuery';
 import { readString } from './utils/safeStorage';
 import { lazyWithRetry } from './utils/lazyWithRetry';
+import { TransportSpectrum } from './components/TransportSpectrum';
 import { playSupersonicToggleSound } from './audio/uiSounds';
 import { getSupersonicTransitionOrigin, runSupersonicTransition } from './utils/supersonicTransition';
 import { AudioWaveform, Volume2, Settings, Sparkles, Share2, Coffee } from 'lucide-react';
@@ -360,6 +361,12 @@ const CompactTransportBar = ({ forceVisible = false }: { forceVisible?: boolean 
           <Circle className="h-4 w-4 fill-current" />
           {isRecording ? 'Rec' : 'Record'}
         </button>
+      </div>
+      <div
+        className="overflow-hidden rounded-[3px] border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] px-1.5"
+        style={{ flex: '1 1 120px', minWidth: '96px', maxWidth: '320px' }}
+      >
+        <TransportSpectrum active={isPlaying} />
       </div>
       {/* Tempo stays off the phone bar to keep it light, but the SuperSonic
           toggle shows at every size so the mode is always one tap away. */}

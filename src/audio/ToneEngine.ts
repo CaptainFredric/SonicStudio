@@ -120,6 +120,7 @@ export class ToneEngine {
   private transportMode: TransportMode = 'PATTERN';
 
   public analyzer: Tone.Analyser | null = null;
+  public spectrum: Tone.Analyser | null = null;
   public currentPattern = 0;
   public currentStep = 0;
   public recorder: Tone.Recorder | null = null;
@@ -181,6 +182,10 @@ export class ToneEngine {
         volume: -12,
       });
       this.analyzer = this.offlineMode ? null : new Tone.Analyser('fft', 256);
+      // A second, smaller FFT dedicated to the transport spectrum strip. It has
+      // its own node so the device-rack visualizer can flip the main analyzer
+      // between fft and waveform without changing what the strip reads.
+      this.spectrum = this.offlineMode ? null : new Tone.Analyser('fft', 64);
       this.recorder = this.offlineMode ? null : new Tone.Recorder();
       this.masterLimiter.connect(this.masterHighpass);
       this.masterHighpass.connect(this.masterLowpass);
@@ -192,6 +197,9 @@ export class ToneEngine {
       this.metronomeSynth.connect(this.masterLimiter);
       if (this.analyzer) {
         this.masterCompressor.connect(this.analyzer);
+      }
+      if (this.spectrum) {
+        this.masterCompressor.connect(this.spectrum);
       }
       if (this.recorder) {
         this.masterCompressor.connect(this.recorder);
