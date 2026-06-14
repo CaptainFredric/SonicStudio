@@ -182,9 +182,9 @@ export const ShareDialog = ({ open, onClose, onNotify }: ShareDialogProps) => {
           {tab === 'link' && (
             <ModeCard
               title="Share link"
-              description="The whole session is packed into the URL. Opening it brings SonicStudio back in this exact state."
+              description="The whole session is packed into the URL, compressed. Opening it brings SonicStudio back in this exact state."
               meta={shareLink ? `${(linkLength / 1024).toFixed(1)} KB link` : null}
-              footnote="Long sessions can push past browser URL limits. If the link looks cut off, use Save file instead."
+              footnote="Most sessions fit comfortably. For an unusually large one that gets cut off in a chat or browser, use Save file instead."
             >
               <div className="flex flex-col gap-2 sm:flex-row">
                 <input
