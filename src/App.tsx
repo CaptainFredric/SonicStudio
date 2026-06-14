@@ -24,6 +24,7 @@ import { markOnboardingCompleted, markOnboardingSkipped, shouldAutoOpenOnboardin
 import { useMediaQuery } from './utils/useMediaQuery';
 import { readString } from './utils/safeStorage';
 import { lazyWithRetry } from './utils/lazyWithRetry';
+import { decodeSharePayload } from './utils/shareCodec';
 import { TransportSpectrum } from './components/TransportSpectrum';
 import { playSupersonicToggleSound } from './audio/uiSounds';
 import { getSupersonicTransitionOrigin, runSupersonicTransition } from './utils/supersonicTransition';
@@ -434,7 +435,10 @@ const useFirstImpression = () => {
   return !hasEverPlayed;
 };
 
-const decodeShareHashOnce = (() => {
+// Pull the encoded share payload out of the URL exactly once and clear the
+// hash so reloads don't re-import. Decoding happens separately because gzip
+// links decompress asynchronously.
+const consumeShareHashOnce = (() => {
   let consumed = false;
   return (): string | null => {
     if (consumed) return null;
@@ -442,16 +446,8 @@ const decodeShareHashOnce = (() => {
     const match = window.location.hash.match(/#share=([^&]+)/);
     if (!match) return null;
     consumed = true;
-    try {
-      const encoded = match[1];
-      const decoded = decodeURIComponent(escape(window.atob(encoded)));
-      // Clear the hash so reloads don't re-import
-      window.history.replaceState(null, '', window.location.pathname + window.location.search);
-      return decoded;
-    } catch (error) {
-      console.error('SonicStudio: failed to decode share link', error);
-      return null;
-    }
+    window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    return match[1];
   };
 })();
 
@@ -541,10 +537,18 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
   }, [isLaunchpadOpen]);
 
   useEffect(() => {
-    const shared = decodeShareHashOnce();
-    if (!shared) return;
+    const encodedShare = consumeShareHashOnce();
+    if (!encodedShare) return;
     let cancelled = false;
     const loadSharedSession = async () => {
+      let shared: string;
+      try {
+        shared = await decodeSharePayload(encodedShare);
+      } catch (error) {
+        console.error('SonicStudio: failed to decode share link', error);
+        return;
+      }
+      if (cancelled) return;
       setLaunchpadOpen(false);
       // Wrapped share payloads also carry the sender's manual key
       // override. Restore it so the receiver picks up the same pin

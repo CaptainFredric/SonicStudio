@@ -4,6 +4,7 @@ import { Check, Copy, Download, Link2, Share2, X } from 'lucide-react';
 import { useAudio } from '../context/AudioContext';
 import { useDialogFocus } from '../hooks/useDialogFocus';
 import { useManualKeyOverride } from '../services/manualKeyOverride';
+import { encodeSharePayload } from '../utils/shareCodec';
 
 interface ShareDialogProps {
   open: boolean;
@@ -12,15 +13,6 @@ interface ShareDialogProps {
 }
 
 type Tab = 'link' | 'clipboard' | 'file';
-
-const encodeForLink = (text: string): string => {
-  if (typeof window === 'undefined') return '';
-  try {
-    return window.btoa(unescape(encodeURIComponent(text)));
-  } catch {
-    return '';
-  }
-};
 
 const formatBytes = (bytes: number): string => {
   if (bytes < 1024) return `${bytes} B`;
@@ -53,11 +45,22 @@ export const ShareDialog = ({ open, onClose, onNotify }: ShareDialogProps) => {
     }
   }, [currentSession, open, override]);
 
-  const shareLink = useMemo(() => {
-    if (!sessionJson || typeof window === 'undefined') return '';
-    const encoded = encodeForLink(sessionJson);
-    if (!encoded) return '';
-    return `${window.location.origin}${window.location.pathname}#share=${encoded}`;
+  // Compressing the payload is async (CompressionStream), so the link is built
+  // in an effect rather than a memo.
+  const [shareLink, setShareLink] = useState('');
+  useEffect(() => {
+    if (!sessionJson || typeof window === 'undefined') {
+      setShareLink('');
+      return;
+    }
+    let cancelled = false;
+    void encodeSharePayload(sessionJson).then((encoded) => {
+      if (cancelled) return;
+      setShareLink(encoded ? `${window.location.origin}${window.location.pathname}#share=${encoded}` : '');
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [sessionJson]);
 
   const payloadBytes = sessionJson ? new Blob([sessionJson]).size : 0;
