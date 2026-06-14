@@ -271,13 +271,38 @@ interface AudioContextType {
   audioStabilityMode: AudioStabilityMode;
 }
 
+// The action surface of the context: every callback, none of the changing
+// state. Derived from AudioContextType so it can never drift from it.
+type ActionKeys = {
+  [K in keyof AudioContextType]: AudioContextType[K] extends (...args: never[]) => unknown ? K : never;
+}[keyof AudioContextType];
+export type AudioActions = Pick<AudioContextType, ActionKeys>;
+
 const AudioContext = createContext<AudioContextType | null>(null);
+// Actions live in their own context with a stable value, so a component that
+// only needs callbacks (a toolbar button, the nav rail) does not re-render when
+// tracks, selection, or the playhead change. The hot per-step value already has
+// its own PlaybackStepContext.
+const AudioActionsContext = createContext<AudioActions | null>(null);
 const PlaybackStepContext = createContext(0);
 
 export const useAudio = () => {
   const context = useContext(AudioContext);
   if (!context) {
     throw new Error('useAudio must be used within AudioProvider');
+  }
+
+  return context;
+};
+
+// Subscribe to just the action callbacks. Prefer this over useAudio() in
+// components that never read changing state, so they stop re-rendering on every
+// edit. The type carries only callbacks, so reaching for state here is a compile
+// error rather than a silent re-render regression.
+export const useAudioActions = () => {
+  const context = useContext(AudioActionsContext);
+  if (!context) {
+    throw new Error('useAudioActions must be used within AudioProvider');
   }
 
   return context;
@@ -747,18 +772,8 @@ export const AudioProvider = ({
     setRenderState,
   }), [loopRangeEndBeat, loopRangeStartBeat, project, publishNotice, selectedArrangerClipId]);
 
-  const audioContextValue = useMemo<AudioContextType>(() => ({
-    activeView,
-    arrangerClips,
-    bpm: project.transport.bpm,
-    bounceHistory: project.bounceHistory,
-    canRedo: editorState.history.future.length > 0,
-    canUndo: editorState.history.past.length > 0,
-    countInActive,
-    countInBars: project.transport.countInBars,
-    countInBeatsRemaining,
-    currentPattern: project.transport.currentPattern,
-    currentSession,
+  const actions = useMemo<AudioActions>(() => ({
+    ...dispatchers,
     exportAudioMix,
     exportMidi,
     exportTrackStems,
@@ -766,66 +781,26 @@ export const AudioProvider = ({
     importMidiSession,
     importSession,
     initAudio,
-    isInitialized,
-    isPlaying,
-    isRecording,
-    isSettingsOpen: editorState.ui.isSettingsOpen,
-    lastSavedAt,
-    latestNotice,
     loadSessionTemplate,
     loadTranscribedSession,
-    loopRangeEndBeat,
-    loopRangeStartBeat,
-    master: project.master,
-    masterSnapshots: project.masterSnapshots,
-    metronomeEnabled: project.transport.metronomeEnabled,
-    motionMode: preferences.motionMode,
-    capturePreferences: preferences.capture,
-    accentColor: preferences.accentColor,
-    density: preferences.density,
-    defaultWorkspace: preferences.defaultWorkspace,
-    superSonicMode: preferences.superSonicMode,
-    superSonicPreferences: preferences.superSonic,
     newSession,
-    patternCount: project.transport.patternCount,
-    pinnedTrackIds,
     previewTrack,
     auditionInstrumentNote,
     auditionTrackVoicePreset,
-    projectCheckpoints,
-    scoresheets,
     saveScoresheet: handleSaveScoresheet,
     loadScoresheet: handleLoadScoresheet,
     renameScoresheet: handleRenameScoresheet,
     deleteScoresheet: handleDeleteScoresheet,
-    projectName: project.metadata.name,
-    renderState,
     rerunBounceHistory,
     restoreCheckpoint,
     saveCheckpoint,
     saveProject,
     exportTrainingCorpus,
-    trainingCorpusSummary,
-    saveStatus,
-    selectedArrangerClipId,
-    selectedTrackId,
-    songLengthInBeats,
-    songMarkers,
-    stepsPerPattern: project.transport.stepsPerPattern,
     stop,
     requestDemoPlayback,
     togglePlay,
     toggleRecording,
-    tracks: project.tracks,
-    trackSnapshots: project.trackSnapshots,
-    transportMode: project.transport.mode,
-    uiSoundsEnabled: preferences.uiSoundsEnabled,
-    midiInputEnabled: preferences.midiInputEnabled,
-    midiRecordEnabled: preferences.midiRecordEnabled,
-    stickyMobileTransport: preferences.stickyMobileTransport,
-    audioStabilityMode: preferences.audioStabilityMode,
     deleteCheckpoint,
-    ...dispatchers,
     setMotionMode: (motionMode) => setPreferences((current) => ({ ...current, motionMode })),
     setCaptureAnalysisProfile: (analysisProfile) => setPreferences((current) => ({
       ...current,
@@ -881,20 +856,14 @@ export const AudioProvider = ({
       },
     })),
   }), [
-    activeView,
-    arrangerClips,
-    countInActive,
-    countInBeatsRemaining,
-    currentSession,
-    deleteCheckpoint,
     dispatchers,
-    editorState.history.future.length,
-    editorState.history.past.length,
-    editorState.ui.isSettingsOpen,
+    deleteCheckpoint,
+    dispatch,
     exportAudioMix,
     exportMidi,
     exportSessionToFile,
     exportTrackStems,
+    exportTrainingCorpus,
     handleDeleteScoresheet,
     handleLoadScoresheet,
     handleRenameScoresheet,
@@ -902,16 +871,92 @@ export const AudioProvider = ({
     importMidiSession,
     importSession,
     initAudio,
+    loadSessionTemplate,
+    loadTranscribedSession,
+    newSession,
+    previewTrack,
+    auditionInstrumentNote,
+    auditionTrackVoicePreset,
+    rerunBounceHistory,
+    restoreCheckpoint,
+    saveCheckpoint,
+    saveProject,
+    setPreferences,
+    stop,
+    requestDemoPlayback,
+    togglePlay,
+    toggleRecording,
+  ]);
+
+  const audioContextValue = useMemo<AudioContextType>(() => ({
+    ...actions,
+    activeView,
+    arrangerClips,
+    bpm: project.transport.bpm,
+    bounceHistory: project.bounceHistory,
+    canRedo: editorState.history.future.length > 0,
+    canUndo: editorState.history.past.length > 0,
+    countInActive,
+    countInBars: project.transport.countInBars,
+    countInBeatsRemaining,
+    currentPattern: project.transport.currentPattern,
+    currentSession,
+    isInitialized,
+    isPlaying,
+    isRecording,
+    isSettingsOpen: editorState.ui.isSettingsOpen,
+    lastSavedAt,
+    latestNotice,
+    loopRangeEndBeat,
+    loopRangeStartBeat,
+    master: project.master,
+    masterSnapshots: project.masterSnapshots,
+    metronomeEnabled: project.transport.metronomeEnabled,
+    motionMode: preferences.motionMode,
+    capturePreferences: preferences.capture,
+    accentColor: preferences.accentColor,
+    density: preferences.density,
+    defaultWorkspace: preferences.defaultWorkspace,
+    superSonicMode: preferences.superSonicMode,
+    superSonicPreferences: preferences.superSonic,
+    patternCount: project.transport.patternCount,
+    pinnedTrackIds,
+    projectCheckpoints,
+    scoresheets,
+    projectName: project.metadata.name,
+    renderState,
+    trainingCorpusSummary,
+    saveStatus,
+    selectedArrangerClipId,
+    selectedTrackId,
+    songLengthInBeats,
+    songMarkers,
+    stepsPerPattern: project.transport.stepsPerPattern,
+    tracks: project.tracks,
+    trackSnapshots: project.trackSnapshots,
+    transportMode: project.transport.mode,
+    uiSoundsEnabled: preferences.uiSoundsEnabled,
+    midiInputEnabled: preferences.midiInputEnabled,
+    midiRecordEnabled: preferences.midiRecordEnabled,
+    stickyMobileTransport: preferences.stickyMobileTransport,
+    audioStabilityMode: preferences.audioStabilityMode,
+  }), [
+    actions,
+    activeView,
+    arrangerClips,
+    countInActive,
+    countInBeatsRemaining,
+    currentSession,
+    editorState.history.future.length,
+    editorState.history.past.length,
+    editorState.ui.isSettingsOpen,
     isInitialized,
     isPlaying,
     isRecording,
     lastSavedAt,
     latestNotice,
-    loadSessionTemplate,
-    loadTranscribedSession,
     loopRangeEndBeat,
     loopRangeStartBeat,
-    newSession,
     pinnedTrackIds,
     preferences.accentColor,
     preferences.capture,
@@ -925,17 +970,9 @@ export const AudioProvider = ({
     preferences.midiRecordEnabled,
     preferences.stickyMobileTransport,
     preferences.audioStabilityMode,
-    previewTrack,
-    auditionInstrumentNote,
-    auditionTrackVoicePreset,
     project,
     projectCheckpoints,
     renderState,
-    rerunBounceHistory,
-    restoreCheckpoint,
-    saveCheckpoint,
-    saveProject,
-    exportTrainingCorpus,
     trainingCorpusSummary,
     saveStatus,
     scoresheets,
@@ -943,17 +980,15 @@ export const AudioProvider = ({
     selectedTrackId,
     songLengthInBeats,
     songMarkers,
-    stop,
-    requestDemoPlayback,
-    togglePlay,
-    toggleRecording,
   ]);
 
   return (
     <PlaybackStepContext.Provider value={currentStep}>
-      <AudioContext.Provider value={audioContextValue}>
-        {children}
-      </AudioContext.Provider>
+      <AudioActionsContext.Provider value={actions}>
+        <AudioContext.Provider value={audioContextValue}>
+          {children}
+        </AudioContext.Provider>
+      </AudioActionsContext.Provider>
     </PlaybackStepContext.Provider>
   );
 };

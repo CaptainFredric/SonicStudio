@@ -11,7 +11,7 @@ import {
   X,
 } from 'lucide-react';
 
-import { useAudio } from '../context/AudioContext';
+import { useAudioActions } from '../context/AudioContext';
 import { useDialogFocus } from '../hooks/useDialogFocus';
 import { captureNoteStringFromTranscription } from '../services/noteStringLibrary';
 import {
@@ -54,7 +54,7 @@ const decodeAudio = async (data: ArrayBuffer): Promise<AudioBuffer> => {
 };
 
 export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProps) => {
-  const { loadTranscribedSession } = useAudio();
+  const { loadTranscribedSession } = useAudioActions();
   const [status, setStatus] = useState<TranscriberStatus>('idle');
   const [result, setResult] = useState<TranscriptionResult | null>(null);
   const [peaks, setPeaks] = useState<number[]>([]);
