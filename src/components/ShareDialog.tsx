@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Check, Copy, Download, Link2, Share2, X } from 'lucide-react';
+import { Check, Copy, Download, ExternalLink, Link2, Share2, X } from 'lucide-react';
 
 import { useAudio } from '../context/AudioContext';
 import { useDialogFocus } from '../hooks/useDialogFocus';
@@ -201,6 +201,20 @@ export const ShareDialog = ({ open, onClose, onNotify }: ShareDialogProps) => {
                 >
                   {copied === 'link' ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                   {copied === 'link' ? 'Copied' : 'Copy link'}
+                </button>
+                <button
+                  className="control-chip flex items-center justify-center gap-2 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] disabled:opacity-40"
+                  disabled={!shareLink}
+                  onClick={() => {
+                    if (shareLink) {
+                      window.open(shareLink, '_blank', 'noopener,noreferrer');
+                    }
+                  }}
+                  title="Open the link in a new tab to check what the other person will see"
+                  type="button"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Open
                 </button>
               </div>
             </ModeCard>
