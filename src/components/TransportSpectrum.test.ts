@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { spectrumToBars } from './TransportSpectrum';
+import { decayPeaks, spectrumToBars } from './TransportSpectrum';
 
 describe('spectrumToBars', () => {
   it('returns the requested number of bars', () => {
@@ -39,5 +39,31 @@ describe('spectrumToBars', () => {
     const bars = spectrumToBars(values, 16);
     expect(bars[0]).toBeGreaterThan(0.5);
     expect(bars[bars.length - 1]).toBe(0);
+  });
+});
+
+describe('decayPeaks', () => {
+  it('jumps a cap up instantly to a higher bar', () => {
+    // Bar rose well above the previous cap; the cap snaps to the bar.
+    expect(decayPeaks([0.2], [0.8], 0.014)).toEqual([0.8]);
+  });
+
+  it('lets a cap fall by the gravity amount when the bar drops', () => {
+    expect(decayPeaks([0.8], [0.1], 0.014)[0]).toBeCloseTo(0.786, 5);
+  });
+
+  it('never lets a cap fall below the current bar', () => {
+    // One step of gravity would undershoot the bar, so it clamps to the bar.
+    expect(decayPeaks([0.5], [0.49], 0.014)).toEqual([0.49]);
+  });
+
+  it('treats a missing prior cap as starting at the bar', () => {
+    expect(decayPeaks([], [0.3], 0.014)).toEqual([0.3]);
+  });
+
+  it('decays each bar independently', () => {
+    const next = decayPeaks([0.9, 0.2], [0.1, 0.6], 0.1);
+    expect(next[0]).toBeCloseTo(0.8, 5); // fell under gravity
+    expect(next[1]).toBe(0.6); // snapped up to the louder bar
   });
 });

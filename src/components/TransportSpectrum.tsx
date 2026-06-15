@@ -46,6 +46,18 @@ export const spectrumToBars = (
   return bars;
 };
 
+// How far a peak-hold cap falls per frame once the bar drops beneath it.
+const PEAK_FALL = 0.014;
+
+// Peak-hold: a cap jumps instantly to a new bar peak, then sinks under a little
+// gravity, so transients leave a briefly hanging marker. Never falls below the
+// current bar. Pure and exported for unit testing alongside spectrumToBars.
+export const decayPeaks = (
+  peaks: number[],
+  levels: number[],
+  fall: number = PEAK_FALL,
+): number[] => levels.map((level, bar) => Math.max(level, (peaks[bar] ?? level) - fall));
+
 interface TransportSpectrumProps {
   active: boolean;
   className?: string;
@@ -63,6 +75,8 @@ export const TransportSpectrum = ({ active, className }: TransportSpectrumProps)
   // Smoothed bar heights persist across active/idle transitions so the strip
   // eases between states instead of snapping.
   const levelsRef = useRef<number[]>(Array.from({ length: BAR_COUNT }, (_, bar) => idleProfile(bar)));
+  // Peak-hold caps track the recent maximum of each bar and fall slowly.
+  const peaksRef = useRef<number[]>(Array.from({ length: BAR_COUNT }, (_, bar) => idleProfile(bar)));
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -110,6 +124,7 @@ export const TransportSpectrum = ({ active, className }: TransportSpectrumProps)
       const gap = 2;
       const barWidth = (width - gap * (BAR_COUNT - 1)) / BAR_COUNT;
       const levels = levelsRef.current;
+      const peaks = peaksRef.current;
 
       for (let bar = 0; bar < BAR_COUNT; bar += 1) {
         const level = levels[bar];
@@ -127,6 +142,12 @@ export const TransportSpectrum = ({ active, className }: TransportSpectrumProps)
         ctx.beginPath();
         ctx.roundRect(x, y, barWidth, barHeight, radius);
         ctx.fill();
+
+        // Peak-hold cap: a bright sliver at the bar's recent maximum.
+        const capCenter = height - Math.max(barHeight, peaks[bar] * height);
+        ctx.globalAlpha = 0.9;
+        ctx.fillStyle = palette.top;
+        ctx.fillRect(x, Math.max(0, Math.min(height - 2, capCenter - 1)), barWidth, 2);
       }
       ctx.globalAlpha = 1;
     };
@@ -154,6 +175,16 @@ export const TransportSpectrum = ({ active, className }: TransportSpectrumProps)
         }
       }
 
+      // Caps ride above the bars, so the loop must keep running while any cap is
+      // still falling toward its bar, even after the bars themselves have settled.
+      const peaks = decayPeaks(peaksRef.current, levels);
+      peaksRef.current = peaks;
+      for (let bar = 0; bar < BAR_COUNT; bar += 1) {
+        if (peaks[bar] - levels[bar] > 0.004) {
+          moving = true;
+        }
+      }
+
       render();
 
       if (active && !reduceMotion) {
@@ -164,6 +195,7 @@ export const TransportSpectrum = ({ active, className }: TransportSpectrumProps)
         // Settled at rest: draw the final frame and stop burning animation.
         for (let bar = 0; bar < BAR_COUNT; bar += 1) {
           levels[bar] = idleProfile(bar);
+          peaksRef.current[bar] = idleProfile(bar);
         }
         render();
       }
