@@ -29,7 +29,7 @@ export type SourceEngine = 'synth' | 'sample';
 export type SamplePlaybackMode = 'pitched' | 'oneshot';
 export type SampleTriggerMode = 'active-slice' | 'full-source' | 'step-mapped';
 export type SamplePreset = 'kick-thud' | 'snare-crack' | 'hat-air' | 'bass-pluck' | 'lead-glass' | 'pad-haze' | 'pluck-mallet' | 'fx-rise';
-export type SessionTemplateId = 'blank-grid' | 'night-transit' | 'beat-lab' | 'ambient-drift' | 'lofi-sunday' | 'synthwave-drive' | 'club-horizon' | 'starlight-parade' | 'velvet-suite' | 'crystal-garden' | 'twilight-frame' | 'late-hours' | 'pulse-rider' | 'midnight-trap' | 'neon-breaks' | 'sunset-house' | 'palm-hour' | 'pirate-radio';
+export type SessionTemplateId = 'blank-grid' | 'night-transit' | 'beat-lab' | 'ambient-drift' | 'lofi-sunday' | 'synthwave-drive' | 'club-horizon' | 'starlight-parade' | 'velvet-suite' | 'crystal-garden' | 'twilight-frame' | 'late-hours' | 'pulse-rider' | 'midnight-trap' | 'neon-breaks' | 'sunset-house' | 'palm-hour' | 'pirate-radio' | 'saturday-lights';
 
 export interface SessionTemplateDefinition {
   description: string;
@@ -455,6 +455,7 @@ const CLUB_TRACK_ORDER: InstrumentType[] = ['kick', 'snare', 'hihat', 'bass', 'p
 const TRAP_TRACK_ORDER: InstrumentType[] = ['kick', 'snare', 'hihat', 'bass', 'bell', 'pad'];
 const DNB_TRACK_ORDER: InstrumentType[] = ['kick', 'snare', 'hihat', 'bass', 'lead', 'pad'];
 const HOUSE_TRACK_ORDER: InstrumentType[] = ['kick', 'snare', 'hihat', 'bass', 'pad', 'pluck'];
+const DISCO_TRACK_ORDER: InstrumentType[] = ['kick', 'snare', 'hihat', 'bass', 'pluck', 'pad', 'lead'];
 const PULSE_TRACK_ORDER: InstrumentType[] = ['kick', 'snare', 'hihat', 'bass', 'lead', 'pad', 'fx'];
 const STARLIGHT_TRACK_ORDER: InstrumentType[] = ['kick', 'snare', 'hihat', 'bass', 'lead', 'pad', 'pluck'];
 const VELVET_SUITE_TRACK_ORDER: InstrumentType[] = ['bass', 'piano', 'pad', 'violin'];
@@ -571,6 +572,12 @@ export const SESSION_TEMPLATE_DEFINITIONS: SessionTemplateDefinition[] = [
     focus: 'UK garage two-step',
     id: 'pirate-radio',
     label: 'Pirate Radio',
+  },
+  {
+    description: 'Disco at 120 BPM in C major: a four-on-the-floor kick, off-beat open hats, an octave-jumping bass, staccato clav comping, and sweeping string chords with brass stabs.',
+    focus: 'Four-on-the-floor disco',
+    id: 'saturday-lights',
+    label: 'Saturday Lights',
   },
 ];
 
@@ -3374,6 +3381,114 @@ export const createPirateRadioProject = (projectName: string = 'Pirate Radio'): 
   );
 };
 
+export const createSaturdayLightsProject = (projectName: string = 'Saturday Lights'): Project => {
+  const { buildProject, tracks, transport } = createProjectFrame(projectName, {
+    bpm: 120,
+    mode: 'SONG',
+    trackOrder: DISCO_TRACK_ORDER,
+  });
+  const [kickTrack, snareTrack, hatTrack, bassTrack, clavTrack, stringTrack, brassTrack] = tracks;
+
+  // One chord per beat across the bar: Am - F - C - G.
+  // Four-on-the-floor kick with a backbeat clap.
+  for (const step of [0, 4, 8, 12]) {
+    putStep(kickTrack, 0, step, 'C1', { velocity: step === 0 ? 0.94 : 0.86 });
+  }
+  for (const step of [4, 12]) {
+    putStep(snareTrack, 0, step, 'C1', { velocity: 0.78 });
+  }
+  // Straight eighth hats with the upbeats opened up, the disco "tss".
+  for (const step of [0, 4, 8, 12]) {
+    putStep(hatTrack, 0, step, 'C1', { gate: 0.22, velocity: 0.42 });
+  }
+  for (const step of [2, 6, 10, 14]) {
+    putStep(hatTrack, 0, step, 'C1', { gate: 0.5, velocity: 0.6 });
+  }
+  // The signature octave-jumping bass: root on the beat, octave on the and.
+  const bassOctaves: Array<[number, string, string]> = [
+    [0, 'A1', 'A2'],
+    [4, 'F1', 'F2'],
+    [8, 'C2', 'C3'],
+    [12, 'G1', 'G2'],
+  ];
+  for (const [beatStep, root, octave] of bassOctaves) {
+    putStep(bassTrack, 0, beatStep, root, { gate: 0.4, velocity: 0.82 });
+    putStep(bassTrack, 0, beatStep + 2, octave, { gate: 0.4, velocity: 0.7 });
+  }
+  // Staccato clav comping on the off-sixteenths (the chicken-scratch rhythm).
+  const clavStabs: Array<[number, string[]]> = [
+    [1, ['C5', 'E5']], [3, ['C5', 'E5']],
+    [5, ['C5', 'F5']], [7, ['C5', 'F5']],
+    [9, ['E5', 'G5']], [11, ['E5', 'G5']],
+    [13, ['D5', 'G5']], [15, ['D5', 'G5']],
+  ];
+  for (const [step, notes] of clavStabs) {
+    stackStep(clavTrack, 0, step, notes.map((note) => ({ note, options: { gate: 0.2, velocity: 0.44 } })));
+  }
+  // Sustained string chords, one per beat.
+  const stringChords: Array<[number, string[]]> = [
+    [0, ['A3', 'C4', 'E4']],
+    [4, ['F3', 'A3', 'C4']],
+    [8, ['C4', 'E4', 'G4']],
+    [12, ['G3', 'B3', 'D4']],
+  ];
+  for (const [step, notes] of stringChords) {
+    stackStep(stringTrack, 0, step, notes.map((note) => ({ note, options: { gate: 4, velocity: 0.32 } })));
+  }
+  // A single brass accent on the downbeat; the full riff arrives on the lift.
+  putStep(brassTrack, 0, 0, 'A4', { gate: 0.5, velocity: 0.66 });
+
+  // Pattern 1 (the lift): the groove plus a brass hook and handclap fills.
+  const discoLanes = [kickTrack, snareTrack, hatTrack, bassTrack, clavTrack, stringTrack, brassTrack];
+  discoLanes.forEach((lane) => copyPattern(lane, 0, 1));
+  const brassHook: Array<[number, string]> = [[0, 'A4'], [3, 'C5'], [6, 'E5'], [8, 'G4'], [11, 'E5'], [14, 'C5']];
+  for (const [step, note] of brassHook) {
+    putStep(brassTrack, 1, step, note, { gate: 0.4, velocity: 0.6 });
+  }
+  for (const step of [7, 15]) {
+    putStep(snareTrack, 1, step, 'C1', { gate: 0.4, velocity: 0.6 });
+  }
+
+  // Pattern 2 (the break): drums out, strings and the octave bass carry it with
+  // the clav, so the arc has a place to breathe before the peak.
+  copyPattern(bassTrack, 0, 2);
+  copyPattern(clavTrack, 0, 2);
+  copyPattern(stringTrack, 0, 2);
+
+  bassTrack.source.octaveShift = -1;
+  bassTrack.source.waveform = 'triangle';
+  bassTrack.params.distortion = 0.06;
+  clavTrack.source.waveform = 'square';
+  clavTrack.params.delaySend = 0.22;
+  clavTrack.params.reverbSend = 0.2;
+  stringTrack.source.waveform = 'sawtooth';
+  stringTrack.params.reverbSend = 0.5;
+  stringTrack.params.chorusSend = 0.34;
+  brassTrack.source.waveform = 'sawtooth';
+  brassTrack.params.reverbSend = 0.24;
+
+  // A six-section set: a string-led intro, the groove, the lift, a drums-out
+  // break, the peak, and out with the hats dropped.
+  const discoSections: Array<{ start: number; pattern: number; name: string }> = [
+    { start: 0, pattern: 2, name: 'Intro' },
+    { start: 16, pattern: 0, name: 'Groove' },
+    { start: 32, pattern: 1, name: 'Lift' },
+    { start: 48, pattern: 2, name: 'Break' },
+    { start: 64, pattern: 1, name: 'Peak' },
+    { start: 80, pattern: 0, name: 'Out' },
+  ];
+  const discoOutStart = discoSections[discoSections.length - 1].start;
+  return buildProject(
+    discoSections.flatMap((section) => discoLanes.flatMap((lane) => {
+      if (section.start === discoOutStart && lane === hatTrack) {
+        return [];
+      }
+      return [createArrangerClip(lane.id, transport, { beatLength: 16, patternIndex: section.pattern, startBeat: section.start })];
+    })),
+    discoSections.map((section) => ({ beat: section.start, id: createId('marker'), name: section.name })),
+  );
+};
+
 export const createProjectFromTemplate = (
   templateId: SessionTemplateId,
 ): Project => {
@@ -3412,6 +3527,8 @@ export const createProjectFromTemplate = (
       return createPalmHourProject();
     case 'pirate-radio':
       return createPirateRadioProject();
+    case 'saturday-lights':
+      return createSaturdayLightsProject();
     case 'night-transit':
     default:
       return createNightTransitProject();
