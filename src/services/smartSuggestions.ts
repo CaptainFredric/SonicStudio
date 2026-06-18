@@ -50,12 +50,15 @@ export interface SmartSuggestion {
 // One-tap voice recommendations for sparse / empty lanes. Pulled from
 // the preset library by id so the suggestion panel does not need to
 // know the preset's internal shape.
-const PRESET_RECOMMENDATIONS: Record<string, { presetId: string; label: string }> = {
+// Exported so a registry test can confirm each recommended preset id still
+// exists and applies to the track type it is offered for.
+export const PRESET_RECOMMENDATIONS: Record<string, { presetId: string; label: string }> = {
   pad: { presetId: 'tape-warmth', label: 'Try Tape Warmth on this pad' },
   violin: { presetId: 'bowed-ribbon', label: 'Try Bowed Ribbon on this violin' },
   bell: { presetId: 'glass-bell', label: 'Try Glass Bell on this bell' },
   lead: { presetId: 'whistle-breath', label: 'Try Whistle Breath on this lead' },
   bass: { presetId: 'round-sub', label: 'Try Round Sub on this bass' },
+  piano: { presetId: 'felt-piano', label: 'Try Felt Piano on this piano' },
 };
 
 const DRUM_TYPES = new Set<Track['type']>(['kick', 'snare', 'hihat']);
