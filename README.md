@@ -20,12 +20,12 @@ The current build supports an actual writing flow:
 ## Current capabilities
 
 1. A step sequencer with inline piano-roll, arrangement, and timeline panels, plus a mixer and a sound desk, all tied to one serializable project state
-2. Synth lanes and sample lanes with slice-aware triggering
+2. Synth lanes and sample lanes with slice-aware triggering, and a live spectrum in the transport
 3. Song markers, loop ranges, clip editing, pattern transforms, and section duplication
 4. MIDI import and scoped MIDI export
 5. WAV bounce with scope selection, print targets, analysis, and bounce history
 6. Master presets, master snapshots, track sound recall, and recovery checkpoints
-7. Starter scenes for quick starts and first use
+7. A genre-spanning starter library with a featured scene that rotates daily, plus compressed share links that reopen a session in one click
 
 ## Current architecture
 
@@ -64,10 +64,13 @@ restore and checkpoints, render and export scope, and route-driven entry. The
 per-keystroke corpus summary has also been moved off the edit hot path — it
 recomputes after edits settle rather than on every toggle.
 
-The remaining targets are smaller and more contained:
+The provider's stable callbacks now live in their own actions context
+(`useAudioActions`), so a component that only dispatches no longer re-renders
+when tracks, selection, or the playhead change; the per-step playhead has its own
+context as well. The remaining targets are smaller and more contained:
 
 1. device-rack source ownership is still concentrated in the slice and source-window authoring path
-2. the audio context value is one large object, so an edit re-renders every consumer; splitting the frequently-changing editor state from the stable callbacks would cut render churn on large projects
+2. heavy views still read editor state through one shared context, so narrowing those reads to per-slice subscriptions is the next render-churn lever if large projects ever need it
 
 ## Quick start
 
@@ -101,6 +104,17 @@ For GitHub Pages under `/SonicStudio/`, use:
 npm run build:pages
 ```
 
+## Screenshots
+
+The README and Open Graph images (`public/share/`) are captured from the running
+app, so they stay honest after UI changes. With a dev server up, regenerate them:
+
+```bash
+npm run dev                  # serves the studio
+npx playwright install chromium   # once
+CAPTURE_URL=http://127.0.0.1:3000 npm run capture:hero
+```
+
 ## Verification
 
 ```bash
@@ -109,7 +123,9 @@ npm test
 npm run build
 ```
 
-Current test coverage includes reducer invariants, arranger selector and interaction logic, clip mutation helpers, note edit hydration, MIDI round trips, transport-controller behavior, render workflow behavior, session workflow behavior, explicit route resolution, and controller-level render and restore seams.
+`npm run lint` runs the TypeScript compiler and ESLint (typescript-eslint plus the React hooks rules); `npm test` runs the Vitest suite; `npm run build` type-checks and produces the production bundle.
+
+Current test coverage includes reducer invariants, arranger selector and interaction logic, clip mutation helpers, note edit hydration, MIDI round trips, transport-controller behavior, render workflow behavior, session workflow behavior, explicit route resolution, controller-level render and restore seams, component render smoke tests, the share-link codec and lazy-load retry, and registry integrity checks that build every starter scene and validate every voice preset.
 
 ## Project direction
 
