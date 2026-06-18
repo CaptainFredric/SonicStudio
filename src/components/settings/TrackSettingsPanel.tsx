@@ -80,6 +80,8 @@ export const TrackSettingsPanel = () => {
               <span className="font-mono text-xs text-[var(--text-secondary)]">{selectedTrack.volume.toFixed(1)} dB</span>
             </div>
             <input
+              aria-label={`Volume for ${selectedTrack.name}`}
+              aria-valuetext={`${selectedTrack.volume.toFixed(0)} decibels`}
               className="mt-3"
               max="6"
               min="-60"
@@ -96,6 +98,8 @@ export const TrackSettingsPanel = () => {
               <span className="font-mono text-xs text-[var(--text-secondary)]">{selectedTrack.pan.toFixed(1)}</span>
             </div>
             <input
+              aria-label={`Pan for ${selectedTrack.name}`}
+              aria-valuetext={selectedTrack.pan === 0 ? 'Center' : `${Math.abs(selectedTrack.pan).toFixed(1)} ${selectedTrack.pan < 0 ? 'left' : 'right'}`}
               className="mt-3"
               max="1"
               min="-1"

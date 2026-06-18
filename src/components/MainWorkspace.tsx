@@ -2866,6 +2866,7 @@ export const MainWorkspace = () => {
                     {visibleStepStart + 1}
                   </span>
                   <input
+                    aria-label="Scroll the step grid horizontally"
                     className="sonic-scroll-strip"
                     max={maxGridScrollLeft}
                     min={0}
@@ -3478,6 +3479,8 @@ export const MainWorkspace = () => {
                         <span className="font-mono text-[10px] text-[var(--text-secondary)]">{Math.round(selectedStepNote.velocity * 100)}</span>
                       </div>
                       <input
+                        aria-label="Note velocity"
+                        aria-valuetext={`${Math.round(selectedStepNote.velocity * 100)} percent`}
                         className="mt-3"
                         max="1"
                         min="0.1"
@@ -3493,6 +3496,8 @@ export const MainWorkspace = () => {
                         <span className="font-mono text-[10px] text-[var(--text-secondary)]">{selectedStepNote.gate.toFixed(2)}</span>
                       </div>
                       <input
+                        aria-label="Note length"
+                        aria-valuetext={`${selectedStepNote.gate.toFixed(2)} steps`}
                         className="mt-3"
                         max={NOTE_GATE_MAX}
                         min={NOTE_GATE_MIN}

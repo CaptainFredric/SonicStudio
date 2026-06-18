@@ -235,6 +235,8 @@ export const NoteDetailEditor = ({
           <span className="font-mono text-[10px] text-[var(--text-tertiary)]">{Math.round(selectedPhraseNote.velocity * 100)}</span>
         </div>
         <input
+          aria-label="Note velocity"
+          aria-valuetext={`${Math.round(selectedPhraseNote.velocity * 100)} percent`}
           className="mt-3 w-full"
           max={VELOCITY_MAX}
           min={VELOCITY_MIN}
@@ -279,6 +281,8 @@ export const NoteDetailEditor = ({
           <span className="font-mono text-[10px] text-[var(--text-tertiary)]">{selectedPhraseNote.gate.toFixed(2)}x</span>
         </div>
         <input
+          aria-label="Note length"
+          aria-valuetext={`${selectedPhraseNote.gate.toFixed(2)} steps`}
           className="mt-3 w-full"
           max={NOTE_GATE_MAX}
           min={NOTE_GATE_MIN}

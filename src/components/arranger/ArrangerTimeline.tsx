@@ -552,6 +552,7 @@ export const ArrangerTimeline = ({
             {visibleStartStep + 1}
           </span>
           <input
+            aria-label="Scroll the timeline horizontally"
             className="sonic-scroll-strip"
             max={maxTimelineScrollLeft}
             min={0}

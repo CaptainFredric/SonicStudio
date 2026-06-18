@@ -46,6 +46,8 @@ export const MasterControl: React.FC<MasterControlProps> = ({
       <div className="flex items-center gap-3">
         <div className="flex-1">
           <input
+            aria-label="Master volume"
+            aria-valuetext={`${currentControls.masterVolume.toFixed(0)} decibels`}
             className="w-full"
             max="0"
             min="-60"

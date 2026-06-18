@@ -48,6 +48,7 @@ export const WorkspaceTransportPanel = ({
           <div className="section-label">Tempo</div>
           <div className="mt-2 flex items-center gap-2">
             <input
+              aria-label="Tempo in BPM"
               className="control-field h-11 w-24 px-3 text-center font-mono text-sm"
               max="240"
               min="40"
@@ -86,6 +87,7 @@ export const WorkspaceTransportPanel = ({
           <div className="section-label">Steps per pattern</div>
           <div className="mt-2 flex items-center gap-2">
             <input
+              aria-label="Steps per pattern"
               className="control-field h-11 w-28 px-3 text-center font-mono text-sm"
               max="4096"
               min="8"

@@ -101,31 +101,34 @@ export const InlineSlider = ({
   step: number;
   unit?: string;
   value: number;
-}) => (
-  <div>
-    <div className="flex items-center justify-between">
-      <span className="section-label">{label}</span>
-      <span className="font-mono text-[10px] text-[var(--text-secondary)]">
-        {unit === 'dB'
-          ? `${value.toFixed(1)} ${unit}`
-          : unit === '%'
-            ? `${Math.round(value * 100)}%`
-            : unit
-              ? `${value.toFixed(1)} ${unit}`
-              : value.toFixed(1)}
-      </span>
+}) => {
+  const displayValue = unit === 'dB'
+    ? `${value.toFixed(1)} ${unit}`
+    : unit === '%'
+      ? `${Math.round(value * 100)}%`
+      : unit
+        ? `${value.toFixed(1)} ${unit}`
+        : value.toFixed(1);
+  return (
+    <div>
+      <div className="flex items-center justify-between">
+        <span className="section-label">{label}</span>
+        <span className="font-mono text-[10px] text-[var(--text-secondary)]">{displayValue}</span>
+      </div>
+      <input
+        aria-label={label}
+        aria-valuetext={displayValue}
+        className="mt-3"
+        max={max}
+        min={min}
+        onChange={(event) => onChange(Number(event.target.value))}
+        step={step}
+        type="range"
+        value={value}
+      />
     </div>
-    <input
-      className="mt-3"
-      max={max}
-      min={min}
-      onChange={(event) => onChange(Number(event.target.value))}
-      step={step}
-      type="range"
-      value={value}
-    />
-  </div>
-);
+  );
+};
 
 export const waveformLabel = (waveform: OscillatorShape) => {
   switch (waveform) {
