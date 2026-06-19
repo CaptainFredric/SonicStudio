@@ -1227,7 +1227,7 @@ const UtilityBtn = ({
 }) => (
   <button
     aria-label={label}
-    className={`ghost-icon-button relative flex h-9 min-w-0 items-center justify-center gap-1.5 overflow-hidden px-2.5 ${armed ? 'border-[rgba(248,113,113,0.34)] text-[var(--danger)] shadow-[inset_0_0_0_1px_rgba(248,113,113,0.14)]' : ''}`}
+    className={`ghost-icon-button relative flex h-9 min-w-0 items-center justify-center gap-1 overflow-hidden px-2 ${armed ? 'border-[rgba(248,113,113,0.34)] text-[var(--danger)] shadow-[inset_0_0_0_1px_rgba(248,113,113,0.14)]' : ''}`}
     style={!armed && tone === 'danger' ? { color: 'rgba(248,113,113,0.82)', borderColor: 'rgba(248,113,113,0.34)' } : undefined}
     data-armed={armed ? 'true' : 'false'}
     data-armed-phase={armed ? 'armed' : disarming ? 'disarming' : 'idle'}
@@ -1242,7 +1242,7 @@ const UtilityBtn = ({
       className="utility-btn-fill absolute inset-0"
     />
     <span className="relative z-[1] shrink-0">{children}</span>
-    <span className="relative z-[1] truncate text-[9px] font-semibold uppercase tracking-[0.14em]">{armed ? armedLabel ?? label : label}</span>
+    <span className="relative z-[1] truncate text-[9px] font-semibold uppercase tracking-[0.02em]">{armed ? armedLabel ?? label : label}</span>
   </button>
 );
 

@@ -2386,6 +2386,18 @@ html[data-supersonic="true"] .session-player-deck-chip[data-role="intro"] {
   }
 }
 
+/* Soft entrance replayed each time the main view changes (keyed on activeView),
+   so SEQ <-> MIX eases in instead of snapping. */
+.view-swap-in {
+  animation: studio-rise-in var(--motion-base) var(--motion-ease) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .view-swap-in {
+    animation: none;
+  }
+}
+
 @keyframes launchpad-enter {
   from {
     opacity: 0;

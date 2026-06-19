@@ -229,12 +229,16 @@ const ViewRouter = () => {
   const { activeView } = useAudio();
   return (
     <main className="relative flex min-h-[44vh] flex-col md:min-h-0 md:min-w-0 md:flex-1 md:overflow-y-auto md:overflow-x-hidden">
-      {activeView === 'SEQUENCER' && <Sequencer />}
-      {activeView === 'MIXER' && (
-        <Suspense fallback={<div className="surface-panel flex flex-1 items-center justify-center text-sm text-[var(--text-secondary)]">Opening the mixer</div>}>
-          <Mixer />
-        </Suspense>
-      )}
+      {/* Keyed on the view so switching SEQ <-> MIX replays a soft entrance
+          instead of the new view popping in. */}
+      <div key={activeView} className="view-swap-in flex min-h-0 flex-1 flex-col">
+        {activeView === 'SEQUENCER' && <Sequencer />}
+        {activeView === 'MIXER' && (
+          <Suspense fallback={<div className="surface-panel flex flex-1 items-center justify-center text-sm text-[var(--text-secondary)]">Opening the mixer</div>}>
+            <Mixer />
+          </Suspense>
+        )}
+      </div>
     </main>
   );
 };
