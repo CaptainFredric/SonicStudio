@@ -30,7 +30,7 @@ const VIEW_ALIASES: Record<string, AppView> = {
   song: 'SEQUENCER',
 };
 
-const TEMPLATE_ALIASES: Record<string, SessionTemplateId> = {
+export const TEMPLATE_ALIASES: Record<string, SessionTemplateId> = {
   ambient: 'ambient-drift',
   'ambient-drift': 'ambient-drift',
   beat: 'beat-lab',
