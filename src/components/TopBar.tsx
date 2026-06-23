@@ -2,32 +2,22 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ChevronDown,
   ChevronUp,
-  Circle,
   DownloadCloud,
   Library,
   Mic,
   Music4,
-  Pause,
-  Play,
   Redo2,
   Save,
   Settings2,
   Share2,
   SlidersHorizontal,
-  Square,
   Trash2,
   Undo2,
   Zap,
 } from 'lucide-react';
 
-import { useMediaQuery } from '../utils/useMediaQuery';
-
 import { engine } from '../audio/ToneEngine';
 import { playSupersonicToggleSound } from '../audio/uiSounds';
-import { AudioHealthDot } from './AudioHealthDot';
-import { KeyTag } from './KeyTag';
-import { MidiRecordTag } from './MidiRecordTag';
-import { TransportElapsedTag } from './TransportElapsedTag';
 import { usePwaInstall } from '../hooks/usePwaInstall';
 import { detectPatternKeyDrift, getEffectiveKey } from '../services/keyDetector';
 import { bpmFromTaps, trimTapRun } from '../utils/tapTempo';
@@ -40,7 +30,6 @@ import {
 } from '../project/schema';
 import { getSupersonicTransitionOrigin, runSupersonicTransition } from '../utils/supersonicTransition';
 import { BrandMark } from './BrandMark';
-import { TransportSpectrum } from './TransportSpectrum';
 
 const MASTER_MATCH_EPSILON = 0.015;
 const SUPERSONIC_WIPE_DURATION_MS = 240;
@@ -97,7 +86,6 @@ export const TopBar = ({
     initAudio,
     isInitialized,
     isPlaying,
-    isRecording,
     lastSavedAt,
     loopRangeEndBeat,
     loopRangeStartBeat,
@@ -126,8 +114,6 @@ export const TopBar = ({
     stepsPerPattern,
     stop,
     superSonicMode,
-    togglePlay,
-    toggleRecording,
     transportMode,
     tracks,
     uiSoundsEnabled,
@@ -168,13 +154,12 @@ export const TopBar = ({
   // The transport itself lives in the always-visible CompactTransportBar, so
   // collapsing never hides it. Only a wide AND tall viewport keeps the full
   // header expanded by default.
-  // The studio always opens workspace-first: a slim header plus the compact
-  // transport bar, with full studio details available on demand from the Setup
-  // menu's "Show studio details". A previous roomy layout (>=1280 wide and
-  // >=900 tall) stacked a tall setup/transport panel above the workspace and
-  // squeezed it on common 1080p+ displays, so that path is retired.
-  const isCompactHeader = useMediaQuery('(min-width: 0px)');
-  const headerSectionVisible = !isCompactHeader || mobileHeaderExpanded;
+  // The studio is workspace-first: a slim header plus the compact transport bar,
+  // with full studio details (project name, pattern bank, focus stats, save and
+  // undo) shown on demand via the Setup menu's "Show studio details". A previous
+  // roomy >=1280x900 layout stacked a tall setup/transport panel above the
+  // workspace and squeezed it on common 1080p+ displays, so it was retired.
+  const headerSectionVisible = mobileHeaderExpanded;
   const [audioRuntime, setAudioRuntime] = useState<{
     baseLatencyMs: number | null;
     contextState: AudioContextState;
@@ -287,7 +272,6 @@ export const TopBar = ({
     const drift = detectPatternKeyDrift(tracks, key);
     return new Set(drift.filter((entry) => entry.drifts).map((entry) => entry.patternIndex));
   }, [tracks]);
-  const showPlayPulse = !isPlaying && !countInActive;
   const brandName = superSonicMode ? 'SuperSonicStudio' : 'SonicStudio';
   const brandTagline = superSonicMode
     ? 'Sharper lanes, faster edits, same session.'
@@ -487,8 +471,7 @@ export const TopBar = ({
                 <span className="sm:hidden">Install</span>
               </button>
             )}
-            {isCompactHeader && (
-              <div className="relative shrink-0" ref={setupMenuRef}>
+            <div className="relative shrink-0" ref={setupMenuRef}>
                 <button
                   aria-expanded={setupMenuOpen}
                   aria-haspopup="menu"
@@ -531,7 +514,6 @@ export const TopBar = ({
                   </div>
                 )}
               </div>
-            )}
           </div>
 
           <div className={`${headerSectionVisible ? 'grid' : 'hidden'} min-w-0 gap-4 lg:grid-cols-[minmax(0,1fr)_260px] lg:items-start`}>
@@ -633,74 +615,6 @@ export const TopBar = ({
                   </UtilityBtn>
                 </div>
 
-                {/* Below a roomy desktop the CompactTransportBar owns the
-                    transport, so the header skips it to avoid two play rows. */}
-                {!isCompactHeader && (
-                  <>
-                  <div className="flex items-center justify-between gap-2 px-1 pb-1 text-[9px] font-mono uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-                    <span>Transport</span>
-                    <span className="flex items-center gap-2">
-                      <MidiRecordTag />
-                      <TransportElapsedTag />
-                      <KeyTag />
-                      <AudioHealthDot />
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <TransportBtn
-                      active={isPlaying}
-                      className="w-full min-w-0 justify-center"
-                      data-tour-target="play"
-                      emphasize={showPlayPulse}
-                      label={isPlaying ? 'Pause' : 'Play'}
-                      onClick={togglePlay}
-                      onPointerDown={() => {
-                        if (!isInitialized) {
-                          void initAudio();
-                        }
-                      }}
-                      shortcut="Space"
-                      supersonicMode={superSonicMode}
-                      tone="play"
-                    >
-                      {isPlaying ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
-                    </TransportBtn>
-                    <TransportBtn className="w-full min-w-0 justify-center" label="Stop" onClick={stop} tone="neutral">
-                      <Square className="h-4 w-4 fill-current" />
-                    </TransportBtn>
-                    <TransportBtn
-                      active={isRecording}
-                      className="w-full min-w-0 justify-center"
-                      label={isRecording ? 'Armed' : 'Record'}
-                      onClick={toggleRecording}
-                      onPointerDown={() => {
-                        if (!isInitialized) {
-                          void initAudio();
-                        }
-                      }}
-                      style={{
-                        opacity: compactStart ? 0.42 : 1,
-                        transition: 'opacity 230ms cubic-bezier(0.22,1,0.36,1)',
-                      }}
-                      tone="record"
-                    >
-                      <Circle className="h-4 w-4 fill-current" />
-                    </TransportBtn>
-                  </div>
-                  <div className="mt-2 overflow-hidden rounded-md border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] px-2 py-1.5">
-                    <TransportSpectrum active={isPlaying} />
-                  </div>
-                  {compactStart && (
-                    <div
-                      className="px-1 pt-1 text-[9px] font-mono uppercase tracking-[0.18em] text-[var(--accent-strong)] opacity-90"
-                      aria-live="polite"
-                      role="note"
-                    >
-                      Tap play to hear it
-                    </div>
-                  )}
-                  </>
-                )}
 
                 <div className="grid gap-2">
                   {onOpenCapture && (
@@ -1312,100 +1226,6 @@ const MiniStat = ({
     <span className="truncate font-medium text-[var(--text-primary)]">{value}</span>
   </div>
 );
-
-const TransportBtn = ({
-  active = false,
-  className,
-  children,
-  emphasize = false,
-  label,
-  onClick,
-  onPointerDown,
-  shortcut,
-  style,
-  supersonicMode = false,
-  tone,
-  ...rest
-}: {
-  active?: boolean;
-  className?: string;
-  children: React.ReactNode;
-  emphasize?: boolean;
-  label: string;
-  onClick: () => void;
-  onPointerDown?: React.PointerEventHandler<HTMLButtonElement>;
-  shortcut?: string;
-  style?: React.CSSProperties;
-  supersonicMode?: boolean;
-  tone: 'neutral' | 'play' | 'record';
-  [key: `data-${string}`]: string | undefined;
-}) => {
-  const activeStyles = tone === 'record'
-    ? 'bg-[rgba(240,143,134,0.16)] border-[rgba(240,143,134,0.28)] text-[var(--danger)]'
-    : tone === 'play' && supersonicMode
-      ? 'bg-[rgba(12,109,112,0.16)] border-[rgba(12,109,112,0.38)] text-[var(--text-primary)]'
-    : tone === 'play'
-      ? 'bg-[var(--accent-muted)] border-[var(--accent)] text-[var(--accent-strong)]'
-      : 'bg-[rgba(255,255,255,0.04)] border-[var(--border-soft)] text-[var(--text-primary)]';
-  const restingStyles = emphasize && tone === 'play'
-    ? supersonicMode
-      ? 'border-[rgba(12,109,112,0.42)] text-[var(--text-primary)] bg-[rgba(12,109,112,0.16)]'
-      : 'border-[var(--accent)] text-[var(--bg-app)] bg-[var(--accent)]'
-    : tone === 'play'
-      ? supersonicMode
-        ? 'border-[rgba(12,109,112,0.26)] text-[var(--text-secondary)] hover:bg-[rgba(12,109,112,0.12)] hover:border-[rgba(12,109,112,0.42)] hover:text-[var(--text-primary)]'
-        : 'border-[color-mix(in_srgb,var(--accent)_28%,transparent)] text-[var(--accent-strong)] hover:bg-[var(--accent-muted)] hover:border-[var(--accent)]'
-      : 'border-transparent text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.03)] hover:border-[var(--border-soft)] hover:text-[var(--text-primary)]';
-
-  const playStyle: React.CSSProperties | undefined = emphasize && tone === 'play'
-    ? {
-        background: supersonicMode
-          ? 'linear-gradient(180deg, rgba(255,255,255,0.24), rgba(255,255,255,0.04) 32%, rgba(8,82,88,0.2) 100%)'
-          : 'linear-gradient(180deg, rgba(255,255,255,0.46), rgba(255,255,255,0.16) 28%, color-mix(in srgb, var(--accent) 92%, transparent) 100%)',
-        boxShadow: supersonicMode
-          ? '0 0 0 1px rgba(12,109,112,0.42), 0 10px 26px rgba(8,82,88,0.2), inset 0 1px 0 rgba(255,255,255,0.26)'
-          : '0 0 0 1px color-mix(in srgb, var(--accent) 58%, transparent), 0 10px 32px color-mix(in srgb, var(--accent) 38%, transparent), inset 0 1px 0 rgba(255,255,255,0.5)',
-        transform: supersonicMode ? 'translateY(-1px) scale(1.02)' : 'translateY(-1px) scale(1.03)',
-        transition: 'all 230ms cubic-bezier(0.22,1,0.36,1)',
-      }
-    : { transition: 'all 230ms cubic-bezier(0.22,1,0.36,1)' };
-
-  return (
-    <span style={{ position: 'relative', display: 'inline-flex' }}>
-      <button
-        aria-label={label}
-        className={`group flex h-9 min-w-[82px] items-center gap-1.5 rounded-[3px] border px-3 text-left transition-colors ${active ? activeStyles : restingStyles} ${className ?? ''}`}
-        data-ui-sound={tone === 'record' ? 'record' : 'transport'}
-        onClick={onClick}
-        onPointerDown={onPointerDown}
-        style={{ ...playStyle, ...style }}
-        title={shortcut ? `${label} (${shortcut})` : label}
-        {...rest}
-      >
-        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[2px] border border-current/12 bg-black/10 transition-colors group-hover:bg-black/15">
-          {children}
-        </span>
-        <span className="min-w-0 text-[10px] font-semibold uppercase tracking-[0.16em]">
-          {label}
-        </span>
-      </button>
-      {emphasize && tone === 'play' && !active && (
-        <span
-          aria-hidden="true"
-          className="studio-play-pulse"
-          style={{
-            position: 'absolute',
-            inset: -6,
-            borderRadius: 4,
-            border: '1px solid color-mix(in srgb, var(--accent) 46%, transparent)',
-            animation: 'ss-pulse 1.6s ease-out infinite',
-            pointerEvents: 'none',
-          }}
-        />
-      )}
-    </span>
-  );
-};
 
 const formatSaveLabel = (saveStatus: 'idle' | 'saving' | 'saved' | 'error', lastSavedAt: string | null) => {
   if (saveStatus === 'error') {

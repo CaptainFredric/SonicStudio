@@ -243,11 +243,11 @@ const ViewRouter = () => {
   );
 };
 
-// Always-visible transport bar shown below the xl breakpoint. It keeps the
-// core controls — play, stop, record, tempo, SuperSonic — within reach while
-// the heavier TopBar detail panel stays collapsed, so laptops and split-screen
-// windows give the editing surface the room it needs.
-const CompactTransportBar = ({ forceVisible = false }: { forceVisible?: boolean }) => {
+// The always-visible transport bar. It keeps the core controls — play, stop,
+// record, tempo, SuperSonic — within reach at every size while the heavier
+// TopBar detail panel stays collapsed, so the editing surface gets the room it
+// needs on phones, laptops, and large desktops alike.
+const CompactTransportBar = () => {
   const {
     isPlaying,
     isRecording,
@@ -261,10 +261,6 @@ const CompactTransportBar = ({ forceVisible = false }: { forceVisible?: boolean 
     uiSoundsEnabled,
     stickyMobileTransport,
   } = useAudio();
-  // Always show the compact transport bar so the workspace stays the dominant
-  // surface at every size, including large desktops (matches TopBar's
-  // workspace-first header).
-  const isCompactViewport = useMediaQuery('(min-width: 0px)');
   const isMobile = useMediaQuery('(max-width: 767px)');
   const isFirstImpression = useFirstImpression();
   const playTogglePendingRef = useRef(false);
@@ -308,10 +304,6 @@ const CompactTransportBar = ({ forceVisible = false }: { forceVisible?: boolean 
     runSupersonicTransition(next, getSupersonicTransitionOrigin(event.currentTarget));
     setSuperSonicMode(next);
   };
-
-  if (!isCompactViewport && !forceVisible) {
-    return null;
-  }
 
   return (
     <div
@@ -776,7 +768,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
             />
           </div>
         )}
-        <CompactTransportBar forceVisible={focusMode} />
+        <CompactTransportBar />
         <div className="studio-shell-grid flex min-w-0 flex-col gap-2 px-3 pb-3 md:min-h-0 md:flex-1 md:flex-row md:gap-3">
           {!focusMode && (
             <SideNav
