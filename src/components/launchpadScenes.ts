@@ -116,6 +116,16 @@ export const START_OPTIONS: StartOption[] = [
     mark: 'SL',
   },
   {
+    body: 'A syncopated kick, ghosted backbeat, a slap octave bass, chicken-scratch clav, a warm organ, and brass stabs.',
+    focus: 'Funk pocket',
+    genre: 'Funk',
+    bpm: 108,
+    id: 'brass-district',
+    label: 'Brass District',
+    swatch: ['#f59e0b', '#ef4444', '#22d3ee'],
+    mark: 'BD',
+  },
+  {
     body: 'Bright pop drums, glossy lead hooks, and a counter-pluck for fast topline writing.',
     focus: 'Bright pop motion',
     genre: 'Pop shimmer',
@@ -207,7 +217,7 @@ export const START_OPTIONS: StartOption[] = [
   },
 ];
 
-export const FEATURED_IDS: SessionTemplateId[] = ['pulse-rider', 'night-transit', 'midnight-trap', 'sunset-house', 'palm-hour', 'pirate-radio', 'saturday-lights', 'twilight-frame', 'club-horizon', 'neon-breaks', 'starlight-parade', 'velvet-suite'];
+export const FEATURED_IDS: SessionTemplateId[] = ['pulse-rider', 'night-transit', 'midnight-trap', 'sunset-house', 'palm-hour', 'pirate-radio', 'saturday-lights', 'brass-district', 'twilight-frame', 'club-horizon', 'neon-breaks', 'starlight-parade', 'velvet-suite'];
 
 // The hero "featured" scene rotates once per calendar day from a weighted pool,
 // so a returning visitor meets a different scene rather than the same one every
@@ -221,6 +231,7 @@ export const FEATURED_POOL: Array<{ id: SessionTemplateId; weight: number }> = [
   { id: 'palm-hour', weight: 4 },
   { id: 'pirate-radio', weight: 4 },
   { id: 'saturday-lights', weight: 4 },
+  { id: 'brass-district', weight: 4 },
   { id: 'twilight-frame', weight: 3 },
   { id: 'club-horizon', weight: 3 },
   { id: 'starlight-parade', weight: 3 },

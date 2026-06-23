@@ -68,7 +68,8 @@ const matchesLibraryFilter = (option: StartOption, filterId: LibraryFilterId) =>
     case 'club':
       return option.id === 'club-horizon' || option.id === 'beat-lab' || option.id === 'pulse-rider'
         || option.id === 'midnight-trap' || option.id === 'neon-breaks' || option.id === 'sunset-house'
-        || option.id === 'palm-hour' || option.id === 'pirate-radio' || option.id === 'saturday-lights';
+        || option.id === 'palm-hour' || option.id === 'pirate-radio' || option.id === 'saturday-lights'
+        || option.id === 'brass-district';
     case 'hooks':
       return option.id === 'night-transit' || option.id === 'starlight-parade' || option.id === 'synthwave-drive' || option.id === 'crystal-garden';
     case 'drift':

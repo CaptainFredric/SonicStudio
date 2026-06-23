@@ -29,7 +29,7 @@ export type SourceEngine = 'synth' | 'sample';
 export type SamplePlaybackMode = 'pitched' | 'oneshot';
 export type SampleTriggerMode = 'active-slice' | 'full-source' | 'step-mapped';
 export type SamplePreset = 'kick-thud' | 'snare-crack' | 'hat-air' | 'bass-pluck' | 'lead-glass' | 'pad-haze' | 'pluck-mallet' | 'fx-rise';
-export type SessionTemplateId = 'blank-grid' | 'night-transit' | 'beat-lab' | 'ambient-drift' | 'lofi-sunday' | 'synthwave-drive' | 'club-horizon' | 'starlight-parade' | 'velvet-suite' | 'crystal-garden' | 'twilight-frame' | 'late-hours' | 'pulse-rider' | 'midnight-trap' | 'neon-breaks' | 'sunset-house' | 'palm-hour' | 'pirate-radio' | 'saturday-lights';
+export type SessionTemplateId = 'blank-grid' | 'night-transit' | 'beat-lab' | 'ambient-drift' | 'lofi-sunday' | 'synthwave-drive' | 'club-horizon' | 'starlight-parade' | 'velvet-suite' | 'crystal-garden' | 'twilight-frame' | 'late-hours' | 'pulse-rider' | 'midnight-trap' | 'neon-breaks' | 'sunset-house' | 'palm-hour' | 'pirate-radio' | 'saturday-lights' | 'brass-district';
 
 export interface SessionTemplateDefinition {
   description: string;
@@ -578,6 +578,12 @@ export const SESSION_TEMPLATE_DEFINITIONS: SessionTemplateDefinition[] = [
     focus: 'Four-on-the-floor disco',
     id: 'saturday-lights',
     label: 'Saturday Lights',
+  },
+  {
+    description: 'Funk at 108 BPM in E minor: a syncopated kick, ghosted backbeat, sixteenth hats, a slap octave bass, chicken-scratch clav, a sustained organ, and brass stabs over an Em7 vamp.',
+    focus: 'Funk pocket',
+    id: 'brass-district',
+    label: 'Brass District',
   },
 ];
 
@@ -3516,6 +3522,110 @@ export const createSaturdayLightsProject = (projectName: string = 'Saturday Ligh
   );
 };
 
+export const createBrassDistrictProject = (projectName: string = 'Brass District'): Project => {
+  const { buildProject, tracks, transport } = createProjectFrame(projectName, {
+    bpm: 108,
+    mode: 'SONG',
+    trackOrder: DISCO_TRACK_ORDER,
+  });
+  const [kickTrack, snareTrack, hatTrack, bassTrack, clavTrack, organTrack, brassTrack] = tracks;
+
+  // A funk pocket in E dorian over an Em7 vamp: syncopated kick, ghosted
+  // backbeat, sixteenth hats, a slap-style octave bass, chicken-scratch clav,
+  // a sustained organ bed, and brass stabs.
+  putStep(kickTrack, 0, 0, 'C1', { velocity: 0.94 });
+  putStep(kickTrack, 0, 6, 'C1', { velocity: 0.78 });
+  putStep(kickTrack, 0, 10, 'C1', { velocity: 0.82 });
+  putStep(snareTrack, 0, 4, 'C1', { velocity: 0.84 });
+  putStep(snareTrack, 0, 12, 'C1', { velocity: 0.84 });
+  putStep(snareTrack, 0, 7, 'C1', { velocity: 0.28 });
+  putStep(snareTrack, 0, 14, 'C1', { velocity: 0.3 });
+  for (let step = 0; step < 16; step += 1) {
+    const accent = step % 4 === 0;
+    putStep(hatTrack, 0, step, 'C1', { gate: (step === 2 || step === 10) ? 0.4 : 0.16, velocity: accent ? 0.58 : 0.4 });
+  }
+  // Slap octave bass: root pops to its octave and walks the dorian.
+  const bassHits: Array<[number, string, number, number]> = [
+    [0, 'E1', 0.3, 0.92], [2, 'E2', 0.3, 0.62], [4, 'G1', 0.3, 0.72], [6, 'E1', 0.3, 0.66],
+    [8, 'A1', 0.35, 0.74], [10, 'B1', 0.3, 0.62], [11, 'D2', 0.25, 0.6], [14, 'E1', 0.3, 0.7],
+  ];
+  for (const [step, note, gate, velocity] of bassHits) {
+    putStep(bassTrack, 0, step, note, { gate, velocity });
+  }
+  // Chicken-scratch clav on the off-sixteenths.
+  const clavStabs: Array<[number, string[]]> = [
+    [1, ['E5', 'G5']], [3, ['B4', 'D5']], [5, ['E5', 'G5']], [7, ['B4', 'D5']],
+    [9, ['E5', 'G5']], [11, ['B4', 'D5']], [13, ['E5', 'G5']], [15, ['B4', 'D5']],
+  ];
+  for (const [step, notes] of clavStabs) {
+    stackStep(clavTrack, 0, step, notes.map((note) => ({ note, options: { gate: 0.14, velocity: 0.4 } })));
+  }
+  // Sustained organ Em7 bed.
+  stackStep(organTrack, 0, 0, [
+    { note: 'E3', options: { gate: 16, velocity: 0.3 } },
+    { note: 'G3', options: { gate: 16, velocity: 0.26 } },
+    { note: 'B3', options: { gate: 16, velocity: 0.26 } },
+    { note: 'D4', options: { gate: 16, velocity: 0.24 } },
+  ]);
+  // A couple of brass stabs; the full horn line arrives on the lift.
+  stackStep(brassTrack, 0, 0, [
+    { note: 'E4', options: { gate: 0.5, velocity: 0.72 } },
+    { note: 'G4', options: { gate: 0.5, velocity: 0.66 } },
+    { note: 'B4', options: { gate: 0.5, velocity: 0.62 } },
+  ]);
+  putStep(brassTrack, 0, 10, 'D5', { gate: 0.3, velocity: 0.6 });
+
+  // Pattern 1 (the lift): the groove plus a horn hook and extra snare ghosts.
+  const funkLanes = [kickTrack, snareTrack, hatTrack, bassTrack, clavTrack, organTrack, brassTrack];
+  funkLanes.forEach((lane) => copyPattern(lane, 0, 1));
+  const brassHook: Array<[number, string]> = [[3, 'D5'], [6, 'E5'], [8, 'G4'], [11, 'F#5'], [14, 'D5']];
+  for (const [step, note] of brassHook) {
+    putStep(brassTrack, 1, step, note, { gate: 0.3, velocity: 0.6 });
+  }
+  for (const step of [3, 11]) {
+    putStep(snareTrack, 1, step, 'C1', { velocity: 0.26 });
+  }
+
+  // Pattern 2 (the break): drums out, the bass, clav, and organ hold the pocket.
+  copyPattern(bassTrack, 0, 2);
+  copyPattern(clavTrack, 0, 2);
+  copyPattern(organTrack, 0, 2);
+
+  bassTrack.source.octaveShift = -1;
+  bassTrack.source.waveform = 'sawtooth';
+  bassTrack.params.distortion = 0.1;
+  clavTrack.source.waveform = 'square';
+  clavTrack.params.delaySend = 0.18;
+  clavTrack.params.reverbSend = 0.18;
+  organTrack.source.waveform = 'triangle';
+  organTrack.params.reverbSend = 0.3;
+  organTrack.params.chorusSend = 0.24;
+  brassTrack.source.waveform = 'sawtooth';
+  brassTrack.params.distortion = 0.08;
+  brassTrack.params.reverbSend = 0.2;
+
+  // The set: an organ-and-bass intro, the pocket, the lift, a drums-out break,
+  // the peak, and out with the hats dropped.
+  const funkSections: Array<{ start: number; pattern: number; name: string }> = [
+    { start: 0, pattern: 2, name: 'Intro' },
+    { start: 16, pattern: 0, name: 'Pocket' },
+    { start: 32, pattern: 1, name: 'Lift' },
+    { start: 48, pattern: 2, name: 'Break' },
+    { start: 64, pattern: 1, name: 'Peak' },
+    { start: 80, pattern: 0, name: 'Out' },
+  ];
+  const funkOutStart = funkSections[funkSections.length - 1].start;
+  return buildProject(
+    funkSections.flatMap((section) => funkLanes.flatMap((lane) => {
+      if (section.start === funkOutStart && lane === hatTrack) {
+        return [];
+      }
+      return [createArrangerClip(lane.id, transport, { beatLength: 16, patternIndex: section.pattern, startBeat: section.start })];
+    })),
+    funkSections.map((section) => ({ beat: section.start, id: createId('marker'), name: section.name })),
+  );
+};
+
 export const createProjectFromTemplate = (
   templateId: SessionTemplateId,
 ): Project => {
@@ -3556,6 +3666,8 @@ export const createProjectFromTemplate = (
       return createPirateRadioProject();
     case 'saturday-lights':
       return createSaturdayLightsProject();
+    case 'brass-district':
+      return createBrassDistrictProject();
     case 'night-transit':
     default:
       return createNightTransitProject();
