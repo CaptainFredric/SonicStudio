@@ -261,7 +261,10 @@ const CompactTransportBar = ({ forceVisible = false }: { forceVisible?: boolean 
     uiSoundsEnabled,
     stickyMobileTransport,
   } = useAudio();
-  const isCompactViewport = useMediaQuery('(max-width: 1279px), (max-height: 899px)');
+  // Always show the compact transport bar so the workspace stays the dominant
+  // surface at every size, including large desktops (matches TopBar's
+  // workspace-first header).
+  const isCompactViewport = useMediaQuery('(min-width: 0px)');
   const isMobile = useMediaQuery('(max-width: 767px)');
   const isFirstImpression = useFirstImpression();
   const playTogglePendingRef = useRef(false);
@@ -369,7 +372,7 @@ const CompactTransportBar = ({ forceVisible = false }: { forceVisible?: boolean 
       </div>
       <div
         className="overflow-hidden rounded-[3px] border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] px-1.5"
-        style={{ flex: '1 1 120px', minWidth: '96px', maxWidth: '320px' }}
+        style={{ flex: '1 1 120px', minWidth: '96px', maxWidth: '720px' }}
       >
         <TransportSpectrum active={isPlaying} />
       </div>

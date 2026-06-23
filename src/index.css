@@ -2454,6 +2454,9 @@ html[data-supersonic="true"] .session-player-deck-chip[data-role="intro"] {
   gap: 0.4rem;
   flex: 1 1 220px;
   min-width: 0;
+  /* Keep Play/Stop/Record a sensible size on wide desktops instead of letting
+     them stretch the full bar; the spectrum strip absorbs the extra width. */
+  max-width: 560px;
 }
 
 .compact-transport-btn {

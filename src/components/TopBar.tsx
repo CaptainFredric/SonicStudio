@@ -168,7 +168,12 @@ export const TopBar = ({
   // The transport itself lives in the always-visible CompactTransportBar, so
   // collapsing never hides it. Only a wide AND tall viewport keeps the full
   // header expanded by default.
-  const isCompactHeader = useMediaQuery('(max-width: 1279px), (max-height: 899px)');
+  // The studio always opens workspace-first: a slim header plus the compact
+  // transport bar, with full studio details available on demand from the Setup
+  // menu's "Show studio details". A previous roomy layout (>=1280 wide and
+  // >=900 tall) stacked a tall setup/transport panel above the workspace and
+  // squeezed it on common 1080p+ displays, so that path is retired.
+  const isCompactHeader = useMediaQuery('(min-width: 0px)');
   const headerSectionVisible = !isCompactHeader || mobileHeaderExpanded;
   const [audioRuntime, setAudioRuntime] = useState<{
     baseLatencyMs: number | null;
