@@ -162,9 +162,53 @@ interface NoteResizeState {
   edge?: 'start' | 'end';
 }
 
+// The transport step advances several times a second during playback. Reading
+// it here, inside a tiny dedicated overlay, keeps that churn off the note grid:
+// only this 2px column re-renders each step instead of every cell in the roll.
+// The full-grid re-render is what used to starve the audio scheduler and make
+// playback stutter while the notes panel was open.
+const StepPlayhead = ({
+  noteLabelWidth,
+  stepCellWidth,
+  stepsPerPattern,
+}: {
+  noteLabelWidth: number;
+  stepCellWidth: number;
+  stepsPerPattern: number;
+}) => {
+  const currentStep = usePlaybackStep();
+  if (stepsPerPattern <= 0) {
+    return null;
+  }
+  const step = currentStep % stepsPerPattern;
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute bottom-0 top-10 z-[3] w-[2px] rounded-full bg-[var(--accent-strong)]"
+      style={{ left: `${noteLabelWidth + (step * stepCellWidth)}px`, opacity: 0.7 }}
+    />
+  );
+};
+
+// Same isolation for the step-overview strip's playhead: its own subscriber so
+// the overview minimap does not drag the whole editor into a re-render each step.
+const OverviewPlayhead = ({ stepsPerPattern }: { stepsPerPattern: number }) => {
+  const currentStep = usePlaybackStep();
+  if (stepsPerPattern <= 0) {
+    return null;
+  }
+  const step = currentStep % stepsPerPattern;
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none absolute bottom-0 top-0 w-[2px] bg-[rgba(255,255,255,0.42)]"
+      style={{ left: `${(step / stepsPerPattern) * 100}%` }}
+    />
+  );
+};
+
 const PianoRollEditor = ({ track }: { track: Track }) => {
   const isMobileViewport = useMediaQuery('(max-width: 767px)');
-  const currentStep = usePlaybackStep();
   const {
     applyTrackVoicePreset,
     arrangerClips,
@@ -191,7 +235,6 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
     transposePattern,
     updateStepEvent,
   } = useAudio();
-  const playbackStep = stepsPerPattern > 0 ? currentStep % stepsPerPattern : 0;
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
   // For the selected track, the song's sections mapped to the pattern the
   // arrangement loops there, so the Piano Roll can jump to (and edit) any
@@ -1236,7 +1279,7 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
                     style={{
                       borderColor: isActive ? 'var(--accent-strong)' : 'var(--border-soft)',
                       color: isActive ? 'var(--accent-strong)' : 'var(--text-secondary)',
-                      background: isActive ? 'var(--accent-soft)' : undefined,
+                      background: isActive ? 'var(--accent-muted)' : undefined,
                     }}
                     title={arranged ? `Edit ${section.name} (Pattern ${String.fromCharCode(65 + (section.pattern ?? 0))})` : `${track?.name ?? 'This track'} has no clip in ${section.name}`}
                     type="button"
@@ -1252,7 +1295,7 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
             data-scrolled={gridScrollLeft > 1 ? 'true' : undefined}
             ref={gridViewportRef}
           >
-          <div className="inline-flex min-w-max flex-col shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+          <div className="relative inline-flex min-w-max flex-col shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
             <div className="sticky top-0 z-10 flex h-10 border-b border-[var(--border-soft)] bg-[var(--bg-panel-strong)] backdrop-blur">
               <div className="grid-freeze-col shrink-0 border-r border-[var(--border-soft)]" style={{ width: `${noteLabelWidth}px` }} />
               {Array.from({ length: stepsPerPattern }, (_, stepIndex) => {
@@ -1267,11 +1310,10 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
                   >
                     <span className="font-mono text-[10px]">{stepIndex + 1}</span>
                     {noteCount > 1 && (
-                      <span className="absolute right-1 top-1 rounded-sm bg-[rgba(10,15,21,0.8)] px-1 font-mono text-[8px] text-[var(--accent-strong)]">
+                      <span className="absolute right-1 top-1 rounded-sm bg-[var(--accent-muted)] px-1 font-mono text-[8px] text-[var(--accent-strong)]">
                         {noteCount}
                       </span>
                     )}
-                    {playbackStep === stepIndex && <div className="absolute inset-x-1 bottom-1 h-[2px] rounded-full bg-[var(--accent-strong)]" />}
                   </button>
                 );
               })}
@@ -1310,7 +1352,6 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
                     const step = patternSteps[stepIndex] ?? [];
                     const noteIndex = step.findIndex((event) => event.note === note);
                     const activeEvent = noteIndex >= 0 ? step[noteIndex] : null;
-                    const isCurrent = playbackStep === stepIndex;
                     const isSelected = selectedStepIndex === stepIndex;
 
                     return (
@@ -1383,10 +1424,8 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
                               onPointerDown={(event) => handleNotePointerDown(stepIndex, noteIndex, note, activeEvent, rowIndex, event)}
                               style={{
                                 background: track.color,
-                                boxShadow: isCurrent
-                                  ? `inset 0 0 0 1px rgba(255,255,255,0.74), 0 0 0 1px rgba(15, 23, 42, 0.14), 0 0 18px ${track.color}40`
-                                  : 'inset 0 0 0 1px rgba(15, 23, 42, 0.16)',
-                                opacity: isCurrent ? 1 : 0.9,
+                                boxShadow: 'inset 0 0 0 1px rgba(15, 23, 42, 0.16)',
+                                opacity: 0.9,
                                 width: `${Math.max(10, Math.min((stepCellWidth * NOTE_GATE_MAX) - 6, (activeEvent.gate * stepCellWidth) - 6))}px`,
                                 touchAction: 'none',
                               }}
@@ -1449,18 +1488,13 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
                             )}
                           </>
                         )}
-                        {step.length > 1 && (
-                          <span className="absolute left-1 top-1 rounded-sm bg-black/20 px-1 font-mono text-[8px] text-white/80">
-                            {step.length}
-                          </span>
-                        )}
-                        {isCurrent && <span className="absolute inset-y-1 left-1 w-[2px] rounded-full bg-white/35" />}
                       </button>
                     );
                   })}
                 </div>
               );
             })}
+            <StepPlayhead noteLabelWidth={noteLabelWidth} stepCellWidth={stepCellWidth} stepsPerPattern={stepsPerPattern} />
           </div>
           </div>
           <div className="mt-3 shrink-0 rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)] px-4 py-3">
@@ -1530,10 +1564,7 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
                     width: `${Math.max(6, ((visibleStepEnd - visibleStepStart) / stepsPerPattern) * 100)}%`,
                   }}
                 />
-                <div
-                  className="pointer-events-none absolute bottom-0 top-0 w-[2px] bg-[rgba(255,255,255,0.42)]"
-                  style={{ left: `${(playbackStep / stepsPerPattern) * 100}%` }}
-                />
+                <OverviewPlayhead stepsPerPattern={stepsPerPattern} />
               </div>
               <div className="mt-2 text-[11px] leading-5 text-[var(--text-tertiary)]">
                 Drag the overview to move around the pattern without changing your zoom.

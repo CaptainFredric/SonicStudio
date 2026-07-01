@@ -2294,7 +2294,7 @@ export const MainWorkspace = () => {
                     className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
                     data-active={songFlatten}
                     onClick={() => setSongFlatten(true)}
-                    style={{ background: songFlatten ? 'var(--accent-soft)' : undefined, color: songFlatten ? 'var(--accent-strong)' : 'var(--text-tertiary)' }}
+                    style={{ background: songFlatten ? 'var(--accent-muted)' : undefined, color: songFlatten ? 'var(--accent-strong)' : 'var(--text-tertiary)' }}
                     type="button"
                   >
                     Whole song
@@ -2303,7 +2303,7 @@ export const MainWorkspace = () => {
                     className="border-l border-[var(--border-soft)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
                     data-active={!songFlatten}
                     onClick={() => setSongFlatten(false)}
-                    style={{ background: !songFlatten ? 'var(--accent-soft)' : undefined, color: !songFlatten ? 'var(--accent-strong)' : 'var(--text-tertiary)' }}
+                    style={{ background: !songFlatten ? 'var(--accent-muted)' : undefined, color: !songFlatten ? 'var(--accent-strong)' : 'var(--text-tertiary)' }}
                     type="button"
                   >
                     One pattern
@@ -2647,7 +2647,6 @@ export const MainWorkspace = () => {
                             const extraNotes = Math.max(0, value.length - 1);
                             const maxGate = value.reduce((gate, event) => Math.max(gate, event.gate), 0);
                             const showStepNoteLabel = stepCellWidth >= 36;
-                            const showStepCount = stepCellWidth >= 26;
                             const anchorNote = getTrackAnchorNote(track, patternSteps, stepIndex);
                             // SuperSonic shows a chord as bright sub-bars nested in
                             // a faint full-cell block, so the big note and its
@@ -2776,11 +2775,6 @@ export const MainWorkspace = () => {
                                     className="absolute bottom-1 left-1 rounded-full bg-black/20"
                                     style={{ height: '3px', width: `${Math.max(8, Math.min(34, maxGate * 4.5))}px` }}
                                   />
-                                )}
-                                {extraNotes > 0 && showStepCount && (
-                                  <span className="absolute left-1 top-1 rounded-sm bg-black/20 px-1 font-mono text-[8px] text-white/80">
-                                    {value.length}
-                                  </span>
                                 )}
                                 {superSonicMode && !queuedSegment && !isActive && anchorNote && supersonicHoverCell?.trackId === track.id && supersonicHoverCell.stepIndex === stepIndex && (
                                   <span

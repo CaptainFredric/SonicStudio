@@ -24,7 +24,7 @@ export const PianoRollView = () => {
               className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
               data-active={!wholeSong}
               onClick={() => setWholeSong(false)}
-              style={{ background: !wholeSong ? 'var(--accent-soft)' : undefined, color: !wholeSong ? 'var(--accent-strong)' : 'var(--text-tertiary)' }}
+              style={{ background: !wholeSong ? 'var(--accent-muted)' : undefined, color: !wholeSong ? 'var(--accent-strong)' : 'var(--text-tertiary)' }}
               type="button"
             >
               One pattern
@@ -33,7 +33,7 @@ export const PianoRollView = () => {
               className="border-l border-[var(--border-soft)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
               data-active={wholeSong}
               onClick={() => setWholeSong(true)}
-              style={{ background: wholeSong ? 'var(--accent-soft)' : undefined, color: wholeSong ? 'var(--accent-strong)' : 'var(--text-tertiary)' }}
+              style={{ background: wholeSong ? 'var(--accent-muted)' : undefined, color: wholeSong ? 'var(--accent-strong)' : 'var(--text-tertiary)' }}
               type="button"
             >
               Whole song
