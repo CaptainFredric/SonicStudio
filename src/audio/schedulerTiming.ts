@@ -26,6 +26,17 @@ export const lookaheadForMode = (mode: AudioStabilityMode, isMobile: boolean): n
   return STABILITY_LOOKAHEAD_SECONDS[mode];
 };
 
+// The output buffer size, chosen when the context is built. A larger buffer is
+// the single biggest defense against dropouts: the audio thread has more slack
+// to ride out a busy moment before it runs dry and crackles. The cost is more
+// latency between scheduling a sound and hearing it, which only matters when
+// playing live. The studio mostly plays back sequenced patterns, so everything
+// except the explicit low-latency "tight" mode takes the roomy "playback"
+// buffer. "tight" keeps the snappy "interactive" buffer for live input.
+export const latencyHintForMode = (mode: AudioStabilityMode): AudioContextLatencyCategory => (
+  mode === 'tight' ? 'interactive' : 'playback'
+);
+
 // Whether a device's native sample rate is high enough that rebuilding the
 // audio context at the capped target is worth it. Rebuilding has a cost, so
 // leave 44.1k/48k hardware alone and only step in for meaningfully higher rates

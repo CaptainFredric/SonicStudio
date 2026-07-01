@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { STABILITY_LOOKAHEAD_SECONDS, lookaheadForMode, shouldCapSampleRate } from './schedulerTiming';
+import { STABILITY_LOOKAHEAD_SECONDS, latencyHintForMode, lookaheadForMode, shouldCapSampleRate } from './schedulerTiming';
 
 describe('lookaheadForMode', () => {
   it('passes the named modes straight through', () => {
@@ -53,5 +53,17 @@ describe('shouldCapSampleRate', () => {
     expect(shouldCapSampleRate(Number.NaN, target)).toBe(false);
     expect(shouldCapSampleRate(0, target)).toBe(false);
     expect(shouldCapSampleRate(Number.POSITIVE_INFINITY, target)).toBe(false);
+  });
+});
+
+describe('latencyHintForMode', () => {
+  it('gives only the explicit low-latency mode the snappy buffer', () => {
+    expect(latencyHintForMode('tight')).toBe('interactive');
+  });
+
+  it('gives the playback-leaning modes the roomy buffer', () => {
+    expect(latencyHintForMode('auto')).toBe('playback');
+    expect(latencyHintForMode('stable')).toBe('playback');
+    expect(latencyHintForMode('resilient')).toBe('playback');
   });
 });

@@ -4,7 +4,7 @@ import { humanizeTime, humanizeVelocity } from '../utils/humanize';
 
 import { getSamplePresetMeta, getSampleUrl } from './sampleLibrary';
 import { findFirstPlayableStepInLoop, hasPlayableStepAt, isTrackAudible, lastActivePatternStep, resolvePatternStepForPlayback } from './playbackResolver';
-import { lookaheadForMode, shouldCapSampleRate } from './schedulerTiming';
+import { latencyHintForMode, lookaheadForMode, shouldCapSampleRate } from './schedulerTiming';
 import type { AudioStabilityMode } from '../project/preferences';
 import type {
   ArrangementClip,
@@ -122,22 +122,27 @@ export class ToneEngine {
   public currentStep = 0;
   public recorder: Tone.Recorder | null = null;
 
-  // Swap in a capped-sample-rate context on devices that run well above it,
-  // such as external USB DACs reporting 96k or 192k. Rendering the full graph
-  // at those rates overloads the audio thread and is heard as static and
-  // crushed, downsampled-sounding output; a 48k context that the browser
-  // resamples up to the device is far cheaper and sounds correct. Standard
-  // 44.1k/48k machines are left untouched. Must run before any Tone node is
-  // created and before Tone.start(), so the whole graph lives on this context.
+  // Build the audio context with settings tuned for glitch-free playback,
+  // rather than accept the browser default. Two levers:
+  //   - a roomy output buffer (latencyHint) so the audio thread can ride out a
+  //     busy moment without running dry and crackling; this is the main fix for
+  //     dropouts on ordinary machines, not just high-rate ones.
+  //   - a capped sample rate on devices that run well above it, such as
+  //     external USB DACs reporting 96k or 192k, whose native rate makes the
+  //     graph render 2-4x the samples and come out as static.
+  // Must run before any Tone node is created and before Tone.start(), so the
+  // whole graph lives on this context.
   private async applyStableContext(): Promise<void> {
     if (this.offlineMode) return;
     try {
       const currentRate = Tone.getContext().rawContext.sampleRate;
-      if (!shouldCapSampleRate(currentRate, TARGET_SAMPLE_RATE)) return;
-      const raw = new AudioContext({ latencyHint: 'playback', sampleRate: TARGET_SAMPLE_RATE });
-      Tone.setContext(new Tone.Context(raw));
+      const options: AudioContextOptions = { latencyHint: latencyHintForMode(this.audioStabilityMode) };
+      if (shouldCapSampleRate(currentRate, TARGET_SAMPLE_RATE)) {
+        options.sampleRate = TARGET_SAMPLE_RATE;
+      }
+      Tone.setContext(new Tone.Context(new AudioContext(options)));
     } catch {
-      // If the browser refuses a fixed sample rate, keep the default context so
+      // If the browser refuses these options, keep the default context so
       // playback still starts; it just carries the earlier cost profile.
     }
   }
