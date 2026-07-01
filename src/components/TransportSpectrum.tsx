@@ -160,7 +160,19 @@ export const TransportSpectrum = ({ active, className }: TransportSpectrumProps)
 
     // While playing, chase the live spectrum. When stopped, ease every bar back
     // to the resting line and end the loop once it has settled.
-    const step = () => {
+    const FRAME_MS = 1000 / 32;
+    let lastFrame = 0;
+    const step = (now: number) => {
+      // rAF fires at the display's refresh rate, which can be 120Hz. Sampling
+      // the FFT and repainting the canvas that often is main-thread time the
+      // audio scheduler needs to stay ahead, so gate the real work to ~32fps
+      // and let the extra frames fall straight through. Cheap insurance
+      // against playback stutter on weaker machines.
+      if (now - lastFrame < FRAME_MS) {
+        frameId = requestAnimationFrame(step);
+        return;
+      }
+      lastFrame = now;
       const levels = levelsRef.current;
       const targets = active && !reduceMotion ? sampleBars() : null;
       let moving = false;
@@ -201,7 +213,7 @@ export const TransportSpectrum = ({ active, className }: TransportSpectrumProps)
       }
     };
 
-    step();
+    frameId = requestAnimationFrame(step);
 
     return () => {
       cancelAnimationFrame(frameId);

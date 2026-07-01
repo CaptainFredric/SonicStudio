@@ -4,6 +4,7 @@ import { humanizeTime, humanizeVelocity } from '../utils/humanize';
 
 import { getSamplePresetMeta, getSampleUrl } from './sampleLibrary';
 import { findFirstPlayableStepInLoop, hasPlayableStepAt, isTrackAudible, lastActivePatternStep, resolvePatternStepForPlayback } from './playbackResolver';
+import { lookaheadForMode } from './schedulerTiming';
 import type { AudioStabilityMode } from '../project/preferences';
 import type {
   ArrangementClip,
@@ -68,18 +69,14 @@ const isLikelyMobile = (): boolean => {
   return false;
 };
 
-const STABILITY_LOOKAHEAD_SECONDS: Record<Exclude<AudioStabilityMode, 'auto'>, number> = {
-  tight: 0.18,
-  stable: 0.35,
-  resilient: 0.6,
-};
-
-const lookaheadForMode = (mode: AudioStabilityMode): number => {
-  if (mode === 'auto') {
-    return isLikelyMobile() ? STABILITY_LOOKAHEAD_SECONDS.stable : STABILITY_LOOKAHEAD_SECONDS.tight;
-  }
-  return STABILITY_LOOKAHEAD_SECONDS[mode];
-};
+// Cap the audio graph at a sane sample rate. A Web Audio context otherwise
+// inherits the output device's rate, and external USB DACs commonly run at 96k
+// or 192k. Our graph (many effects per track, reverb, polyphonic synths, FFT
+// analysers) then has to render 2-4x the samples per second, which overloads
+// the audio thread and comes out as static and crushed, downsampled-sounding
+// audio. Rendering at 48k and letting the browser resample up to the device is
+// far cheaper and sounds correct. 192k and 96k are exact multiples of 48k.
+const TARGET_SAMPLE_RATE = 48000;
 const DEFAULT_SYNTH_MAX_POLYPHONY = 16;
 const FX_MAX_POLYPHONY = 8;
 const PAD_MAX_POLYPHONY = 10;
@@ -125,6 +122,26 @@ export class ToneEngine {
   public currentStep = 0;
   public recorder: Tone.Recorder | null = null;
 
+  // Swap in a capped-sample-rate context on devices that run well above it,
+  // such as external USB DACs reporting 96k or 192k. Rendering the full graph
+  // at those rates overloads the audio thread and is heard as static and
+  // crushed, downsampled-sounding output; a 48k context that the browser
+  // resamples up to the device is far cheaper and sounds correct. Standard
+  // 44.1k/48k machines are left untouched. Must run before any Tone node is
+  // created and before Tone.start(), so the whole graph lives on this context.
+  private async applyStableContext(): Promise<void> {
+    if (this.offlineMode) return;
+    try {
+      const currentRate = Tone.getContext().rawContext.sampleRate;
+      if (currentRate <= 60000) return;
+      const raw = new AudioContext({ latencyHint: 'playback', sampleRate: TARGET_SAMPLE_RATE });
+      Tone.setContext(new Tone.Context(raw));
+    } catch {
+      // If the browser refuses a fixed sample rate, keep the default context so
+      // playback still starts; it just carries the earlier cost profile.
+    }
+  }
+
   async init(options: { offline?: boolean } = {}) {
     const offlineMode = Boolean(options.offline);
     this.offlineMode = offlineMode;
@@ -132,7 +149,7 @@ export class ToneEngine {
     if (this.isInitialized) {
       if (!offlineMode) {
         await Tone.start();
-        Tone.getContext().lookAhead = lookaheadForMode(this.audioStabilityMode);
+        Tone.getContext().lookAhead = lookaheadForMode(this.audioStabilityMode, isLikelyMobile());
       }
       return;
     }
@@ -144,8 +161,9 @@ export class ToneEngine {
 
     this.initPromise = (async () => {
       if (!offlineMode) {
+        await this.applyStableContext();
         await Tone.start();
-        Tone.getContext().lookAhead = lookaheadForMode(this.audioStabilityMode);
+        Tone.getContext().lookAhead = lookaheadForMode(this.audioStabilityMode, isLikelyMobile());
         // Safety net: make sure the final destination isn't sitting muted
         // or at a near-silent volume from a stray earlier state. The
         // master chain has its own gain stage; this only guards against
@@ -249,7 +267,7 @@ export class ToneEngine {
     this.audioStabilityMode = mode;
     if (this.offlineMode) return;
     try {
-      Tone.getContext().lookAhead = lookaheadForMode(mode);
+      Tone.getContext().lookAhead = lookaheadForMode(mode, isLikelyMobile());
     } catch {
       // Context may not exist yet; init() will use the stored mode.
     }

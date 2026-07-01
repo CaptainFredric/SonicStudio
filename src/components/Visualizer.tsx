@@ -1,17 +1,19 @@
 import React, { useEffect, useRef, useState } from 'react';
 
 import { engine } from '../audio/ToneEngine';
+import { useAudio } from '../context/AudioContext';
 
 export const Visualizer = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [viewMode, setViewMode] = useState<'fft' | 'waveform'>('fft');
+  const { isPlaying } = useAudio();
 
   useEffect(() => {
     let animationId = 0;
+    const FRAME_MS = 1000 / 30;
+    let lastFrame = 0;
 
-    const draw = () => {
-      animationId = requestAnimationFrame(draw);
-
+    const renderFrame = (resting: boolean) => {
       const canvas = canvasRef.current;
       if (!canvas || !engine.analyzer) {
         return;
@@ -24,7 +26,6 @@ export const Visualizer = () => {
 
       const width = canvas.width;
       const height = canvas.height;
-      const values = engine.analyzer.getValue();
 
       // Keep the scope readable in both themes: a dark screen in Normal mode,
       // a warm light screen in SuperSonic mode.
@@ -59,6 +60,18 @@ export const Visualizer = () => {
       ctx.strokeStyle = traceStroke;
       ctx.lineWidth = 2;
 
+      // At rest the analyzer only carries the noise floor, so draw a clean
+      // baseline instead of a frozen snapshot of the last note's tail.
+      if (resting) {
+        const y = viewMode === 'fft' ? height - 1 : height / 2;
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+        return;
+      }
+
+      const values = engine.analyzer.getValue();
+
       if (viewMode === 'fft') {
         const barWidth = width / values.length;
 
@@ -90,12 +103,32 @@ export const Visualizer = () => {
       ctx.stroke();
     };
 
-    draw();
+    // When the transport is idle there is nothing moving to draw, so paint one
+    // resting frame and stop the loop entirely. A scope that animates a flat
+    // line 60 times a second is main-thread time the audio scheduler needs to
+    // keep playback from stuttering.
+    if (!isPlaying) {
+      renderFrame(true);
+      return () => {};
+    }
+
+    const loop = (now: number) => {
+      animationId = requestAnimationFrame(loop);
+      // rAF runs at the display rate (up to 120Hz); the scope reads fine at
+      // 30fps, so skip the frames in between and leave the headroom for audio.
+      if (now - lastFrame < FRAME_MS) {
+        return;
+      }
+      lastFrame = now;
+      renderFrame(false);
+    };
+
+    animationId = requestAnimationFrame(loop);
 
     return () => {
       cancelAnimationFrame(animationId);
     };
-  }, [viewMode]);
+  }, [viewMode, isPlaying]);
 
   return (
     <div className="relative flex h-full w-full flex-col overflow-hidden border border-[var(--border-soft)] bg-[var(--bg-panel-strong)]">
