@@ -25,3 +25,12 @@ export const lookaheadForMode = (mode: AudioStabilityMode, isMobile: boolean): n
   }
   return STABILITY_LOOKAHEAD_SECONDS[mode];
 };
+
+// Whether a device's native sample rate is high enough that rebuilding the
+// audio context at the capped target is worth it. Rebuilding has a cost, so
+// leave 44.1k/48k hardware alone and only step in for meaningfully higher rates
+// (88.2k and up, which is where external DACs start to overload the graph). The
+// 25% margin keeps a nominal 48k device from tripping on rounding.
+export const shouldCapSampleRate = (deviceRate: number, target: number): boolean => (
+  Number.isFinite(deviceRate) && deviceRate > target * 1.25
+);

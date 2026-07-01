@@ -4,7 +4,7 @@ import { humanizeTime, humanizeVelocity } from '../utils/humanize';
 
 import { getSamplePresetMeta, getSampleUrl } from './sampleLibrary';
 import { findFirstPlayableStepInLoop, hasPlayableStepAt, isTrackAudible, lastActivePatternStep, resolvePatternStepForPlayback } from './playbackResolver';
-import { lookaheadForMode } from './schedulerTiming';
+import { lookaheadForMode, shouldCapSampleRate } from './schedulerTiming';
 import type { AudioStabilityMode } from '../project/preferences';
 import type {
   ArrangementClip,
@@ -133,7 +133,7 @@ export class ToneEngine {
     if (this.offlineMode) return;
     try {
       const currentRate = Tone.getContext().rawContext.sampleRate;
-      if (currentRate <= 60000) return;
+      if (!shouldCapSampleRate(currentRate, TARGET_SAMPLE_RATE)) return;
       const raw = new AudioContext({ latencyHint: 'playback', sampleRate: TARGET_SAMPLE_RATE });
       Tone.setContext(new Tone.Context(raw));
     } catch {

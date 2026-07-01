@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { STABILITY_LOOKAHEAD_SECONDS, lookaheadForMode } from './schedulerTiming';
+import { STABILITY_LOOKAHEAD_SECONDS, lookaheadForMode, shouldCapSampleRate } from './schedulerTiming';
 
 describe('lookaheadForMode', () => {
   it('passes the named modes straight through', () => {
@@ -32,5 +32,26 @@ describe('lookaheadForMode', () => {
       expect(lookaheadForMode(mode, false)).toBeGreaterThan(0);
       expect(lookaheadForMode(mode, true)).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('shouldCapSampleRate', () => {
+  const target = 48000;
+
+  it('leaves standard 44.1k and 48k hardware alone', () => {
+    expect(shouldCapSampleRate(44100, target)).toBe(false);
+    expect(shouldCapSampleRate(48000, target)).toBe(false);
+  });
+
+  it('caps the high-rate DAC modes that overload the graph', () => {
+    expect(shouldCapSampleRate(88200, target)).toBe(true);
+    expect(shouldCapSampleRate(96000, target)).toBe(true);
+    expect(shouldCapSampleRate(192000, target)).toBe(true);
+  });
+
+  it('ignores a missing or bogus rate rather than capping blindly', () => {
+    expect(shouldCapSampleRate(Number.NaN, target)).toBe(false);
+    expect(shouldCapSampleRate(0, target)).toBe(false);
+    expect(shouldCapSampleRate(Number.POSITIVE_INFINITY, target)).toBe(false);
   });
 });

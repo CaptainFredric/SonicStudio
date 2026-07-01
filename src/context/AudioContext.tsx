@@ -594,6 +594,23 @@ export const AudioProvider = ({
     };
   }, [isInitialized]);
 
+  // Recover audio when the tab returns to the foreground. Mobile browsers and
+  // OS interruptions (a phone call, switching output devices) can suspend the
+  // audio context while we are hidden; without this the user comes back to a
+  // studio that looks alive but is silent until they poke a transport control.
+  // Only runs after a gesture has already unlocked the context, so it never
+  // trips autoplay policy, and wakeContext is a no-op while it is running.
+  useEffect(() => {
+    if (!isInitialized) return;
+    const resume = () => {
+      if (document.visibilityState === 'visible') {
+        engine.wakeContext();
+      }
+    };
+    document.addEventListener('visibilitychange', resume);
+    return () => document.removeEventListener('visibilitychange', resume);
+  }, [isInitialized]);
+
   const {
     auditionInstrumentNote,
     auditionTrackVoicePreset,
