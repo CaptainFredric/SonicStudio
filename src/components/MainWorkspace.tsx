@@ -443,9 +443,30 @@ const getLaneGroup = (trackType: typeof TRACK_BUTTONS[number]['type']): LaneGrou
   return 'MUSICAL';
 };
 
+// The transport step advances several times a second. Toggling the current-step
+// highlight through React state re-renders the whole sequencer each step, and
+// that per-step churn allocates enough garbage to trigger GC pauses that stutter
+// playback. Instead this leaf subscribes to the step on its own and flips a
+// `data-current` attribute on the matching cells; CSS paints the playhead. The
+// grid never re-renders, so the allocation rate during playback stays flat.
+const SequencerPlayheadDriver = ({ stepsPerPattern }: { stepsPerPattern: number }) => {
+  const currentStep = usePlaybackStep();
+  useEffect(() => {
+    if (stepsPerPattern <= 0) {
+      return;
+    }
+    const step = ((currentStep % stepsPerPattern) + stepsPerPattern) % stepsPerPattern;
+    const cells = document.querySelectorAll(`[data-seq-cell="true"][data-step-index="${step}"]`);
+    cells.forEach((cell) => cell.setAttribute('data-current', 'true'));
+    return () => {
+      cells.forEach((cell) => cell.removeAttribute('data-current'));
+    };
+  }, [currentStep, stepsPerPattern]);
+  return null;
+};
+
 export const MainWorkspace = () => {
   const isMobileViewport = useMediaQuery('(max-width: 767px)');
-  const currentStep = usePlaybackStep();
   const {
     applySongForm,
     applyPatternSegment,
@@ -556,7 +577,6 @@ export const MainWorkspace = () => {
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
   const selectedTrackPattern = selectedTrack?.patterns[currentPattern] ?? Array.from({ length: stepsPerPattern }, () => []);
   const currentPatternLabel = `Pattern ${String.fromCharCode(65 + currentPattern)}`;
-  const playbackStep = stepsPerPattern > 0 ? currentStep % stepsPerPattern : 0;
   const selectedStep = selectedTrackPattern[selectedStepIndex] ?? [];
   const activeStepIndices = useMemo(() => (
     selectedTrackPattern.reduce<number[]>((indices, step, stepIndex) => {
@@ -1687,6 +1707,7 @@ export const MainWorkspace = () => {
 
   return (
     <section className="surface-panel flex flex-col overflow-visible md:min-h-0 md:flex-1">
+      <SequencerPlayheadDriver stepsPerPattern={stepsPerPattern} />
       <div className="flex flex-col gap-3 border-b border-[var(--border-soft)] px-5 py-3 md:flex-row md:items-center md:justify-between md:gap-4">
         <div className="min-w-0 shrink-0">
           <div className="flex items-baseline gap-2">
@@ -2641,7 +2662,6 @@ export const MainWorkspace = () => {
                         <div className={`flex gap-[2px] ${laneGridPaddingClass}`} style={{ width: `${stepGridWidth}px` }}>
                           {patternSteps.map((value, stepIndex) => {
                             const isActive = value.length > 0;
-                            const isCurrent = playbackStep === stepIndex;
                             const isSelectedStep = selectedStepIndex === stepIndex;
                             const leadEvent = value[0];
                             const extraNotes = Math.max(0, value.length - 1);
@@ -2657,7 +2677,7 @@ export const MainWorkspace = () => {
                               <button
                                 aria-label={`${track.name} step ${stepIndex + 1}`}
                                 aria-pressed={isActive}
-                                className={`group relative shrink-0 touch-none border transition-colors ${editorMode === 'select' ? 'cursor-pointer' : 'cursor-crosshair'} ${compactLanes ? 'min-h-[38px]' : 'min-h-[48px]'} ${isActive ? 'border-transparent' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.05)]'} ${isCurrent ? 'ring-1 ring-inset ring-[rgba(255,255,255,0.08)]' : ''} ${isSelectedStep ? 'outline outline-1 outline-offset-0 outline-[rgba(125,211,252,0.26)]' : ''} ${placementCursor && placementCursor.trackId === track.id && placementCursor.stepIndex === stepIndex ? 'seq-place-cursor' : ''}`}
+                                className={`group relative shrink-0 touch-none border transition-colors ${editorMode === 'select' ? 'cursor-pointer' : 'cursor-crosshair'} ${compactLanes ? 'min-h-[38px]' : 'min-h-[48px]'} ${isActive ? 'border-transparent' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.05)]'} ${isSelectedStep ? 'outline outline-1 outline-offset-0 outline-[rgba(125,211,252,0.26)]' : ''} ${placementCursor && placementCursor.trackId === track.id && placementCursor.stepIndex === stepIndex ? 'seq-place-cursor' : ''}`}
                                 data-seq-cell="true"
                                 data-step-index={stepIndex}
                                 data-track-id={track.id}
@@ -2728,30 +2748,17 @@ export const MainWorkspace = () => {
                                   ? {
                                       background: showSubnoteStack
                                         ? `${track.color}33`
-                                        : isCurrent ? track.color : `${track.color}cc`,
-                                      boxShadow: isCurrent
-                                        ? `inset 0 0 0 1px rgba(255, 255, 255, 0.76), 0 0 0 1px rgba(15, 23, 42, 0.14), 0 0 18px ${track.color}44`
-                                        : 'inset 0 0 0 1px rgba(15, 23, 42, 0.12)',
+                                        : `${track.color}cc`,
+                                      boxShadow: 'inset 0 0 0 1px rgba(15, 23, 42, 0.12)',
                                       width: `${stepCellWidth - 2}px`,
                                       touchAction: editorMode === 'edit' ? 'none' : 'pan-y',
                                     }
                                   : {
-                                      background: isCurrent ? `${track.color}16` : undefined,
                                       width: `${stepCellWidth - 2}px`,
                                       touchAction: editorMode === 'edit' ? 'none' : 'pan-y',
                                     }}
                                 type="button"
                               >
-                                {isCurrent && (
-                                  <span
-                                    aria-hidden
-                                    className="absolute inset-x-0 top-0 h-[3px]"
-                                    style={{
-                                      background: isActive ? 'rgba(255,255,255,0.82)' : track.color,
-                                      opacity: isActive ? 1 : 0.74,
-                                    }}
-                                  />
-                                )}
                                 {showSubnoteStack && (
                                   <span aria-hidden className="absolute inset-x-[2px] inset-y-[4px] flex flex-col gap-px overflow-hidden rounded-[2px]">
                                     {[...value].sort((left, right) => pitchRank(right.note) - pitchRank(left.note)).map((event, noteIndex) => (
@@ -2813,7 +2820,6 @@ export const MainWorkspace = () => {
                                     })}
                                   </span>
                                 )}
-                                {isCurrent && <span className="absolute inset-y-1 left-1 w-[2px] rounded-full bg-white/50" />}
                               </button>
                             );
                           })}
