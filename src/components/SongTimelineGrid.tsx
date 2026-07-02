@@ -65,9 +65,18 @@ export const SongTimelineGrid = ({
   onDeleteTrack,
 }: SongTimelineGridProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const playheadRef = useRef<HTMLDivElement>(null);
   const [scrollLeft, setScrollLeft] = useState(0);
   const [viewportWidth, setViewportWidth] = useState(800);
-  const [playBeat, setPlayBeat] = useState(0);
+  // Whether the view auto-scrolls to keep the playhead in sight. A manual scroll
+  // turns this off so the user can look around without being yanked back; the
+  // "Follow" pill re-engages it. Mirrored to a ref so the rAF loop reads it
+  // without going stale.
+  const [following, setFollowing] = useState(true);
+  const followingRef = useRef(true);
+  // Set right before we scroll programmatically, so the resulting scroll event
+  // is not mistaken for the user scrolling away.
+  const programmaticScrollRef = useRef(false);
   const [editingMarkerId, setEditingMarkerId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState('');
   const [dragTrackId, setDragTrackId] = useState<string | null>(null);
@@ -124,14 +133,20 @@ export const SongTimelineGrid = ({
       const beat = engine.currentStep;
       if (beat !== lastBeat) {
         lastBeat = beat;
-        setPlayBeat(beat);
-        // Follow the playhead only when it actually moves (during playback or a
-        // seek). Doing it here, instead of in an effect keyed on scrollLeft,
-        // means a manual scroll while stopped is never yanked back.
+        const playX = beat * cellW;
+        // Move the playhead imperatively so the whole grid does not re-render on
+        // every step; that per-step churn is a real source of playback stutter.
+        const ph = playheadRef.current;
+        if (ph) {
+          ph.style.transform = `translateX(${playX}px)`;
+        }
+        // Follow only while following is on, and only when the playhead drifts
+        // near an edge. Flag the scroll as ours so onScroll does not read it as a
+        // manual scroll and disengage follow.
         const el = scrollRef.current;
-        if (el) {
-          const playX = beat * cellW;
+        if (el && followingRef.current) {
           if (playX < el.scrollLeft + 40 || playX > el.scrollLeft + el.clientWidth - 40) {
+            programmaticScrollRef.current = true;
             el.scrollLeft = Math.max(0, playX - el.clientWidth / 2);
           }
         }
@@ -243,11 +258,22 @@ export const SongTimelineGrid = ({
     setEditingMarkerId(null);
   };
 
-  const playheadLeft = playBeat * cellW;
   const barLineEvery = stepsPerPattern;
 
+  // Re-engage auto-follow and snap the view to the playhead. Triggered by the
+  // "Follow" pill that appears once a manual scroll has turned following off.
+  const resumeFollow = () => {
+    followingRef.current = true;
+    setFollowing(true);
+    const el = scrollRef.current;
+    if (el) {
+      programmaticScrollRef.current = true;
+      el.scrollLeft = Math.max(0, engine.currentStep * cellW - el.clientWidth / 2);
+    }
+  };
+
   return (
-    <div className="flex overflow-hidden rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]">
+    <div className="relative flex overflow-hidden rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]">
       {/* Track-name gutter, aligned row-for-row with the lanes. Slides shut to a
           thin icon strip; drag a lane to reorder. */}
       <div className="shrink-0 border-r border-[var(--border-soft)] bg-[var(--bg-panel-strong)] transition-[width] duration-200" style={{ width: gutterCollapsed ? 36 : GUTTER_WIDTH }}>
@@ -329,7 +355,18 @@ export const SongTimelineGrid = ({
       <div
         ref={scrollRef}
         className="relative flex-1 overflow-x-auto"
-        onScroll={(event) => { setScrollLeft(event.currentTarget.scrollLeft); setHoverCell(null); }}
+        onScroll={(event) => {
+          setScrollLeft(event.currentTarget.scrollLeft);
+          setHoverCell(null);
+          // A scroll we did not initiate means the user moved the view, so stop
+          // following until they ask to resume.
+          if (programmaticScrollRef.current) {
+            programmaticScrollRef.current = false;
+          } else if (followingRef.current) {
+            followingRef.current = false;
+            setFollowing(false);
+          }
+        }}
       >
         <div className="relative" style={{ width: totalWidth }}>
           {/* Editable section ruler. */}
@@ -596,13 +633,26 @@ export const SongTimelineGrid = ({
             </div>
           ))}
 
-          {/* Playhead across the ruler and every lane. */}
+          {/* Playhead across the ruler and every lane. Positioned imperatively
+              from the rAF loop so the grid never re-renders as it moves. */}
           <div
-            className="pointer-events-none absolute top-0 w-[2px] bg-[var(--accent-strong)]"
-            style={{ left: playheadLeft, height: RULER_HEIGHT + tracks.length * laneH }}
+            ref={playheadRef}
+            className="pointer-events-none absolute left-0 top-0 w-[2px] bg-[var(--accent-strong)] will-change-transform"
+            style={{ transform: 'translateX(0px)', height: RULER_HEIGHT + tracks.length * laneH }}
           />
         </div>
       </div>
+      {!following && (
+        <button
+          aria-label="Follow the playhead"
+          className="absolute bottom-2 right-2 z-20 flex items-center gap-1.5 rounded-full border border-[var(--accent-strong)] bg-[var(--bg-panel-strong)] px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--accent-strong)] shadow-[0_2px_10px_rgba(0,0,0,0.45)] transition-colors hover:bg-[var(--accent-muted)]"
+          onClick={resumeFollow}
+          type="button"
+        >
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--accent-strong)]" />
+          Follow
+        </button>
+      )}
     </div>
   );
 };
