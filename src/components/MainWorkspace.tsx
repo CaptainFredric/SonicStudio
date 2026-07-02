@@ -465,6 +465,109 @@ const SequencerPlayheadDriver = ({ stepsPerPattern }: { stepsPerPattern: number 
   return null;
 };
 
+// The load-watch panel polls the master meter ~8x a second and monitors frame
+// drift, both of which change constantly during playback. Living inside
+// MainWorkspace, each of those updates re-rendered the entire workspace, which
+// was the largest remaining source of per-frame garbage. Isolated here, only
+// this small panel re-renders. It is desktop-only, so on mobile the polling and
+// the drift loop do not run at all.
+const LoadWatchReadout = ({
+  tracks,
+  currentPattern,
+  stepsPerPattern,
+  superSonicMode,
+  isPlaying,
+}: {
+  tracks: Track[];
+  currentPattern: number;
+  stepsPerPattern: number;
+  superSonicMode: boolean;
+  isPlaying: boolean;
+}) => {
+  const [masterLevel, setMasterLevel] = useState(-100);
+  const [uiFrameDriftMs, setUiFrameDriftMs] = useState(0);
+  const [audioBaseLatencyMs, setAudioBaseLatencyMs] = useState<number | null>(() => {
+    const latencySeconds = engine.getBaseLatencySeconds();
+    return latencySeconds === null ? null : Number((latencySeconds * 1000).toFixed(1));
+  });
+
+  useEffect(() => {
+    const interval = window.setInterval(() => {
+      setMasterLevel(engine.getMasterMeterValue());
+    }, 120);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const latencySeconds = engine.getBaseLatencySeconds();
+    setAudioBaseLatencyMs(latencySeconds === null ? null : Number((latencySeconds * 1000).toFixed(1)));
+  }, [isPlaying, tracks.length, stepsPerPattern, superSonicMode]);
+
+  useEffect(() => {
+    if (!isPlaying) {
+      setUiFrameDriftMs((current) => (current === 0 ? current : 0));
+      return undefined;
+    }
+    let frameId = 0;
+    let lastFrameTime = performance.now();
+    let driftAccumulator = 0;
+    let sampleCount = 0;
+    const tick = (now: number) => {
+      const delta = now - lastFrameTime;
+      lastFrameTime = now;
+      driftAccumulator += Math.max(0, delta - 16.67);
+      sampleCount += 1;
+      if (sampleCount >= 15) {
+        const nextDrift = driftAccumulator / sampleCount;
+        setUiFrameDriftMs((current) => {
+          const smoothed = Number(((current * 0.65) + (nextDrift * 0.35)).toFixed(2));
+          // Skip the re-render when the reading barely moved, so steady playback
+          // does not keep re-rendering this panel.
+          return Math.abs(smoothed - current) < 0.3 ? current : smoothed;
+        });
+        driftAccumulator = 0;
+        sampleCount = 0;
+      }
+      frameId = window.requestAnimationFrame(tick);
+    };
+    frameId = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(frameId);
+  }, [isPlaying]);
+
+  const loadWatchSummary = useMemo(() => (
+    buildLoadWatchSummary(
+      tracks,
+      currentPattern,
+      stepsPerPattern,
+      superSonicMode,
+      masterLevel,
+      audioBaseLatencyMs,
+      uiFrameDriftMs,
+      isPlaying,
+    )
+  ), [audioBaseLatencyMs, currentPattern, isPlaying, masterLevel, stepsPerPattern, superSonicMode, tracks, uiFrameDriftMs]);
+  const loadWatchStyle = LOAD_WATCH_STYLES[loadWatchSummary.state];
+
+  return (
+    <div className="surface-panel-strong min-w-[196px] px-3 py-2">
+      <div className="flex items-center justify-between gap-3">
+        <span className="section-label">Load watch</span>
+        <span className="font-mono text-[10px] uppercase tracking-[0.14em]" style={{ color: loadWatchStyle.text }}>
+          {loadWatchSummary.label}
+        </span>
+      </div>
+      <div className="mt-2 h-1.5 overflow-hidden rounded-[2px] bg-black/20">
+        <div className="h-full rounded-[2px]" style={{ background: loadWatchStyle.bar, width: `${Math.max(6, loadWatchSummary.score)}%` }} />
+      </div>
+      <div className="mt-2 text-[10px] uppercase tracking-[0.12em] text-[var(--text-secondary)]">
+        {countLabel(loadWatchSummary.activeLaneCount, 'lane')} · {countLabel(loadWatchSummary.totalNotes, 'note')} · peak {loadWatchSummary.peakNotes}
+        {loadWatchSummary.baseLatencyMs !== null ? ` · ${Math.round(loadWatchSummary.baseLatencyMs)}ms base` : ''}
+        {isPlaying ? ` · ${loadWatchSummary.frameDriftMs.toFixed(1)}ms drift` : ''}
+      </div>
+    </div>
+  );
+};
+
 export const MainWorkspace = () => {
   const isMobileViewport = useMediaQuery('(max-width: 767px)');
   const {
@@ -527,12 +630,6 @@ export const MainWorkspace = () => {
     typeof window !== 'undefined'
     && window.matchMedia('(min-width: 1280px) and (min-height: 900px)').matches
   ));
-  const [masterLevel, setMasterLevel] = useState(-100);
-  const [uiFrameDriftMs, setUiFrameDriftMs] = useState(0);
-  const [audioBaseLatencyMs, setAudioBaseLatencyMs] = useState<number | null>(() => {
-    const latencySeconds = engine.getBaseLatencySeconds();
-    return latencySeconds === null ? null : Number((latencySeconds * 1000).toFixed(1));
-  });
   const [selectedStepIndex, setSelectedStepIndex] = useState(0);
   const [selectedStepNoteIndex, setSelectedStepNoteIndex] = useState(0);
   const [segmentDraftName, setSegmentDraftName] = useState('');
@@ -622,19 +719,6 @@ export const MainWorkspace = () => {
   const isSelectedTrackLoopActive = selectedTrackPatternSpan !== null
     && loopRangeStartBeat === selectedTrackPatternSpan.startStep
     && loopRangeEndBeat === selectedTrackPatternSpan.endStep;
-  const loadWatchSummary = useMemo(() => (
-    buildLoadWatchSummary(
-      tracks,
-      currentPattern,
-      stepsPerPattern,
-      superSonicMode,
-      masterLevel,
-      audioBaseLatencyMs,
-      uiFrameDriftMs,
-      isPlaying,
-    )
-  ), [audioBaseLatencyMs, currentPattern, isPlaying, masterLevel, stepsPerPattern, superSonicMode, tracks, uiFrameDriftMs]);
-  const loadWatchStyle = LOAD_WATCH_STYLES[loadWatchSummary.state];
   const addLaneScrollProgress = addLaneMaxScrollLeft > 0
     ? Math.round((Math.min(addLaneScrollLeft, addLaneMaxScrollLeft) / addLaneMaxScrollLeft) * 100)
     : 0;
@@ -822,15 +906,6 @@ export const MainWorkspace = () => {
     setStepZoom((current) => clampNumber(current, STEP_ZOOM_MIN, stepZoomMax));
   }, [stepZoomMax]);
 
-  useEffect(() => {
-    const interval = window.setInterval(() => {
-      setMasterLevel(engine.getMasterMeterValue());
-    }, 120);
-
-    return () => {
-      window.clearInterval(interval);
-    };
-  }, []);
 
   useEffect(() => {
     if (!selectedTrack) {
@@ -906,51 +981,6 @@ export const MainWorkspace = () => {
     }
   }, [isMobileViewport]);
 
-  useEffect(() => {
-    const latencySeconds = engine.getBaseLatencySeconds();
-    setAudioBaseLatencyMs(latencySeconds === null ? null : Number((latencySeconds * 1000).toFixed(1)));
-  }, [isPlaying, tracks.length, stepsPerPattern, superSonicMode]);
-
-  useEffect(() => {
-    // Only watch frame drift while the transport is running. The readout is
-    // playback-only, so a 60fps loop that re-renders the whole workspace
-    // while the studio sits idle is pure main-thread churn, the kind that
-    // hurts weaker devices most.
-    if (!isPlaying) {
-      setUiFrameDriftMs((current) => (current === 0 ? current : 0));
-      return;
-    }
-
-    let frameId = 0;
-    let lastFrameTime = performance.now();
-    let driftAccumulator = 0;
-    let sampleCount = 0;
-
-    const tick = (now: number) => {
-      const delta = now - lastFrameTime;
-      lastFrameTime = now;
-      const drift = Math.max(0, delta - 16.67);
-      driftAccumulator += drift;
-      sampleCount += 1;
-
-      if (sampleCount >= 15) {
-        const nextDrift = driftAccumulator / sampleCount;
-        setUiFrameDriftMs((current) => {
-          const smoothed = Number(((current * 0.65) + (nextDrift * 0.35)).toFixed(2));
-          // Skip the re-render when the smoothed reading barely moved, so a
-          // steady playback does not keep re-rendering the workspace.
-          return Math.abs(smoothed - current) < 0.3 ? current : smoothed;
-        });
-        driftAccumulator = 0;
-        sampleCount = 0;
-      }
-
-      frameId = window.requestAnimationFrame(tick);
-    };
-
-    frameId = window.requestAnimationFrame(tick);
-    return () => window.cancelAnimationFrame(frameId);
-  }, [isPlaying]);
 
   useEffect(() => {
     const node = addLaneStripRef.current;
@@ -1977,31 +2007,13 @@ export const MainWorkspace = () => {
                   ))}
                 </div>
                 {!isMobileViewport && (
-                  <div className="surface-panel-strong min-w-[196px] px-3 py-2">
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="section-label">Load watch</span>
-                      <span
-                        className="font-mono text-[10px] uppercase tracking-[0.14em]"
-                        style={{ color: loadWatchStyle.text }}
-                      >
-                        {loadWatchSummary.label}
-                      </span>
-                    </div>
-                    <div className="mt-2 h-1.5 overflow-hidden rounded-[2px] bg-black/20">
-                      <div
-                        className="h-full rounded-[2px]"
-                        style={{
-                          background: loadWatchStyle.bar,
-                          width: `${Math.max(6, loadWatchSummary.score)}%`,
-                        }}
-                      />
-                    </div>
-                    <div className="mt-2 text-[10px] uppercase tracking-[0.12em] text-[var(--text-secondary)]">
-                      {countLabel(loadWatchSummary.activeLaneCount, 'lane')} · {countLabel(loadWatchSummary.totalNotes, 'note')} · peak {loadWatchSummary.peakNotes}
-                      {loadWatchSummary.baseLatencyMs !== null ? ` · ${Math.round(loadWatchSummary.baseLatencyMs)}ms base` : ''}
-                      {isPlaying ? ` · ${loadWatchSummary.frameDriftMs.toFixed(1)}ms drift` : ''}
-                    </div>
-                  </div>
+                  <LoadWatchReadout
+                    currentPattern={currentPattern}
+                    isPlaying={isPlaying}
+                    stepsPerPattern={stepsPerPattern}
+                    superSonicMode={superSonicMode}
+                    tracks={tracks}
+                  />
                 )}
                 {superSonicMode && superSonicPreferences.guidanceBadges && (
                   <div className="surface-panel-strong flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--accent-strong)]">
