@@ -20,7 +20,13 @@ const GUTTER_WIDTH = 64;
 // there is an arrangement worth navigating.
 export const TrackMinimap = () => {
   const { songLengthInBeats, songMarkers, transportMode, stepsPerPattern, arrangerClips, tracks, isPlaying, setIsPlaying } = useAudio();
-  const [playBeat, setPlayBeat] = useState(0);
+  const total = Math.max(1, songLengthInBeats);
+  // Coarse position, only for the bar/section labels. The playhead line and its
+  // diamond move imperatively (in the rAF loop below), so the strip does not
+  // re-render on every step, which is per-step churn that stutters audio.
+  const [displayBeat, setDisplayBeat] = useState(0);
+  const playheadRef = useRef<HTMLDivElement>(null);
+  const diamondRef = useRef<HTMLDivElement>(null);
   const [areaWidth, setAreaWidth] = useState(320);
   const areaRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef(false);
@@ -32,14 +38,25 @@ export const TrackMinimap = () => {
   // the within-bar step, so we read the engine directly).
   useEffect(() => {
     let raf = 0;
+    let lastBeat = -1;
     const tick = () => {
       const beat = engine.currentStep;
-      setPlayBeat((prev) => (prev === beat ? prev : beat));
+      if (beat !== lastBeat) {
+        lastBeat = beat;
+        const pct = Math.max(0, Math.min(100, (beat / total) * 100));
+        if (playheadRef.current) playheadRef.current.style.left = `${pct}%`;
+        if (diamondRef.current) diamondRef.current.style.left = `${pct}%`;
+        // The bar and section labels only change at bar boundaries, so re-render
+        // for those, not for every step.
+        setDisplayBeat((prev) => (
+          Math.floor(prev / stepsPerPattern) === Math.floor(beat / stepsPerPattern) ? prev : beat
+        ));
+      }
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, []);
+  }, [total, stepsPerPattern]);
 
   // Track the timeline width so note ticks can keep a legible minimum size even
   // when a long song packs many steps into a narrow strip.
@@ -52,8 +69,6 @@ export const TrackMinimap = () => {
     observer.observe(el);
     return () => observer.disconnect();
   }, []);
-
-  const total = Math.max(1, songLengthInBeats);
 
   const sections = useMemo(() => {
     const sorted = [...songMarkers].sort((a, b) => a.beat - b.beat);
@@ -137,20 +152,25 @@ export const TrackMinimap = () => {
     const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
     return Math.round(ratio * total);
   };
+  const moveHeadTo = (beat: number) => {
+    const pctValue = Math.max(0, Math.min(100, (beat / total) * 100));
+    if (playheadRef.current) playheadRef.current.style.left = `${pctValue}%`;
+    if (diamondRef.current) diamondRef.current.style.left = `${pctValue}%`;
+  };
   const seek = (clientX: number) => {
     const beat = beatFromClientX(clientX);
     engine.seekToBeat(beat);
-    setPlayBeat(beat);
+    moveHeadTo(beat);
+    setDisplayBeat(beat);
   };
   const pct = (beats: number) => `${(beats / total) * 100}%`;
   // Smallest note width, in step units, that still renders ~1.4px wide at the
   // current timeline width, so individual notes never vanish on a long song.
   const minNoteUnits = Math.max(0.5, (1.4 * total) / Math.max(1, areaWidth));
 
-  const playPct = Math.max(0, Math.min(100, (playBeat / total) * 100));
-  const currentBar = Math.floor(playBeat / stepsPerPattern) + 1;
+  const currentBar = Math.floor(displayBeat / stepsPerPattern) + 1;
   const totalBars = Math.max(1, Math.round(total / stepsPerPattern));
-  const activeSection = sections.find((section) => playBeat >= section.start && playBeat < section.end);
+  const activeSection = sections.find((section) => displayBeat >= section.start && displayBeat < section.end);
 
   return (
     <div className="mb-2 grid shrink-0 gap-1">
@@ -186,7 +206,7 @@ export const TrackMinimap = () => {
           aria-label="Track position. Drag to jump to a spot in the song."
           aria-valuemin={0}
           aria-valuemax={total}
-          aria-valuenow={playBeat}
+          aria-valuenow={displayBeat}
           tabIndex={0}
           onPointerDown={(event) => {
             draggingRef.current = true;
@@ -208,8 +228,8 @@ export const TrackMinimap = () => {
             endScrub();
           }}
           onKeyDown={(event) => {
-            if (event.key === 'ArrowLeft') { engine.seekToBeat(playBeat - stepsPerPattern); setPlayBeat((b) => Math.max(0, b - stepsPerPattern)); }
-            if (event.key === 'ArrowRight') { engine.seekToBeat(playBeat + stepsPerPattern); setPlayBeat((b) => Math.min(total, b + stepsPerPattern)); }
+            if (event.key === 'ArrowLeft') { const b = Math.max(0, displayBeat - stepsPerPattern); engine.seekToBeat(b); moveHeadTo(b); setDisplayBeat(b); }
+            if (event.key === 'ArrowRight') { const b = Math.min(total, displayBeat + stepsPerPattern); engine.seekToBeat(b); moveHeadTo(b); setDisplayBeat(b); }
           }}
         >
           {/* Section ruler. */}
@@ -270,14 +290,18 @@ export const TrackMinimap = () => {
             </div>
           ))}
 
-          {/* Playhead line across the ruler and every lane, plus a grab handle. */}
+          {/* Playhead line across the ruler and every lane, plus a grab handle.
+              Both move imperatively (moveHeadTo / the rAF loop) so the strip does
+              not re-render as the playhead travels. */}
           <div
+            ref={playheadRef}
             className="pointer-events-none absolute inset-y-0 w-[1.5px] bg-[var(--accent-strong)]"
-            style={{ left: `${playPct}%` }}
+            style={{ left: 0 }}
           />
           <div
+            ref={diamondRef}
             className="pointer-events-none absolute h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rotate-45 border border-[var(--bg-panel-strong)] bg-[var(--accent-strong)] shadow-[0_1px_3px_rgba(0,0,0,0.5)]"
-            style={{ left: `${playPct}%`, top: RULER_HEIGHT / 2 }}
+            style={{ left: 0, top: RULER_HEIGHT / 2 }}
           />
         </div>
       </div>
