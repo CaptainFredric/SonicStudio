@@ -20,6 +20,7 @@ describe('studio preferences', () => {
       superSonicMode: true,
       stickyMobileTransport: false,
       audioStabilityMode: 'resilient',
+      sharedReverb: false,
       capture: {
         analysisProfile: 'steady',
         autoPreviewMatch: true,

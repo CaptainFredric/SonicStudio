@@ -82,10 +82,12 @@ export const WorkspaceSettingsPanel = () => {
     setStepsPerPattern,
     setStickyMobileTransport,
     setAudioStabilityMode,
+    setSharedReverb,
     setTransportMode,
     setUiSoundsEnabled,
     stickyMobileTransport,
     audioStabilityMode,
+    sharedReverb,
     songLengthInBeats,
     stepsPerPattern,
     toggleStep,
@@ -304,11 +306,13 @@ export const WorkspaceSettingsPanel = () => {
         onSuperSonicWaveIntensityChange={setSuperSonicWaveIntensity}
         onStickyMobileTransportChange={setStickyMobileTransport}
         onAudioStabilityModeChange={setAudioStabilityMode}
+        onSharedReverbChange={setSharedReverb}
         onUiSoundsEnabledChange={setUiSoundsEnabled}
         onExportTrainingCorpus={exportTrainingCorpus}
         trainingCorpusSummary={trainingCorpusSummary}
         stickyMobileTransport={stickyMobileTransport}
         audioStabilityMode={audioStabilityMode}
+        sharedReverb={sharedReverb}
         superSonicGuidanceBadges={superSonicPreferences.guidanceBadges}
         superSonicMode={superSonicMode}
         superSonicWaveIntensity={superSonicPreferences.waveIntensity}

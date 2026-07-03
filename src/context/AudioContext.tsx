@@ -212,6 +212,7 @@ interface AudioContextType {
   setMidiRecordEnabled: (enabled: boolean) => void;
   setStickyMobileTransport: (enabled: boolean) => void;
   setAudioStabilityMode: (mode: AudioStabilityMode) => void;
+  setSharedReverb: (enabled: boolean) => void;
   setMetronomeEnabled: (enabled: boolean) => void;
   songMarkers: SongMarker[];
   setClipPatternStepSlice: (clipId: string, stepIndex: number, sliceIndex: number | null, note?: string) => void;
@@ -269,6 +270,7 @@ interface AudioContextType {
   midiRecordEnabled: boolean;
   stickyMobileTransport: boolean;
   audioStabilityMode: AudioStabilityMode;
+  sharedReverb: boolean;
 }
 
 // The action surface of the context: every callback, none of the changing
@@ -439,6 +441,10 @@ export const AudioProvider = ({
   useEffect(() => {
     engine.setAudioStabilityMode(preferences.audioStabilityMode);
   }, [preferences.audioStabilityMode]);
+
+  useEffect(() => {
+    engine.setSharedReverb(preferences.sharedReverb);
+  }, [preferences.sharedReverb]);
 
   const playInterfaceSound = useEffectEvent((variant: string) => {
     if (!preferences.uiSoundsEnabled || !isUiSoundVariant(variant)) {
@@ -853,6 +859,7 @@ export const AudioProvider = ({
     setMidiRecordEnabled: (midiRecordEnabled) => setPreferences((current) => ({ ...current, midiRecordEnabled })),
     setStickyMobileTransport: (stickyMobileTransport) => setPreferences((current) => ({ ...current, stickyMobileTransport })),
     setAudioStabilityMode: (audioStabilityMode) => setPreferences((current) => ({ ...current, audioStabilityMode })),
+    setSharedReverb: (sharedReverb) => setPreferences((current) => ({ ...current, sharedReverb })),
     setAccentColor: (accentColor) => setPreferences((current) => ({ ...current, accentColor })),
     setDensity: (density) => setPreferences((current) => ({ ...current, density })),
     setDefaultWorkspace: (defaultWorkspace) => setPreferences((current) => ({ ...current, defaultWorkspace })),
@@ -957,6 +964,7 @@ export const AudioProvider = ({
     midiRecordEnabled: preferences.midiRecordEnabled,
     stickyMobileTransport: preferences.stickyMobileTransport,
     audioStabilityMode: preferences.audioStabilityMode,
+    sharedReverb: preferences.sharedReverb,
   }), [
     actions,
     activeView,
@@ -987,6 +995,7 @@ export const AudioProvider = ({
     preferences.midiRecordEnabled,
     preferences.stickyMobileTransport,
     preferences.audioStabilityMode,
+    preferences.sharedReverb,
     project,
     projectCheckpoints,
     renderState,

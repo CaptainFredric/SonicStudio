@@ -26,11 +26,13 @@ interface WorkspaceOptionsPanelProps {
   onSuperSonicWaveIntensityChange: (intensity: SuperSonicWaveIntensity) => void;
   onStickyMobileTransportChange: (enabled: boolean) => void;
   onAudioStabilityModeChange: (mode: AudioStabilityMode) => void;
+  onSharedReverbChange: (enabled: boolean) => void;
   onExportTrainingCorpus: () => void;
   trainingCorpusSummary: TrainingCorpusSummary;
   onUiSoundsEnabledChange: (enabled: boolean) => void;
   stickyMobileTransport: boolean;
   audioStabilityMode: AudioStabilityMode;
+  sharedReverb: boolean;
   superSonicGuidanceBadges: boolean;
   superSonicMode: boolean;
   superSonicWaveIntensity: SuperSonicWaveIntensity;
@@ -55,11 +57,13 @@ export const WorkspaceOptionsPanel = ({
   onSuperSonicWaveIntensityChange,
   onStickyMobileTransportChange,
   onAudioStabilityModeChange,
+  onSharedReverbChange,
   onExportTrainingCorpus,
   trainingCorpusSummary,
   onUiSoundsEnabledChange,
   stickyMobileTransport,
   audioStabilityMode,
+  sharedReverb,
   superSonicGuidanceBadges,
   superSonicMode,
   superSonicWaveIntensity,
@@ -282,6 +286,22 @@ export const WorkspaceOptionsPanel = ({
           <SegmentButton active={audioStabilityMode === 'tight'} label="Tight" onClick={() => onAudioStabilityModeChange('tight')} />
           <SegmentButton active={audioStabilityMode === 'stable'} label="Stable" onClick={() => onAudioStabilityModeChange('stable')} />
           <SegmentButton active={audioStabilityMode === 'resilient'} label="Resilient" onClick={() => onAudioStabilityModeChange('resilient')} />
+        </div>
+      </div>
+
+      <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-3">
+        <div className="flex items-center gap-2">
+          <Waves className="h-4 w-4 text-[var(--accent)]" />
+          <div>
+            <div className="text-sm font-medium text-[var(--text-primary)]">Shared reverb</div>
+            <div className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">
+              Run one reverb for the whole mix instead of a separate one on every track. Much lighter on the audio thread, so it helps playback stay smooth on phones and older machines. The reverb tail is shared across tracks rather than kept separate per track, which is a subtle change to the sound.
+            </div>
+          </div>
+        </div>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <StateButton active={sharedReverb} label="On" onClick={() => onSharedReverbChange(true)} />
+          <StateButton active={!sharedReverb} label="Off" onClick={() => onSharedReverbChange(false)} />
         </div>
       </div>
 

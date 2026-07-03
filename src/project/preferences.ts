@@ -32,6 +32,11 @@ export interface StudioPreferences {
   superSonicMode: boolean;
   stickyMobileTransport: boolean;
   audioStabilityMode: AudioStabilityMode;
+  // Route every track's reverb through one shared bus instead of a Freeverb per
+  // track. Much lighter on the audio thread (helps weaker phones), at the cost
+  // of one shared reverb tail rather than independent per-track tails. Off by
+  // default so the sound is unchanged until a user opts in.
+  sharedReverb: boolean;
   capture: CapturePreferences;
   superSonic: SuperSonicPreferences;
 }
@@ -49,6 +54,7 @@ export const DEFAULT_STUDIO_PREFERENCES: StudioPreferences = {
   superSonicMode: false,
   stickyMobileTransport: true,
   audioStabilityMode: 'auto',
+  sharedReverb: false,
   capture: {
     analysisProfile: 'balanced',
     autoPreviewMatch: false,
@@ -167,6 +173,9 @@ export const normalizeStudioPreferences = (value: unknown): StudioPreferences =>
     audioStabilityMode: (candidate.audioStabilityMode === 'tight' || candidate.audioStabilityMode === 'stable' || candidate.audioStabilityMode === 'resilient' || candidate.audioStabilityMode === 'auto')
       ? candidate.audioStabilityMode
       : DEFAULT_STUDIO_PREFERENCES.audioStabilityMode,
+    sharedReverb: typeof candidate.sharedReverb === 'boolean'
+      ? candidate.sharedReverb
+      : DEFAULT_STUDIO_PREFERENCES.sharedReverb,
     capture: {
       analysisProfile: isCaptureAnalysisProfile(captureCandidate.analysisProfile)
         ? captureCandidate.analysisProfile

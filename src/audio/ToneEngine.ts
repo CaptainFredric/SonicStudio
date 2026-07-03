@@ -27,6 +27,9 @@ type TrackInstrument =
 
 interface TrackGraph {
   ambienceActive: boolean;
+  // The node that carries the ambience chain into the channel: the per-track
+  // reverb normally, or the delay when reverb is routed to the shared bus.
+  ambienceOut: Tone.Freeverb | Tone.FeedbackDelay;
   channel: Tone.Channel;
   chorus: Tone.Chorus;
   crusher: Tone.BitCrusher;
@@ -40,6 +43,8 @@ interface TrackGraph {
   meter: Tone.Meter;
   postFilter: Tone.Gain;
   reverb: Tone.Freeverb;
+  // Send into the shared reverb bus; only wired when shared reverb is on.
+  reverbSendGain: Tone.Gain;
   sampleBuffer: Tone.ToneAudioBuffer | null;
   samplePlayerAvailableAt: number[];
   samplePlayerCursor: number;
@@ -108,6 +113,11 @@ export class ToneEngine {
   };
   private masterWidener: Tone.StereoWidener | null = null;
   private offlineMode = false;
+  // Optional shared reverb bus. When on, every track sends here instead of
+  // running its own Freeverb, which is far lighter on the audio thread. It is
+  // only connected to the master while enabled, so it costs nothing when off.
+  private reverbBus: Tone.Freeverb | null = null;
+  private sharedReverb = false;
   private stepCallbacks: ((step: number, pattern: number) => void)[] = [];
   private stepsPerPattern = 16;
   private trackGraphs: Record<string, TrackGraph> = {};
@@ -199,6 +209,13 @@ export class ToneEngine {
       this.masterWidener = new Tone.StereoWidener(0.5);
       this.masterGain = new Tone.Gain(1);
       this.masterMeter = new Tone.Meter();
+      // Shared reverb bus, matching the per-track Freeverb's character. Left
+      // unconnected unless the option is already on (a preference restored
+      // before init), so it is free when off. setSharedReverb toggles it later.
+      this.reverbBus = new Tone.Freeverb({ roomSize: 0.7 });
+      if (this.sharedReverb) {
+        this.reverbBus.connect(this.masterLimiter);
+      }
       this.metronomeSynth = new Tone.Synth({
         envelope: { attack: 0.001, decay: 0.06, release: 0.03, sustain: 0 },
         oscillator: { type: 'square' },
@@ -275,6 +292,30 @@ export class ToneEngine {
       Tone.getContext().lookAhead = lookaheadForMode(mode, isLikelyMobile());
     } catch {
       // Context may not exist yet; init() will use the stored mode.
+    }
+  }
+
+  // Toggle the shared reverb bus. Enabling connects the bus to the master and
+  // rebuilds every track graph to send into it; disabling rebuilds them back to
+  // per-track Freeverbs and idles the bus. Off by default, so an untouched
+  // session keeps the original per-track reverb. If called before init, the
+  // flag is stored and init wires the bus to match.
+  public setSharedReverb(enabled: boolean): void {
+    if (this.sharedReverb === enabled) return;
+    this.sharedReverb = enabled;
+    if (this.offlineMode || !this.isInitialized) return;
+    try {
+      if (enabled && this.reverbBus && this.masterLimiter) {
+        this.reverbBus.connect(this.masterLimiter);
+      }
+      // The voice signature now differs, so this disposes and recreates each
+      // track graph in the new routing.
+      this.syncTrackGraphs();
+      if (!enabled && this.reverbBus) {
+        this.reverbBus.disconnect();
+      }
+    } catch {
+      // If the swap fails, leave playback on whatever routing is wired.
     }
   }
 
@@ -760,9 +801,12 @@ export class ToneEngine {
   }
 
   private buildVoiceSignature(track: Track) {
-    return track.source.engine === 'sample'
+    // The shared-reverb flag is part of the signature so toggling it rebuilds
+    // every track graph in the new routing (per-track Freeverb vs shared bus).
+    const reverbTag = this.sharedReverb ? ':sr1' : ':sr0';
+    return (track.source.engine === 'sample'
       ? `${track.type}:sample:${track.source.customSampleName ?? track.source.samplePreset}:${track.source.customSampleDataUrl?.length ?? 0}`
-      : `${track.type}:synth`;
+      : `${track.type}:synth`) + reverbTag;
   }
 
   private noteToMidi(note: string) {
@@ -1078,6 +1122,7 @@ export class ToneEngine {
     const postFilter = new Tone.Gain();
     const sourceInput = new Tone.Gain();
     const vibrato = new Tone.Vibrato(4, 0);
+    const reverbSendGain = new Tone.Gain(0);
     const instrument = this.createInstrument(track);
     const sampleMeta = track.source.engine === 'sample' ? getSamplePresetMeta(track.source.samplePreset) : null;
     const sampleBuffer = track.source.engine === 'sample'
@@ -1091,11 +1136,23 @@ export class ToneEngine {
     channel.connect(meter);
     // The ambience chain (chorus -> delay -> reverb) and the insert chain
     // (vibrato -> crusher -> dist) are wired internally but left unconnected at
-    // their outputs. The sync attaches reverb -> channel / dist -> filter only
-    // while the track is actually using them, so an idle Freeverb or bitcrusher
-    // drops out of the render graph entirely instead of processing silence.
-    delay.connect(reverb);
+    // their outputs. The sync attaches ambienceOut -> channel / dist -> filter
+    // only while the track is actually using them, so an idle Freeverb or
+    // bitcrusher drops out of the render graph instead of processing silence.
     chorus.connect(delay);
+    let ambienceOut: Tone.Freeverb | Tone.FeedbackDelay;
+    if (this.sharedReverb && this.reverbBus) {
+      // Shared-reverb mode: the delayed, chorused signal taps into the one
+      // shared bus, and the delay itself carries the dry ambience to the
+      // channel. This track's own Freeverb stays idle and out of the graph.
+      delay.connect(reverbSendGain);
+      reverbSendGain.connect(this.reverbBus);
+      ambienceOut = delay;
+    } else {
+      // Per-track mode: the delay feeds this track's own Freeverb.
+      delay.connect(reverb);
+      ambienceOut = reverb;
+    }
     postFilter.connect(channel);
     filter.connect(postFilter);
     crusher.connect(dist);
@@ -1111,6 +1168,7 @@ export class ToneEngine {
 
     return {
       ambienceActive: false,
+      ambienceOut,
       channel,
       chorus,
       crusher,
@@ -1124,6 +1182,7 @@ export class ToneEngine {
       meter,
       postFilter,
       reverb,
+      reverbSendGain,
       sampleBuffer,
       samplePlayerAvailableAt: samplePlayers.map(() => 0),
       samplePlayerCursor: 0,
@@ -1170,6 +1229,7 @@ export class ToneEngine {
     graph.chorus.dispose();
     graph.delay.dispose();
     graph.reverb.dispose();
+    graph.reverbSendGain.dispose();
     graph.channel.dispose();
     graph.meter.dispose();
 
@@ -1252,14 +1312,15 @@ export class ToneEngine {
       if (ambienceActive) {
         graph.postFilter.disconnect(graph.channel);
         graph.postFilter.connect(graph.chorus);
-        // Bring the ambience chain's output into the render graph.
-        graph.reverb.connect(graph.channel);
+        // Bring the ambience chain's output into the render graph. This is the
+        // per-track reverb normally, or the delay when reverb is shared.
+        graph.ambienceOut.connect(graph.channel);
       } else {
         graph.postFilter.disconnect(graph.chorus);
         graph.postFilter.connect(graph.channel);
-        // Drop the idle chorus -> delay -> reverb subgraph (Freeverb included)
-        // out of the render graph instead of leaving it to process silence.
-        graph.reverb.disconnect(graph.channel);
+        // Drop the idle ambience subgraph out of the render graph instead of
+        // leaving it to process silence.
+        graph.ambienceOut.disconnect(graph.channel);
       }
 
       graph.ambienceActive = ambienceActive;
@@ -1277,7 +1338,13 @@ export class ToneEngine {
     graph.filter.frequency.rampTo(track.params.cutoff, 0.1);
     graph.filter.Q.rampTo(track.params.resonance, 0.1);
     graph.filter.type = track.params.filterMode;
-    graph.reverb.wet.rampTo(track.params.reverbSend, 0.1);
+    // Reverb amount: the shared bus is a send level, the per-track Freeverb a
+    // wet mix. Whichever this graph was built for is the one that carries sound.
+    if (this.sharedReverb) {
+      graph.reverbSendGain.gain.rampTo(track.params.reverbSend, 0.1);
+    } else {
+      graph.reverb.wet.rampTo(track.params.reverbSend, 0.1);
+    }
     graph.vibrato.frequency.value = track.params.vibratoRate;
     graph.vibrato.depth.value = track.params.vibratoDepth;
 
