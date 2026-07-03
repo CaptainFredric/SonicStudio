@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { engine } from '../audio/ToneEngine';
 
@@ -26,14 +26,18 @@ export const TrackMeterBar = ({
   offKey?: boolean;
   trackId: string;
 }) => {
-  const [level, setLevel] = useState(0);
+  const fillRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
-    // Nothing is sounding while the transport is idle, so don't burn a timer
-    // (and a re-render) per lane reading a meter that will always be silent.
+    // Update the fill width imperatively rather than through state: a per-lane
+    // meter setting state ~9x a second re-renders every lane during playback,
+    // and that main-thread churn is exactly what starves the audio scheduler.
+    // Writing the width straight to the node keeps the meter live for free.
+    const reset = () => { if (fillRef.current) fillRef.current.style.width = '0%'; };
+    // Nothing is sounding while the transport is idle, so don't burn a timer.
     if (!active) {
-      setLevel(0);
-      return;
+      reset();
+      return undefined;
     }
     let attached = true;
     const tick = () => {
@@ -42,7 +46,7 @@ export const TrackMeterBar = ({
       const normalised = typeof dB === 'number' && Number.isFinite(dB)
         ? Math.max(0, Math.min(1, (dB + 60) / 60))
         : 0;
-      setLevel(normalised);
+      if (fillRef.current) fillRef.current.style.width = `${normalised * 100}%`;
     };
     tick();
     const id = window.setInterval(tick, intervalMs);
@@ -58,11 +62,9 @@ export const TrackMeterBar = ({
       className={`block h-[3px] w-full overflow-hidden rounded-full bg-[rgba(255,255,255,0.06)] ${className}`}
     >
       <span
-        className="block h-full rounded-full transition-[width] duration-100"
-        style={{
-          width: `${level * 100}%`,
-          backgroundColor: offKey ? 'var(--accent-warn, #ff9466)' : color,
-        }}
+        className="block h-full w-0 rounded-full transition-[width] duration-100"
+        ref={fillRef}
+        style={{ backgroundColor: offKey ? 'var(--accent-warn, #ff9466)' : color }}
       />
     </span>
   );

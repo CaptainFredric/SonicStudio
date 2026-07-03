@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 
 import { engine } from '../audio/ToneEngine';
 
@@ -21,14 +21,23 @@ export const CollapsedLaneIcon = ({
   title: string;
   trackId: string;
 }) => {
-  const [level, setLevel] = useState(0);
+  const boxRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    // Drive the glow imperatively instead of via state: a per-lane meter that
+    // re-renders ~8x a second multiplies across every collapsed lane during
+    // playback, and that main-thread churn is what starves the audio scheduler.
+    const applyGlow = (level: number) => {
+      const box = boxRef.current;
+      if (!box) return;
+      const glowAlpha = Math.round(level * 0.7 * 255).toString(16).padStart(2, '0');
+      box.style.boxShadow = level > 0.04 ? `0 0 ${Math.round(4 + level * 10)}px ${color}${glowAlpha}` : 'none';
+    };
     // Skip the timer entirely while the transport is idle: a collapsed lane
     // can't be producing sound, so there is nothing to glow for.
     if (!active) {
-      setLevel(0);
-      return;
+      applyGlow(0);
+      return undefined;
     }
     let attached = true;
     const tick = () => {
@@ -37,7 +46,7 @@ export const CollapsedLaneIcon = ({
       const normalised = typeof dB === 'number' && Number.isFinite(dB)
         ? Math.max(0, Math.min(1, (dB + 60) / 60))
         : 0;
-      setLevel(normalised);
+      applyGlow(normalised);
     };
     tick();
     const id = window.setInterval(tick, intervalMs);
@@ -45,19 +54,17 @@ export const CollapsedLaneIcon = ({
       attached = false;
       window.clearInterval(id);
     };
-  }, [active, intervalMs, trackId]);
-
-  const glowAlpha = Math.round(level * 0.7 * 255).toString(16).padStart(2, '0');
+  }, [active, color, intervalMs, trackId]);
 
   return (
     <div
       className="flex h-7 w-7 items-center justify-center transition-shadow"
+      ref={boxRef}
       style={{
         borderRadius: '2px',
         border: `1px solid ${color}55`,
         background: `${color}1a`,
         color,
-        boxShadow: level > 0.04 ? `0 0 ${Math.round(4 + level * 10)}px ${color}${glowAlpha}` : 'none',
       }}
       title={title}
     >
