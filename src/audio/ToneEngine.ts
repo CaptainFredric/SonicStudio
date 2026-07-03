@@ -1089,12 +1089,15 @@ export class ToneEngine {
 
     channel.connect(this.masterLimiter!);
     channel.connect(meter);
-    reverb.connect(channel);
+    // The ambience chain (chorus -> delay -> reverb) and the insert chain
+    // (vibrato -> crusher -> dist) are wired internally but left unconnected at
+    // their outputs. The sync attaches reverb -> channel / dist -> filter only
+    // while the track is actually using them, so an idle Freeverb or bitcrusher
+    // drops out of the render graph entirely instead of processing silence.
     delay.connect(reverb);
     chorus.connect(delay);
     postFilter.connect(channel);
     filter.connect(postFilter);
-    dist.connect(filter);
     crusher.connect(dist);
     vibrato.connect(crusher);
     sourceInput.connect(filter);
@@ -1236,6 +1239,12 @@ export class ToneEngine {
     if (graph.insertFxActive !== insertFxActive) {
       graph.sourceInput.disconnect();
       graph.sourceInput.connect(insertFxActive ? graph.vibrato : graph.filter);
+      // Attach or detach the insert chain's output so it only renders in use.
+      if (insertFxActive) {
+        graph.dist.connect(graph.filter);
+      } else {
+        graph.dist.disconnect(graph.filter);
+      }
       graph.insertFxActive = insertFxActive;
     }
 
@@ -1243,9 +1252,14 @@ export class ToneEngine {
       if (ambienceActive) {
         graph.postFilter.disconnect(graph.channel);
         graph.postFilter.connect(graph.chorus);
+        // Bring the ambience chain's output into the render graph.
+        graph.reverb.connect(graph.channel);
       } else {
         graph.postFilter.disconnect(graph.chorus);
         graph.postFilter.connect(graph.channel);
+        // Drop the idle chorus -> delay -> reverb subgraph (Freeverb included)
+        // out of the render graph instead of leaving it to process silence.
+        graph.reverb.disconnect(graph.channel);
       }
 
       graph.ambienceActive = ambienceActive;
