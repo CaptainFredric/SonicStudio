@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronDown, ChevronUp } from 'lucide-react';
 
 import { engine } from '../audio/ToneEngine';
 import { resolvePatternStepForPlayback } from '../audio/playbackResolver';
 import { useAudio } from '../context/AudioContext';
 import type { ArrangementClip } from '../project/schema';
+import { readString, writeString } from '../utils/safeStorage';
+
+const COLLAPSED_KEY = 'sonicstudio:track-timeline-collapsed';
 
 const SECTION_COLORS = [
   '#22d3ee', '#818cf8', '#f472b6', '#fbbf24', '#34d399', '#fb7185', '#60a5fa', '#a78bfa', '#f59e0b',
@@ -29,6 +33,13 @@ export const TrackMinimap = () => {
   const diamondRef = useRef<HTMLDivElement>(null);
   const [areaWidth, setAreaWidth] = useState(320);
   const areaRef = useRef<HTMLDivElement>(null);
+  // Collapsible on every screen size so it can be hidden to cut clutter; the
+  // choice is remembered between sessions.
+  const [collapsed, setCollapsed] = useState(() => readString(COLLAPSED_KEY) === 'true');
+
+  useEffect(() => {
+    writeString(COLLAPSED_KEY, collapsed ? 'true' : 'false');
+  }, [collapsed]);
   const draggingRef = useRef(false);
   // Remember whether the transport was running when a scrub began, so playback
   // can resume from the dropped spot on release.
@@ -174,12 +185,23 @@ export const TrackMinimap = () => {
 
   return (
     <div className="mb-2 grid shrink-0 gap-1">
-      <div className="flex items-center justify-between">
-        <span className="section-label">Track timeline</span>
+      <button
+        aria-expanded={!collapsed}
+        className="flex items-center justify-between gap-2 text-left transition-colors"
+        onClick={() => setCollapsed((current) => !current)}
+        type="button"
+      >
+        <span className="flex items-center gap-1.5">
+          <span className="section-label">Track timeline</span>
+          {collapsed
+            ? <ChevronDown className="h-3.5 w-3.5 text-[var(--text-tertiary)]" />
+            : <ChevronUp className="h-3.5 w-3.5 text-[var(--text-tertiary)]" />}
+        </span>
         <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
           {activeSection ? `${activeSection.name} · ` : ''}Bar {currentBar} / {totalBars}
         </span>
-      </div>
+      </button>
+      {!collapsed && (
       <div className="flex overflow-hidden rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]">
         {/* Track-name gutter, aligned row-for-row with the lanes on the right. */}
         <div className="shrink-0 border-r border-[var(--border-soft)]" style={{ width: GUTTER_WIDTH }}>
@@ -305,6 +327,7 @@ export const TrackMinimap = () => {
           />
         </div>
       </div>
+      )}
     </div>
   );
 };

@@ -71,6 +71,8 @@ import { openNotesPanel } from './notesPanelStore';
 import { SongTimelineGrid } from './SongTimelineGrid';
 
 const LANE_COLUMN_COLLAPSED_KEY = 'sonicstudio:lane-column-collapsed';
+const TRACK_MAP_OPEN_KEY = 'sonicstudio:track-map-open';
+const COMPOSE_TOOLS_KEY = 'sonicstudio:compose-tools-open';
 import { MAX_STEPS_PER_PATTERN, type InstrumentType, type NoteEvent, type Track } from '../project/schema';
 
 const TRACK_BUTTONS = [
@@ -626,10 +628,13 @@ export const MainWorkspace = () => {
   const showSongGrid = transportMode === 'SONG' && songFlatten;
   // The compose rack and track map collapse by default so the step grid
   // leads the view; roomy desktops open them automatically.
-  const [composeToolsExpanded, setComposeToolsExpanded] = useState(() => (
-    typeof window !== 'undefined'
-    && window.matchMedia('(min-width: 1280px) and (min-height: 900px)').matches
-  ));
+  const [composeToolsExpanded, setComposeToolsExpanded] = useState(() => {
+    const stored = readString(COMPOSE_TOOLS_KEY);
+    if (stored === 'true') return true;
+    if (stored === 'false') return false;
+    return typeof window !== 'undefined'
+      && window.matchMedia('(min-width: 1280px) and (min-height: 900px)').matches;
+  });
   const [selectedStepIndex, setSelectedStepIndex] = useState(0);
   const [selectedStepNoteIndex, setSelectedStepNoteIndex] = useState(0);
   const [segmentDraftName, setSegmentDraftName] = useState('');
@@ -653,9 +658,16 @@ export const MainWorkspace = () => {
     typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches ? 40 : 54
   ));
   const [mobileInspectorOpen, setMobileInspectorOpen] = useState(false);
-  const [mobileTrackMapOpen, setMobileTrackMapOpen] = useState(() => (
-    typeof window === 'undefined' ? true : !window.matchMedia('(max-width: 767px)').matches
-  ));
+  // Track map (minimap + whole-song grid) collapses on every screen size, not
+  // just mobile, so a desktop user can hide it to cut clutter. The choice is
+  // remembered; first-timers default open on roomy desktops, closed elsewhere.
+  const [trackMapOpen, setTrackMapOpen] = useState(() => {
+    const stored = readString(TRACK_MAP_OPEN_KEY);
+    if (stored === 'true') return true;
+    if (stored === 'false') return false;
+    return typeof window !== 'undefined'
+      && window.matchMedia('(min-width: 1280px) and (min-height: 900px)').matches;
+  });
   const [collapsedGroups, setCollapsedGroups] = useState<Record<LaneSectionKey, boolean>>({
     MUSICAL: false,
     PINNED: false,
@@ -976,10 +988,12 @@ export const MainWorkspace = () => {
   }, []);
 
   useEffect(() => {
-    if (!isMobileViewport) {
-      setMobileTrackMapOpen(true);
-    }
-  }, [isMobileViewport]);
+    writeString(TRACK_MAP_OPEN_KEY, trackMapOpen ? 'true' : 'false');
+  }, [trackMapOpen]);
+
+  useEffect(() => {
+    writeString(COMPOSE_TOOLS_KEY, composeToolsExpanded ? 'true' : 'false');
+  }, [composeToolsExpanded]);
 
 
   useEffect(() => {
@@ -2124,23 +2138,22 @@ export const MainWorkspace = () => {
 
           {visibleTracks.length > 0 && composeToolsExpanded && (
             <div className="surface-panel-muted mb-3 px-4 py-3">
-              {isMobileViewport ? (
-                <div className="mb-3 flex items-center justify-between gap-2 border-b border-[var(--border-soft)] pb-3">
-                  <span className="section-label">Track map</span>
-                  <button
-                    className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                    onClick={() => setMobileTrackMapOpen((current) => !current)}
-                    type="button"
-                  >
-                    {mobileTrackMapOpen ? 'Hide map' : 'Show map'}
-                  </button>
-                </div>
-              ) : null}
-              {!isMobileViewport || mobileTrackMapOpen ? (
+              <div className={`flex items-center justify-between gap-2 ${trackMapOpen ? 'mb-3 border-b border-[var(--border-soft)] pb-3' : ''}`}>
+                <span className="section-label">Track map</span>
+                <button
+                  aria-expanded={trackMapOpen}
+                  className="control-chip inline-flex items-center gap-1.5 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                  onClick={() => setTrackMapOpen((current) => !current)}
+                  type="button"
+                >
+                  {trackMapOpen ? 'Hide map' : 'Show map'}
+                  {trackMapOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                </button>
+              </div>
+              {trackMapOpen ? (
                 <>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <div className="section-label">Track map</div>
                   <div className="mt-1 text-[12px] text-[var(--text-secondary)]">
                     {transportMode === 'SONG'
                       ? `Song mode is active. Ghost marks can play from clip patterns outside ${currentPatternLabel}.`
