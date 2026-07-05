@@ -73,6 +73,7 @@ import { SongTimelineGrid } from './SongTimelineGrid';
 const LANE_COLUMN_COLLAPSED_KEY = 'sonicstudio:lane-column-collapsed';
 const TRACK_MAP_OPEN_KEY = 'sonicstudio:track-map-open';
 const COMPOSE_TOOLS_KEY = 'sonicstudio:compose-tools-open';
+const ADD_LANE_OPEN_KEY = 'sonicstudio:add-lane-open';
 import { MAX_STEPS_PER_PATTERN, type InstrumentType, type NoteEvent, type Track } from '../project/schema';
 
 const TRACK_BUTTONS = [
@@ -678,7 +679,10 @@ export const MainWorkspace = () => {
   const addLaneStripRef = useRef<HTMLDivElement | null>(null);
   const [addLaneMaxScrollLeft, setAddLaneMaxScrollLeft] = useState(0);
   const [addLaneScrollLeft, setAddLaneScrollLeft] = useState(0);
-  const [addLaneOpen, setAddLaneOpen] = useState(true);
+  // The add-lane strip is a big row of instrument buttons and a secondary
+  // action (scenes already ship with lanes), so it starts collapsed to keep the
+  // sequencer header clean; the choice is remembered.
+  const [addLaneOpen, setAddLaneOpen] = useState(() => readString(ADD_LANE_OPEN_KEY) === 'true');
   // Two-step arm for the destructive "Delete all lanes" action.
   const [confirmClearLanes, setConfirmClearLanes] = useState(false);
   const [gridScrollLeft, setGridScrollLeft] = useState(0);
@@ -994,6 +998,10 @@ export const MainWorkspace = () => {
   useEffect(() => {
     writeString(COMPOSE_TOOLS_KEY, composeToolsExpanded ? 'true' : 'false');
   }, [composeToolsExpanded]);
+
+  useEffect(() => {
+    writeString(ADD_LANE_OPEN_KEY, addLaneOpen ? 'true' : 'false');
+  }, [addLaneOpen]);
 
 
   useEffect(() => {
