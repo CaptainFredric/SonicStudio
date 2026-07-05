@@ -1768,7 +1768,7 @@ export const MainWorkspace = () => {
           </div>
           <p className="mt-1 hidden text-sm text-[var(--text-secondary)] xl:block">Build the current pattern here before you move it into Song view.</p>
         </div>
-        <div className="surface-panel-muted w-full min-w-0 p-2 md:flex-1 sm:max-w-full md:max-w-[700px]">
+        <div className={`surface-panel-muted min-w-0 p-2 ${addLaneOpen ? 'w-full sm:max-w-full md:max-w-[700px] md:flex-1' : 'w-full md:w-auto'}`}>
           <div className="flex items-center justify-between gap-3">
             <span className="section-label shrink-0">Add lane</span>
             <div className="flex items-center gap-1.5">
