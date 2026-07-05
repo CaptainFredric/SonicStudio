@@ -629,13 +629,10 @@ export const MainWorkspace = () => {
   const showSongGrid = transportMode === 'SONG' && songFlatten;
   // The compose rack and track map collapse by default so the step grid
   // leads the view; roomy desktops open them automatically.
-  const [composeToolsExpanded, setComposeToolsExpanded] = useState(() => {
-    const stored = readString(COMPOSE_TOOLS_KEY);
-    if (stored === 'true') return true;
-    if (stored === 'false') return false;
-    return typeof window !== 'undefined'
-      && window.matchMedia('(min-width: 1280px) and (min-height: 900px)').matches;
-  });
+  // Start collapsed so the default view is the pattern grid and the timeline,
+  // not the full tools drawer; the "Tools" toggle opens it and the choice is
+  // remembered for anyone who wants it open every session.
+  const [composeToolsExpanded, setComposeToolsExpanded] = useState(() => readString(COMPOSE_TOOLS_KEY) === 'true');
   const [selectedStepIndex, setSelectedStepIndex] = useState(0);
   const [selectedStepNoteIndex, setSelectedStepNoteIndex] = useState(0);
   const [segmentDraftName, setSegmentDraftName] = useState('');
