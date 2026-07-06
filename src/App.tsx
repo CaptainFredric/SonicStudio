@@ -3,6 +3,7 @@ import { AudioProvider, useAudio } from './context/AudioContext';
 import { TopBar } from './components/TopBar';
 import { MainWorkspace as Sequencer } from './components/MainWorkspace';
 import { NotesPanel } from './components/NotesPanel';
+import { setNotesPanelOpen, useNotesPanelOpen } from './components/notesPanelStore';
 import { DeviceRack } from './components/DeviceRack';
 import { ArrangementPanel } from './components/ArrangementPanel';
 import { TapToPlay } from './components/TapToPlay';
@@ -29,7 +30,7 @@ import { TransportSpectrum } from './components/TransportSpectrum';
 import { playSupersonicToggleSound } from './audio/uiSounds';
 import { getSupersonicTransitionOrigin, runSupersonicTransition } from './utils/supersonicTransition';
 import { AudioWaveform, Volume2, Settings, Sparkles, Share2, Coffee } from 'lucide-react';
-import { ChevronDown, ChevronUp, Circle, Layers, Maximize2, Minimize2, Minus, Pause, Play, Plus, Square, Zap } from 'lucide-react';
+import { Circle, Layers, Maximize2, Minimize2, Minus, Pause, Play, Plus, Square, Zap } from 'lucide-react';
 
 const SUPPORT_URL = 'https://buymeacoffee.com/captainarm1';
 
@@ -45,46 +46,57 @@ const SongTranscriber = lazyWithRetry(() => import('./components/SongTranscriber
 const ShareDialog = lazyWithRetry(() => import('./components/ShareDialog').then((module) => ({ default: module.ShareDialog })), 'share');
 const OnboardingGuide = lazyWithRetry(() => import('./components/OnboardingGuide').then((module) => ({ default: module.OnboardingGuide })), 'guide');
 
-// One switch for the whole lower panel dock (Sound desk, Notes, Arrangement).
-// Each panel collapses on its own, but hiding the full stack hands the room
-// back to the sequencer; the choice is remembered between sessions.
-const PANEL_DOCK_KEY = 'sonicstudio:panel-dock-open';
+// The lower panel dock: one slim bar with a chip per panel (Sound desk,
+// Notes, Arrangement). A chip mounts its panel already expanded; toggling it
+// off unmounts it, so closed panels cost no row at all instead of stacking
+// three collapsed bars. Notes rides the shared notes store, which keeps every
+// "Deep edit" button opening it from anywhere in the studio.
+const DESK_VISIBLE_KEY = 'sonicstudio:panel-desk-visible';
+const ARRANGEMENT_VISIBLE_KEY = 'sonicstudio:panel-arrangement-visible';
 
 const PanelDock = () => {
-  const [open, setOpen] = useState(() => readString(PANEL_DOCK_KEY) !== 'false');
-  const toggle = () => setOpen((value) => {
+  const notesOpen = useNotesPanelOpen();
+  const [deskVisible, setDeskVisible] = useState(() => readString(DESK_VISIBLE_KEY) !== 'false');
+  const [arrangementVisible, setArrangementVisible] = useState(() => readString(ARRANGEMENT_VISIBLE_KEY) === 'true');
+
+  const toggleDesk = () => setDeskVisible((value) => {
     const next = !value;
-    void writeString(PANEL_DOCK_KEY, next ? 'true' : 'false');
+    // Mount expanded: the rack reads its collapsed flag once, at mount.
+    if (next) void writeString('sonicstudio:deviceRack:collapsed', '0');
+    void writeString(DESK_VISIBLE_KEY, next ? 'true' : 'false');
+    return next;
+  });
+  const toggleArrangement = () => setArrangementVisible((value) => {
+    const next = !value;
+    if (next) void writeString('sonicstudio:arrangement-panel-open', 'true');
+    void writeString(ARRANGEMENT_VISIBLE_KEY, next ? 'true' : 'false');
     return next;
   });
 
+  const dockChipClass = 'control-chip px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]';
+
   return (
     <>
-      <button
-        aria-expanded={open}
-        className="surface-panel flex items-center justify-between gap-3 px-4 py-2 text-left transition-colors hover:bg-[rgba(255,255,255,0.02)]"
-        onClick={toggle}
-        type="button"
-      >
-        <span className="flex min-w-0 items-center gap-2.5">
+      <div className="surface-panel flex flex-wrap items-center gap-3 px-4 py-2">
+        <span className="flex items-center gap-2.5">
           <Layers className="h-4 w-4 shrink-0 text-[var(--accent)]" />
           <span className="section-label">Studio panels</span>
-          <span className="hidden truncate text-[12px] text-[var(--text-tertiary)] sm:inline">
-            Sound desk, notes, and arrangement
-          </span>
         </span>
-        <span className="flex shrink-0 items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
-          {open ? 'Hide' : 'Show'}
-          {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-        </span>
-      </button>
-      {open && (
-        <>
-          <DeviceRack />
-          <NotesPanel />
-          <ArrangementPanel />
-        </>
-      )}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button className={dockChipClass} data-active={deskVisible} onClick={toggleDesk} type="button">
+            Sound desk
+          </button>
+          <button className={dockChipClass} data-active={notesOpen} onClick={() => setNotesPanelOpen(!notesOpen)} type="button">
+            Notes
+          </button>
+          <button className={dockChipClass} data-active={arrangementVisible} onClick={toggleArrangement} type="button">
+            Arrangement
+          </button>
+        </div>
+      </div>
+      {deskVisible && <DeviceRack />}
+      {notesOpen && <NotesPanel />}
+      {arrangementVisible && <ArrangementPanel />}
     </>
   );
 };

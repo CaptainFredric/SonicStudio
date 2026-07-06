@@ -2127,180 +2127,6 @@ export const MainWorkspace = () => {
             </div>
           </div>
 
-          {visibleTracks.length > 0 && composeToolsExpanded && (
-            <div className="surface-panel-muted mb-3 px-4 py-3">
-              <div className={`flex items-center justify-between gap-2 ${trackMapOpen ? 'mb-3 border-b border-[var(--border-soft)] pb-3' : ''}`}>
-                <span className="section-label">Track map</span>
-                <button
-                  aria-expanded={trackMapOpen}
-                  className="control-chip inline-flex items-center gap-1.5 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                  onClick={() => setTrackMapOpen((current) => !current)}
-                  type="button"
-                >
-                  {trackMapOpen ? 'Hide map' : 'Show map'}
-                  {trackMapOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                </button>
-              </div>
-              {trackMapOpen ? (
-                <>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <div className="mt-1 text-[12px] text-[var(--text-secondary)]">
-                    {transportMode === 'SONG'
-                      ? `Song mode is active. Ghost marks can play from clip patterns outside ${currentPatternLabel}.`
-                      : `Pattern mode is active. Ghost marks are notes stored in other pattern banks and won't play until you switch patterns or Song mode.`}
-                  </div>
-                </div>
-                <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-                  View {visibleStepStart + 1}-{Math.max(visibleStepStart + 1, visibleStepEnd)} of {stepsPerPattern}
-                </div>
-              </div>
-              <div className="mt-3 grid gap-2">
-                {overviewTracks.map((overview) => {
-                  const {
-                    currentPatternActiveSteps,
-                    currentPatternSteps,
-                    otherPatternContext,
-                    otherPatternActiveSteps,
-                    stepActivity,
-                    track,
-                  } = overview;
-                  const activityLabel = currentPatternActiveSteps > 0 && otherPatternActiveSteps > 0
-                    ? `${currentPatternActiveSteps} active · ${otherPatternActiveSteps} ${otherPatternContext === 'song' ? 'in song clips' : 'stored elsewhere'}`
-                    : currentPatternActiveSteps > 0
-                      ? `${currentPatternActiveSteps} active`
-                      : otherPatternActiveSteps > 0
-                        ? `${otherPatternActiveSteps} ${otherPatternContext === 'song' ? 'in song clips' : 'stored in other patterns'}`
-                        : '0 active';
-
-                  return (
-                    <div className="grid grid-cols-[minmax(0,120px)_1fr] items-center gap-3" key={`overview-${track.id}`}>
-                      <button
-                        className="min-w-0 text-left"
-                        onClick={() => setSelectedTrackId(track.id)}
-                        type="button"
-                      >
-                        <div className="truncate text-[12px] font-medium text-[var(--text-primary)]">{track.name}</div>
-                        <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">{activityLabel}</div>
-                      </button>
-                      <div className="relative flex h-7 overflow-hidden rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]">
-                        {currentPatternSteps.map((step, stepIndex) => {
-                          const stepState = stepActivity[stepIndex];
-                          const hasCurrentActivity = stepState.currentCount > 0;
-                          const hasOtherPatternActivity = stepState.otherCount > 0;
-
-                          return (
-                            <button
-                              className={`relative h-full border-r border-[var(--border-soft)]/50 last:border-r-0 ${stepIndex % 4 === 0 ? 'bg-[rgba(255,255,255,0.02)]' : ''}`}
-                              key={`${track.id}-overview-step-${stepIndex}`}
-                              onClick={() => {
-                                if (queuedSegment) {
-                                  handleStitchPatternSegment(track.id, queuedSegment, stepIndex);
-                                  return;
-                                }
-
-                                jumpToStep(stepIndex, track.id);
-                              }}
-                              onPointerEnter={() => {
-                                if (!queuedSegment) {
-                                  return;
-                                }
-                                setStitchHover({ trackId: track.id, stepIndex });
-                              }}
-                              onPointerLeave={() => {
-                                setStitchHover((current) => (current?.trackId === track.id && current.stepIndex === stepIndex ? null : current));
-                              }}
-                              style={{
-                                background: hasCurrentActivity
-                                  ? `${track.color}${selectedTrackId === track.id ? 'f0' : 'bf'}`
-                                  : hasOtherPatternActivity
-                                    ? `${track.color}3a`
-                                    : undefined,
-                                boxShadow: hasCurrentActivity
-                                  ? 'inset 0 0 0 1px rgba(15, 23, 42, 0.12)'
-                                  : hasOtherPatternActivity
-                                    ? `inset 0 0 0 1px ${track.color}28`
-                                    : undefined,
-                                width: `${100 / stepsPerPattern}%`,
-                              }}
-                              title={queuedSegment
-                                ? `Stitch ${queuedSegment.name} at step ${stepIndex + 1}`
-                                : hasCurrentActivity
-                                  ? `Jump to step ${stepIndex + 1}`
-                                  : hasOtherPatternActivity
-                                    ? `Jump to step ${stepIndex + 1} · ${otherPatternContext === 'song' ? 'playback can come from song clips using other patterns' : 'notes are stored in other pattern banks'}`
-                                    : `Jump to step ${stepIndex + 1}`}
-                              type="button"
-                            >
-                              {!hasCurrentActivity && hasOtherPatternActivity && (
-                                <span className="pointer-events-none absolute inset-x-[16%] top-1/2 h-[1px] -translate-y-1/2 bg-black/35" />
-                              )}
-                              {selectedTrackId === track.id && selectedStepIndex === stepIndex && (
-                                <span className="absolute inset-y-0 left-0 w-[2px] bg-white/75" />
-                              )}
-                            </button>
-                          );
-                        })}
-                        {queuedSegment && stitchHover?.trackId === track.id && (
-                          <div
-                            className="pointer-events-none absolute inset-y-0 z-[3] border border-[rgba(114,217,255,0.64)] bg-[rgba(114,217,255,0.22)]"
-                            style={{
-                              left: `${(stitchHover.stepIndex / stepsPerPattern) * 100}%`,
-                              width: `${(Math.min(queuedSegmentSpan, stepsPerPattern - stitchHover.stepIndex) / stepsPerPattern) * 100}%`,
-                            }}
-                          />
-                        )}
-                        <div
-                          className="pointer-events-none absolute inset-y-0 border border-white/22 bg-white/6"
-                          style={{
-                            left: `${(visibleStepStart / stepsPerPattern) * 100}%`,
-                            width: `${(Math.max(1, visibleStepEnd - visibleStepStart) / stepsPerPattern) * 100}%`,
-                          }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              {showTrackOverviewLimit && (
-                <div className="mt-2 text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
-                  Showing the {overviewTracks.length} most relevant lanes. Narrow the scope to focus the rest.
-                </div>
-              )}
-              {queuedSegment && (
-                <div className="mt-2 flex flex-wrap items-center gap-2 rounded-[3px] border border-[rgba(114,217,255,0.24)] bg-[rgba(114,217,255,0.09)] px-3 py-2 text-[11px] text-[var(--accent-strong)]">
-                  <Zap className="h-3.5 w-3.5 text-[var(--accent)]" />
-                  Stitch mode ready: click any sequencer cell or track-map step to place {queuedSegment.name}.
-                  <button
-                    className="control-chip ml-auto px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                    onClick={() => {
-                      setQueuedSegmentId(null);
-                      setStitchHover(null);
-                    }}
-                    type="button"
-                  >
-                    Clear queue
-                  </button>
-                </div>
-              )}
-              {queuedNoteStringId && (
-                <div className="mt-2 flex flex-wrap items-center gap-2 rounded-[3px] border border-[rgba(114,217,255,0.24)] bg-[rgba(114,217,255,0.09)] px-3 py-2 text-[11px] text-[var(--accent-strong)]">
-                  <Zap className="h-3.5 w-3.5 text-[var(--accent)]" />
-                  Note string queued. Tap any cell, lane header, or arrangement row to drop it.
-                  <button
-                    className="control-chip ml-auto min-h-[2rem] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                    onClick={() => setQueuedNoteStringId(null)}
-                    type="button"
-                  >
-                    Clear queue
-                  </button>
-                </div>
-              )}
-                </>
-              ) : null}
-            </div>
-          )}
-
           <div className="flex flex-col md:min-h-0 md:flex-1 md:overflow-hidden">
             <TrackMinimap />
             {transportMode === 'SONG' && (
@@ -2922,6 +2748,180 @@ export const MainWorkspace = () => {
               </div>
             )}
           </div>
+
+          {visibleTracks.length > 0 && composeToolsExpanded && (
+            <div className="surface-panel-muted mt-3 px-4 py-3">
+              <div className={`flex items-center justify-between gap-2 ${trackMapOpen ? 'mb-3 border-b border-[var(--border-soft)] pb-3' : ''}`}>
+                <span className="section-label">Track map</span>
+                <button
+                  aria-expanded={trackMapOpen}
+                  className="control-chip inline-flex items-center gap-1.5 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                  onClick={() => setTrackMapOpen((current) => !current)}
+                  type="button"
+                >
+                  {trackMapOpen ? 'Hide map' : 'Show map'}
+                  {trackMapOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                </button>
+              </div>
+              {trackMapOpen ? (
+                <>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="mt-1 text-[12px] text-[var(--text-secondary)]">
+                    {transportMode === 'SONG'
+                      ? `Song mode is active. Ghost marks can play from clip patterns outside ${currentPatternLabel}.`
+                      : `Pattern mode is active. Ghost marks are notes stored in other pattern banks and won't play until you switch patterns or Song mode.`}
+                  </div>
+                </div>
+                <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+                  View {visibleStepStart + 1}-{Math.max(visibleStepStart + 1, visibleStepEnd)} of {stepsPerPattern}
+                </div>
+              </div>
+              <div className="mt-3 grid gap-2">
+                {overviewTracks.map((overview) => {
+                  const {
+                    currentPatternActiveSteps,
+                    currentPatternSteps,
+                    otherPatternContext,
+                    otherPatternActiveSteps,
+                    stepActivity,
+                    track,
+                  } = overview;
+                  const activityLabel = currentPatternActiveSteps > 0 && otherPatternActiveSteps > 0
+                    ? `${currentPatternActiveSteps} active · ${otherPatternActiveSteps} ${otherPatternContext === 'song' ? 'in song clips' : 'stored elsewhere'}`
+                    : currentPatternActiveSteps > 0
+                      ? `${currentPatternActiveSteps} active`
+                      : otherPatternActiveSteps > 0
+                        ? `${otherPatternActiveSteps} ${otherPatternContext === 'song' ? 'in song clips' : 'stored in other patterns'}`
+                        : '0 active';
+
+                  return (
+                    <div className="grid grid-cols-[minmax(0,120px)_1fr] items-center gap-3" key={`overview-${track.id}`}>
+                      <button
+                        className="min-w-0 text-left"
+                        onClick={() => setSelectedTrackId(track.id)}
+                        type="button"
+                      >
+                        <div className="truncate text-[12px] font-medium text-[var(--text-primary)]">{track.name}</div>
+                        <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">{activityLabel}</div>
+                      </button>
+                      <div className="relative flex h-7 overflow-hidden rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]">
+                        {currentPatternSteps.map((step, stepIndex) => {
+                          const stepState = stepActivity[stepIndex];
+                          const hasCurrentActivity = stepState.currentCount > 0;
+                          const hasOtherPatternActivity = stepState.otherCount > 0;
+
+                          return (
+                            <button
+                              className={`relative h-full border-r border-[var(--border-soft)]/50 last:border-r-0 ${stepIndex % 4 === 0 ? 'bg-[rgba(255,255,255,0.02)]' : ''}`}
+                              key={`${track.id}-overview-step-${stepIndex}`}
+                              onClick={() => {
+                                if (queuedSegment) {
+                                  handleStitchPatternSegment(track.id, queuedSegment, stepIndex);
+                                  return;
+                                }
+
+                                jumpToStep(stepIndex, track.id);
+                              }}
+                              onPointerEnter={() => {
+                                if (!queuedSegment) {
+                                  return;
+                                }
+                                setStitchHover({ trackId: track.id, stepIndex });
+                              }}
+                              onPointerLeave={() => {
+                                setStitchHover((current) => (current?.trackId === track.id && current.stepIndex === stepIndex ? null : current));
+                              }}
+                              style={{
+                                background: hasCurrentActivity
+                                  ? `${track.color}${selectedTrackId === track.id ? 'f0' : 'bf'}`
+                                  : hasOtherPatternActivity
+                                    ? `${track.color}3a`
+                                    : undefined,
+                                boxShadow: hasCurrentActivity
+                                  ? 'inset 0 0 0 1px rgba(15, 23, 42, 0.12)'
+                                  : hasOtherPatternActivity
+                                    ? `inset 0 0 0 1px ${track.color}28`
+                                    : undefined,
+                                width: `${100 / stepsPerPattern}%`,
+                              }}
+                              title={queuedSegment
+                                ? `Stitch ${queuedSegment.name} at step ${stepIndex + 1}`
+                                : hasCurrentActivity
+                                  ? `Jump to step ${stepIndex + 1}`
+                                  : hasOtherPatternActivity
+                                    ? `Jump to step ${stepIndex + 1} · ${otherPatternContext === 'song' ? 'playback can come from song clips using other patterns' : 'notes are stored in other pattern banks'}`
+                                    : `Jump to step ${stepIndex + 1}`}
+                              type="button"
+                            >
+                              {!hasCurrentActivity && hasOtherPatternActivity && (
+                                <span className="pointer-events-none absolute inset-x-[16%] top-1/2 h-[1px] -translate-y-1/2 bg-black/35" />
+                              )}
+                              {selectedTrackId === track.id && selectedStepIndex === stepIndex && (
+                                <span className="absolute inset-y-0 left-0 w-[2px] bg-white/75" />
+                              )}
+                            </button>
+                          );
+                        })}
+                        {queuedSegment && stitchHover?.trackId === track.id && (
+                          <div
+                            className="pointer-events-none absolute inset-y-0 z-[3] border border-[rgba(114,217,255,0.64)] bg-[rgba(114,217,255,0.22)]"
+                            style={{
+                              left: `${(stitchHover.stepIndex / stepsPerPattern) * 100}%`,
+                              width: `${(Math.min(queuedSegmentSpan, stepsPerPattern - stitchHover.stepIndex) / stepsPerPattern) * 100}%`,
+                            }}
+                          />
+                        )}
+                        <div
+                          className="pointer-events-none absolute inset-y-0 border border-white/22 bg-white/6"
+                          style={{
+                            left: `${(visibleStepStart / stepsPerPattern) * 100}%`,
+                            width: `${(Math.max(1, visibleStepEnd - visibleStepStart) / stepsPerPattern) * 100}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {showTrackOverviewLimit && (
+                <div className="mt-2 text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+                  Showing the {overviewTracks.length} most relevant lanes. Narrow the scope to focus the rest.
+                </div>
+              )}
+              {queuedSegment && (
+                <div className="mt-2 flex flex-wrap items-center gap-2 rounded-[3px] border border-[rgba(114,217,255,0.24)] bg-[rgba(114,217,255,0.09)] px-3 py-2 text-[11px] text-[var(--accent-strong)]">
+                  <Zap className="h-3.5 w-3.5 text-[var(--accent)]" />
+                  Stitch mode ready: click any sequencer cell or track-map step to place {queuedSegment.name}.
+                  <button
+                    className="control-chip ml-auto px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                    onClick={() => {
+                      setQueuedSegmentId(null);
+                      setStitchHover(null);
+                    }}
+                    type="button"
+                  >
+                    Clear queue
+                  </button>
+                </div>
+              )}
+              {queuedNoteStringId && (
+                <div className="mt-2 flex flex-wrap items-center gap-2 rounded-[3px] border border-[rgba(114,217,255,0.24)] bg-[rgba(114,217,255,0.09)] px-3 py-2 text-[11px] text-[var(--accent-strong)]">
+                  <Zap className="h-3.5 w-3.5 text-[var(--accent)]" />
+                  Note string queued. Tap any cell, lane header, or arrangement row to drop it.
+                  <button
+                    className="control-chip ml-auto min-h-[2rem] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                    onClick={() => setQueuedNoteStringId(null)}
+                    type="button"
+                  >
+                    Clear queue
+                  </button>
+                </div>
+              )}
+                </>
+              ) : null}
+            </div>
+          )}
         </div>
 
         {(!isNarrowViewport || mobileInspectorOpen) && (
