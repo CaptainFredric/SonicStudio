@@ -2480,7 +2480,7 @@ export const MainWorkspace = () => {
 
                     return (
                       <div
-                        className={`flex border-b border-[var(--border-soft)] transition-colors ${selected ? 'bg-[rgba(125,211,252,0.06)]' : 'bg-transparent hover:bg-[rgba(255,255,255,0.02)]'}`}
+                        className={`group/lane flex border-b border-[var(--border-soft)] transition-colors ${selected ? 'bg-[rgba(125,211,252,0.06)]' : 'bg-transparent hover:bg-[rgba(255,255,255,0.02)]'}`}
                         key={track.id}
                       >
                         <div
@@ -2614,6 +2614,12 @@ export const MainWorkspace = () => {
                             >
                               <Focus className="h-3.5 w-3.5" />
                             </StateActionBtn>
+                            {/* The rarer per-lane actions stay out of the way until
+                                the lane is hovered, keyboard-focused, or selected,
+                                so a full scene is not a wall of buttons. Hidden
+                                buttons also drop pointer events, so an invisible
+                                Delete can't be hit by accident. */}
+                            <span className={`flex flex-wrap items-center gap-1 transition-opacity ${selected ? '' : 'pointer-events-none opacity-0 group-focus-within/lane:pointer-events-auto group-focus-within/lane:opacity-100 group-hover/lane:pointer-events-auto group-hover/lane:opacity-100'}`}>
                             <StateActionBtn
                               active={pinned}
                               label={pinned ? 'Unpin lane' : 'Pin lane'}
@@ -2670,6 +2676,7 @@ export const MainWorkspace = () => {
                             }}>
                               <Trash2 className="h-3.5 w-3.5" />
                             </RowActionBtn>
+                            </span>
                           </div>
                           </>
                           )}
