@@ -100,6 +100,9 @@ const QUICK_INTERVALS = [
 ] as const;
 const NOTE_OPTIONS = buildNoteOptions(6, 2);
 const STEP_OPTIONS = [16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512, 768, 1024, 1536, 2048, 3072, 4096] as const;
+// The lengths that get one-click chips; the rest live in the dropdown so the
+// tools row is not a wall of seventeen buttons.
+const QUICK_STEP_OPTIONS = [16, 32, 64, 128] as const;
 const SEQUENCER_RUNWAY_STEPS = 6;
 const STEP_ZOOM_MIN = 16;
 const STEP_ZOOM_STEP = 2;
@@ -1940,8 +1943,8 @@ export const MainWorkspace = () => {
               {composeToolsExpanded && (
               <div className="flex flex-wrap items-center gap-2">
                 <div className="surface-panel-strong flex flex-wrap items-center gap-1 p-1">
-                  <span className="px-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Steps 16-4096</span>
-                  {STEP_OPTIONS.map((option) => (
+                  <span className="px-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Steps</span>
+                  {QUICK_STEP_OPTIONS.map((option) => (
                     <button
                       className="control-chip px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
                       data-active={stepsPerPattern === option}
@@ -1952,6 +1955,19 @@ export const MainWorkspace = () => {
                       {option}
                     </button>
                   ))}
+                  <select
+                    aria-label="Pattern length in steps"
+                    className="control-chip h-[30px] cursor-pointer px-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                    onChange={(event) => setPatternLength(Number(event.target.value))}
+                    value={stepsPerPattern}
+                  >
+                    {!(STEP_OPTIONS as readonly number[]).includes(stepsPerPattern) && (
+                      <option value={stepsPerPattern}>{stepsPerPattern}</option>
+                    )}
+                    {STEP_OPTIONS.map((option) => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                  </select>
                   <button
                     className="control-chip px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
                     onClick={() => extendPatternBy(-16)}
