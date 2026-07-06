@@ -74,6 +74,7 @@ const LANE_COLUMN_COLLAPSED_KEY = 'sonicstudio:lane-column-collapsed';
 const TRACK_MAP_OPEN_KEY = 'sonicstudio:track-map-open';
 const COMPOSE_TOOLS_KEY = 'sonicstudio:compose-tools-open';
 const ADD_LANE_OPEN_KEY = 'sonicstudio:add-lane-open';
+const SONG_FLATTEN_KEY = 'sonicstudio:song-flatten';
 import { MAX_STEPS_PER_PATTERN, type InstrumentType, type NoteEvent, type Track } from '../project/schema';
 
 const TRACK_BUTTONS = [
@@ -625,7 +626,11 @@ export const MainWorkspace = () => {
   // In Song mode the sequencer can flatten the whole arrangement into one
   // scrollable grid so every section's notes are visible, not just the current
   // pattern. Users can flip back to the classic per-pattern editor.
-  const [songFlatten, setSongFlatten] = useState(true);
+  // Default to the single-pattern step grid, which is height-bounded and fits
+  // the screen, rather than the whole-song timeline that grows to the full
+  // arrangement height. The "Whole song" toggle switches over and the choice is
+  // remembered between sessions.
+  const [songFlatten, setSongFlatten] = useState(() => readString(SONG_FLATTEN_KEY) === 'true');
   const showSongGrid = transportMode === 'SONG' && songFlatten;
   // The compose rack and track map collapse by default so the step grid
   // leads the view; roomy desktops open them automatically.
@@ -999,6 +1004,10 @@ export const MainWorkspace = () => {
   useEffect(() => {
     writeString(ADD_LANE_OPEN_KEY, addLaneOpen ? 'true' : 'false');
   }, [addLaneOpen]);
+
+  useEffect(() => {
+    writeString(SONG_FLATTEN_KEY, songFlatten ? 'true' : 'false');
+  }, [songFlatten]);
 
 
   useEffect(() => {
