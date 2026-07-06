@@ -22,14 +22,14 @@ import { resolveStudioRoute, type StudioRouteState } from './app/routeController
 import { APP_VIEW_ORDER, type AppView, type SessionTemplateId } from './project/schema';
 import { markOnboardingCompleted, markOnboardingSkipped, shouldAutoOpenOnboarding } from './services/onboardingState';
 import { useMediaQuery } from './utils/useMediaQuery';
-import { readString } from './utils/safeStorage';
+import { readString, writeString } from './utils/safeStorage';
 import { lazyWithRetry } from './utils/lazyWithRetry';
 import { decodeSharePayload } from './utils/shareCodec';
 import { TransportSpectrum } from './components/TransportSpectrum';
 import { playSupersonicToggleSound } from './audio/uiSounds';
 import { getSupersonicTransitionOrigin, runSupersonicTransition } from './utils/supersonicTransition';
 import { AudioWaveform, Volume2, Settings, Sparkles, Share2, Coffee } from 'lucide-react';
-import { Circle, Maximize2, Minimize2, Minus, Pause, Play, Plus, Square, Zap } from 'lucide-react';
+import { ChevronDown, ChevronUp, Circle, Layers, Maximize2, Minimize2, Minus, Pause, Play, Plus, Square, Zap } from 'lucide-react';
 
 const SUPPORT_URL = 'https://buymeacoffee.com/captainarm1';
 
@@ -44,6 +44,50 @@ const AudioCapture = lazyWithRetry(() => import('./components/AudioCapture').the
 const SongTranscriber = lazyWithRetry(() => import('./components/SongTranscriber').then((module) => ({ default: module.SongTranscriber })), 'transcriber');
 const ShareDialog = lazyWithRetry(() => import('./components/ShareDialog').then((module) => ({ default: module.ShareDialog })), 'share');
 const OnboardingGuide = lazyWithRetry(() => import('./components/OnboardingGuide').then((module) => ({ default: module.OnboardingGuide })), 'guide');
+
+// One switch for the whole lower panel dock (Sound desk, Notes, Arrangement).
+// Each panel collapses on its own, but hiding the full stack hands the room
+// back to the sequencer; the choice is remembered between sessions.
+const PANEL_DOCK_KEY = 'sonicstudio:panel-dock-open';
+
+const PanelDock = () => {
+  const [open, setOpen] = useState(() => readString(PANEL_DOCK_KEY) !== 'false');
+  const toggle = () => setOpen((value) => {
+    const next = !value;
+    void writeString(PANEL_DOCK_KEY, next ? 'true' : 'false');
+    return next;
+  });
+
+  return (
+    <>
+      <button
+        aria-expanded={open}
+        className="surface-panel flex items-center justify-between gap-3 px-4 py-2 text-left transition-colors hover:bg-[rgba(255,255,255,0.02)]"
+        onClick={toggle}
+        type="button"
+      >
+        <span className="flex min-w-0 items-center gap-2.5">
+          <Layers className="h-4 w-4 shrink-0 text-[var(--accent)]" />
+          <span className="section-label">Studio panels</span>
+          <span className="hidden truncate text-[12px] text-[var(--text-tertiary)] sm:inline">
+            Sound desk, notes, and arrangement
+          </span>
+        </span>
+        <span className="flex shrink-0 items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+          {open ? 'Hide' : 'Show'}
+          {open ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </span>
+      </button>
+      {open && (
+        <>
+          <DeviceRack />
+          <NotesPanel />
+          <ArrangementPanel />
+        </>
+      )}
+    </>
+  );
+};
 
 const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe, onToggleFocus }: { onOpenLaunchpad: () => void; onOpenShare: () => void; onOpenRecord: () => void; onOpenTranscribe: () => void; onToggleFocus: () => void }) => {
   const { activeView, isSettingsOpen, setActiveView, toggleSettings } = useAudio();
@@ -786,9 +830,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
             <div className="flex flex-col gap-3 md:min-h-[300px] md:flex-row md:flex-1">
               <ViewRouter />
             </div>
-            <DeviceRack />
-            <NotesPanel />
-            <ArrangementPanel />
+            <PanelDock />
           </div>
         </div>
         {!focusMode && (

@@ -576,6 +576,10 @@ const LoadWatchReadout = ({
 
 export const MainWorkspace = () => {
   const isMobileViewport = useMediaQuery('(max-width: 767px)');
+  // Below the xl breakpoint the inspector cannot sit beside the grid, so it
+  // stacks underneath as a full-width sheet. Treat that whole range like
+  // mobile: keep it behind the Show inspector toggle so the grid leads.
+  const isNarrowViewport = useMediaQuery('(max-width: 1279px)');
   const {
     applySongForm,
     applyPatternSegment,
@@ -2106,7 +2110,7 @@ export const MainWorkspace = () => {
                       <SlidersHorizontal className="h-3.5 w-3.5" />
                       {canDeepEditSelectedTrack ? 'Deep edit' : 'Song tools'}
                     </button>
-                    {isMobileViewport && (
+                    {isNarrowViewport && (
                       <button
                         className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
                         onClick={() => setMobileInspectorOpen((current) => !current)}
@@ -2380,7 +2384,7 @@ export const MainWorkspace = () => {
               />
             )}
             <div
-              className={`sequencer-grid-scroll overflow-auto rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] min-h-[clamp(300px,42vh,500px)] md:max-h-[clamp(320px,52vh,540px)] md:flex-1 xl:min-h-0 ${showSongGrid ? 'hidden' : ''}`}
+              className={`sequencer-grid-scroll overflow-auto rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] min-h-[clamp(340px,50vh,640px)] md:max-h-[min(72vh,900px)] md:flex-1 xl:min-h-0 ${showSongGrid ? 'hidden' : ''}`}
               data-scrolled={gridScrollLeft > 1 ? 'true' : undefined}
               onPointerCancel={() => setPlacementCursor(null)}
               onPointerMove={handlePlacementMove}
@@ -2767,7 +2771,7 @@ export const MainWorkspace = () => {
                                     current?.trackId === track.id && current.stepIndex === stepIndex ? null : current
                                   ));
                                 }}
-                                style={isActive
+                                style={(isActive
                                   ? {
                                       background: showSubnoteStack
                                         ? `${track.color}33`
@@ -2775,11 +2779,15 @@ export const MainWorkspace = () => {
                                       boxShadow: 'inset 0 0 0 1px rgba(15, 23, 42, 0.12)',
                                       width: `${stepCellWidth - 2}px`,
                                       touchAction: editorMode === 'edit' ? 'none' : 'pan-y',
+                                      '--lane-glow': `${track.color}55`,
+                                      '--lane-tint': `${track.color}1f`,
                                     }
                                   : {
                                       width: `${stepCellWidth - 2}px`,
                                       touchAction: editorMode === 'edit' ? 'none' : 'pan-y',
-                                    }}
+                                      '--lane-glow': `${track.color}55`,
+                                      '--lane-tint': `${track.color}1f`,
+                                    }) as React.CSSProperties}
                                 type="button"
                               >
                                 {showSubnoteStack && (
@@ -2916,7 +2924,7 @@ export const MainWorkspace = () => {
           </div>
         </div>
 
-        {(!isMobileViewport || mobileInspectorOpen) && (
+        {(!isNarrowViewport || mobileInspectorOpen) && (
         <aside className="surface-panel-strong sonic-sidebar w-full shrink-0 overflow-auto p-4 xl:min-w-[280px] xl:w-[min(32vw,320px)] 2xl:w-[320px]">
           <div className="flex items-center gap-2">
             <SlidersHorizontal className="h-4 w-4 text-[var(--accent)]" />

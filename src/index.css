@@ -969,15 +969,25 @@ html[data-supersonic="true"] .supersonic-ladder-step + .supersonic-ladder-step {
 }
 
 /* Sequencer playhead. Driven imperatively by SequencerPlayheadDriver toggling
-   data-current, so the step sweep costs no React re-render. ::before is the
-   ring around the playing step, ::after the bright cap along its top edge. */
+   data-current, so the step sweep costs no React re-render. Each cell carries
+   its lane colour as --lane-glow / --lane-tint custom properties, so the
+   playing column lights up in the track's own colour: a white inner ring, a
+   coloured halo, a faint colour wash over empty cells, and a brightness lift
+   on the note itself. */
+[data-seq-cell="true"][data-current="true"] {
+  filter: brightness(1.18) saturate(1.12);
+}
+
 [data-seq-cell="true"][data-current="true"]::before {
   content: "";
   position: absolute;
   inset: 0;
   z-index: 3;
   pointer-events: none;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.2);
+  background: var(--lane-tint, rgba(255, 255, 255, 0.05));
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.42),
+    0 0 14px var(--lane-glow, rgba(255, 255, 255, 0.18));
 }
 
 [data-seq-cell="true"][data-current="true"]::after {
@@ -991,7 +1001,9 @@ html[data-supersonic="true"] .supersonic-ladder-step + .supersonic-ladder-step {
 }
 
 html[data-supersonic="true"] [data-seq-cell="true"][data-current="true"]::before {
-  box-shadow: inset 0 0 0 1px rgba(59, 6, 17, 0.35);
+  box-shadow:
+    inset 0 0 0 1px rgba(59, 6, 17, 0.4),
+    0 0 14px var(--lane-glow, rgba(59, 6, 17, 0.2));
 }
 
 html[data-supersonic="true"] [data-seq-cell="true"][data-current="true"]::after {
@@ -2417,9 +2429,20 @@ html[data-supersonic="true"] .session-player-deck-chip[data-role="intro"] {
 }
 
 /* Soft entrance replayed each time the main view changes (keyed on activeView),
-   so SEQ <-> MIX eases in instead of snapping. */
+   so SEQ <-> MIX eases in instead of snapping. Opacity only and quick: a
+   translate mid-frame reads as panels overlapping each other, not a swap. */
 .view-swap-in {
-  animation: studio-rise-in var(--motion-base) var(--motion-ease) both;
+  animation: view-fade-in 160ms var(--motion-ease) both;
+}
+
+@keyframes view-fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
