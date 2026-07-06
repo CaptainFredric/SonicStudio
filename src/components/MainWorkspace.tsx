@@ -2398,7 +2398,7 @@ export const MainWorkspace = () => {
               />
             )}
             <div
-              className={`sequencer-grid-scroll overflow-auto rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] min-h-[clamp(300px,42vh,500px)] md:flex-1 xl:min-h-0 ${showSongGrid ? 'hidden' : ''}`}
+              className={`sequencer-grid-scroll overflow-auto rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] min-h-[clamp(300px,42vh,500px)] md:max-h-[clamp(320px,52vh,540px)] md:flex-1 xl:min-h-0 ${showSongGrid ? 'hidden' : ''}`}
               data-scrolled={gridScrollLeft > 1 ? 'true' : undefined}
               onPointerCancel={() => setPlacementCursor(null)}
               onPointerMove={handlePlacementMove}
