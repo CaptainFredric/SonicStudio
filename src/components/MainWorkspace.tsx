@@ -2464,13 +2464,20 @@ export const MainWorkspace = () => {
                       </button>
                     ))}
                     <button
-                      className="group relative flex shrink-0 flex-col items-center justify-center border-l border-dashed border-[var(--border-soft)] bg-[linear-gradient(90deg,rgba(255,255,255,0.03),rgba(114,217,255,0.08))]"
-                      onClick={() => extendPatternBy(16)}
+                      className="group relative flex shrink-0 flex-col items-center justify-center border-l border-dashed border-[var(--border-soft)] bg-[linear-gradient(90deg,rgba(255,255,255,0.03),rgba(114,217,255,0.08))] transition-colors hover:border-[rgba(114,217,255,0.28)] hover:bg-[linear-gradient(90deg,rgba(255,255,255,0.04),rgba(114,217,255,0.12))]"
+                      onClick={() => {
+                        extendPatternBy(16);
+                        window.requestAnimationFrame(() => jumpToStep(stepsPerPattern));
+                      }}
                       style={{ width: `${stepRunwayWidth}px` }}
+                      title="Add a bar (16 steps) and jump to it"
                       type="button"
                     >
-                      <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-secondary)]">More room</span>
-                      <span className="mt-1 text-[10px] text-[var(--text-tertiary)]">extend +16</span>
+                      <span className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-secondary)]">
+                        <Plus className="h-3 w-3 text-[var(--accent-strong)]" strokeWidth={3} />
+                        Add a bar
+                      </span>
+                      <span className="mt-1 text-[10px] text-[var(--text-tertiary)]">16 steps</span>
                     </button>
                   </div>
                 </div>
@@ -2863,22 +2870,18 @@ export const MainWorkspace = () => {
                             );
                           })}
                           <button
-                            className="group relative shrink-0 border border-dashed border-[var(--border-soft)] bg-[linear-gradient(90deg,rgba(255,255,255,0.025),rgba(114,217,255,0.08))] text-left transition-colors hover:border-[rgba(114,217,255,0.28)] hover:bg-[linear-gradient(90deg,rgba(255,255,255,0.04),rgba(114,217,255,0.12))]"
+                            aria-label={`Add a bar to ${track.name}`}
+                            className="group relative flex min-h-[38px] shrink-0 items-center justify-center border border-dashed border-[var(--border-soft)] bg-[linear-gradient(90deg,rgba(255,255,255,0.025),rgba(114,217,255,0.08))] transition-colors hover:border-[rgba(114,217,255,0.28)] hover:bg-[linear-gradient(90deg,rgba(255,255,255,0.04),rgba(114,217,255,0.12))]"
                             onClick={() => {
                               setSelectedTrackId(track.id);
                               extendPatternBy(16);
                               window.requestAnimationFrame(() => jumpToStep(stepsPerPattern, track.id));
                             }}
                             style={{ width: `${stepRunwayWidth - 2}px` }}
+                            title="Add a bar (16 steps) and jump to it"
                             type="button"
                           >
-                            <div className="flex h-full min-h-[38px] flex-col items-start justify-center px-3">
-                              <span className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-secondary)]">
-                                <Plus className="h-3 w-3 text-[var(--accent-strong)]" strokeWidth={3} />
-                                Add a bar
-                              </span>
-                              <span className="mt-1 text-[10px] text-[var(--text-tertiary)]">16 more steps to write into</span>
-                            </div>
+                            <Plus className="h-3.5 w-3.5 text-[var(--text-tertiary)] transition-colors group-hover:text-[var(--accent-strong)]" strokeWidth={2.5} />
                           </button>
                         </div>
                       </div>
