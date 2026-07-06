@@ -27,7 +27,6 @@ import { meterIntervalForMode } from '../audio/meterTiming';
 import { engine } from '../audio/ToneEngine';
 import { SUPERSONIC_NOTE_OFFSETS, getTrackAnchorNote, pitchRank, shiftPitch } from '../utils/notePlacement';
 import { bestKeyTranspose, pitchClassFromNote } from '../utils/pitch';
-import { getSamplePresetMeta } from '../audio/sampleLibrary';
 import { useAudio, usePlaybackStep } from '../context/AudioContext';
 import { SONG_FORM_DEFINITIONS, type SongFormId } from '../context/editor/songFormDefinitions';
 import {
@@ -2478,9 +2477,6 @@ export const MainWorkspace = () => {
                     const patternSteps = track.patterns[currentPattern] || Array.from({ length: stepsPerPattern }, () => []);
                     const selected = selectedTrackId === track.id;
                     const pinned = pinnedTrackIds.includes(track.id);
-                    const sourceLabel = track.source.engine === 'sample'
-                      ? track.source.customSampleName ?? getSamplePresetMeta(track.source.samplePreset).label
-                      : waveformLabel(track.source.waveform);
 
                     return (
                       <div
@@ -2586,13 +2582,13 @@ export const MainWorkspace = () => {
                             })()}
                             trackId={track.id}
                           />
+                          {/* Engine, source, and volume live in the Sound desk and
+                              Mixer for the selected lane, so the per-lane row keeps
+                              only the glanceables: type, key, pin state, and notes. */}
                           <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                             <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.type}</span>
                             <LaneKeyChip track={track} />
                             {pinned && <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--accent-strong)]">Pinned</span>}
-                            {!isMobileViewport && <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.source.engine}</span>}
-                            {!isMobileViewport && <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{sourceLabel}</span>}
-                            {!isMobileViewport && <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.volume.toFixed(0)} dB</span>}
                             <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
                               {countLabel(patternSteps.reduce((sum, step) => sum + step.length, 0), 'note')}
                             </span>
@@ -3638,17 +3634,6 @@ const StateInspectorButton = ({
     {label}
   </button>
 );
-
-const waveformLabel = (waveform: 'sine' | 'triangle' | 'sawtooth' | 'square') => {
-  switch (waveform) {
-    case 'sawtooth':
-      return 'Saw';
-    case 'triangle':
-      return 'Triangle';
-    default:
-      return waveform.charAt(0).toUpperCase() + waveform.slice(1);
-  }
-};
 
 function buildNoteOptions(highOctave: number, lowOctave: number) {
   const notes: string[] = [];
