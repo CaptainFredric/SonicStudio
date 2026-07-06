@@ -3022,12 +3022,10 @@ export const MainWorkspace = () => {
                 </div>
                 <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
                   {selectedTrackPatternSpan
-                    ? isSelectedTrackLoopActive
-                      ? `Phrase loop is on for steps ${selectedTrackPatternSpan.startStep + 1}-${selectedTrackPatternSpan.endStep} in ${currentPatternLabel}. Delete all notes clears this lane in ${currentPatternLabel}.`
-                      : `Loop phrase sets playback to steps ${selectedTrackPatternSpan.startStep + 1}-${selectedTrackPatternSpan.endStep} in ${currentPatternLabel}.`
+                    ? `Phrase: steps ${selectedTrackPatternSpan.startStep + 1}-${selectedTrackPatternSpan.endStep} in ${currentPatternLabel}`
                     : hasExplicitLoopRange
-                      ? `A loop window is active from step ${loopRangeStartBeat! + 1} to ${loopRangeEndBeat}. Add notes here to define a lane phrase, or choose Full pattern.`
-                      : 'Add a few notes, then loop the active span or clear this lane without hunting through row controls.'}
+                      ? `Loop window: steps ${loopRangeStartBeat! + 1}-${loopRangeEndBeat}`
+                      : 'Add notes to loop or clear this lane.'}
                 </div>
               </div>
 
