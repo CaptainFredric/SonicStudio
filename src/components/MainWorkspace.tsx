@@ -2891,18 +2891,17 @@ export const MainWorkspace = () => {
               ))}
               </div>
             </div>
-            <div className="mt-3 rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)] px-4 py-3">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-                <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-                  Pattern timeline navigation
-                </div>
-                <div className="flex min-w-0 flex-1 items-center gap-3">
+            {maxGridScrollLeft > 0 && (
+              <div className="mt-3 rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)] px-4 py-2.5">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="section-label shrink-0">Grid scroll</span>
                   <button
-                    className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                    aria-label="Scroll the grid left one screen"
+                    className="control-chip flex h-8 w-8 shrink-0 items-center justify-center"
                     onClick={() => scrollGridByViewport(-1)}
                     type="button"
                   >
-                    Left
+                    <ChevronsLeft className="h-4 w-4" />
                   </button>
                   <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
                     {visibleStepStart + 1}
@@ -2927,18 +2926,16 @@ export const MainWorkspace = () => {
                     {Math.max(visibleStepStart + 1, visibleStepEnd)}
                   </span>
                   <button
-                    className="control-chip px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                    aria-label="Scroll the grid right one screen"
+                    className="control-chip flex h-8 w-8 shrink-0 items-center justify-center"
                     onClick={() => scrollGridByViewport(1)}
                     type="button"
                   >
-                    Right
+                    <ChevronsRight className="h-4 w-4" />
                   </button>
-                  <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-                    tail stays open
-                  </span>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
 
