@@ -2980,29 +2980,13 @@ export const MainWorkspace = () => {
                     {visibleTracks.length} visible
                   </div>
                 </div>
-                <div className="mt-3 rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-2.5">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="section-label">Grid mode</span>
-                    <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-                      {editorMode === 'select' ? 'Select' : 'Edit'}
-                    </span>
-                  </div>
-                  <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
-                    {editorMode === 'select'
-                      ? 'Select mode keeps the grid read-only so you can highlight steps without placing or deleting notes. Gate and pitch shaping stay active below.'
-                      : 'Edit mode lets the grid place, remove, and drag-paint notes directly across steps.'}
-                  </div>
-                </div>
                 {!isMobileViewport && (
-                  <div className="mt-3 rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-2.5">
-                    <div className="section-label">View roles</div>
-                    <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
-                      Sequencer shapes timing, groove, and song structure. Roll handles pitch and phrase detail. Mixer balances level and tone.
-                    </div>
-                    <div className="mt-3 grid grid-cols-3 gap-2">
-                      <button className="control-chip h-8 px-2 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => setActiveView('SEQUENCER')} type="button">Seq</button>
-                      <button className="control-chip h-8 px-2 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => { setActiveView('SEQUENCER'); openNotesPanel(); }} type="button">Roll</button>
-                      <button className="control-chip h-8 px-2 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => setActiveView('MIXER')} type="button">Mix</button>
+                  <div className="mt-3 flex items-center justify-between gap-2">
+                    <span className="section-label">Jump to</span>
+                    <div className="flex gap-2">
+                      <button className="control-chip h-8 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => setActiveView('SEQUENCER')} type="button">Seq</button>
+                      <button className="control-chip h-8 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => { setActiveView('SEQUENCER'); openNotesPanel(); }} type="button">Roll</button>
+                      <button className="control-chip h-8 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => setActiveView('MIXER')} type="button">Mix</button>
                     </div>
                   </div>
                 )}
