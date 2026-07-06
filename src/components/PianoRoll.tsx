@@ -1538,6 +1538,7 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
                   gridOverviewDragRef.current = false;
                 }}
                 ref={gridOverviewRef}
+                title="Drag to move around the pattern without changing your zoom"
               >
                 <div className="absolute inset-0 flex items-end gap-px px-1 py-1">
                   {patternSteps.map((step, stepIndex) => {
@@ -1565,9 +1566,6 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
                   }}
                 />
                 <OverviewPlayhead stepsPerPattern={stepsPerPattern} />
-              </div>
-              <div className="mt-2 text-[11px] leading-5 text-[var(--text-tertiary)]">
-                Drag the overview to move around the pattern without changing your zoom.
               </div>
             </div>
 
