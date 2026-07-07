@@ -680,6 +680,10 @@ export const MainWorkspace = () => {
     TEXTURE: false,
   });
   const gridViewportRef = useRef<HTMLDivElement | null>(null);
+  // Press-and-drag state for the add-a-bar runway: dragging right grows the
+  // pattern a step at a time (left shrinks it), while a plain tap still adds
+  // a full bar. GarageBand's grab-the-region-edge gesture, on the step grid.
+  const runwayDragRef = useRef<{ pointerId: number; startX: number; startSteps: number; dragged: boolean } | null>(null);
   const addLaneStripRef = useRef<HTMLDivElement | null>(null);
   const [addLaneMaxScrollLeft, setAddLaneMaxScrollLeft] = useState(0);
   const [addLaneScrollLeft, setAddLaneScrollLeft] = useState(0);
@@ -1904,8 +1908,12 @@ export const MainWorkspace = () => {
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 overflow-visible p-4 md:min-h-0 md:flex-1 xl:flex-row xl:items-start">
-        <div className="flex min-w-0 flex-col overflow-visible md:min-h-[min(62vh,580px)] md:flex-1">
+      {/* Items stretch (the default) on purpose: with items-start the column
+          chain loses its definite height, and a flex-1 grid inside an
+          indefinite chain resolves to its max-height and paints past the
+          panel background, the black-void-on-scroll bug. */}
+      <div className="flex flex-col gap-3 overflow-visible p-4 md:min-h-0 md:flex-1 xl:flex-row">
+        <div className="flex min-w-0 flex-col overflow-visible md:min-h-0 md:flex-1">
           <div className="surface-panel-muted mb-2 px-4 py-2.5 sm:mb-3 sm:py-3">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -2202,7 +2210,7 @@ export const MainWorkspace = () => {
               />
             )}
             <div
-              className={`sequencer-grid-scroll overflow-auto rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] min-h-[clamp(340px,50vh,640px)] md:max-h-[min(72vh,900px)] md:flex-1 xl:min-h-0 ${showSongGrid ? 'hidden' : ''}`}
+              className={`sequencer-grid-scroll overflow-auto rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] min-h-[clamp(340px,50vh,640px)] md:min-h-[240px] md:max-h-[min(72vh,900px)] md:flex-1 ${showSongGrid ? 'hidden' : ''}`}
               data-scrolled={gridScrollLeft > 1 ? 'true' : undefined}
               onPointerCancel={() => setPlacementCursor(null)}
               onPointerMove={handlePlacementMove}
@@ -2259,20 +2267,38 @@ export const MainWorkspace = () => {
                       </button>
                     ))}
                     <button
-                      className="group relative flex shrink-0 flex-col items-center justify-center border-l border-dashed border-[var(--border-soft)] bg-[linear-gradient(90deg,rgba(255,255,255,0.03),rgba(114,217,255,0.08))] transition-colors hover:border-[rgba(114,217,255,0.28)] hover:bg-[linear-gradient(90deg,rgba(255,255,255,0.04),rgba(114,217,255,0.12))]"
-                      onClick={() => {
-                        extendPatternBy(16);
-                        window.requestAnimationFrame(() => jumpToStep(stepsPerPattern));
+                      className="group relative flex shrink-0 cursor-ew-resize touch-none flex-col items-center justify-center border-l border-dashed border-[var(--border-soft)] bg-[linear-gradient(90deg,rgba(255,255,255,0.03),rgba(114,217,255,0.08))] transition-colors hover:border-[rgba(114,217,255,0.28)] hover:bg-[linear-gradient(90deg,rgba(255,255,255,0.04),rgba(114,217,255,0.12))]"
+                      onPointerCancel={() => { runwayDragRef.current = null; }}
+                      onPointerDown={(event) => {
+                        runwayDragRef.current = { pointerId: event.pointerId, startX: event.clientX, startSteps: stepsPerPattern, dragged: false };
+                        try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* synthetic events */ }
+                      }}
+                      onPointerMove={(event) => {
+                        const drag = runwayDragRef.current;
+                        if (!drag || drag.pointerId !== event.pointerId) return;
+                        const dx = event.clientX - drag.startX;
+                        if (Math.abs(dx) > 6) drag.dragged = true;
+                        const next = clampNumber(drag.startSteps + Math.round(dx / stepCellWidth), 16, MAX_STEPS_PER_PATTERN);
+                        if (next !== stepsPerPattern) setPatternLength(next);
+                      }}
+                      onPointerUp={(event) => {
+                        const drag = runwayDragRef.current;
+                        runwayDragRef.current = null;
+                        try { event.currentTarget.releasePointerCapture(event.pointerId); } catch { /* synthetic events */ }
+                        if (drag && !drag.dragged) {
+                          extendPatternBy(16);
+                          window.requestAnimationFrame(() => jumpToStep(drag.startSteps));
+                        }
                       }}
                       style={{ width: `${stepRunwayWidth}px` }}
-                      title="Add a bar (16 steps) and jump to it"
+                      title="Tap to add a bar, or drag to size the pattern step by step"
                       type="button"
                     >
                       <span className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-secondary)]">
                         <Plus className="h-3 w-3 text-[var(--accent-strong)]" strokeWidth={3} />
                         Add a bar
                       </span>
-                      <span className="mt-1 text-[10px] text-[var(--text-tertiary)]">16 steps</span>
+                      <span className="mt-1 text-[10px] text-[var(--text-tertiary)]">tap +16 · drag to size</span>
                     </button>
                   </div>
                 </div>
