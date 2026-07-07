@@ -56,7 +56,9 @@ const ARRANGEMENT_VISIBLE_KEY = 'sonicstudio:panel-arrangement-visible';
 
 const PanelDock = () => {
   const notesOpen = useNotesPanelOpen();
-  const [deskVisible, setDeskVisible] = useState(() => readString(DESK_VISIBLE_KEY) !== 'false');
+  // Every panel starts unmounted: the dock is a single slim bar until the
+  // user asks for a panel, so nothing sits under the grid by default.
+  const [deskVisible, setDeskVisible] = useState(() => readString(DESK_VISIBLE_KEY) === 'true');
   const [arrangementVisible, setArrangementVisible] = useState(() => readString(ARRANGEMENT_VISIBLE_KEY) === 'true');
 
   const toggleDesk = () => setDeskVisible((value) => {

@@ -663,20 +663,16 @@ export const MainWorkspace = () => {
     readString(LANE_COLUMN_COLLAPSED_KEY) === 'true'
   ));
   const [patternSegments, setPatternSegments] = useState<PatternSegment[]>(() => loadPatternSegments());
+  // Desktop starts near the top of the zoom range: wide, chunky cells that
+  // read and tap like the narrow layout, instead of a dense strip.
   const [stepZoom, setStepZoom] = useState(() => (
-    typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches ? 40 : 54
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches ? 40 : 76
   ));
   const [mobileInspectorOpen, setMobileInspectorOpen] = useState(false);
-  // Track map (minimap + whole-song grid) collapses on every screen size, not
-  // just mobile, so a desktop user can hide it to cut clutter. The choice is
-  // remembered; first-timers default open on roomy desktops, closed elsewhere.
-  const [trackMapOpen, setTrackMapOpen] = useState(() => {
-    const stored = readString(TRACK_MAP_OPEN_KEY);
-    if (stored === 'true') return true;
-    if (stored === 'false') return false;
-    return typeof window !== 'undefined'
-      && window.matchMedia('(min-width: 1280px) and (min-height: 900px)').matches;
-  });
+  // Track map (the read-only overview) starts closed everywhere; the grid is
+  // the editing surface and the map is one click away behind Show map. The
+  // choice is remembered.
+  const [trackMapOpen, setTrackMapOpen] = useState(() => readString(TRACK_MAP_OPEN_KEY) === 'true');
   const [collapsedGroups, setCollapsedGroups] = useState<Record<LaneSectionKey, boolean>>({
     MUSICAL: false,
     PINNED: false,
@@ -999,21 +995,9 @@ export const MainWorkspace = () => {
     return () => node.removeEventListener('wheel', onWheel);
   }, []);
 
-  useEffect(() => {
-    writeString(TRACK_MAP_OPEN_KEY, trackMapOpen ? 'true' : 'false');
-  }, [trackMapOpen]);
-
-  useEffect(() => {
-    writeString(COMPOSE_TOOLS_KEY, composeToolsExpanded ? 'true' : 'false');
-  }, [composeToolsExpanded]);
-
-  useEffect(() => {
-    writeString(ADD_LANE_OPEN_KEY, addLaneOpen ? 'true' : 'false');
-  }, [addLaneOpen]);
-
-  useEffect(() => {
-    writeString(SONG_FLATTEN_KEY, songFlatten ? 'true' : 'false');
-  }, [songFlatten]);
+  // These layout choices persist from their toggle handlers, not from mount
+  // effects: writing on mount would freeze a mere default into a stored
+  // "choice" the user never made, and defaults could then never improve.
 
 
   useEffect(() => {
@@ -1837,7 +1821,11 @@ export const MainWorkspace = () => {
                 aria-expanded={addLaneOpen}
                 className="control-chip flex h-8 w-8 shrink-0 items-center justify-center"
                 data-ui-sound="tab"
-                onClick={() => setAddLaneOpen((current) => !current)}
+                onClick={() => {
+                  const next = !addLaneOpen;
+                  writeString(ADD_LANE_OPEN_KEY, next ? 'true' : 'false');
+                  setAddLaneOpen(next);
+                }}
                 title={addLaneOpen ? 'Minimise the add-lane strip' : 'Show the add-lane strip'}
                 type="button"
               >
@@ -1935,7 +1923,11 @@ export const MainWorkspace = () => {
                 aria-expanded={composeToolsExpanded}
                 className="control-chip flex h-8 shrink-0 items-center gap-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
                 data-ui-sound="tab"
-                onClick={() => setComposeToolsExpanded((current) => !current)}
+                onClick={() => {
+                  const next = !composeToolsExpanded;
+                  writeString(COMPOSE_TOOLS_KEY, next ? 'true' : 'false');
+                  setComposeToolsExpanded(next);
+                }}
                 title={composeToolsExpanded ? 'Hide step, zoom, lane, and map tools' : 'Step length, zoom, lane, and map tools'}
                 type="button"
               >
@@ -2156,7 +2148,7 @@ export const MainWorkspace = () => {
                   <button
                     className="px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
                     data-active={songFlatten}
-                    onClick={() => setSongFlatten(true)}
+                    onClick={() => { writeString(SONG_FLATTEN_KEY, 'true'); setSongFlatten(true); }}
                     style={{ background: songFlatten ? 'var(--accent-muted)' : undefined, color: songFlatten ? 'var(--accent-strong)' : 'var(--text-tertiary)' }}
                     type="button"
                   >
@@ -2165,7 +2157,7 @@ export const MainWorkspace = () => {
                   <button
                     className="border-l border-[var(--border-soft)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
                     data-active={!songFlatten}
-                    onClick={() => setSongFlatten(false)}
+                    onClick={() => { writeString(SONG_FLATTEN_KEY, 'false'); setSongFlatten(false); }}
                     style={{ background: !songFlatten ? 'var(--accent-muted)' : undefined, color: !songFlatten ? 'var(--accent-strong)' : 'var(--text-tertiary)' }}
                     type="button"
                   >
@@ -2756,7 +2748,11 @@ export const MainWorkspace = () => {
                 <button
                   aria-expanded={trackMapOpen}
                   className="control-chip inline-flex items-center gap-1.5 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                  onClick={() => setTrackMapOpen((current) => !current)}
+                  onClick={() => {
+                    const next = !trackMapOpen;
+                    writeString(TRACK_MAP_OPEN_KEY, next ? 'true' : 'false');
+                    setTrackMapOpen(next);
+                  }}
                   type="button"
                 >
                   {trackMapOpen ? 'Hide map' : 'Show map'}
