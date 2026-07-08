@@ -620,8 +620,9 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
 
   // --- Note gesture system (drag-to-pitch, velocity drag, click-to-erase, drag-to-erase) ---
   const noteGestureRef = useRef<{
-    kind: 'pending' | 'pitch' | 'velocity' | 'erase';
+    kind: 'pending' | 'pitch' | 'velocity' | 'erase' | 'time';
     stepIndex: number;
+    originStep: number;
     noteIndex: number;
     note: string;
     rowIndex: number;
@@ -632,6 +633,7 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
     lastNote: string;
     duplicate: boolean;
     materialized: boolean;
+    ctrlKey: boolean;
   } | null>(null);
   const [loopChipState, setLoopChipState] = useState<{ x: number; y: number; startStep: number; endStep: number } | null>(null);
   const [contextMenuState, setContextMenuState] = useState<{ stepIndex: number; noteIndex: number; note: string; x: number; y: number } | null>(null);
@@ -650,6 +652,7 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
     noteGestureRef.current = {
       kind: 'pending',
       stepIndex,
+      originStep: stepIndex,
       noteIndex,
       note,
       rowIndex,
@@ -660,6 +663,7 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
       lastNote: note,
       duplicate: event.altKey,
       materialized: false,
+      ctrlKey: event.ctrlKey || event.metaKey,
     };
     setSelectedStepIndex(stepIndex);
     setSelectedNoteIndex(noteIndex);
@@ -683,12 +687,15 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
           noteGestureRef.current = { ...g, kind: 'pitch' };
         } else if (g.shiftKey || event.shiftKey) {
           noteGestureRef.current = { ...g, kind: 'velocity' };
-        } else if (Math.abs(dy) > Math.abs(dx)) {
-          noteGestureRef.current = { ...g, kind: 'pitch' };
-        } else {
+        } else if (g.ctrlKey || event.ctrlKey || event.metaKey) {
+          // Ctrl-drag keeps the erase sweep that plain horizontal used to be.
           noteGestureRef.current = { ...g, kind: 'erase' };
           paintStateRef.current = { mode: 'remove', visited: new Set([`${g.stepIndex}:${g.note}`]) };
           handleGridToggle(g.stepIndex, g.note);
+        } else if (Math.abs(dy) > Math.abs(dx)) {
+          noteGestureRef.current = { ...g, kind: 'pitch' };
+        } else {
+          noteGestureRef.current = { ...g, kind: 'time' };
         }
         return;
       }
@@ -723,6 +730,23 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
         // Move by updating the note property
         updateStepEvent(track.id, g.stepIndex, g.noteIndex, { note: targetNote });
         noteGestureRef.current = { ...g, lastNote: targetNote };
+        return;
+      }
+
+      if (g.kind === 'time') {
+        // Slide the note along the lane, Logic style: horizontal distance maps
+        // to steps from where the drag started, landing on the current grid.
+        const rawTarget = g.originStep + Math.round(dx / stepCellWidth);
+        const targetStep = snapStepToGrid(Math.max(0, Math.min(stepsPerPattern - 1, rawTarget)));
+        if (targetStep === g.stepIndex) return;
+        const liveSteps = patternStepsRef.current;
+        if ((liveSteps[targetStep] ?? []).some((entry) => entry.note === g.lastNote)) return;
+        const gate = liveSteps[g.stepIndex]?.[g.noteIndex]?.gate ?? g.originalEvent.gate;
+        moveNoteToStep(track.id, g.stepIndex, g.noteIndex, targetStep, gate);
+        const landedIndex = sortStepNotes([...(liveSteps[targetStep] ?? []), createPreviewEvent(g.lastNote)])
+          .findIndex((entry) => entry.note === g.lastNote);
+        noteGestureRef.current = { ...g, stepIndex: targetStep, noteIndex: Math.max(0, landedIndex) };
+        setSelectedStepIndex(targetStep);
         return;
       }
 
@@ -1519,7 +1543,7 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
                                 width: `${Math.max(10, Math.min((stepCellWidth * NOTE_GATE_MAX) - 6, (activeEvent.gate * stepCellWidth) - 6))}px`,
                                 touchAction: 'none',
                               }}
-                              title="Drag up or down to change pitch. Shift+drag to change velocity. Alt+drag to stack a copy at a new pitch. Right-click for options."
+                              title="Drag up or down for pitch, left or right to move in time. Shift+drag for velocity, Alt+drag to stack a copy, Ctrl+drag to erase a sweep. Right-click for options."
                             />
                             <span
                               className="absolute inset-y-[3px] z-[2] cursor-ew-resize rounded-l-md border-r border-white/20 bg-[rgba(10,15,21,0.32)] transition-colors hover:bg-[rgba(10,15,21,0.55)]"
