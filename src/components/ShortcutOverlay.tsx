@@ -42,6 +42,29 @@ const GROUPS: Array<{ title: string; entries: ShortcutEntry[] }> = [
     ],
   },
   {
+    title: 'Step grid phrases',
+    entries: [
+      { keys: 'Drag', label: 'In Select mode, sweep cells (and across lanes) to ring a phrase' },
+      { keys: '⌘ D', label: 'Stamp the ringed phrase into the steps right after it' },
+      { keys: '⌘ C / ⌘ V', label: 'Copy the ringed block, paste it at the selection (works across patterns)' },
+      { keys: 'Tap / drag', label: 'Add a bar: tap for +16 steps, drag the runway edge to size freely' },
+      { keys: '⌥ tap / drag', label: 'Fill the added steps by looping the pattern so far' },
+      { keys: 'Esc', label: 'Clear the ringed phrase' },
+    ],
+  },
+  {
+    title: 'Piano roll notes',
+    entries: [
+      { keys: 'Drag ↕', label: 'Change a note’s pitch' },
+      { keys: 'Drag ↔', label: 'Move a note in time, landing on the grid' },
+      { keys: '⇧ drag', label: 'Shape a note’s velocity' },
+      { keys: '⌥ drag', label: 'Stack a copy of the note at a new pitch' },
+      { keys: '⌃ drag', label: 'Erase a sweep of notes' },
+      { keys: 'Grid', label: '1/16, 1/8, 1/4, or Free controls where clicks land and how lengths snap' },
+      { keys: 'Velocity lane', label: 'Paint the stems under the grid to shape loudness per note' },
+    ],
+  },
+  {
     title: 'Arranger clips',
     entries: [
       { keys: '← →', label: 'Nudge the selected clip' },

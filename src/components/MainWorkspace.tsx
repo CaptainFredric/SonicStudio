@@ -3142,6 +3142,27 @@ export const MainWorkspace = () => {
                     {visibleTracks.length} visible
                   </div>
                 </div>
+                <div className="mt-3">
+                  <div className="flex items-center justify-between">
+                    <span className="section-label">Humanize</span>
+                    <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+                      {Math.round((selectedTrack.params.humanize ?? 0) * 100)}%
+                    </span>
+                  </div>
+                  <input
+                    aria-label="How loosely this lane plays its timing and velocity"
+                    className="sonic-scroll-strip mt-1.5 w-full"
+                    max={1}
+                    min={0}
+                    onChange={(event) => setTrackParams(selectedTrack.id, { humanize: Number(event.target.value) })}
+                    step={0.05}
+                    type="range"
+                    value={selectedTrack.params.humanize ?? 0}
+                  />
+                  <div className="mt-1 text-[11px] leading-4 text-[var(--text-secondary)]">
+                    Loosens timing and velocity so repeats stop sounding identical.
+                  </div>
+                </div>
                 {!isMobileViewport && (
                   <div className="mt-3 flex items-center justify-between gap-2">
                     <span className="section-label">Jump to</span>
