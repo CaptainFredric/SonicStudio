@@ -265,6 +265,10 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
   const [mobileInspectorOpen, setMobileInspectorOpen] = useState(false);
   const [supersonicHoverCell, setSupersonicHoverCell] = useState<{ note: string; stepIndex: number } | null>(null);
   const [noteResizeState, setNoteResizeState] = useState<NoteResizeState | null>(null);
+  // Time grid for placing and resizing notes: 1/16 is the cell grid itself,
+  // 1/8 and 1/4 land clicks on broader beats, Free lets lengths resize
+  // continuously. Logic's snap value, sized down for a step grid.
+  const [gridSnap, setGridSnap] = useState<'16' | '8' | '4' | 'off'>('16');
   const [recordedNoteLibrary, setRecordedNoteLibrary] = useState<RecordedNotePreset[]>([]);
   // Seed the chord palette with the session's detected key on mount.
   // The user can still override via the Key dropdown / Major-Minor
@@ -543,11 +547,23 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
     };
   }, []);
 
-  const handleCellPointerDown = (stepIndex: number, note: string, hasNote: boolean, event: React.PointerEvent<HTMLButtonElement>) => {
+  // Land a click on the current grid: 1/8 and 1/4 round down to the zone
+  // start, so anywhere inside a beat places (or removes) that beat's note.
+  const snapStepToGrid = (stepIndex: number) => {
+    const factor = gridSnap === '8' ? 2 : gridSnap === '4' ? 4 : 1;
+    return Math.floor(stepIndex / factor) * factor;
+  };
+
+  const handleCellPointerDown = (rawStepIndex: number, note: string, hasNote: boolean, event: React.PointerEvent<HTMLButtonElement>) => {
     // Right-click / middle-click etc. fall through to default
     if (event.button !== 0) return;
     event.preventDefault();
-    const mode: 'add' | 'remove' = hasNote ? 'remove' : 'add';
+    const stepIndex = snapStepToGrid(rawStepIndex);
+    // Presence is judged at the snapped step, not the hovered cell: on a
+    // coarser grid the note lives at the zone start even when the pointer is
+    // over a later cell in the zone.
+    const zoneHasNote = hasNote || (stepIndex !== rawStepIndex && (patternSteps[stepIndex] ?? []).some((entry) => entry.note === note));
+    const mode: 'add' | 'remove' = zoneHasNote ? 'remove' : 'add';
     // Shift held at paint-start clamps every note placed during the
     // gesture to the nearest in-key pitch. We resolve the snapped
     // note here so removing a freshly-snapped note in the same paint
@@ -558,17 +574,21 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
     handleGridToggle(stepIndex, placedNote);
   };
 
-  const handleCellPointerEnter = (stepIndex: number, note: string, hasNote: boolean) => {
+  const handleCellPointerEnter = (rawStepIndex: number, note: string, hasNote: boolean) => {
     const state = paintStateRef.current;
     if (!state) return;
+    const stepIndex = snapStepToGrid(rawStepIndex);
     const placedNote = state.snapToKey && !liveDetected.uncertain
       ? snapNoteToKey(note, liveDetected)
       : note;
     const key = `${stepIndex}:${placedNote}`;
     if (state.visited.has(key)) return;
     state.visited.add(key);
-    if (state.mode === 'add' && !hasNote) handleGridToggle(stepIndex, placedNote);
-    else if (state.mode === 'remove' && hasNote) handleGridToggle(stepIndex, placedNote);
+    const zoneHasNote = stepIndex === rawStepIndex
+      ? hasNote
+      : (patternSteps[stepIndex] ?? []).some((entry) => entry.note === placedNote);
+    if (state.mode === 'add' && !zoneHasNote) handleGridToggle(stepIndex, placedNote);
+    else if (state.mode === 'remove' && zoneHasNote) handleGridToggle(stepIndex, placedNote);
   };
 
   const handleSuperSonicPointerDown = (
@@ -832,7 +852,11 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
     const handlePointerMove = (event: MouseEvent) => {
       const rawDelta = (event.clientX - noteResizeState.startClientX) / stepCellWidth;
       if (!isStartEdge) {
-        const snappedStep = event.shiftKey ? NOTE_GATE_FINE_STEP : NOTE_GATE_GRID_STEP;
+        // Length snapping follows the grid setting: Free (or Shift) resizes
+        // continuously, 1/8 and 1/4 land on half and whole steps.
+        const snappedStep = event.shiftKey || gridSnap === 'off'
+          ? NOTE_GATE_FINE_STEP
+          : gridSnap === '8' ? 0.5 : gridSnap === '4' ? 1 : NOTE_GATE_GRID_STEP;
         const nextGate = snapNoteGate(noteResizeState.initialGate + rawDelta, snappedStep);
         updateStepEvent(track.id, noteResizeState.stepIndex, noteResizeState.noteIndex, {
           gate: nextGate,
@@ -867,7 +891,7 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
       window.removeEventListener('mousemove', handlePointerMove);
       window.removeEventListener('mouseup', stopResizing);
     };
-  }, [noteResizeState, stepCellWidth, stepsPerPattern, track.id, updateStepEvent, moveNoteToStep]);
+  }, [gridSnap, noteResizeState, stepCellWidth, stepsPerPattern, track.id, updateStepEvent, moveNoteToStep]);
 
   useEffect(() => {
     if (!selectedNote || normalizedSelectedNoteIndex === null || selectedStepIndex === null) {
@@ -1140,6 +1164,20 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
             >
               <ListPlus className="h-4 w-4" />
             </ToolButton>
+            <div className="flex items-center gap-1 rounded-[3px] border border-[var(--border-soft)] px-1.5 py-1">
+              <span className="px-1 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]" title="Where clicks land and how note lengths snap while resizing">Grid</span>
+              {(['16', '8', '4', 'off'] as const).map((value) => (
+                <button
+                  className="control-chip px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]"
+                  data-active={gridSnap === value}
+                  key={value}
+                  onClick={() => setGridSnap(value)}
+                  type="button"
+                >
+                  {value === 'off' ? 'Free' : `1/${value}`}
+                </button>
+              ))}
+            </div>
             {!isDrum && !liveDetected.uncertain && (
               <ToolButton
                 label={`Snap notes outside ${liveDetected.label} to the nearest in-key pitch.`}
