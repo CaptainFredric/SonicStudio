@@ -646,9 +646,10 @@ export const MainWorkspace = () => {
   // remembered for anyone who wants it open every session.
   const [composeToolsExpanded, setComposeToolsExpanded] = useState(() => readString(COMPOSE_TOOLS_KEY) === 'true');
   const [selectedStepIndex, setSelectedStepIndex] = useState(0);
-  // A dragged step range on one lane (select mode). Feeds Cmd+D duplication
-  // and survives the drag, so you can grab a phrase and stamp it forward.
-  const [stepRange, setStepRange] = useState<{ trackId: string; start: number; end: number } | null>(null);
+  // A dragged step range (select mode), spanning one lane or several. Feeds
+  // Cmd+D duplication and survives the drag, so you can grab a phrase and
+  // stamp it forward.
+  const [stepRange, setStepRange] = useState<{ trackIds: string[]; start: number; end: number } | null>(null);
   const [selectedStepNoteIndex, setSelectedStepNoteIndex] = useState(0);
   const [segmentDraftName, setSegmentDraftName] = useState('');
   const [loopBrowserFilter, setLoopBrowserFilter] = useState<typeof LOOP_BROWSER_FILTERS[number]['value']>('MATCHING');
@@ -820,6 +821,11 @@ export const MainWorkspace = () => {
 
     return sections;
   }, [groupedVisibleTracks, pinnedVisibleTracks]);
+  // The lanes in the order they render, so a marquee can span rows.
+  const visibleLaneOrder = useMemo(
+    () => visibleTrackSections.flatMap((section) => section.tracks.map((entry) => entry.id)),
+    [visibleTrackSections],
+  );
   const songPatternIndicesByTrack = useMemo(() => {
     const lookup = new Map<string, Set<number>>();
 
@@ -1210,12 +1216,11 @@ export const MainWorkspace = () => {
       const target = event.target as HTMLElement | null;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
       const range = stepRange
-        ?? (selectedTrack ? { trackId: selectedTrack.id, start: selectedStepIndex, end: selectedStepIndex } : null);
+        ?? (selectedTrack ? { trackIds: [selectedTrack.id], start: selectedStepIndex, end: selectedStepIndex } : null);
       if (!range) return;
-      const track = tracks.find((entry) => entry.id === range.trackId);
-      if (!track) return;
+      const laneIds = range.trackIds.filter((id) => tracks.some((entry) => entry.id === id));
+      if (laneIds.length === 0) return;
       event.preventDefault();
-      const steps = track.patterns[currentPattern] || [];
       const length = range.end - range.start + 1;
       const targetStart = range.end + 1;
       const needed = targetStart + length;
@@ -1223,17 +1228,22 @@ export const MainWorkspace = () => {
         setPatternLength(needed);
       }
       const total = Math.max(needed, stepsPerPattern);
-      const next: NoteEvent[][] = [];
-      for (let index = 0; index < total; index += 1) {
-        if (index >= targetStart && index < needed) {
-          next.push((steps[range.start + (index - targetStart)] ?? []).map((entry) => ({ ...entry })));
-        } else {
-          next.push(steps[index] ?? []);
+      laneIds.forEach((laneId) => {
+        const track = tracks.find((entry) => entry.id === laneId);
+        if (!track) return;
+        const steps = track.patterns[currentPattern] || [];
+        const next: NoteEvent[][] = [];
+        for (let index = 0; index < total; index += 1) {
+          if (index >= targetStart && index < needed) {
+            next.push((steps[range.start + (index - targetStart)] ?? []).map((entry) => ({ ...entry })));
+          } else {
+            next.push(steps[index] ?? []);
+          }
         }
-      }
-      applyPatternSegment(range.trackId, currentPattern, next);
-      setStepRange({ trackId: range.trackId, start: targetStart, end: needed - 1 });
-      setSelectedTrackId(range.trackId);
+        applyPatternSegment(laneId, currentPattern, next);
+      });
+      setStepRange({ trackIds: laneIds, start: targetStart, end: needed - 1 });
+      setSelectedTrackId(laneIds[0]);
       selectStep(targetStart);
     };
     window.addEventListener('keydown', onKeyDown);
@@ -1418,7 +1428,7 @@ export const MainWorkspace = () => {
 
     if (editorMode === 'select') {
       paintStateRef.current = { trackId, mode: 'select', note, visited: new Set([`${stepIndex}`]), anchor: stepIndex };
-      setStepRange({ trackId, start: stepIndex, end: stepIndex });
+      setStepRange({ trackIds: [trackId], start: stepIndex, end: stepIndex });
       return;
     }
 
@@ -1440,16 +1450,22 @@ export const MainWorkspace = () => {
     stepEvents: NoteEvent[],
   ) => {
     const state = paintStateRef.current;
-    if (!state || state.trackId !== trackId) return;
+    if (!state) return;
     if (state.mode === 'select') {
-      // No visited gate here: dragging back over covered cells shrinks the
-      // range again, like any marquee.
-      const anchor = state.anchor ?? stepIndex;
-      setStepRange({ trackId, start: Math.min(anchor, stepIndex), end: Math.max(anchor, stepIndex) });
+      // No visited gate, and no same-lane guard: the marquee sweeps across
+      // lanes as well as steps, and dragging back shrinks it again.
+      const anchorStep = state.anchor ?? stepIndex;
+      const anchorLane = visibleLaneOrder.indexOf(state.trackId);
+      const currentLane = visibleLaneOrder.indexOf(trackId);
+      const trackIds = anchorLane < 0 || currentLane < 0
+        ? [state.trackId]
+        : visibleLaneOrder.slice(Math.min(anchorLane, currentLane), Math.max(anchorLane, currentLane) + 1);
+      setStepRange({ trackIds, start: Math.min(anchorStep, stepIndex), end: Math.max(anchorStep, stepIndex) });
       setSelectedTrackId(trackId);
       selectStep(stepIndex);
       return;
     }
+    if (state.trackId !== trackId) return;
     const key = `${stepIndex}`;
     if (state.visited.has(key)) return;
     state.visited.add(key);
@@ -2611,7 +2627,7 @@ export const MainWorkspace = () => {
                           {patternSteps.map((value, stepIndex) => {
                             const isActive = value.length > 0;
                             const isSelectedStep = selectedStepIndex === stepIndex;
-                            const inRange = stepRange !== null && stepRange.trackId === track.id && stepIndex >= stepRange.start && stepIndex <= stepRange.end;
+                            const inRange = stepRange !== null && stepRange.trackIds.includes(track.id) && stepIndex >= stepRange.start && stepIndex <= stepRange.end;
                             const leadEvent = value[0];
                             const extraNotes = Math.max(0, value.length - 1);
                             const maxGate = value.reduce((gate, event) => Math.max(gate, event.gate), 0);
