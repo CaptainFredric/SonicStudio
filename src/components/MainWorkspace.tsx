@@ -650,6 +650,9 @@ export const MainWorkspace = () => {
   // Cmd+D duplication and survives the drag, so you can grab a phrase and
   // stamp it forward.
   const [stepRange, setStepRange] = useState<{ trackIds: string[]; start: number; end: number } | null>(null);
+  // The copied block: one steps-array per lane, in lane order. A ref, so it
+  // survives pattern switches and pastes across banks.
+  const rangeClipboardRef = useRef<{ lanes: NoteEvent[][][]; length: number } | null>(null);
   const [selectedStepNoteIndex, setSelectedStepNoteIndex] = useState(0);
   const [segmentDraftName, setSegmentDraftName] = useState('');
   const [loopBrowserFilter, setLoopBrowserFilter] = useState<typeof LOOP_BROWSER_FILTERS[number]['value']>('MATCHING');
@@ -1212,9 +1215,67 @@ export const MainWorkspace = () => {
         setStepRange(null);
         return;
       }
-      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'd') return;
+      if (!(event.metaKey || event.ctrlKey)) return;
+      const key = event.key.toLowerCase();
+      if (key !== 'd' && key !== 'c' && key !== 'v') return;
       const target = event.target as HTMLElement | null;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+      if (key === 'c') {
+        // Copy the ringed block: cloned, lane by lane, pattern-independent.
+        if (!stepRange) return;
+        const lanes = stepRange.trackIds
+          .map((laneId) => tracks.find((entry) => entry.id === laneId))
+          .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
+          .map((track) => {
+            const steps = track.patterns[currentPattern] || [];
+            const slice: NoteEvent[][] = [];
+            for (let index = stepRange.start; index <= stepRange.end; index += 1) {
+              slice.push((steps[index] ?? []).map((entry) => ({ ...entry })));
+            }
+            return slice;
+          });
+        if (lanes.length === 0) return;
+        event.preventDefault();
+        rangeClipboardRef.current = { lanes, length: stepRange.end - stepRange.start + 1 };
+        return;
+      }
+      if (key === 'v') {
+        // Paste at the selection: the selected lane anchors the block's top
+        // lane, following lanes fill downward in view order.
+        const clipboard = rangeClipboardRef.current;
+        if (!clipboard || !selectedTrack) return;
+        const anchorLane = visibleLaneOrder.indexOf(selectedTrack.id);
+        if (anchorLane < 0) return;
+        event.preventDefault();
+        const targetStart = selectedStepIndex;
+        const needed = targetStart + clipboard.length;
+        if (needed > stepsPerPattern) {
+          setPatternLength(needed);
+        }
+        const total = Math.max(needed, stepsPerPattern);
+        const pastedLaneIds: string[] = [];
+        clipboard.lanes.forEach((laneSteps, laneOffset) => {
+          const laneId = visibleLaneOrder[anchorLane + laneOffset];
+          if (!laneId) return;
+          const track = tracks.find((entry) => entry.id === laneId);
+          if (!track) return;
+          const steps = track.patterns[currentPattern] || [];
+          const next: NoteEvent[][] = [];
+          for (let index = 0; index < total; index += 1) {
+            if (index >= targetStart && index < needed) {
+              next.push((laneSteps[index - targetStart] ?? []).map((entry) => ({ ...entry })));
+            } else {
+              next.push(steps[index] ?? []);
+            }
+          }
+          applyPatternSegment(laneId, currentPattern, next);
+          pastedLaneIds.push(laneId);
+        });
+        if (pastedLaneIds.length > 0) {
+          setStepRange({ trackIds: pastedLaneIds, start: targetStart, end: needed - 1 });
+        }
+        return;
+      }
       const range = stepRange
         ?? (selectedTrack ? { trackIds: [selectedTrack.id], start: selectedStepIndex, end: selectedStepIndex } : null);
       if (!range) return;
