@@ -27,6 +27,7 @@ import { meterIntervalForMode } from '../audio/meterTiming';
 import { engine } from '../audio/ToneEngine';
 import { SUPERSONIC_NOTE_OFFSETS, getTrackAnchorNote, pitchRank, shiftPitch } from '../utils/notePlacement';
 import { bestKeyTranspose, pitchClassFromNote } from '../utils/pitch';
+import { hasLoopSource, loopFillSteps } from '../utils/loopFill';
 import { useAudio, usePlaybackStep } from '../context/AudioContext';
 import { SONG_FORM_DEFINITIONS, type SongFormId } from '../context/editor/songFormDefinitions';
 import {
@@ -683,7 +684,7 @@ export const MainWorkspace = () => {
   // Press-and-drag state for the add-a-bar runway: dragging right grows the
   // pattern a step at a time (left shrinks it), while a plain tap still adds
   // a full bar. GarageBand's grab-the-region-edge gesture, on the step grid.
-  const runwayDragRef = useRef<{ pointerId: number; startX: number; startSteps: number; dragged: boolean } | null>(null);
+  const runwayDragRef = useRef<{ pointerId: number; startX: number; startSteps: number; lastSteps: number; alt: boolean; dragged: boolean } | null>(null);
   const addLaneStripRef = useRef<HTMLDivElement | null>(null);
   const [addLaneMaxScrollLeft, setAddLaneMaxScrollLeft] = useState(0);
   const [addLaneScrollLeft, setAddLaneScrollLeft] = useState(0);
@@ -1174,6 +1175,17 @@ export const MainWorkspace = () => {
   const extendPatternBy = useCallback((stepDelta: number) => {
     setPatternLength(stepsPerPattern + stepDelta);
   }, [setPatternLength, stepsPerPattern]);
+
+  // GarageBand-style loop fill: when the pattern grows with Alt held, the new
+  // steps repeat the material each lane already has instead of arriving empty.
+  const loopFillNewSteps = useCallback((oldLength: number, newLength: number) => {
+    if (newLength <= oldLength) return;
+    tracks.forEach((track) => {
+      const steps = track.patterns[currentPattern] || [];
+      if (!hasLoopSource(steps, oldLength)) return;
+      applyPatternSegment(track.id, currentPattern, loopFillSteps(steps, oldLength, newLength));
+    });
+  }, [applyPatternSegment, currentPattern, tracks]);
 
   const handleToggleSelectedTrackLoop = () => {
     if (!selectedTrackPatternSpan || !selectedTrack) {
@@ -2270,7 +2282,7 @@ export const MainWorkspace = () => {
                       className="group relative flex shrink-0 cursor-ew-resize touch-none flex-col items-center justify-center border-l border-dashed border-[var(--border-soft)] bg-[linear-gradient(90deg,rgba(255,255,255,0.03),rgba(114,217,255,0.08))] transition-colors hover:border-[rgba(114,217,255,0.28)] hover:bg-[linear-gradient(90deg,rgba(255,255,255,0.04),rgba(114,217,255,0.12))]"
                       onPointerCancel={() => { runwayDragRef.current = null; }}
                       onPointerDown={(event) => {
-                        runwayDragRef.current = { pointerId: event.pointerId, startX: event.clientX, startSteps: stepsPerPattern, dragged: false };
+                        runwayDragRef.current = { pointerId: event.pointerId, startX: event.clientX, startSteps: stepsPerPattern, lastSteps: stepsPerPattern, alt: event.altKey, dragged: false };
                         try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* synthetic events */ }
                       }}
                       onPointerMove={(event) => {
@@ -2278,27 +2290,34 @@ export const MainWorkspace = () => {
                         if (!drag || drag.pointerId !== event.pointerId) return;
                         const dx = event.clientX - drag.startX;
                         if (Math.abs(dx) > 6) drag.dragged = true;
+                        if (event.altKey) drag.alt = true;
                         const next = clampNumber(drag.startSteps + Math.round(dx / stepCellWidth), 16, MAX_STEPS_PER_PATTERN);
+                        drag.lastSteps = next;
                         if (next !== stepsPerPattern) setPatternLength(next);
                       }}
                       onPointerUp={(event) => {
                         const drag = runwayDragRef.current;
                         runwayDragRef.current = null;
                         try { event.currentTarget.releasePointerCapture(event.pointerId); } catch { /* synthetic events */ }
-                        if (drag && !drag.dragged) {
+                        if (!drag) return;
+                        const alt = drag.alt || event.altKey;
+                        if (!drag.dragged) {
                           extendPatternBy(16);
+                          if (alt) loopFillNewSteps(drag.startSteps, drag.startSteps + 16);
                           window.requestAnimationFrame(() => jumpToStep(drag.startSteps));
+                        } else if (alt && drag.lastSteps > drag.startSteps) {
+                          loopFillNewSteps(drag.startSteps, drag.lastSteps);
                         }
                       }}
                       style={{ width: `${stepRunwayWidth}px` }}
-                      title="Tap to add a bar, or drag to size the pattern step by step"
+                      title="Tap to add a bar, or drag to size the pattern step by step. Hold Alt to fill the new steps with the pattern so far."
                       type="button"
                     >
                       <span className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-secondary)]">
                         <Plus className="h-3 w-3 text-[var(--accent-strong)]" strokeWidth={3} />
                         Add a bar
                       </span>
-                      <span className="mt-1 text-[10px] text-[var(--text-tertiary)]">tap +16 · drag to size</span>
+                      <span className="mt-1 text-[10px] text-[var(--text-tertiary)]">tap +16 · drag to size · alt fills</span>
                     </button>
                   </div>
                 </div>
