@@ -306,6 +306,7 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
   const gridViewportRef = useRef<HTMLDivElement | null>(null);
   const gridOverviewRef = useRef<HTMLDivElement | null>(null);
   const gridOverviewDragRef = useRef(false);
+  const velocityDragRef = useRef(false);
   const [gridScrollLeft, setGridScrollLeft] = useState(0);
   const [gridViewportWidth, setGridViewportWidth] = useState(0);
 
@@ -789,6 +790,19 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
     const centeredStep = ratio * stepsPerPattern;
     node.scrollLeft = clamp((noteLabelWidth + (centeredStep * stepCellWidth)) - (node.clientWidth * 0.5), 0, maxGridScrollLeft);
   }, [maxGridScrollLeft, noteLabelWidth, stepCellWidth, stepsPerPattern]);
+
+  // Set every note in the step under the pointer to the velocity the pointer
+  // height implies: top of the lane is full force, the floor is a whisper.
+  const paintVelocityAt = (clientX: number, clientY: number, rect: DOMRect) => {
+    const stepIndex = Math.floor((clientX - rect.left) / stepCellWidth);
+    if (stepIndex < 0 || stepIndex >= stepsPerPattern) return;
+    const events = patternSteps[stepIndex] ?? [];
+    if (events.length === 0) return;
+    const velocity = clamp(1 - ((clientY - rect.top) / rect.height), 0.05, 1);
+    events.forEach((_, noteIndex) => {
+      updateStepEvent(track.id, stepIndex, noteIndex, { velocity });
+    });
+  };
 
   const bumpSelectedNote = (updates: Partial<NoteEvent>) => {
     if (!selectedNote || normalizedSelectedNoteIndex === null || selectedStepIndex === null) {
@@ -1494,6 +1508,57 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
                 </div>
               );
             })}
+            {/* Velocity lane, Logic style: one bar per sounding step, drag or
+                paint across to shape loudness. Lives inside the same scroll
+                content so the bars stay column-aligned with the notes. */}
+            <div className="flex border-t border-[var(--border-soft)]" style={{ height: '64px' }}>
+              <div
+                className="grid-freeze-col flex shrink-0 items-end border-r border-[var(--border-soft)] px-3 pb-1.5 font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]"
+                style={{ width: `${noteLabelWidth}px` }}
+              >
+                Velocity
+              </div>
+              <div
+                aria-label="Velocity lane. Drag across the bars to shape each step's loudness."
+                className="relative touch-none cursor-ns-resize"
+                onPointerCancel={() => { velocityDragRef.current = false; }}
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  velocityDragRef.current = true;
+                  try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* synthetic events */ }
+                  paintVelocityAt(event.clientX, event.clientY, event.currentTarget.getBoundingClientRect());
+                }}
+                onPointerMove={(event) => {
+                  if (!velocityDragRef.current) return;
+                  paintVelocityAt(event.clientX, event.clientY, event.currentTarget.getBoundingClientRect());
+                }}
+                onPointerUp={(event) => {
+                  velocityDragRef.current = false;
+                  try { event.currentTarget.releasePointerCapture(event.pointerId); } catch { /* synthetic events */ }
+                }}
+                role="presentation"
+                style={{ width: `${stepsPerPattern * stepCellWidth}px` }}
+              >
+                {Array.from({ length: stepsPerPattern }, (_, stepIndex) => {
+                  const events = patternSteps[stepIndex] ?? [];
+                  if (events.length === 0) return null;
+                  const level = Math.max(...events.map((event) => event.velocity || 0));
+                  return (
+                    <div
+                      className="absolute bottom-0 rounded-t-[2px]"
+                      key={`velocity-${stepIndex}`}
+                      style={{
+                        left: `${(stepIndex * stepCellWidth) + 3}px`,
+                        width: `${Math.max(6, stepCellWidth - 6)}px`,
+                        height: `${Math.max(3, level * 60)}px`,
+                        background: track.color,
+                        opacity: 0.35 + (level * 0.6),
+                      }}
+                    />
+                  );
+                })}
+              </div>
+            </div>
             <StepPlayhead noteLabelWidth={noteLabelWidth} stepCellWidth={stepCellWidth} stepsPerPattern={stepsPerPattern} />
           </div>
           </div>
