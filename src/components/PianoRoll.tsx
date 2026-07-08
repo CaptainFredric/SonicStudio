@@ -311,6 +311,10 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
   const gridOverviewRef = useRef<HTMLDivElement | null>(null);
   const gridOverviewDragRef = useRef(false);
   const velocityDragRef = useRef(false);
+  // The note-gesture effect deliberately freezes its closure (see its deps);
+  // this ref hands it the current steps so a materializing Alt-drag copy
+  // lands at the right index even after earlier edits.
+  const patternStepsRef = useRef<NoteEvent[][]>([]);
   const [gridScrollLeft, setGridScrollLeft] = useState(0);
   const [gridViewportWidth, setGridViewportWidth] = useState(0);
 
@@ -354,6 +358,9 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
 
   const isDrum = track.type === 'kick' || track.type === 'snare' || track.type === 'hihat';
   const patternSteps = track.patterns[currentPattern] ?? Array.from({ length: stepsPerPattern }, () => []);
+  useEffect(() => {
+    patternStepsRef.current = patternSteps;
+  });
   const activeStepCount = patternSteps.filter((step) => step.length > 0).length;
   const totalNoteCount = patternSteps.reduce((sum, step) => sum + step.length, 0);
   const stackedStepCount = patternSteps.filter((step) => step.length > 1).length;
@@ -623,6 +630,8 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
     originY: number;
     shiftKey: boolean;
     lastNote: string;
+    duplicate: boolean;
+    materialized: boolean;
   } | null>(null);
   const [loopChipState, setLoopChipState] = useState<{ x: number; y: number; startStep: number; endStep: number } | null>(null);
   const [contextMenuState, setContextMenuState] = useState<{ stepIndex: number; noteIndex: number; note: string; x: number; y: number } | null>(null);
@@ -649,6 +658,8 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
       originY: event.clientY,
       shiftKey: event.shiftKey,
       lastNote: note,
+      duplicate: event.altKey,
+      materialized: false,
     };
     setSelectedStepIndex(stepIndex);
     setSelectedNoteIndex(noteIndex);
@@ -668,7 +679,9 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
       if (g.kind === 'pending') {
         const dist = Math.hypot(dx, dy);
         if (dist < ENGAGE_THRESHOLD) return;
-        if (g.shiftKey || event.shiftKey) {
+        if (g.duplicate) {
+          noteGestureRef.current = { ...g, kind: 'pitch' };
+        } else if (g.shiftKey || event.shiftKey) {
           noteGestureRef.current = { ...g, kind: 'velocity' };
         } else if (Math.abs(dy) > Math.abs(dx)) {
           noteGestureRef.current = { ...g, kind: 'pitch' };
@@ -685,6 +698,28 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
         const newRowIndex = Math.max(0, Math.min(renderNotes.length - 1, g.rowIndex + rowDelta));
         const targetNote = renderNotes[newRowIndex];
         if (!targetNote || targetNote === g.lastNote) return;
+        if (g.duplicate && !g.materialized) {
+          // Alt-drag stacks a copy: the original stays put and the copy is
+          // born at the first new pitch, carrying the source's feel, then the
+          // rest of the drag steers the copy.
+          const liveSteps = patternStepsRef.current;
+          const stepEvents = liveSteps[g.stepIndex] ?? [];
+          const occupied = stepEvents.some((entry) => entry.note === targetNote);
+          if (occupied) return;
+          // Steps stay sorted by pitch, so the copy's index is its sorted
+          // position, not the end of the array.
+          const copyIndex = sortStepNotes([...stepEvents, createPreviewEvent(targetNote)])
+            .findIndex((entry) => entry.note === targetNote);
+          if (copyIndex < 0) return;
+          handleGridToggle(g.stepIndex, targetNote);
+          updateStepEvent(track.id, g.stepIndex, copyIndex, {
+            velocity: g.originalEvent.velocity,
+            gate: g.originalEvent.gate,
+          });
+          noteGestureRef.current = { ...g, noteIndex: copyIndex, lastNote: targetNote, materialized: true };
+          setSelectedNoteIndex(copyIndex);
+          return;
+        }
         // Move by updating the note property
         updateStepEvent(track.id, g.stepIndex, g.noteIndex, { note: targetNote });
         noteGestureRef.current = { ...g, lastNote: targetNote };
@@ -701,7 +736,7 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
 
     const onUp = () => {
       const g = noteGestureRef.current;
-      if (g && g.kind === 'pending') {
+      if (g && g.kind === 'pending' && !g.duplicate) {
         // No movement — single click on existing note → delete it
         handleGridToggle(g.stepIndex, g.note);
       }
@@ -811,17 +846,20 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
     node.scrollLeft = clamp((noteLabelWidth + (centeredStep * stepCellWidth)) - (node.clientWidth * 0.5), 0, maxGridScrollLeft);
   }, [maxGridScrollLeft, noteLabelWidth, stepCellWidth, stepsPerPattern]);
 
-  // Set every note in the step under the pointer to the velocity the pointer
-  // height implies: top of the lane is full force, the floor is a whisper.
+  // Set the note whose stem sits under the pointer to the velocity the
+  // pointer height implies: top of the lane is full force, the floor is a
+  // whisper. Chords show one stem per note, so each voice shapes on its own.
   const paintVelocityAt = (clientX: number, clientY: number, rect: DOMRect) => {
-    const stepIndex = Math.floor((clientX - rect.left) / stepCellWidth);
+    const x = clientX - rect.left;
+    const stepIndex = Math.floor(x / stepCellWidth);
     if (stepIndex < 0 || stepIndex >= stepsPerPattern) return;
     const events = patternSteps[stepIndex] ?? [];
     if (events.length === 0) return;
     const velocity = clamp(1 - ((clientY - rect.top) / rect.height), 0.05, 1);
-    events.forEach((_, noteIndex) => {
-      updateStepEvent(track.id, stepIndex, noteIndex, { velocity });
-    });
+    const innerX = x - (stepIndex * stepCellWidth) - 3;
+    const laneWidth = Math.max(1, stepCellWidth - 6);
+    const noteIndex = Math.max(0, Math.min(events.length - 1, Math.floor((innerX / laneWidth) * events.length)));
+    updateStepEvent(track.id, stepIndex, noteIndex, { velocity });
   };
 
   const bumpSelectedNote = (updates: Partial<NoteEvent>) => {
@@ -1481,7 +1519,7 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
                                 width: `${Math.max(10, Math.min((stepCellWidth * NOTE_GATE_MAX) - 6, (activeEvent.gate * stepCellWidth) - 6))}px`,
                                 touchAction: 'none',
                               }}
-                              title="Drag up or down to change pitch. Shift+drag to change velocity. Right-click for options."
+                              title="Drag up or down to change pitch. Shift+drag to change velocity. Alt+drag to stack a copy at a new pitch. Right-click for options."
                             />
                             <span
                               className="absolute inset-y-[3px] z-[2] cursor-ew-resize rounded-l-md border-r border-white/20 bg-[rgba(10,15,21,0.32)] transition-colors hover:bg-[rgba(10,15,21,0.55)]"
@@ -1580,20 +1618,22 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
                 {Array.from({ length: stepsPerPattern }, (_, stepIndex) => {
                   const events = patternSteps[stepIndex] ?? [];
                   if (events.length === 0) return null;
-                  const level = Math.max(...events.map((event) => event.velocity || 0));
-                  return (
+                  const laneWidth = Math.max(1, stepCellWidth - 6);
+                  const slot = laneWidth / events.length;
+                  return events.map((event, noteIndex) => (
                     <div
                       className="absolute bottom-0 rounded-t-[2px]"
-                      key={`velocity-${stepIndex}`}
+                      key={`velocity-${stepIndex}-${noteIndex}`}
                       style={{
-                        left: `${(stepIndex * stepCellWidth) + 3}px`,
-                        width: `${Math.max(6, stepCellWidth - 6)}px`,
-                        height: `${Math.max(3, level * 60)}px`,
+                        left: `${(stepIndex * stepCellWidth) + 3 + (noteIndex * slot)}px`,
+                        width: `${Math.max(3, slot - (events.length > 1 ? 1 : 0))}px`,
+                        height: `${Math.max(3, (event.velocity || 0) * 60)}px`,
                         background: track.color,
-                        opacity: 0.35 + (level * 0.6),
+                        opacity: 0.35 + ((event.velocity || 0) * 0.6),
                       }}
+                      title={event.note}
                     />
-                  );
+                  ));
                 })}
               </div>
             </div>
