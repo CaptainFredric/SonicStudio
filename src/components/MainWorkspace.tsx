@@ -646,6 +646,9 @@ export const MainWorkspace = () => {
   // remembered for anyone who wants it open every session.
   const [composeToolsExpanded, setComposeToolsExpanded] = useState(() => readString(COMPOSE_TOOLS_KEY) === 'true');
   const [selectedStepIndex, setSelectedStepIndex] = useState(0);
+  // A dragged step range on one lane (select mode). Feeds Cmd+D duplication
+  // and survives the drag, so you can grab a phrase and stamp it forward.
+  const [stepRange, setStepRange] = useState<{ trackId: string; start: number; end: number } | null>(null);
   const [selectedStepNoteIndex, setSelectedStepNoteIndex] = useState(0);
   const [segmentDraftName, setSegmentDraftName] = useState('');
   const [loopBrowserFilter, setLoopBrowserFilter] = useState<typeof LOOP_BROWSER_FILTERS[number]['value']>('MATCHING');
@@ -1187,6 +1190,56 @@ export const MainWorkspace = () => {
     });
   }, [applyPatternSegment, currentPattern, tracks]);
 
+  // A selection range only makes sense within the pattern and mode it was
+  // dragged in; switching either drops it.
+  useEffect(() => {
+    setStepRange(null);
+  }, [editorMode, currentPattern]);
+
+  // Cmd/Ctrl+D stamps the selected phrase forward, Logic's duplicate: the
+  // dragged range (or just the selected step) is copied to the steps right
+  // after it, the pattern grows if the copy needs the room, and the selection
+  // moves onto the copy so repeated presses tile it across the pattern.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setStepRange(null);
+        return;
+      }
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== 'd') return;
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+      const range = stepRange
+        ?? (selectedTrack ? { trackId: selectedTrack.id, start: selectedStepIndex, end: selectedStepIndex } : null);
+      if (!range) return;
+      const track = tracks.find((entry) => entry.id === range.trackId);
+      if (!track) return;
+      event.preventDefault();
+      const steps = track.patterns[currentPattern] || [];
+      const length = range.end - range.start + 1;
+      const targetStart = range.end + 1;
+      const needed = targetStart + length;
+      if (needed > stepsPerPattern) {
+        setPatternLength(needed);
+      }
+      const total = Math.max(needed, stepsPerPattern);
+      const next: NoteEvent[][] = [];
+      for (let index = 0; index < total; index += 1) {
+        if (index >= targetStart && index < needed) {
+          next.push((steps[range.start + (index - targetStart)] ?? []).map((entry) => ({ ...entry })));
+        } else {
+          next.push(steps[index] ?? []);
+        }
+      }
+      applyPatternSegment(range.trackId, currentPattern, next);
+      setStepRange({ trackId: range.trackId, start: targetStart, end: needed - 1 });
+      setSelectedTrackId(range.trackId);
+      selectStep(targetStart);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  });
+
   const handleToggleSelectedTrackLoop = () => {
     if (!selectedTrackPatternSpan || !selectedTrack) {
       return;
@@ -1230,7 +1283,7 @@ export const MainWorkspace = () => {
     selectStep(0);
   };
 
-  const paintStateRef = useRef<{ trackId: string; mode: 'add' | 'remove' | 'select'; visited: Set<string>; note?: string } | null>(null);
+  const paintStateRef = useRef<{ trackId: string; mode: 'add' | 'remove' | 'select'; visited: Set<string>; note?: string; anchor?: number } | null>(null);
   // SuperSonic touch placement: a preview cell that tracks the finger so a
   // note can be aimed before it commits on release.
   const [placementCursor, setPlacementCursor] = useState<{ trackId: string; stepIndex: number } | null>(null);
@@ -1364,7 +1417,8 @@ export const MainWorkspace = () => {
     selectStep(stepIndex);
 
     if (editorMode === 'select') {
-      paintStateRef.current = { trackId, mode: 'select', note, visited: new Set([`${stepIndex}`]) };
+      paintStateRef.current = { trackId, mode: 'select', note, visited: new Set([`${stepIndex}`]), anchor: stepIndex };
+      setStepRange({ trackId, start: stepIndex, end: stepIndex });
       return;
     }
 
@@ -1387,14 +1441,18 @@ export const MainWorkspace = () => {
   ) => {
     const state = paintStateRef.current;
     if (!state || state.trackId !== trackId) return;
-    const key = `${stepIndex}`;
-    if (state.visited.has(key)) return;
-    state.visited.add(key);
     if (state.mode === 'select') {
+      // No visited gate here: dragging back over covered cells shrinks the
+      // range again, like any marquee.
+      const anchor = state.anchor ?? stepIndex;
+      setStepRange({ trackId, start: Math.min(anchor, stepIndex), end: Math.max(anchor, stepIndex) });
       setSelectedTrackId(trackId);
       selectStep(stepIndex);
       return;
     }
+    const key = `${stepIndex}`;
+    if (state.visited.has(key)) return;
+    state.visited.add(key);
     const hasTargetNote = state.note
       ? stepEvents.some((entry) => entry.note === state.note)
       : stepEvents.length > 0;
@@ -2553,6 +2611,7 @@ export const MainWorkspace = () => {
                           {patternSteps.map((value, stepIndex) => {
                             const isActive = value.length > 0;
                             const isSelectedStep = selectedStepIndex === stepIndex;
+                            const inRange = stepRange !== null && stepRange.trackId === track.id && stepIndex >= stepRange.start && stepIndex <= stepRange.end;
                             const leadEvent = value[0];
                             const extraNotes = Math.max(0, value.length - 1);
                             const maxGate = value.reduce((gate, event) => Math.max(gate, event.gate), 0);
@@ -2567,7 +2626,7 @@ export const MainWorkspace = () => {
                               <button
                                 aria-label={`${track.name} step ${stepIndex + 1}`}
                                 aria-pressed={isActive}
-                                className={`group relative shrink-0 touch-none border transition-colors ${editorMode === 'select' ? 'cursor-pointer' : 'cursor-crosshair'} ${compactLanes ? 'min-h-[38px]' : 'min-h-[48px]'} ${isActive ? 'border-transparent' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.05)]'} ${isSelectedStep ? 'outline outline-1 outline-offset-0 outline-[rgba(125,211,252,0.26)]' : ''} ${placementCursor && placementCursor.trackId === track.id && placementCursor.stepIndex === stepIndex ? 'seq-place-cursor' : ''}`}
+                                className={`group relative shrink-0 touch-none border transition-colors ${editorMode === 'select' ? 'cursor-pointer' : 'cursor-crosshair'} ${compactLanes ? 'min-h-[38px]' : 'min-h-[48px]'} ${isActive ? 'border-transparent' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.05)]'} ${inRange ? 'ring-2 ring-inset ring-[rgba(125,211,252,0.4)]' : isSelectedStep ? 'outline outline-1 outline-offset-0 outline-[rgba(125,211,252,0.26)]' : ''} ${placementCursor && placementCursor.trackId === track.id && placementCursor.stepIndex === stepIndex ? 'seq-place-cursor' : ''}`}
                                 data-seq-cell="true"
                                 data-step-index={stepIndex}
                                 data-track-id={track.id}
