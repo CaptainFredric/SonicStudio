@@ -657,6 +657,9 @@ export const MainWorkspace = () => {
   const [segmentDraftName, setSegmentDraftName] = useState('');
   const [loopBrowserFilter, setLoopBrowserFilter] = useState<typeof LOOP_BROWSER_FILTERS[number]['value']>('MATCHING');
   const [loopSearchDraft, setLoopSearchDraft] = useState('');
+  const [loopBrowserOpen, setLoopBrowserOpen] = useState(false);
+  const [sessionPlayerOpen, setSessionPlayerOpen] = useState(false);
+  const [stepEditorOpen, setStepEditorOpen] = useState(false);
   const [queuedSegmentId, setQueuedSegmentId] = useState<string | null>(null);
   const [sessionPlayerFormId, setSessionPlayerFormId] = useState<SongFormId>('full-arc');
   const [pendingSessionPlayerRequest, setPendingSessionPlayerRequest] = useState<PendingSessionPlayerRequest | null>(null);
@@ -3248,19 +3251,28 @@ export const MainWorkspace = () => {
                 </div>
               </div>
 
-              <div className="loop-browser-panel rounded-[4px] border border-[var(--border-soft)] px-3 py-3">
-                <div className="flex items-start justify-between gap-3">
+              <div className="inspector-disclosure loop-browser-panel rounded-[4px] border border-[var(--border-soft)] px-3 py-3" data-open={loopBrowserOpen}>
+                <button
+                  aria-expanded={loopBrowserOpen}
+                  className="inspector-disclosure-summary flex w-full cursor-pointer items-start justify-between gap-3 text-left"
+                  onClick={() => setLoopBrowserOpen((open) => !open)}
+                  type="button"
+                >
                   <div>
                     <div className="section-label">Loop browser</div>
                     <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
-                      Save your own phrases, then pull from factory loops to fill a lane fast or queue them for stitch placement on the grid.
+                      Save phrases or pull matching loops into this lane.
                     </div>
                   </div>
-                  <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
-                    {patternSegments.length} saved · {filteredFactoryLoops.length} factory
+                  <div className="flex items-center gap-2">
+                    <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+                      {patternSegments.length} saved · {filteredFactoryLoops.length} factory
+                    </div>
+                    <ChevronDown className={`inspector-disclosure-chevron h-4 w-4 shrink-0 text-[var(--text-tertiary)] ${loopBrowserOpen ? 'rotate-180' : ''}`} />
                   </div>
-                </div>
+                </button>
 
+                {loopBrowserOpen ? <div className="mt-4 border-t border-[var(--border-soft)] pt-3">
                 <div className="mt-3 flex flex-wrap gap-2">
                   <input
                     className="control-field min-w-0 flex-1 px-3 py-2 text-sm"
@@ -3452,20 +3464,30 @@ export const MainWorkspace = () => {
                     </div>
                   )}
                 </div>
+                </div> : null}
               </div>
 
-              <div className="session-player-panel rounded-[4px] border border-[var(--border-soft)] px-3 py-3">
-                <div className="flex items-start justify-between gap-3">
+              <div className="inspector-disclosure session-player-panel rounded-[4px] border border-[var(--border-soft)] px-3 py-3" data-open={sessionPlayerOpen}>
+                <button
+                  aria-expanded={sessionPlayerOpen}
+                  className="inspector-disclosure-summary flex w-full cursor-pointer items-start justify-between gap-3 text-left"
+                  onClick={() => setSessionPlayerOpen((open) => !open)}
+                  type="button"
+                >
                   <div>
-                    <div className="section-label">Session player</div>
+                    <div className="section-label">Build a song</div>
                     <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
-                      Load a groove into the current pattern or build a full intro, verse, lift, and break scaffold directly into Song view. Missing lanes are created first.
+                      Load a groove or generate a complete multi-section arrangement.
                     </div>
                   </div>
-                  <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
-                    {pendingSessionPlayerRequest ? 'building lanes' : `${SESSION_PLAYER_PROFILES.length} players`}
+                  <div className="flex items-center gap-2">
+                    <div className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+                      {pendingSessionPlayerRequest ? 'building lanes' : `${SESSION_PLAYER_PROFILES.length} players`}
+                    </div>
+                    <ChevronDown className={`inspector-disclosure-chevron h-4 w-4 shrink-0 text-[var(--text-tertiary)] ${sessionPlayerOpen ? 'rotate-180' : ''}`} />
                   </div>
-                </div>
+                </button>
+                {sessionPlayerOpen ? <div className="mt-4 border-t border-[var(--border-soft)] pt-3">
                 <div className="session-player-form-strip mt-3">
                   <div className="section-label">Song layout</div>
                   <div className="mt-2 flex flex-wrap gap-2">
@@ -3580,16 +3602,33 @@ export const MainWorkspace = () => {
                     );
                   })}
                 </div>
+                </div> : null}
               </div>
 
-              <div className="loop-browser-panel rounded-[4px] border border-[var(--border-soft)] px-3 py-3">
-                <div className="section-label">Selected step</div>
-                <div className="mt-2 flex items-center justify-between gap-3">
-                  <div className="text-sm font-medium text-[var(--text-primary)]">Step {selectedStepIndex + 1}</div>
-                  <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-                    {selectedStep.length} note{selectedStep.length === 1 ? '' : 's'}
+              <div className="inspector-disclosure loop-browser-panel rounded-[4px] border border-[var(--border-soft)] px-3 py-3" data-open={stepEditorOpen}>
+                <button
+                  aria-expanded={stepEditorOpen}
+                  className="inspector-disclosure-summary flex w-full cursor-pointer items-start justify-between gap-3 text-left"
+                  onClick={() => setStepEditorOpen((open) => !open)}
+                  type="button"
+                >
+                  <div>
+                    <div className="section-label">Step editor</div>
+                    <div className="mt-2 text-sm font-medium text-[var(--text-primary)]">Step {selectedStepIndex + 1}</div>
                   </div>
+                  <div className="flex items-center gap-2">
+                    <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+                      {selectedStep.length} note{selectedStep.length === 1 ? '' : 's'}
+                    </div>
+                    <ChevronDown className={`inspector-disclosure-chevron h-4 w-4 shrink-0 text-[var(--text-tertiary)] ${stepEditorOpen ? 'rotate-180' : ''}`} />
+                  </div>
+                </button>
+                <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
+                  {selectedStepNote
+                    ? `${selectedStepNote.note} · velocity ${Math.round(selectedStepNote.velocity * 100)} · gate ${selectedStepNote.gate.toFixed(2)}`
+                    : 'This step is empty. Click the grid to place a note or hit.'}
                 </div>
+                {stepEditorOpen ? <div className="mt-4 border-t border-[var(--border-soft)] pt-3">
                 {activeStepIndices.length > 0 && (
                   <div className="mt-3 rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-2.5">
                     <div className="flex items-center justify-between gap-3">
@@ -3627,11 +3666,6 @@ export const MainWorkspace = () => {
                     </div>
                   </div>
                 )}
-                <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
-                  {selectedStepNote
-                    ? `${selectedStepNote.note} · velocity ${Math.round(selectedStepNote.velocity * 100)} · gate ${selectedStepNote.gate.toFixed(2)}`
-                    : 'This step is empty. Click the grid to place a note or hit.'}
-                </div>
                 {!isSelectedTrackDrum && selectedStepNote && normalizedSelectedStepNoteIndex !== null && (
                   <div className="mt-4 space-y-3">
                     <div>
@@ -3761,6 +3795,7 @@ export const MainWorkspace = () => {
                     ))}
                   </div>
                 )}
+                </div> : null}
               </div>
             </div>
           ) : (

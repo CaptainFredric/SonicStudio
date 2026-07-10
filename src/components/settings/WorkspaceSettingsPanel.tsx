@@ -18,6 +18,15 @@ import { WorkspaceUtilityPanel } from './WorkspaceUtilityPanel';
 import { resetOnboardingStatus } from '../../services/onboardingState';
 import { resetUiReminders } from '../../services/uiReminders';
 
+type WorkspaceSection = 'PROJECT' | 'CREATE' | 'EXPORT' | 'STUDIO';
+
+const WORKSPACE_SECTIONS: Array<{ id: WorkspaceSection; label: string; description: string }> = [
+  { id: 'PROJECT', label: 'Project', description: 'Save, restore, and move around the current session.' },
+  { id: 'CREATE', label: 'Create', description: 'Get suggestions and work with captured note material.' },
+  { id: 'EXPORT', label: 'Export', description: 'Bounce audio, stems, MIDI, and portable session files.' },
+  { id: 'STUDIO', label: 'Studio', description: 'Configure transport, capture behavior, and interface guidance.' },
+];
+
 const formatSaveLabel = (saveStatus: 'idle' | 'saving' | 'saved' | 'error', lastSavedAt: string | null) => {
   if (saveStatus === 'error') {
     return 'Save failed';
@@ -109,6 +118,7 @@ export const WorkspaceSettingsPanel = () => {
   const [bounceTailMode, setBounceTailMode] = useState<BounceTailMode>('standard');
   const [targetProfileId, setTargetProfileId] = useState<RenderTargetProfileId>('streaming');
   const [trackQuery, setTrackQuery] = useState('');
+  const [workspaceSection, setWorkspaceSection] = useState<WorkspaceSection>('PROJECT');
   const hasLoopWindow = loopRangeStartBeat !== null && loopRangeEndBeat !== null;
   const filteredTracks = tracks.filter((track) => {
     const normalizedQuery = trackQuery.trim().toLowerCase();
@@ -160,7 +170,27 @@ export const WorkspaceSettingsPanel = () => {
         type="file"
       />
 
-      <WorkspaceSessionPanel
+      <div className="surface-panel-strong mb-4 p-3">
+        <div className="section-label">Workspace task</div>
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {WORKSPACE_SECTIONS.map((section) => (
+            <button
+              className="control-chip min-h-10 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
+              data-active={workspaceSection === section.id}
+              key={section.id}
+              onClick={() => setWorkspaceSection(section.id)}
+              type="button"
+            >
+              {section.label}
+            </button>
+          ))}
+        </div>
+        <p className="mt-3 text-[11px] leading-5 text-[var(--text-secondary)]">
+          {WORKSPACE_SECTIONS.find((section) => section.id === workspaceSection)?.description}
+        </p>
+      </div>
+
+      {workspaceSection === 'PROJECT' ? <><WorkspaceSessionPanel
         arrangerClipCount={arrangerClips.length}
         auditionInstrumentNote={auditionInstrumentNote}
         fileInputRef={fileInputRef}
@@ -174,7 +204,22 @@ export const WorkspaceSettingsPanel = () => {
         trackCount={tracks.length}
       />
 
-      <WorkspaceSuggestionsPanel
+      <WorkspaceRecoveryPanel
+        checkpoints={projectCheckpoints}
+        disabled={renderState.active}
+        onDeleteCheckpoint={deleteCheckpoint}
+        onRestoreCheckpoint={restoreCheckpoint}
+      />
+
+      <WorkspaceUtilityPanel
+        onQueryChange={setTrackQuery}
+        onSelectTrack={setSelectedTrackId}
+        query={trackQuery}
+        selectedTrackId={selectedTrackId}
+        tracks={filteredTracks.map((track) => ({ color: track.color, id: track.id, name: track.name }))}
+      /></> : null}
+
+      {workspaceSection === 'CREATE' ? <><WorkspaceSuggestionsPanel
         fullTracks={tracks}
         previewTrackByType={(fallbackType, note, velocity) => {
           const targetType = tracks.find((track) => track.id === selectedTrackId)?.type ?? fallbackType;
@@ -236,9 +281,9 @@ export const WorkspaceSettingsPanel = () => {
         selectedTrackId={selectedTrackId}
         setSelectedTrackId={setSelectedTrackId}
         tracks={tracks.map((track) => ({ id: track.id, name: track.name, type: track.type }))}
-      />
+      /></> : null}
 
-      <WorkspaceBouncePanel
+      {workspaceSection === 'EXPORT' ? <WorkspaceBouncePanel
         bounceHistory={bounceHistory}
         bounceNormalization={bounceNormalization}
         bounceScope={bounceScope}
@@ -268,24 +313,9 @@ export const WorkspaceSettingsPanel = () => {
         renderProgress={renderState.progress}
         renderTrackName={renderState.currentTrackName}
         targetProfileId={targetProfileId}
-      />
+      /> : null}
 
-      <WorkspaceRecoveryPanel
-        checkpoints={projectCheckpoints}
-        disabled={renderState.active}
-        onDeleteCheckpoint={deleteCheckpoint}
-        onRestoreCheckpoint={restoreCheckpoint}
-      />
-
-      <WorkspaceUtilityPanel
-        onQueryChange={setTrackQuery}
-        onSelectTrack={setSelectedTrackId}
-        query={trackQuery}
-        selectedTrackId={selectedTrackId}
-        tracks={filteredTracks.map((track) => ({ color: track.color, id: track.id, name: track.name }))}
-      />
-
-      <WorkspaceOptionsPanel
+      {workspaceSection === 'STUDIO' ? <><WorkspaceOptionsPanel
         captureAnalysisProfile={capturePreferences.analysisProfile}
         captureAutoPreviewMatch={capturePreferences.autoPreviewMatch}
         captureKeepShelfBetweenTakes={capturePreferences.keepShelfBetweenTakes}
@@ -329,7 +359,7 @@ export const WorkspaceSettingsPanel = () => {
         songLengthInBeats={songLengthInBeats}
         stepsPerPattern={stepsPerPattern}
         transportMode={transportMode}
-      />
+      /></> : null}
     </>
   );
 };

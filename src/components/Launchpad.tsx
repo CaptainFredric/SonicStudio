@@ -3,6 +3,7 @@ import {
   ArrowRight,
   AudioWaveform,
   BookOpen,
+  ChevronDown,
   Coffee,
   Disc3,
   FileInput,
@@ -143,6 +144,7 @@ export const Launchpad = ({
   } = useAudio();
   const [libraryFilter, setLibraryFilter] = useState<LibraryFilterId>('featured');
   const [libraryQuery, setLibraryQuery] = useState('');
+  const [sceneBrowserOpen, setSceneBrowserOpen] = useState(false);
   const [recordedNotes, setRecordedNotes] = useState<RecordedNotePreset[]>([]);
   const [scoresheetDraft, setScoresheetDraft] = useState(projectName);
   const [storageFlash, setStorageFlash] = useState<'saved' | null>(null);
@@ -239,12 +241,12 @@ export const Launchpad = ({
       <div className="grid gap-7 xl:grid-cols-[minmax(0,1.08fr)_360px] xl:items-start">
         <div className="min-w-0 grid gap-6">
           <div className="border-b border-[var(--border-soft)] pb-4 md:pb-5">
-            <div className="section-label text-[var(--accent-strong)]">Start here</div>
-            <h1 className="mt-2.5 max-w-[12ch] text-[clamp(1.9rem,5vw,4.7rem)] font-semibold leading-[0.95] tracking-[-0.05em] md:mt-3 md:leading-[0.92] md:tracking-[-0.06em]">
-              Pick a starting point and get moving.
+            <div className="section-label text-[var(--accent-strong)]">Browser-based music studio</div>
+            <h1 className="mt-2.5 max-w-[18ch] text-[clamp(2rem,4vw,3.8rem)] font-semibold leading-[0.98] tracking-[-0.045em] md:mt-3">
+              Make something you can hear in seconds.
             </h1>
-            <p className="mt-3 max-w-[60ch] text-sm leading-6 text-[var(--text-secondary)] md:mt-5 md:text-[15px]">
-              Open a full scene to hear ideas right away, or choose Blank Grid and build it up one lane at a time.
+            <p className="mt-3 max-w-[64ch] text-sm leading-6 text-[var(--text-secondary)] md:mt-4 md:text-[15px]">
+              Start with a complete arrangement, change one part, and make it yours. No account, install, or setup ritual required.
             </p>
           </div>
 
@@ -270,7 +272,7 @@ export const Launchpad = ({
               </button>
             </div>
 
-            <div className="grid gap-3">
+            <div className="grid gap-3 sm:grid-cols-2">
               <SecondaryStartCard
                 actionLabel="Start blank"
                 body="Starts clean with the core lanes set up and no extra material." 
@@ -306,24 +308,37 @@ export const Launchpad = ({
           <section className="surface-panel-strong launch-session-stack px-4 py-4">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <div className="section-label">Scene browser</div>
+                <div className="section-label">Explore more scenes</div>
                 <div className="mt-2 text-sm font-medium text-[var(--text-primary)]">
-                  Search by mood, name, or BPM to quickly find a scene that fits.
+                  Browse the full catalog when you want a different genre, tempo, or starting shape.
                 </div>
               </div>
-              <button
-                className="control-chip flex items-center gap-2 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em]"
-                data-ui-sound="tab"
-                onClick={surpriseMe}
-                title="Pick a random starter scene"
-                type="button"
-              >
-                <Shuffle className="h-3.5 w-3.5" />
-                Surprise me
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  className="control-chip flex items-center gap-2 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em]"
+                  data-ui-sound="tab"
+                  onClick={surpriseMe}
+                  title="Pick a random starter scene"
+                  type="button"
+                >
+                  <Shuffle className="h-3.5 w-3.5" />
+                  Surprise me
+                </button>
+                <button
+                  aria-expanded={sceneBrowserOpen}
+                  className="control-chip flex items-center gap-2 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em]"
+                  data-active={sceneBrowserOpen}
+                  data-ui-sound="tab"
+                  onClick={() => setSceneBrowserOpen((open) => !open)}
+                  type="button"
+                >
+                  {sceneBrowserOpen ? 'Hide catalog' : `Browse ${START_OPTIONS.length} scenes`}
+                  <ChevronDown className={`h-3.5 w-3.5 transition-transform ${sceneBrowserOpen ? 'rotate-180' : ''}`} />
+                </button>
+              </div>
             </div>
 
-            <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
+            {sceneBrowserOpen ? <div className="mt-4 grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end">
               <label className="grid gap-2">
                 <span className="section-label">Search scenes</span>
                 <div className="launchpad-search-row">
@@ -357,9 +372,9 @@ export const Launchpad = ({
                   </button>
                 ))}
               </div>
-            </div>
+            </div> : null}
 
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-soft)] pb-3 text-[11px] leading-5 text-[var(--text-secondary)]">
+            {sceneBrowserOpen ? <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-b border-[var(--border-soft)] pb-3 text-[11px] leading-5 text-[var(--text-secondary)]">
               <span>
                 {visibleOptions.length} {visibleOptions.length === 1 ? 'scene' : 'scenes'} match the current browser.
                 {libraryQuery && visibleOptions.length > 0 ? ' Press Enter to open the top scene.' : ''}
@@ -374,9 +389,9 @@ export const Launchpad = ({
                   Clear search
                 </button>
               ) : null}
-            </div>
+            </div> : null}
 
-            <div className="mt-4 grid gap-2">
+            {sceneBrowserOpen ? <div className="mt-4 grid gap-2 md:grid-cols-2">
               {visibleOptions.length > 0 ? visibleOptions.map((option) => (
                 <TemplateCard key={option.id} option={option} onSelect={onSelectTemplate} highlight={option.id === recommended.id} />
               )) : (
@@ -384,7 +399,7 @@ export const Launchpad = ({
                   No scenes match that search yet. Try a broader term like house, ambient, pop, or a BPM like 110.
                 </div>
               )}
-            </div>
+            </div> : null}
           </section>
         </div>
 
@@ -409,7 +424,7 @@ export const Launchpad = ({
               title="Hit play"
             />
             <LaunchPathStep
-              body="Switch between Song, Notes, Mix, and Compose based on what you want to adjust next."
+              body="Open Notes, Arrangement, or Mix when you are ready to shape one part more deeply."
               step="03"
               title="Change one part"
             />
@@ -620,7 +635,7 @@ const PrimaryStartCard = ({
     </div>
     <p className="mt-4 max-w-[46ch] text-[13px] leading-6 text-[var(--text-secondary)]">{body}</p>
     <div className="mt-5 flex items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.14em] text-[var(--text-primary)]">
-      <span>Open now</span>
+      <span>Open scene</span>
       <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
     </div>
   </button>
@@ -646,6 +661,7 @@ const SecondaryStartCard = ({
   <button
     className="launchpad-secondary-card group text-left"
     onClick={onClick}
+    title={`${title}: ${body}`}
     type="button"
   >
     <div className="flex items-start justify-between gap-3">
@@ -661,7 +677,6 @@ const SecondaryStartCard = ({
         </span>
         <div className="min-w-0">
           <div className="text-sm font-semibold text-[var(--text-primary)]">{title}</div>
-          <div className="mt-1 text-[12px] leading-5 text-[var(--text-secondary)]">{body}</div>
         </div>
       </div>
       <ArrowRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--text-tertiary)] transition-transform group-hover:translate-x-0.5 group-hover:text-[var(--text-primary)]" />

@@ -348,8 +348,13 @@ html[data-supersonic="true"] .launchpad-panel {
 .launchpad-primary-card {
   position: relative;
   overflow: hidden;
-  padding: 1.1rem 1.1rem 1rem;
+  min-height: 17.5rem;
+  padding: 1.4rem 1.35rem 1.2rem;
   text-align: left;
+  background:
+    radial-gradient(circle at 88% 14%, color-mix(in srgb, var(--accent) 15%, transparent), transparent 34%),
+    linear-gradient(145deg, rgba(255,255,255,0.045), rgba(255,255,255,0) 52%),
+    var(--bg-panel-strong);
 }
 
 .launchpad-primary-line {
@@ -359,6 +364,7 @@ html[data-supersonic="true"] .launchpad-panel {
 }
 
 .launchpad-secondary-card {
+  min-height: 6.6rem;
   padding: 0.9rem 0.95rem;
 }
 
@@ -373,6 +379,18 @@ html[data-supersonic="true"] .launchpad-panel {
   background: rgba(255,255,255,0.03);
   color: var(--text-primary);
   flex-shrink: 0;
+}
+
+.inspector-disclosure-summary:hover .section-label {
+  color: var(--accent-strong);
+}
+
+.inspector-disclosure-chevron {
+  transition: transform var(--motion-fast) var(--motion-ease);
+}
+
+.inspector-disclosure[data-open="true"] .inspector-disclosure-chevron {
+  transform: rotate(180deg);
 }
 
 .launchpad-search-row {
