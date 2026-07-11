@@ -74,6 +74,7 @@ import { openNotesPanel } from './notesPanelStore';
 import { setEditingMode, useEditingMode } from './editingModeStore';
 import { SongTimelineGrid } from './SongTimelineGrid';
 import { buildRunwayContinuation } from '../utils/runwayContinuation';
+import { getSequencerFollowScrollLeft } from '../utils/sequencerViewport';
 
 const LANE_COLUMN_COLLAPSED_KEY = 'sonicstudio:lane-column-collapsed';
 const TRACK_MAP_OPEN_KEY = 'sonicstudio:track-map-open';
@@ -470,7 +471,21 @@ const getLaneGroup = (trackType: typeof TRACK_BUTTONS[number]['type']): LaneGrou
 // playback. Instead this leaf subscribes to the step on its own and flips a
 // `data-current` attribute on the matching cells; CSS paints the playhead. The
 // grid never re-renders, so the allocation rate during playback stays flat.
-const SequencerPlayheadDriver = ({ stepsPerPattern }: { stepsPerPattern: number }) => {
+const SequencerPlayheadDriver = ({
+  followPlayhead,
+  gridViewportRef,
+  laneHeaderWidth,
+  markProgrammaticScroll,
+  stepCellWidth,
+  stepsPerPattern,
+}: {
+  followPlayhead: boolean;
+  gridViewportRef: React.RefObject<HTMLDivElement | null>;
+  laneHeaderWidth: number;
+  markProgrammaticScroll: () => void;
+  stepCellWidth: number;
+  stepsPerPattern: number;
+}) => {
   const currentStep = usePlaybackStep();
   useEffect(() => {
     if (stepsPerPattern <= 0) {
@@ -479,10 +494,28 @@ const SequencerPlayheadDriver = ({ stepsPerPattern }: { stepsPerPattern: number 
     const step = ((currentStep % stepsPerPattern) + stepsPerPattern) % stepsPerPattern;
     const cells = document.querySelectorAll(`[data-seq-cell="true"][data-step-index="${step}"]`);
     cells.forEach((cell) => cell.setAttribute('data-current', 'true'));
+
+    const node = gridViewportRef.current;
+    if (followPlayhead && node) {
+      const nextLeft = getSequencerFollowScrollLeft({
+        clientWidth: node.clientWidth,
+        laneHeaderWidth,
+        scrollLeft: node.scrollLeft,
+        scrollWidth: node.scrollWidth,
+        stepCellWidth,
+        stepIndex: step,
+      });
+
+      if (nextLeft !== null) {
+        markProgrammaticScroll();
+        node.scrollTo({ behavior: 'smooth', left: nextLeft });
+      }
+    }
+
     return () => {
       cells.forEach((cell) => cell.removeAttribute('data-current'));
     };
-  }, [currentStep, stepsPerPattern]);
+  }, [currentStep, followPlayhead, gridViewportRef, laneHeaderWidth, markProgrammaticScroll, stepCellWidth, stepsPerPattern]);
   return null;
 };
 
@@ -696,6 +729,9 @@ export const MainWorkspace = () => {
   const [stepZoom, setStepZoom] = useState(() => (
     typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches ? 40 : 76
   ));
+  const [followPlayhead, setFollowPlayhead] = useState(true);
+  const followPlayheadRef = useRef(true);
+  const programmaticGridScrollUntilRef = useRef(0);
   const [patternFitSnapshot, setPatternFitSnapshot] = useState<{
     stepZoom: number;
     scrollLeft: number;
@@ -716,6 +752,12 @@ export const MainWorkspace = () => {
     TEXTURE: false,
   });
   const gridViewportRef = useRef<HTMLDivElement | null>(null);
+  const markProgrammaticGridScroll = useCallback(() => {
+    // Smooth scrolling can keep emitting scroll events for several hundred
+    // milliseconds after the command. Keep the guard comfortably beyond that
+    // tail so our own motion is never mistaken for a manual pan.
+    programmaticGridScrollUntilRef.current = performance.now() + 1200;
+  }, []);
   // Press-and-drag state for the add-a-bar runway: dragging right grows the
   // pattern a step at a time (left shrinks it), while a plain tap still adds
   // a full bar. GarageBand's grab-the-region-edge gesture, on the step grid.
@@ -1014,12 +1056,23 @@ export const MainWorkspace = () => {
       setGridViewportWidth(node.clientWidth);
     };
 
+    const handleGridScroll = () => {
+      syncGridViewport();
+      if (
+        followPlayheadRef.current
+        && performance.now() > programmaticGridScrollUntilRef.current
+      ) {
+        followPlayheadRef.current = false;
+        setFollowPlayhead(false);
+      }
+    };
+
     syncGridViewport();
-    node.addEventListener('scroll', syncGridViewport, { passive: true });
+    node.addEventListener('scroll', handleGridScroll, { passive: true });
     window.addEventListener('resize', syncGridViewport);
 
     return () => {
-      node.removeEventListener('scroll', syncGridViewport);
+      node.removeEventListener('scroll', handleGridScroll);
       window.removeEventListener('resize', syncGridViewport);
     };
   }, [compactLanes, laneScope, laneHeaderWidth, stepCellWidth, stepsPerPattern, visibleTrackSections.length]);
@@ -1031,7 +1084,13 @@ export const MainWorkspace = () => {
     const node = gridViewportRef.current;
     if (!node) return undefined;
     const onWheel = (event: WheelEvent) => {
-      if (event.ctrlKey || event.altKey) return;
+      if (event.ctrlKey || event.altKey) {
+        event.preventDefault();
+        const dominantDelta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+        updateStepZoom(stepCellWidth + (dominantDelta < 0 ? 6 : -6), event.clientX);
+        return;
+      }
+
       const canScrollX = node.scrollWidth > node.clientWidth + 1;
       if (!canScrollX) return;
       const canScrollY = node.scrollHeight > node.clientHeight + 1;
@@ -1047,7 +1106,7 @@ export const MainWorkspace = () => {
     };
     node.addEventListener('wheel', onWheel, { passive: false });
     return () => node.removeEventListener('wheel', onWheel);
-  }, []);
+  }, [stepCellWidth, stepZoomMax]);
 
   // These layout choices persist from their toggle handlers, not from mount
   // effects: writing on mount would freeze a mere default into a stored
@@ -1076,38 +1135,6 @@ export const MainWorkspace = () => {
       window.removeEventListener('resize', syncStripViewport);
     };
   }, [isMobileViewport]);
-
-  useEffect(() => {
-    const node = gridViewportRef.current;
-    if (!node) {
-      return undefined;
-    }
-
-    const handleGridWheel = (event: WheelEvent) => {
-      if (event.ctrlKey || event.altKey) {
-        event.preventDefault();
-        const dominantDelta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
-        updateStepZoom(stepCellWidth + (dominantDelta < 0 ? 6 : -6), event.clientX);
-        return;
-      }
-
-      if (!event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY)) {
-        return;
-      }
-
-      if (node.scrollWidth <= node.clientWidth) {
-        return;
-      }
-
-      event.preventDefault();
-      node.scrollLeft += event.deltaY;
-    };
-
-    node.addEventListener('wheel', handleGridWheel, { passive: false });
-    return () => {
-      node.removeEventListener('wheel', handleGridWheel);
-    };
-  }, [laneHeaderWidth, stepCellWidth, stepZoomMax]);
 
   const updateStepZoom = (
     nextWidth: number,
@@ -1199,6 +1226,34 @@ export const MainWorkspace = () => {
       { preserveFitToggle: true },
     );
     window.requestAnimationFrame(() => node.scrollTo({ behavior: 'smooth', left: 0 }));
+  };
+
+  const togglePlayheadFollow = () => {
+    const nextFollow = !followPlayhead;
+    followPlayheadRef.current = nextFollow;
+    setFollowPlayhead(nextFollow);
+
+    if (!nextFollow) {
+      return;
+    }
+
+    const node = gridViewportRef.current;
+    if (!node || stepsPerPattern <= 0) {
+      return;
+    }
+
+    const currentStep = ((Math.floor(engine.currentStep) % stepsPerPattern) + stepsPerPattern) % stepsPerPattern;
+    const nextLeft = getSequencerFollowScrollLeft({
+      clientWidth: node.clientWidth,
+      forceCenter: true,
+      laneHeaderWidth,
+      scrollLeft: node.scrollLeft,
+      scrollWidth: node.scrollWidth,
+      stepCellWidth,
+      stepIndex: currentStep,
+    });
+    markProgrammaticGridScroll();
+    node.scrollTo({ behavior: 'smooth', left: nextLeft ?? node.scrollLeft });
   };
 
   const scrollGridByViewport = (direction: -1 | 1) => {
@@ -2092,7 +2147,14 @@ export const MainWorkspace = () => {
       className="sequencer-workspace surface-panel flex flex-col overflow-visible md:min-h-0 md:flex-1 md:overflow-hidden"
       data-editing-mode={editingMode ? 'true' : undefined}
     >
-      <SequencerPlayheadDriver stepsPerPattern={stepsPerPattern} />
+      <SequencerPlayheadDriver
+        followPlayhead={editingMode && followPlayhead}
+        gridViewportRef={gridViewportRef}
+        laneHeaderWidth={laneHeaderWidth}
+        markProgrammaticScroll={markProgrammaticGridScroll}
+        stepCellWidth={stepCellWidth}
+        stepsPerPattern={stepsPerPattern}
+      />
       <div className={`sequencer-panel-header flex flex-col gap-3 border-b border-[var(--border-soft)] px-5 py-3 md:flex-row md:items-center md:justify-between md:gap-4 ${editingMode ? 'md:hidden' : ''}`}>
         <div className="min-w-0 shrink-0">
           <div className="flex items-baseline gap-2">
@@ -2488,6 +2550,18 @@ export const MainWorkspace = () => {
                 >
                   <LocateFixed className="h-3.5 w-3.5" />
                   <span className="hidden text-[10px] font-semibold uppercase tracking-[0.12em] lg:inline">Selected</span>
+                </button>
+                <button
+                  aria-label={followPlayhead ? 'Stop following the playhead' : 'Follow the playhead'}
+                  aria-pressed={followPlayhead}
+                  className="control-chip flex h-8 shrink-0 items-center gap-1.5 px-2.5"
+                  data-active={followPlayhead ? 'true' : undefined}
+                  onClick={togglePlayheadFollow}
+                  title={followPlayhead ? 'Following the playhead; manual scrolling pauses follow' : 'Keep the playhead visible during playback'}
+                  type="button"
+                >
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-current" />
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.12em]">Follow</span>
                 </button>
                 <button
                   aria-label="Zoom the step grid out"
