@@ -26,6 +26,7 @@ export const createEditorDispatchers = (dispatch: Dispatch<EditorAction>) => ({
   clearPatternAt: (trackId: string, patternIndex: number) => dispatch({ type: 'CLEAR_PATTERN_AT', trackId, patternIndex }),
   clearAllTrackNotes: () => dispatch({ type: 'CLEAR_ALL_TRACK_NOTES' }),
   clearTrack: (trackId: string) => dispatch({ type: 'CLEAR_TRACK', trackId }),
+  continuePatternRunway: (trackId: string, patternIndex: number, stepsPerPattern: number, steps: NoteEvent[][]) => dispatch({ type: 'CONTINUE_PATTERN_RUNWAY', patternIndex, steps, stepsPerPattern, trackId }),
   createSampleSlice: (trackId: string, slice?: Partial<SampleSliceMemory>) => dispatch({ type: 'CREATE_SAMPLE_SLICE', slice, trackId }),
   createSongMarker: (beat: number, name?: string) => dispatch({ type: 'CREATE_SONG_MARKER', beat, name }),
   createTrack: (trackType: InstrumentType) => dispatch({ type: 'CREATE_TRACK', trackType }),

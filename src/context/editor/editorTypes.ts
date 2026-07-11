@@ -40,6 +40,7 @@ export type EditorAction =
   | { type: 'CLEAR_TRACK'; trackId: string }
   | { type: 'CLEAR_ALL_TRACK_NOTES' }
   | { type: 'CLEAR_PATTERN_AT'; trackId: string; patternIndex: number }
+  | { type: 'CONTINUE_PATTERN_RUNWAY'; patternIndex: number; steps: NoteEvent[][]; stepsPerPattern: number; trackId: string }
   | { type: 'CREATE_SONG_MARKER'; beat: number; name?: string }
   | { type: 'CREATE_TRACK'; trackType: InstrumentType }
   | { type: 'CREATE_SAMPLE_SLICE'; trackId: string; slice?: Partial<SampleSliceMemory> }

@@ -241,6 +241,35 @@ describe('editorReducer', () => {
     expect(targetTrack?.automation?.[0]?.tone[1]).toBe(0.22);
   });
 
+  it('commits a runway continuation and pattern resize as one undoable edit', () => {
+    const state = createEditorState('blank-grid');
+    const leadTrackId = state.history.present.tracks.find((track) => track.type === 'lead')?.id;
+    if (!leadTrackId) {
+      throw new Error('Expected lead track');
+    }
+
+    const originalLength = state.history.present.transport.stepsPerPattern;
+    const steps = Array.from({ length: originalLength + 3 }, (_, index) => (
+      index >= originalLength
+        ? [{ gate: 1.5, note: 'G4', velocity: 0.64 }]
+        : []
+    ));
+    const continued = editorReducer(state, {
+      type: 'CONTINUE_PATTERN_RUNWAY',
+      patternIndex: 0,
+      steps,
+      stepsPerPattern: originalLength + 3,
+      trackId: leadTrackId,
+    });
+
+    expect(continued.history.past).toHaveLength(1);
+    expect(continued.history.present.transport.stepsPerPattern).toBe(originalLength + 3);
+    expect(continued.history.present.tracks.find((track) => track.id === leadTrackId)?.patterns[0]?.slice(originalLength).map((step) => step[0]?.note)).toEqual(['G4', 'G4', 'G4']);
+
+    const undone = editorReducer(continued, { type: 'UNDO' });
+    expect(undone.history.present.transport.stepsPerPattern).toBe(originalLength);
+  });
+
   it('records MIDI notes additively without toggling existing notes off', () => {
     const state = createEditorState('blank-grid');
     const leadTrackId = state.history.present.tracks.find((track) => track.type === 'lead')?.id;

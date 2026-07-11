@@ -193,6 +193,7 @@ interface AudioContextType {
   pinnedTrackIds: string[];
   selectedArrangerClipId: string | null;
   selectedTrackId: string | null;
+  continuePatternRunway: (trackId: string, patternIndex: number, stepsPerPattern: number, steps: NoteEvent[][]) => void;
   setSelectedArrangerClipId: (id: string | null) => void;
   shiftPattern: (trackId: string, direction: 'left' | 'right') => void;
   setActiveView: (view: AppView) => void;

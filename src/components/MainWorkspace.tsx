@@ -69,6 +69,7 @@ import { readString, writeString } from '../utils/safeStorage';
 import { TrackMinimap } from './TrackMinimap';
 import { openNotesPanel } from './notesPanelStore';
 import { SongTimelineGrid } from './SongTimelineGrid';
+import { buildRunwayContinuation } from '../utils/runwayContinuation';
 
 const LANE_COLUMN_COLLAPSED_KEY = 'sonicstudio:lane-column-collapsed';
 const TRACK_MAP_OPEN_KEY = 'sonicstudio:track-map-open';
@@ -104,6 +105,7 @@ const STEP_OPTIONS = [16, 24, 32, 48, 64, 96, 128, 192, 256, 384, 512, 768, 1024
 // tools row is not a wall of seventeen buttons.
 const QUICK_STEP_OPTIONS = [16, 32, 64, 128] as const;
 const SEQUENCER_RUNWAY_STEPS = 6;
+const RUNWAY_GHOST_STEPS = 5;
 const STEP_ZOOM_MIN = 16;
 const STEP_ZOOM_STEP = 2;
 const SESSION_PLAYER_PATTERN_COUNT = 4;
@@ -113,6 +115,14 @@ const LOOP_BROWSER_FILTERS = [
   { label: 'Rhythm', value: 'RHYTHM' as const },
   { label: 'Musical', value: 'MUSICAL' as const },
 ] as const;
+
+interface LaneRunwayGesture {
+  count: number;
+  note?: string;
+  pointerId: number;
+  startStep: number;
+  trackId: string;
+}
 
 const clampNumber = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 // Count plus a noun that pluralizes when it should, so summaries never read
@@ -586,6 +596,7 @@ export const MainWorkspace = () => {
     applyPatternSegment,
     clearPatternAt,
     clearTrack,
+    continuePatternRunway,
     createTrack,
     currentPattern,
     duplicateTrack,
@@ -695,6 +706,8 @@ export const MainWorkspace = () => {
   // pattern a step at a time (left shrinks it), while a plain tap still adds
   // a full bar. GarageBand's grab-the-region-edge gesture, on the step grid.
   const runwayDragRef = useRef<{ pointerId: number; startX: number; startSteps: number; lastSteps: number; alt: boolean; dragged: boolean } | null>(null);
+  const laneRunwayGestureRef = useRef<LaneRunwayGesture | null>(null);
+  const [laneRunwayPreview, setLaneRunwayPreview] = useState<LaneRunwayGesture | null>(null);
   const addLaneStripRef = useRef<HTMLDivElement | null>(null);
   const [addLaneMaxScrollLeft, setAddLaneMaxScrollLeft] = useState(0);
   const [addLaneScrollLeft, setAddLaneScrollLeft] = useState(0);
@@ -1363,7 +1376,11 @@ export const MainWorkspace = () => {
   const [placementCursor, setPlacementCursor] = useState<{ trackId: string; stepIndex: number } | null>(null);
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
-    const endPaint = () => { paintStateRef.current = null; };
+    const endPaint = () => {
+      paintStateRef.current = null;
+      laneRunwayGestureRef.current = null;
+      setLaneRunwayPreview(null);
+    };
     window.addEventListener('pointerup', endPaint);
     window.addEventListener('pointercancel', endPaint);
     return () => {
@@ -1542,6 +1559,97 @@ export const MainWorkspace = () => {
     } else if (state.mode === 'remove' && hasTargetNote) {
       toggleStep(trackId, stepIndex, state.note);
     }
+  };
+
+  const runwayCountFromPointer = (event: React.PointerEvent<HTMLElement>) => {
+    const rect = event.currentTarget.getBoundingClientRect();
+    const distance = Math.max(0, event.clientX - rect.left);
+    return clampNumber(Math.floor(distance / Math.max(12, stepCellWidth)) + 1, 1, 16);
+  };
+
+  const beginLaneRunwayGesture = (
+    trackId: string,
+    event: React.PointerEvent<HTMLElement>,
+    note?: string,
+    capturePointer = false,
+  ) => {
+    if (
+      stepsPerPattern >= MAX_STEPS_PER_PATTERN
+      || (capturePointer && event.pointerType === 'mouse' && event.button !== 0)
+    ) return;
+    event.preventDefault();
+    const gesture: LaneRunwayGesture = {
+      count: runwayCountFromPointer(event),
+      note,
+      pointerId: event.pointerId,
+      startStep: stepsPerPattern,
+      trackId,
+    };
+    laneRunwayGestureRef.current = gesture;
+    setLaneRunwayPreview(gesture);
+    setSelectedTrackId(trackId);
+    selectStep(Math.max(0, stepsPerPattern - 1));
+    if (capturePointer) {
+      try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* synthetic events */ }
+    }
+  };
+
+  const updateLaneRunwayGesture = (event: React.PointerEvent<HTMLElement>) => {
+    const gesture = laneRunwayGestureRef.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+    const count = runwayCountFromPointer(event);
+    if (count === gesture.count) return;
+    const next = { ...gesture, count };
+    laneRunwayGestureRef.current = next;
+    setLaneRunwayPreview(next);
+  };
+
+  const handleLaneRunwayPointerMove = (
+    trackId: string,
+    event: React.PointerEvent<HTMLElement>,
+  ) => {
+    if (!laneRunwayGestureRef.current && event.buttons === 1) {
+      const paint = paintStateRef.current;
+      if (paint?.trackId === trackId && paint.mode === 'add') {
+        beginLaneRunwayGesture(trackId, event, paint.note);
+      }
+    }
+    updateLaneRunwayGesture(event);
+  };
+
+  const cancelLaneRunwayGesture = (event?: React.PointerEvent<HTMLElement>) => {
+    if (event) {
+      try { event.currentTarget.releasePointerCapture(event.pointerId); } catch { /* synthetic events */ }
+    }
+    laneRunwayGestureRef.current = null;
+    setLaneRunwayPreview(null);
+  };
+
+  const commitLaneRunwayGesture = (event: React.PointerEvent<HTMLElement>) => {
+    const gesture = laneRunwayGestureRef.current;
+    if (!gesture || gesture.pointerId !== event.pointerId) return;
+    const track = tracks.find((entry) => entry.id === gesture.trackId);
+    if (!track) {
+      cancelLaneRunwayGesture(event);
+      return;
+    }
+
+    const patternSteps = track.patterns[currentPattern] ?? [];
+    const result = buildRunwayContinuation({
+      continuationNote: gesture.note,
+      count: gesture.count,
+      fallbackNote: getTrackAnchorNote(track, patternSteps, gesture.startStep),
+      maxSteps: MAX_STEPS_PER_PATTERN,
+      startStep: gesture.startStep,
+      steps: patternSteps,
+    });
+    cancelLaneRunwayGesture(event);
+    if (result.addedCount === 0) return;
+
+    continuePatternRunway(track.id, currentPattern, result.nextLength, result.steps);
+    selectStep(gesture.startStep);
+    void previewTrack(track.id, result.steps[gesture.startStep]?.[0]?.note);
+    window.requestAnimationFrame(() => jumpToStep(gesture.startStep, track.id));
   };
 
   // While a SuperSonic touch placement is open, move the preview to the
@@ -2482,6 +2590,8 @@ export const MainWorkspace = () => {
                     const patternSteps = track.patterns[currentPattern] || Array.from({ length: stepsPerPattern }, () => []);
                     const selected = selectedTrackId === track.id;
                     const pinned = pinnedTrackIds.includes(track.id);
+                    const runwayAnchorNote = getTrackAnchorNote(track, patternSteps, stepsPerPattern);
+                    const activeRunwayPreview = laneRunwayPreview?.trackId === track.id ? laneRunwayPreview : null;
 
                     return (
                       <div
@@ -2856,20 +2966,73 @@ export const MainWorkspace = () => {
                               </button>
                             );
                           })}
-                          <button
-                            aria-label={`Add a bar to ${track.name}`}
-                            className="group relative flex min-h-[38px] shrink-0 items-center justify-center border border-dashed border-[var(--border-soft)] bg-[linear-gradient(90deg,rgba(255,255,255,0.025),rgba(114,217,255,0.08))] transition-colors hover:border-[rgba(114,217,255,0.28)] hover:bg-[linear-gradient(90deg,rgba(255,255,255,0.04),rgba(114,217,255,0.12))]"
-                            onClick={() => {
-                              setSelectedTrackId(track.id);
-                              extendPatternBy(16);
-                              window.requestAnimationFrame(() => jumpToStep(stepsPerPattern, track.id));
-                            }}
+                          <div
+                            className="lane-runway flex min-h-[38px] shrink-0 overflow-hidden border border-dashed border-[var(--border-soft)]"
+                            data-active={activeRunwayPreview ? 'true' : 'false'}
                             style={{ width: `${stepRunwayWidth - 2}px` }}
-                            title="Add a bar (16 steps) and jump to it"
-                            type="button"
                           >
-                            <Plus className="h-3.5 w-3.5 text-[var(--text-tertiary)] transition-colors group-hover:text-[var(--accent-strong)]" strokeWidth={2.5} />
-                          </button>
+                            <button
+                              aria-label={`Continue ${track.name} with repeated ${activeRunwayPreview?.note ?? runwayAnchorNote} notes`}
+                              className="lane-runway-paint group relative flex min-w-0 flex-1 touch-none items-center gap-1 overflow-hidden px-2"
+                              disabled={stepsPerPattern >= MAX_STEPS_PER_PATTERN}
+                              onPointerCancel={cancelLaneRunwayGesture}
+                              onPointerDown={(event) => beginLaneRunwayGesture(track.id, event, undefined, true)}
+                              onPointerEnter={(event) => {
+                                const paint = paintStateRef.current;
+                                if (!laneRunwayGestureRef.current && paint?.trackId === track.id && paint.mode === 'add') {
+                                  beginLaneRunwayGesture(track.id, event, paint.note);
+                                }
+                              }}
+                              onPointerMove={(event) => handleLaneRunwayPointerMove(track.id, event)}
+                              onPointerUp={commitLaneRunwayGesture}
+                              title="Drag right to extend this lane with repeated notes. The bright previews will be added when you release."
+                              type="button"
+                            >
+                              {Array.from({ length: RUNWAY_GHOST_STEPS }, (_, ghostIndex) => {
+                                const isCommittedPreview = Boolean(activeRunwayPreview && ghostIndex < activeRunwayPreview.count);
+                                const ghostOpacity = Math.max(0.16, 0.72 - ghostIndex * 0.12);
+                                return (
+                                  <span
+                                    aria-hidden
+                                    className="lane-runway-ghost relative h-[58%] min-w-[8px] flex-1 rounded-[2px] border"
+                                    data-preview={isCommittedPreview ? 'true' : 'false'}
+                                    key={`${track.id}-runway-${ghostIndex}`}
+                                    style={{
+                                      '--runway-color': track.color,
+                                      opacity: isCommittedPreview ? 1 : ghostOpacity,
+                                    } as React.CSSProperties}
+                                  >
+                                    {ghostIndex === 0 && (
+                                      <span className="absolute inset-0 flex items-center justify-center font-mono text-[8px] text-[var(--text-primary)] opacity-0 transition-opacity group-hover:opacity-100">
+                                        {activeRunwayPreview?.note ?? runwayAnchorNote}
+                                      </span>
+                                    )}
+                                  </span>
+                                );
+                              })}
+                              {activeRunwayPreview && activeRunwayPreview.count > RUNWAY_GHOST_STEPS && (
+                                <span className="shrink-0 font-mono text-[9px] text-[var(--accent-strong)]">+{activeRunwayPreview.count}</span>
+                              )}
+                              <span className="lane-runway-hint pointer-events-none absolute inset-x-0 bottom-1 text-center font-mono text-[8px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
+                                {activeRunwayPreview ? `release +${activeRunwayPreview.count}` : 'drag notes'}
+                              </span>
+                            </button>
+                            <button
+                              aria-label={`Add an empty bar to ${track.name}`}
+                              className="lane-runway-add flex w-12 shrink-0 flex-col items-center justify-center border-l border-[var(--border-soft)] font-mono text-[9px] uppercase tracking-[0.1em] text-[var(--text-tertiary)]"
+                              disabled={stepsPerPattern >= MAX_STEPS_PER_PATTERN}
+                              onClick={() => {
+                                setSelectedTrackId(track.id);
+                                extendPatternBy(16);
+                                window.requestAnimationFrame(() => jumpToStep(stepsPerPattern, track.id));
+                              }}
+                              title="Add an empty 16-step bar"
+                              type="button"
+                            >
+                              <Plus className="h-3 w-3" strokeWidth={2.5} />
+                              16
+                            </button>
+                          </div>
                         </div>
                       </div>
                     );

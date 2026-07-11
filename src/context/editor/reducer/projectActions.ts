@@ -293,6 +293,25 @@ export const handleProjectAction = (state: EditorState, action: EditorAction): E
       });
     }
 
+    case 'CONTINUE_PATTERN_RUNWAY': {
+      const resized = resizeProjectTransport(
+        present,
+        present.transport.patternCount,
+        action.stepsPerPattern,
+      );
+      const nextSteps = Array.from({ length: action.stepsPerPattern }, (_, index) => (
+        (action.steps[index] ?? []).map((event) => ({ ...event }))
+      ));
+
+      return commitProject(state, updateTrack(resized, action.trackId, (track) => ({
+        ...track,
+        patterns: {
+          ...track.patterns,
+          [action.patternIndex]: nextSteps,
+        },
+      })));
+    }
+
     case 'SET_PATTERN_COUNT':
       return commitProject(state, resizeProjectTransport(present, action.patternCount, present.transport.stepsPerPattern));
 
