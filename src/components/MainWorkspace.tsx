@@ -1134,6 +1134,20 @@ export const MainWorkspace = () => {
     });
   };
 
+  const fitPatternToViewport = () => {
+    const node = gridViewportRef.current;
+    if (!node) {
+      return;
+    }
+
+    const availableStepWidth = Math.max(
+      STEP_ZOOM_MIN * stepsPerPattern,
+      node.clientWidth - laneHeaderWidth - Math.max(104, SEQUENCER_RUNWAY_STEPS * STEP_ZOOM_MIN),
+    );
+    updateStepZoom(availableStepWidth / Math.max(1, stepsPerPattern), node.getBoundingClientRect().left + laneHeaderWidth);
+    window.requestAnimationFrame(() => node.scrollTo({ behavior: 'smooth', left: 0 }));
+  };
+
   const scrollGridByViewport = (direction: -1 | 1) => {
     const node = gridViewportRef.current;
     if (!node) {
@@ -2393,6 +2407,65 @@ export const MainWorkspace = () => {
             </div>
           </div>
 
+          {editingMode && (
+            <div className="editing-canvas-toolbar flex min-h-11 shrink-0 flex-wrap items-center gap-2 border-b border-[var(--border-soft)] bg-[var(--bg-panel-strong)] px-3 py-1.5">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="section-label shrink-0">Pattern {String.fromCharCode(65 + currentPattern)}</span>
+                <span className="hidden max-w-[220px] truncate text-[11px] text-[var(--text-secondary)] sm:inline">
+                  {selectedTrack?.name ?? `${visibleTracks.length} lanes`}
+                </span>
+              </div>
+              <div className="ml-auto flex items-center gap-1.5">
+                <button
+                  aria-label="Fit pattern to the track editor"
+                  className="control-chip h-8 px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em]"
+                  onClick={fitPatternToViewport}
+                  title="Fit the current pattern across the available canvas"
+                  type="button"
+                >
+                  Fit pattern
+                </button>
+                <button
+                  aria-label="Zoom the step grid out"
+                  className="control-chip flex h-8 w-8 shrink-0 items-center justify-center"
+                  onClick={() => updateStepZoom(stepCellWidth - 6)}
+                  title="Zoom out"
+                  type="button"
+                >
+                  <Minus className="h-3.5 w-3.5" />
+                </button>
+                <input
+                  aria-label="Step grid zoom"
+                  className="sonic-scroll-strip hidden w-24 sm:block"
+                  max={stepZoomMax}
+                  min={STEP_ZOOM_MIN}
+                  onChange={(event) => updateStepZoom(Number(event.target.value))}
+                  step={STEP_ZOOM_STEP}
+                  type="range"
+                  value={stepCellWidth}
+                />
+                <button
+                  aria-label="Zoom the step grid in"
+                  className="editing-canvas-zoom-in control-chip flex h-8 w-8 shrink-0 items-center justify-center"
+                  onClick={() => updateStepZoom(stepCellWidth + 6)}
+                  title="Zoom in"
+                  type="button"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  className="control-chip hidden h-8 px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] md:block"
+                  data-active={compactLanes ? 'true' : undefined}
+                  onClick={() => setCompactLanes((current) => !current)}
+                  title="Toggle compact lane height"
+                  type="button"
+                >
+                  {compactLanes ? 'Roomy lanes' : 'Compact lanes'}
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="flex flex-col md:min-h-0 md:flex-1 md:overflow-hidden">
             <TrackMinimap />
             {transportMode === 'SONG' && (
@@ -2490,28 +2563,16 @@ export const MainWorkspace = () => {
                     style={{ width: `${laneHeaderWidth}px` }}
                   >
                     {laneColumnCollapsed ? (
-                      <div className="flex items-center justify-center gap-0.5">
-                        <button
-                          aria-label="Show lane labels"
-                          className="ghost-icon-button flex h-7 w-7 shrink-0 items-center justify-center"
-                          data-ui-sound="tab"
-                          onClick={() => setLaneColumnCollapsed(false)}
-                          title="Show the lane labels and controls"
-                          type="button"
-                        >
-                          <ChevronsRight className="h-4 w-4" />
-                        </button>
-                        <button
-                          aria-label={editingMode ? 'Leave editing mode' : 'Enter editing mode'}
-                          className="ghost-icon-button flex h-7 w-7 shrink-0 items-center justify-center"
-                          data-active={editingMode ? 'true' : undefined}
-                          onClick={toggleEditingMode}
-                          title={editingMode ? 'Restore the complete studio' : 'Open the full-width track editor'}
-                          type="button"
-                        >
-                          {editingMode ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
-                        </button>
-                      </div>
+                      <button
+                        aria-label="Show lane labels"
+                        className="ghost-icon-button flex h-7 w-7 shrink-0 items-center justify-center"
+                        data-ui-sound="tab"
+                        onClick={() => setLaneColumnCollapsed(false)}
+                        title="Show the lane labels and controls"
+                        type="button"
+                      >
+                        <ChevronsRight className="h-4 w-4" />
+                      </button>
                     ) : (
                       <>
                         <div className="flex min-w-0 items-center gap-2">
@@ -2521,13 +2582,14 @@ export const MainWorkspace = () => {
                         <div className="flex shrink-0 items-center gap-1">
                           <button
                             aria-label={editingMode ? 'Leave editing mode' : 'Enter editing mode'}
-                            className="ghost-icon-button flex h-7 w-7 shrink-0 items-center justify-center"
+                            className="track-edit-mode-button control-chip flex h-8 shrink-0 items-center gap-1.5 px-2.5"
                             data-active={editingMode ? 'true' : undefined}
                             onClick={toggleEditingMode}
                             title={editingMode ? 'Restore the complete studio' : 'Open the full-width track editor'}
                             type="button"
                           >
                             {editingMode ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+                            <span className="text-[9px] font-semibold uppercase tracking-[0.12em]">{editingMode ? 'Done' : 'Edit view'}</span>
                           </button>
                           <button
                             aria-label="Hide lane labels"

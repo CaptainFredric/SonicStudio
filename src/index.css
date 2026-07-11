@@ -1436,6 +1436,24 @@ html[data-supersonic-transition="out"] .app-shell::after {
   min-width: 0;
 }
 
+.track-edit-mode-button,
+.editing-canvas-zoom-in {
+  border-color: color-mix(in srgb, var(--accent) 46%, transparent);
+  background: var(--accent-muted);
+  color: var(--accent-strong);
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--accent) 76%, transparent);
+}
+
+.track-edit-mode-button:hover,
+.editing-canvas-zoom-in:hover {
+  border-color: color-mix(in srgb, var(--accent) 72%, transparent);
+  background: color-mix(in srgb, var(--accent) 26%, transparent);
+}
+
+.track-edit-mode-button[data-active="true"] {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
 @media (min-width: 768px) {
   .studio-auxiliary-dock {
     max-height: min(38dvh, 360px);
