@@ -10,6 +10,7 @@ import {
   Copy,
   Eraser,
   Focus,
+  LocateFixed,
   Maximize2,
   Minus,
   Mic,
@@ -695,6 +696,14 @@ export const MainWorkspace = () => {
   const [stepZoom, setStepZoom] = useState(() => (
     typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches ? 40 : 76
   ));
+  const [patternFitSnapshot, setPatternFitSnapshot] = useState<{
+    stepZoom: number;
+    scrollLeft: number;
+    patternIndex: number;
+    stepsPerPattern: number;
+    laneHeaderWidth: number;
+    viewportWidth: number;
+  } | null>(null);
   const [mobileInspectorOpen, setMobileInspectorOpen] = useState(false);
   // Track map (the read-only overview) starts closed everywhere; the grid is
   // the editing surface and the map is one click away behind Show map. The
@@ -809,6 +818,13 @@ export const MainWorkspace = () => {
       ? (compactLanes ? 188 : 212)
       : compactLanes ? 300 : 340;
   const stepCellWidth = clampNumber(stepZoom, STEP_ZOOM_MIN, stepZoomMax);
+  const patternFitActive = Boolean(
+    patternFitSnapshot
+    && patternFitSnapshot.patternIndex === currentPattern
+    && patternFitSnapshot.stepsPerPattern === stepsPerPattern
+    && patternFitSnapshot.laneHeaderWidth === laneHeaderWidth
+    && patternFitSnapshot.viewportWidth === gridViewportWidth
+  );
   const stepRunwayWidth = Math.max(104, SEQUENCER_RUNWAY_STEPS * stepCellWidth);
   const stepGridWidth = (stepsPerPattern * stepCellWidth) + stepRunwayWidth;
   const maxGridScrollLeft = Math.max(0, (laneHeaderWidth + stepGridWidth) - gridViewportWidth);
@@ -1093,7 +1109,15 @@ export const MainWorkspace = () => {
     };
   }, [laneHeaderWidth, stepCellWidth, stepZoomMax]);
 
-  const updateStepZoom = (nextWidth: number, anchorClientX?: number) => {
+  const updateStepZoom = (
+    nextWidth: number,
+    anchorClientX?: number,
+    options?: { preserveFitToggle?: boolean },
+  ) => {
+    if (!options?.preserveFitToggle) {
+      setPatternFitSnapshot(null);
+    }
+
     setStepZoom((currentWidth) => {
       const clampedWidth = clampNumber(
         Math.round(nextWidth / STEP_ZOOM_STEP) * STEP_ZOOM_STEP,
@@ -1140,11 +1164,40 @@ export const MainWorkspace = () => {
       return;
     }
 
+    if (patternFitActive && patternFitSnapshot) {
+      const previousView = patternFitSnapshot;
+      setPatternFitSnapshot(null);
+      updateStepZoom(
+        previousView.stepZoom,
+        node.getBoundingClientRect().left + laneHeaderWidth,
+        { preserveFitToggle: true },
+      );
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          gridViewportRef.current?.scrollTo({ behavior: 'smooth', left: previousView.scrollLeft });
+        });
+      });
+      return;
+    }
+
+    setPatternFitSnapshot({
+      stepZoom: stepCellWidth,
+      scrollLeft: node.scrollLeft,
+      patternIndex: currentPattern,
+      stepsPerPattern,
+      laneHeaderWidth,
+      viewportWidth: gridViewportWidth,
+    });
+
     const availableStepWidth = Math.max(
       STEP_ZOOM_MIN * stepsPerPattern,
       node.clientWidth - laneHeaderWidth - Math.max(104, SEQUENCER_RUNWAY_STEPS * STEP_ZOOM_MIN),
     );
-    updateStepZoom(availableStepWidth / Math.max(1, stepsPerPattern), node.getBoundingClientRect().left + laneHeaderWidth);
+    updateStepZoom(
+      availableStepWidth / Math.max(1, stepsPerPattern),
+      node.getBoundingClientRect().left + laneHeaderWidth,
+      { preserveFitToggle: true },
+    );
     window.requestAnimationFrame(() => node.scrollTo({ behavior: 'smooth', left: 0 }));
   };
 
@@ -2417,13 +2470,24 @@ export const MainWorkspace = () => {
               </div>
               <div className="ml-auto flex items-center gap-1.5">
                 <button
-                  aria-label="Fit pattern to the track editor"
+                  aria-label={patternFitActive ? 'Restore the previous track zoom' : 'Fit pattern to the track editor'}
                   className="control-chip h-8 px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em]"
+                  data-active={patternFitActive ? 'true' : undefined}
                   onClick={fitPatternToViewport}
-                  title="Fit the current pattern across the available canvas"
+                  title={patternFitActive ? 'Return to the zoom and position you had before fitting' : 'Fit the current pattern across the available canvas'}
                   type="button"
                 >
-                  Fit pattern
+                  {patternFitActive ? 'Restore zoom' : 'Fit pattern'}
+                </button>
+                <button
+                  aria-label="Center the selected step in the track editor"
+                  className="control-chip flex h-8 shrink-0 items-center gap-1.5 px-2"
+                  onClick={() => jumpToStep(selectedStepIndex, selectedTrack?.id)}
+                  title={`Center selected step ${selectedStepIndex + 1}`}
+                  type="button"
+                >
+                  <LocateFixed className="h-3.5 w-3.5" />
+                  <span className="hidden text-[10px] font-semibold uppercase tracking-[0.12em] lg:inline">Selected</span>
                 </button>
                 <button
                   aria-label="Zoom the step grid out"
@@ -2453,6 +2517,9 @@ export const MainWorkspace = () => {
                 >
                   <Plus className="h-3.5 w-3.5" />
                 </button>
+                <span className="hidden min-w-9 text-right font-mono text-[10px] text-[var(--text-tertiary)] xl:inline">
+                  {stepCellWidth}px
+                </span>
                 <button
                   className="control-chip hidden h-8 px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] md:block"
                   data-active={compactLanes ? 'true' : undefined}
