@@ -70,13 +70,13 @@ import { useMediaQuery } from '../utils/useMediaQuery';
 import { readString, writeString } from '../utils/safeStorage';
 import { TrackMinimap } from './TrackMinimap';
 import { openNotesPanel } from './notesPanelStore';
+import { setEditingMode, useEditingMode } from './editingModeStore';
 import { SongTimelineGrid } from './SongTimelineGrid';
 import { buildRunwayContinuation } from '../utils/runwayContinuation';
 
 const LANE_COLUMN_COLLAPSED_KEY = 'sonicstudio:lane-column-collapsed';
 const TRACK_MAP_OPEN_KEY = 'sonicstudio:track-map-open';
 const COMPOSE_TOOLS_KEY = 'sonicstudio:compose-tools-open';
-const TRACK_AREA_EXPANDED_KEY = 'sonicstudio:track-area-expanded';
 const ADD_LANE_OPEN_KEY = 'sonicstudio:add-lane-open';
 const SONG_FLATTEN_KEY = 'sonicstudio:song-flatten';
 import { MAX_STEPS_PER_PATTERN, type InstrumentType, type NoteEvent, type Track } from '../project/schema';
@@ -659,14 +659,8 @@ export const MainWorkspace = () => {
   // not the full tools drawer; the "Tools" toggle opens it and the choice is
   // remembered for anyone who wants it open every session.
   const [composeToolsExpanded, setComposeToolsExpanded] = useState(() => readString(COMPOSE_TOOLS_KEY) === 'true');
-  const [trackAreaExpanded, setTrackAreaExpanded] = useState(() => readString(TRACK_AREA_EXPANDED_KEY) === 'true');
-  const toggleTrackAreaExpanded = useCallback(() => {
-    setTrackAreaExpanded((current) => {
-      const next = !current;
-      writeString(TRACK_AREA_EXPANDED_KEY, next ? 'true' : 'false');
-      return next;
-    });
-  }, []);
+  const editingMode = useEditingMode();
+  const toggleEditingMode = useCallback(() => setEditingMode(!editingMode), [editingMode]);
   const [selectedStepIndex, setSelectedStepIndex] = useState(0);
   // A dragged step range (select mode), spanning one lane or several. Feeds
   // Cmd+D duplication and survives the drag, so you can grab a phrase and
@@ -2029,10 +2023,10 @@ export const MainWorkspace = () => {
   return (
     <section
       className="sequencer-workspace surface-panel flex flex-col overflow-visible md:min-h-0 md:flex-1 md:overflow-hidden"
-      data-track-area-expanded={trackAreaExpanded ? 'true' : undefined}
+      data-editing-mode={editingMode ? 'true' : undefined}
     >
       <SequencerPlayheadDriver stepsPerPattern={stepsPerPattern} />
-      <div className={`sequencer-panel-header flex flex-col gap-3 border-b border-[var(--border-soft)] px-5 py-3 md:flex-row md:items-center md:justify-between md:gap-4 ${trackAreaExpanded ? 'md:hidden' : ''}`}>
+      <div className={`sequencer-panel-header flex flex-col gap-3 border-b border-[var(--border-soft)] px-5 py-3 md:flex-row md:items-center md:justify-between md:gap-4 ${editingMode ? 'md:hidden' : ''}`}>
         <div className="min-w-0 shrink-0">
           <div className="flex items-baseline gap-2">
             <div className="section-label">Sequencer</div>
@@ -2184,9 +2178,9 @@ export const MainWorkspace = () => {
           chain loses its definite height, and a flex-1 grid inside an
           indefinite chain resolves to its max-height and paints past the
           panel background, the black-void-on-scroll bug. */}
-      <div className={`sequencer-workspace-body flex flex-col overflow-visible md:min-h-0 md:flex-1 md:overflow-hidden xl:flex-row ${trackAreaExpanded ? 'gap-2 p-2' : 'gap-3 p-4'}`}>
+      <div className={`sequencer-workspace-body flex flex-col overflow-visible md:min-h-0 md:flex-1 md:overflow-hidden xl:flex-row ${editingMode ? 'gap-0 p-0' : 'gap-3 p-4'}`}>
         <div className="flex min-w-0 flex-col overflow-visible md:min-h-0 md:flex-1">
-          <div className={`sequencer-compose-summary surface-panel-muted mb-2 px-4 py-2.5 sm:mb-3 sm:py-3 ${trackAreaExpanded ? 'hidden' : ''}`}>
+          <div className={`sequencer-compose-summary surface-panel-muted mb-2 px-4 py-2.5 sm:mb-3 sm:py-3 ${editingMode ? 'hidden' : ''}`}>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <div className="section-label hidden sm:block">Compose</div>
@@ -2508,14 +2502,14 @@ export const MainWorkspace = () => {
                           <ChevronsRight className="h-4 w-4" />
                         </button>
                         <button
-                          aria-label={trackAreaExpanded ? 'Restore studio panels' : 'Expand track area'}
+                          aria-label={editingMode ? 'Leave editing mode' : 'Enter editing mode'}
                           className="ghost-icon-button flex h-7 w-7 shrink-0 items-center justify-center"
-                          data-active={trackAreaExpanded ? 'true' : undefined}
-                          onClick={toggleTrackAreaExpanded}
-                          title={trackAreaExpanded ? 'Restore studio panels' : 'Give the tracks more vertical space'}
+                          data-active={editingMode ? 'true' : undefined}
+                          onClick={toggleEditingMode}
+                          title={editingMode ? 'Restore the complete studio' : 'Open the full-width track editor'}
                           type="button"
                         >
-                          {trackAreaExpanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+                          {editingMode ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
                         </button>
                       </div>
                     ) : (
@@ -2526,14 +2520,14 @@ export const MainWorkspace = () => {
                         </div>
                         <div className="flex shrink-0 items-center gap-1">
                           <button
-                            aria-label={trackAreaExpanded ? 'Restore studio panels' : 'Expand track area'}
+                            aria-label={editingMode ? 'Leave editing mode' : 'Enter editing mode'}
                             className="ghost-icon-button flex h-7 w-7 shrink-0 items-center justify-center"
-                            data-active={trackAreaExpanded ? 'true' : undefined}
-                            onClick={toggleTrackAreaExpanded}
-                            title={trackAreaExpanded ? 'Restore studio panels' : 'Give the tracks more vertical space'}
+                            data-active={editingMode ? 'true' : undefined}
+                            onClick={toggleEditingMode}
+                            title={editingMode ? 'Restore the complete studio' : 'Open the full-width track editor'}
                             type="button"
                           >
-                            {trackAreaExpanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+                            {editingMode ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
                           </button>
                           <button
                             aria-label="Hide lane labels"
@@ -3079,7 +3073,7 @@ export const MainWorkspace = () => {
               ))}
               </div>
             </div>
-            {maxGridScrollLeft > 0 && !trackAreaExpanded && (
+            {maxGridScrollLeft > 0 && !editingMode && (
               <div className="sequencer-grid-scroll-controls mt-3 rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)] px-4 py-2.5">
                 <div className="flex min-w-0 items-center gap-3">
                   <span className="section-label shrink-0">Grid scroll</span>
@@ -3305,7 +3299,7 @@ export const MainWorkspace = () => {
           )}
         </div>
 
-        {(!isNarrowViewport || mobileInspectorOpen) && (
+        {!editingMode && (!isNarrowViewport || mobileInspectorOpen) && (
         <aside className="surface-panel-strong sonic-sidebar w-full shrink-0 overflow-auto p-4 xl:min-w-[280px] xl:w-[min(32vw,320px)] 2xl:w-[320px]">
           <div className="flex items-center gap-2">
             <SlidersHorizontal className="h-4 w-4 text-[var(--accent)]" />

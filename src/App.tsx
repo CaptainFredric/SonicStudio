@@ -4,6 +4,7 @@ import { TopBar } from './components/TopBar';
 import { MainWorkspace as Sequencer } from './components/MainWorkspace';
 import { NotesPanel } from './components/NotesPanel';
 import { setNotesPanelOpen, useNotesPanelOpen } from './components/notesPanelStore';
+import { setEditingMode, useEditingMode } from './components/editingModeStore';
 import { DeviceRack } from './components/DeviceRack';
 import { ArrangementPanel } from './components/ArrangementPanel';
 import { TapToPlay } from './components/TapToPlay';
@@ -103,7 +104,7 @@ const PanelDock = () => {
   );
 };
 
-const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe, onToggleFocus }: { onOpenLaunchpad: () => void; onOpenShare: () => void; onOpenRecord: () => void; onOpenTranscribe: () => void; onToggleFocus: () => void }) => {
+const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe, onEnterEditingMode }: { onOpenLaunchpad: () => void; onOpenShare: () => void; onOpenRecord: () => void; onOpenTranscribe: () => void; onEnterEditingMode: () => void }) => {
   const { activeView, isSettingsOpen, setActiveView, toggleSettings } = useAudio();
   const withSuperFill = (icon: React.ReactNode, fillClass = 'studio-icon-fill-core') => (
     <span className="studio-icon-shell">
@@ -253,15 +254,18 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe,
         <button
           className="studio-nav-button w-full"
           data-ui-sound="settings"
-          onClick={onToggleFocus}
-          title="Focus mode · hide the panels, keep just your work"
+          onClick={() => {
+            setActiveView('SEQUENCER');
+            onEnterEditingMode();
+          }}
+          title="Edit mode · make the track canvas fill the studio"
           type="button"
         >
           <div className="flex flex-col items-center justify-center gap-1 md:gap-2">
             <span className="studio-icon-shell">
               <Maximize2 size={20} className="text-[var(--accent)]" />
             </span>
-            <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Focus</span>
+            <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Edit</span>
           </div>
         </button>
         <a
@@ -545,7 +549,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
   const [isTranscribeOpen, setTranscribeOpen] = useState(false);
   const [isQuickCaptureOpen, setQuickCaptureOpen] = useState(false);
   useDialogFocus(isLaunchpadOpen, launchpadRef, { trap: true });
-  const [focusMode, setFocusMode] = useState(false);
+  const editingMode = useEditingMode();
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const autoGuidePendingRef = useRef(!routeState.showGuide && shouldAutoOpenOnboarding());
@@ -704,19 +708,20 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
     return () => window.removeEventListener('sonicstudio:open-quick-capture', handler);
   }, []);
 
-  // Focus mode hides the chrome so the workspace fills the screen; Esc leaves.
+  // Edit mode gives the sequencer the full studio canvas; Esc always restores
+  // the surrounding navigation and utility panels.
   useEffect(() => {
-    if (!focusMode) {
+    if (!editingMode) {
       return undefined;
     }
     const handleKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        setFocusMode(false);
+        setEditingMode(false);
       }
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [focusMode]);
+  }, [editingMode]);
 
   const handleFileChosen = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -815,7 +820,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
         </>
       ) : null}
       <div className="flex min-h-screen min-w-0 flex-col md:h-full md:min-h-0 md:flex-1 md:overflow-hidden">
-        {!focusMode && (
+        {!editingMode && (
           <div className="px-3 pt-3">
             <TopBar
               firstImpression={isFirstImpression}
@@ -827,46 +832,51 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
           </div>
         )}
         <CompactTransportBar />
-        <div className="studio-shell-grid flex min-w-0 flex-col gap-2 px-3 pb-3 md:min-h-0 md:flex-1 md:flex-row md:gap-3">
-          {!focusMode && (
+        {editingMode && (
+          <div className="editing-mode-bar flex h-10 shrink-0 items-center gap-3 border-y border-[var(--border-soft)] bg-[var(--bg-panel-strong)] px-3">
+            <Maximize2 className="h-4 w-4 shrink-0 text-[var(--accent)]" />
+            <span className="section-label">Track editor</span>
+            <span className="hidden text-[11px] text-[var(--text-secondary)] sm:inline">Full canvas · Esc to leave</span>
+            <button
+              aria-label="Leave editing mode"
+              className="control-chip ml-auto flex h-7 items-center gap-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
+              data-ui-sound="nav"
+              onClick={() => setEditingMode(false)}
+              title="Leave editing mode (Esc)"
+              type="button"
+            >
+              <Minimize2 className="h-3.5 w-3.5" />
+              Done editing
+            </button>
+          </div>
+        )}
+        <div className={`studio-shell-grid flex min-w-0 flex-col md:min-h-0 md:flex-1 md:flex-row ${editingMode ? 'gap-0 px-0 pb-0' : 'gap-2 px-3 pb-3 md:gap-3'}`} data-editing-mode={editingMode ? 'true' : undefined}>
+          {!editingMode && (
             <SideNav
               onOpenLaunchpad={() => setLaunchpadOpen(true)}
               onOpenRecord={openCapture}
               onOpenTranscribe={openTranscribe}
-              onToggleFocus={() => setFocusMode(true)}
+              onEnterEditingMode={() => setEditingMode(true)}
               onOpenShare={() => {
                 setGuideOpen(false);
                 setShareOpen(true);
               }}
             />
           )}
-          <div className="studio-workbench flex min-w-0 flex-col gap-2 md:min-h-0 md:flex-1 md:overflow-hidden md:gap-3">
+          <div className={`studio-workbench flex min-w-0 flex-col md:min-h-0 md:flex-1 md:overflow-hidden ${editingMode ? 'gap-0' : 'gap-2 md:gap-3'}`}>
             <div className="studio-editor-row flex flex-col gap-3 md:min-h-[300px] md:flex-row md:flex-1 md:overflow-hidden">
               <ViewRouter />
             </div>
-            <PanelDock />
+            {!editingMode && <PanelDock />}
           </div>
         </div>
-        {!focusMode && (
+        {!editingMode && (
           <div className="studio-auxiliary-dock flex min-h-0 shrink-0 flex-col gap-3 overflow-y-auto px-3 pb-3">
             <SuperSonicAssistBar />
             <TapToPlay />
           </div>
         )}
       </div>
-      {focusMode && (
-        <button
-          aria-label="Exit focus mode"
-          className="control-chip fixed right-3 top-3 z-[70] flex items-center gap-1.5 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] shadow-lg max-md:top-auto max-md:bottom-5"
-          data-ui-sound="nav"
-          onClick={() => setFocusMode(false)}
-          title="Exit focus mode (Esc)"
-          type="button"
-        >
-          <Minimize2 className="h-3.5 w-3.5" />
-          Exit focus
-        </button>
-      )}
     </div>
   );
 };

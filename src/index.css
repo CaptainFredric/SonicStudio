@@ -1442,8 +1442,24 @@ html[data-supersonic-transition="out"] .app-shell::after {
     scrollbar-gutter: stable;
   }
 
-  .sequencer-workspace[data-track-area-expanded="true"] .sequencer-grid-scroll {
+  .sequencer-workspace[data-editing-mode="true"] .sequencer-grid-scroll {
     min-height: 0;
+  }
+
+  .studio-shell-grid[data-editing-mode="true"] .studio-editor-row {
+    min-height: 0;
+  }
+
+  .studio-shell-grid[data-editing-mode="true"] .sequencer-workspace,
+  .sequencer-workspace[data-editing-mode="true"] .sequencer-grid-scroll {
+    border-left: 0;
+    border-right: 0;
+    border-bottom: 0;
+    border-radius: 0;
+  }
+
+  .sequencer-workspace[data-editing-mode="true"] .grid-freeze-col {
+    box-shadow: 6px 0 16px rgba(0, 0, 0, 0.14);
   }
 }
 
@@ -1461,7 +1477,7 @@ html[data-supersonic-transition="out"] .app-shell::after {
     padding-block: 0.5rem;
   }
 
-  .sequencer-workspace:not([data-track-area-expanded="true"]) .sequencer-workspace-body {
+  .sequencer-workspace:not([data-editing-mode="true"]) .sequencer-workspace-body {
     gap: 0.5rem;
     padding: 0.75rem;
   }
