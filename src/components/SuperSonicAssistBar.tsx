@@ -197,7 +197,7 @@ export const SuperSonicAssistBar = () => {
       </div>
 
       {insight && (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-[var(--border-soft)] pt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
+        <div className="supersonic-assist-insight flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-[var(--border-soft)] pt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
           <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--accent-strong)]">
             {insight.noteCount} {insight.noteCount === 1 ? 'note' : 'notes'} · {insight.activeSteps}/{insight.stepCount} steps
           </span>

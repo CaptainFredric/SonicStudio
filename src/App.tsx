@@ -840,15 +840,15 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
               }}
             />
           )}
-          <div className="studio-workbench flex min-w-0 flex-col gap-2 md:min-h-0 md:flex-1 md:overflow-y-auto md:gap-3">
-            <div className="flex flex-col gap-3 md:min-h-[300px] md:flex-row md:flex-1">
+          <div className="studio-workbench flex min-w-0 flex-col gap-2 md:min-h-0 md:flex-1 md:overflow-hidden md:gap-3">
+            <div className="studio-editor-row flex flex-col gap-3 md:min-h-[300px] md:flex-row md:flex-1 md:overflow-hidden">
               <ViewRouter />
             </div>
             <PanelDock />
           </div>
         </div>
         {!focusMode && (
-          <div className="shrink-0 flex flex-col gap-3 px-3 pb-3">
+          <div className="studio-auxiliary-dock flex min-h-0 shrink-0 flex-col gap-3 overflow-y-auto px-3 pb-3">
             <SuperSonicAssistBar />
             <TapToPlay />
           </div>

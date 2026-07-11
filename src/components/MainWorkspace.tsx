@@ -10,8 +10,10 @@ import {
   Copy,
   Eraser,
   Focus,
+  Maximize2,
   Minus,
   Mic,
+  Minimize2,
   Music2,
   Pin,
   Play,
@@ -74,6 +76,7 @@ import { buildRunwayContinuation } from '../utils/runwayContinuation';
 const LANE_COLUMN_COLLAPSED_KEY = 'sonicstudio:lane-column-collapsed';
 const TRACK_MAP_OPEN_KEY = 'sonicstudio:track-map-open';
 const COMPOSE_TOOLS_KEY = 'sonicstudio:compose-tools-open';
+const TRACK_AREA_EXPANDED_KEY = 'sonicstudio:track-area-expanded';
 const ADD_LANE_OPEN_KEY = 'sonicstudio:add-lane-open';
 const SONG_FLATTEN_KEY = 'sonicstudio:song-flatten';
 import { MAX_STEPS_PER_PATTERN, type InstrumentType, type NoteEvent, type Track } from '../project/schema';
@@ -656,6 +659,14 @@ export const MainWorkspace = () => {
   // not the full tools drawer; the "Tools" toggle opens it and the choice is
   // remembered for anyone who wants it open every session.
   const [composeToolsExpanded, setComposeToolsExpanded] = useState(() => readString(COMPOSE_TOOLS_KEY) === 'true');
+  const [trackAreaExpanded, setTrackAreaExpanded] = useState(() => readString(TRACK_AREA_EXPANDED_KEY) === 'true');
+  const toggleTrackAreaExpanded = useCallback(() => {
+    setTrackAreaExpanded((current) => {
+      const next = !current;
+      writeString(TRACK_AREA_EXPANDED_KEY, next ? 'true' : 'false');
+      return next;
+    });
+  }, []);
   const [selectedStepIndex, setSelectedStepIndex] = useState(0);
   // A dragged step range (select mode), spanning one lane or several. Feeds
   // Cmd+D duplication and survives the drag, so you can grab a phrase and
@@ -2016,9 +2027,12 @@ export const MainWorkspace = () => {
   }, [applySessionPlayerProfile, buildSessionPlayerSong, pendingSessionPlayerRequest, sessionPlayerSegments, tracks]);
 
   return (
-    <section className="surface-panel flex flex-col overflow-visible md:min-h-0 md:flex-1">
+    <section
+      className="sequencer-workspace surface-panel flex flex-col overflow-visible md:min-h-0 md:flex-1 md:overflow-hidden"
+      data-track-area-expanded={trackAreaExpanded ? 'true' : undefined}
+    >
       <SequencerPlayheadDriver stepsPerPattern={stepsPerPattern} />
-      <div className="flex flex-col gap-3 border-b border-[var(--border-soft)] px-5 py-3 md:flex-row md:items-center md:justify-between md:gap-4">
+      <div className={`sequencer-panel-header flex flex-col gap-3 border-b border-[var(--border-soft)] px-5 py-3 md:flex-row md:items-center md:justify-between md:gap-4 ${trackAreaExpanded ? 'md:hidden' : ''}`}>
         <div className="min-w-0 shrink-0">
           <div className="flex items-baseline gap-2">
             <div className="section-label">Sequencer</div>
@@ -2170,9 +2184,9 @@ export const MainWorkspace = () => {
           chain loses its definite height, and a flex-1 grid inside an
           indefinite chain resolves to its max-height and paints past the
           panel background, the black-void-on-scroll bug. */}
-      <div className="flex flex-col gap-3 overflow-visible p-4 md:min-h-0 md:flex-1 xl:flex-row">
+      <div className={`sequencer-workspace-body flex flex-col overflow-visible md:min-h-0 md:flex-1 md:overflow-hidden xl:flex-row ${trackAreaExpanded ? 'gap-2 p-2' : 'gap-3 p-4'}`}>
         <div className="flex min-w-0 flex-col overflow-visible md:min-h-0 md:flex-1">
-          <div className="surface-panel-muted mb-2 px-4 py-2.5 sm:mb-3 sm:py-3">
+          <div className={`sequencer-compose-summary surface-panel-muted mb-2 px-4 py-2.5 sm:mb-3 sm:py-3 ${trackAreaExpanded ? 'hidden' : ''}`}>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <div className="section-label hidden sm:block">Compose</div>
@@ -2468,7 +2482,7 @@ export const MainWorkspace = () => {
               />
             )}
             <div
-              className={`sequencer-grid-scroll overflow-auto rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] min-h-[clamp(340px,50vh,640px)] md:min-h-[240px] md:max-h-[min(72vh,900px)] md:flex-1 ${showSongGrid ? 'hidden' : ''}`}
+              className={`sequencer-grid-scroll overflow-auto rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] min-h-[clamp(340px,50vh,640px)] md:min-h-0 md:max-h-none md:flex-1 ${showSongGrid ? 'hidden' : ''}`}
               data-scrolled={gridScrollLeft > 1 ? 'true' : undefined}
               onPointerCancel={() => setPlacementCursor(null)}
               onPointerMove={handlePlacementMove}
@@ -2482,32 +2496,56 @@ export const MainWorkspace = () => {
                     style={{ width: `${laneHeaderWidth}px` }}
                   >
                     {laneColumnCollapsed ? (
-                      <button
-                        aria-label="Show lane labels"
-                        className="ghost-icon-button flex h-7 w-7 shrink-0 items-center justify-center"
-                        data-ui-sound="tab"
-                        onClick={() => setLaneColumnCollapsed(false)}
-                        title="Show the lane labels and controls"
-                        type="button"
-                      >
-                        <ChevronsRight className="h-4 w-4" />
-                      </button>
+                      <div className="flex items-center justify-center gap-0.5">
+                        <button
+                          aria-label="Show lane labels"
+                          className="ghost-icon-button flex h-7 w-7 shrink-0 items-center justify-center"
+                          data-ui-sound="tab"
+                          onClick={() => setLaneColumnCollapsed(false)}
+                          title="Show the lane labels and controls"
+                          type="button"
+                        >
+                          <ChevronsRight className="h-4 w-4" />
+                        </button>
+                        <button
+                          aria-label={trackAreaExpanded ? 'Restore studio panels' : 'Expand track area'}
+                          className="ghost-icon-button flex h-7 w-7 shrink-0 items-center justify-center"
+                          data-active={trackAreaExpanded ? 'true' : undefined}
+                          onClick={toggleTrackAreaExpanded}
+                          title={trackAreaExpanded ? 'Restore studio panels' : 'Give the tracks more vertical space'}
+                          type="button"
+                        >
+                          {trackAreaExpanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+                        </button>
+                      </div>
                     ) : (
                       <>
                         <div className="flex min-w-0 items-center gap-2">
                           <Music2 className="h-4 w-4 shrink-0 text-[var(--accent)]" />
                           <span className="section-label truncate">Tracks</span>
                         </div>
-                        <button
-                          aria-label="Hide lane labels"
-                          className="ghost-icon-button flex h-7 w-7 shrink-0 items-center justify-center"
-                          data-ui-sound="tab"
-                          onClick={() => setLaneColumnCollapsed(true)}
-                          title="Collapse the lane labels to free up grid space"
-                          type="button"
-                        >
-                          <ChevronsLeft className="h-4 w-4" />
-                        </button>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <button
+                            aria-label={trackAreaExpanded ? 'Restore studio panels' : 'Expand track area'}
+                            className="ghost-icon-button flex h-7 w-7 shrink-0 items-center justify-center"
+                            data-active={trackAreaExpanded ? 'true' : undefined}
+                            onClick={toggleTrackAreaExpanded}
+                            title={trackAreaExpanded ? 'Restore studio panels' : 'Give the tracks more vertical space'}
+                            type="button"
+                          >
+                            {trackAreaExpanded ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+                          </button>
+                          <button
+                            aria-label="Hide lane labels"
+                            className="ghost-icon-button flex h-7 w-7 shrink-0 items-center justify-center"
+                            data-ui-sound="tab"
+                            onClick={() => setLaneColumnCollapsed(true)}
+                            title="Collapse the lane labels to free up grid space"
+                            type="button"
+                          >
+                            <ChevronsLeft className="h-4 w-4" />
+                          </button>
+                        </div>
                       </>
                     )}
                   </div>
@@ -3041,8 +3079,8 @@ export const MainWorkspace = () => {
               ))}
               </div>
             </div>
-            {maxGridScrollLeft > 0 && (
-              <div className="mt-3 rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)] px-4 py-2.5">
+            {maxGridScrollLeft > 0 && !trackAreaExpanded && (
+              <div className="sequencer-grid-scroll-controls mt-3 rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)] px-4 py-2.5">
                 <div className="flex min-w-0 items-center gap-3">
                   <span className="section-label shrink-0">Grid scroll</span>
                   <button
