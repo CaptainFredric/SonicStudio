@@ -1454,6 +1454,17 @@ html[data-supersonic-transition="out"] .app-shell::after {
   background: color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
+.editing-tool-button {
+  background: rgba(255, 255, 255, 0.018);
+  transition: background-color var(--motion-fast) var(--motion-ease), color var(--motion-fast) var(--motion-ease);
+}
+
+.editing-tool-button:hover,
+.editing-tool-button[data-active="true"] {
+  background: var(--accent-muted);
+  color: var(--accent-strong);
+}
+
 @media (min-width: 768px) {
   .studio-auxiliary-dock {
     max-height: min(38dvh, 360px);

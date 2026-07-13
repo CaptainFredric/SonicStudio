@@ -7,7 +7,9 @@ import {
   ChevronUp,
   ChevronsLeft,
   ChevronsRight,
+  ClipboardPaste,
   Copy,
+  CopyPlus,
   Eraser,
   Focus,
   LocateFixed,
@@ -16,13 +18,17 @@ import {
   Mic,
   Minimize2,
   Music2,
+  MousePointer2,
+  Pencil,
   Pin,
   Play,
   Plus,
+  Repeat2,
   SlidersHorizontal,
   Trash2,
   VolumeX,
   Wand2,
+  X,
   Zap,
 } from 'lucide-react';
 
@@ -75,6 +81,7 @@ import { setEditingMode, useEditingMode } from './editingModeStore';
 import { SongTimelineGrid } from './SongTimelineGrid';
 import { buildRunwayContinuation } from '../utils/runwayContinuation';
 import { getSequencerFollowScrollLeft } from '../utils/sequencerViewport';
+import { clearPatternRange, copyPatternRange, writePatternRange } from '../utils/stepRangeEditing';
 
 const LANE_COLUMN_COLLAPSED_KEY = 'sonicstudio:lane-column-collapsed';
 const TRACK_MAP_OPEN_KEY = 'sonicstudio:track-map-open';
@@ -127,6 +134,12 @@ interface LaneRunwayGesture {
   pointerId: number;
   startStep: number;
   trackId: string;
+}
+
+interface StepRangeSelection {
+  end: number;
+  start: number;
+  trackIds: string[];
 }
 
 const clampNumber = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
@@ -699,10 +712,11 @@ export const MainWorkspace = () => {
   // A dragged step range (select mode), spanning one lane or several. Feeds
   // Cmd+D duplication and survives the drag, so you can grab a phrase and
   // stamp it forward.
-  const [stepRange, setStepRange] = useState<{ trackIds: string[]; start: number; end: number } | null>(null);
+  const [stepRange, setStepRange] = useState<StepRangeSelection | null>(null);
   // The copied block: one steps-array per lane, in lane order. A ref, so it
   // survives pattern switches and pastes across banks.
   const rangeClipboardRef = useRef<{ lanes: NoteEvent[][][]; length: number } | null>(null);
+  const [rangeClipboardReady, setRangeClipboardReady] = useState(false);
   const [selectedStepNoteIndex, setSelectedStepNoteIndex] = useState(0);
   const [segmentDraftName, setSegmentDraftName] = useState('');
   const [loopBrowserFilter, setLoopBrowserFilter] = useState<typeof LOOP_BROWSER_FILTERS[number]['value']>('MATCHING');
@@ -908,6 +922,23 @@ export const MainWorkspace = () => {
     () => visibleTrackSections.flatMap((section) => section.tracks.map((entry) => entry.id)),
     [visibleTrackSections],
   );
+  const selectedRangeStats = useMemo(() => {
+    if (!stepRange) return null;
+    const noteCount = stepRange.trackIds.reduce((total, laneId) => {
+      const track = tracks.find((entry) => entry.id === laneId);
+      if (!track) return total;
+      const steps = track.patterns[currentPattern] || [];
+      for (let index = stepRange.start; index <= stepRange.end; index += 1) {
+        total += steps[index]?.length ?? 0;
+      }
+      return total;
+    }, 0);
+    return {
+      laneCount: stepRange.trackIds.length,
+      noteCount,
+      stepCount: stepRange.end - stepRange.start + 1,
+    };
+  }, [currentPattern, stepRange, tracks]);
   const songPatternIndicesByTrack = useMemo(() => {
     const lookup = new Map<string, Set<number>>();
 
@@ -1348,107 +1379,123 @@ export const MainWorkspace = () => {
     setStepRange(null);
   }, [editorMode, currentPattern]);
 
-  // Cmd/Ctrl+D stamps the selected phrase forward, Logic's duplicate: the
-  // dragged range (or just the selected step) is copied to the steps right
-  // after it, the pattern grows if the copy needs the room, and the selection
-  // moves onto the copy so repeated presses tile it across the pattern.
+  const copyStepRange = (range: StepRangeSelection | null = stepRange) => {
+    if (!range) return false;
+    const lanes = range.trackIds
+      .map((laneId) => tracks.find((entry) => entry.id === laneId))
+      .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
+      .map((track) => {
+        const steps = track.patterns[currentPattern] || [];
+        return copyPatternRange(steps, range.start, range.end);
+      });
+    if (lanes.length === 0) return false;
+    rangeClipboardRef.current = { lanes, length: range.end - range.start + 1 };
+    setRangeClipboardReady(true);
+    return true;
+  };
+
+  const pasteCopiedRange = () => {
+    const clipboard = rangeClipboardRef.current;
+    const anchorTrackId = stepRange?.trackIds[0] ?? selectedTrack?.id;
+    if (!clipboard || !anchorTrackId) return false;
+    const anchorLane = visibleLaneOrder.indexOf(anchorTrackId);
+    if (anchorLane < 0) return false;
+    const targetStart = stepRange?.start ?? selectedStepIndex;
+    const needed = targetStart + clipboard.length;
+    if (needed > stepsPerPattern) {
+      setPatternLength(needed);
+    }
+    const total = Math.max(needed, stepsPerPattern);
+    const pastedLaneIds: string[] = [];
+    clipboard.lanes.forEach((laneSteps, laneOffset) => {
+      const laneId = visibleLaneOrder[anchorLane + laneOffset];
+      if (!laneId) return;
+      const track = tracks.find((entry) => entry.id === laneId);
+      if (!track) return;
+      const steps = track.patterns[currentPattern] || [];
+      const next = writePatternRange(steps, laneSteps, targetStart, total);
+      applyPatternSegment(laneId, currentPattern, next);
+      pastedLaneIds.push(laneId);
+    });
+    if (pastedLaneIds.length === 0) return false;
+    setStepRange({ trackIds: pastedLaneIds, start: targetStart, end: needed - 1 });
+    setSelectedTrackId(pastedLaneIds[0]);
+    selectStep(targetStart);
+    return true;
+  };
+
+  // Duplicate stamps the selected phrase immediately after itself. Keeping the
+  // copy selected makes repeated presses tile a motif across the pattern.
+  const duplicateStepRange = (range: StepRangeSelection | null = stepRange) => {
+    const sourceRange = range
+      ?? (selectedTrack ? { trackIds: [selectedTrack.id], start: selectedStepIndex, end: selectedStepIndex } : null);
+    if (!sourceRange) return false;
+    const laneIds = sourceRange.trackIds.filter((id) => tracks.some((entry) => entry.id === id));
+    if (laneIds.length === 0) return false;
+    const length = sourceRange.end - sourceRange.start + 1;
+    const targetStart = sourceRange.end + 1;
+    const needed = targetStart + length;
+    if (needed > stepsPerPattern) {
+      setPatternLength(needed);
+    }
+    const total = Math.max(needed, stepsPerPattern);
+    laneIds.forEach((laneId) => {
+      const track = tracks.find((entry) => entry.id === laneId);
+      if (!track) return;
+      const steps = track.patterns[currentPattern] || [];
+      const source = copyPatternRange(steps, sourceRange.start, sourceRange.end);
+      const next = writePatternRange(steps, source, targetStart, total);
+      applyPatternSegment(laneId, currentPattern, next);
+    });
+    setStepRange({ trackIds: laneIds, start: targetStart, end: needed - 1 });
+    setSelectedTrackId(laneIds[0]);
+    selectStep(targetStart);
+    return true;
+  };
+
+  const clearSelectedRange = () => {
+    if (!stepRange) return false;
+    stepRange.trackIds.forEach((laneId) => {
+      const track = tracks.find((entry) => entry.id === laneId);
+      if (!track) return;
+      const steps = track.patterns[currentPattern] || [];
+      const next = clearPatternRange(steps, stepRange.start, stepRange.end, stepsPerPattern);
+      applyPatternSegment(laneId, currentPattern, next);
+    });
+    return true;
+  };
+
+  const loopSelectedRange = () => {
+    if (!stepRange) return false;
+    setTransportMode('PATTERN');
+    setLoopRange(stepRange.start, stepRange.end + 1);
+    jumpToStep(stepRange.start, stepRange.trackIds[0]);
+    return true;
+  };
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
       if (event.key === 'Escape') {
         setStepRange(null);
         return;
       }
+      if ((event.key === 'Backspace' || event.key === 'Delete') && stepRange) {
+        event.preventDefault();
+        clearSelectedRange();
+        return;
+      }
       if (!(event.metaKey || event.ctrlKey)) return;
       const key = event.key.toLowerCase();
-      if (key !== 'd' && key !== 'c' && key !== 'v') return;
-      const target = event.target as HTMLElement | null;
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
-      if (key === 'c') {
-        // Copy the ringed block: cloned, lane by lane, pattern-independent.
-        if (!stepRange) return;
-        const lanes = stepRange.trackIds
-          .map((laneId) => tracks.find((entry) => entry.id === laneId))
-          .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry))
-          .map((track) => {
-            const steps = track.patterns[currentPattern] || [];
-            const slice: NoteEvent[][] = [];
-            for (let index = stepRange.start; index <= stepRange.end; index += 1) {
-              slice.push((steps[index] ?? []).map((entry) => ({ ...entry })));
-            }
-            return slice;
-          });
-        if (lanes.length === 0) return;
-        event.preventDefault();
-        rangeClipboardRef.current = { lanes, length: stepRange.end - stepRange.start + 1 };
-        return;
-      }
-      if (key === 'v') {
-        // Paste at the selection: the selected lane anchors the block's top
-        // lane, following lanes fill downward in view order.
-        const clipboard = rangeClipboardRef.current;
-        if (!clipboard || !selectedTrack) return;
-        const anchorLane = visibleLaneOrder.indexOf(selectedTrack.id);
-        if (anchorLane < 0) return;
-        event.preventDefault();
-        const targetStart = selectedStepIndex;
-        const needed = targetStart + clipboard.length;
-        if (needed > stepsPerPattern) {
-          setPatternLength(needed);
-        }
-        const total = Math.max(needed, stepsPerPattern);
-        const pastedLaneIds: string[] = [];
-        clipboard.lanes.forEach((laneSteps, laneOffset) => {
-          const laneId = visibleLaneOrder[anchorLane + laneOffset];
-          if (!laneId) return;
-          const track = tracks.find((entry) => entry.id === laneId);
-          if (!track) return;
-          const steps = track.patterns[currentPattern] || [];
-          const next: NoteEvent[][] = [];
-          for (let index = 0; index < total; index += 1) {
-            if (index >= targetStart && index < needed) {
-              next.push((laneSteps[index - targetStart] ?? []).map((entry) => ({ ...entry })));
-            } else {
-              next.push(steps[index] ?? []);
-            }
-          }
-          applyPatternSegment(laneId, currentPattern, next);
-          pastedLaneIds.push(laneId);
-        });
-        if (pastedLaneIds.length > 0) {
-          setStepRange({ trackIds: pastedLaneIds, start: targetStart, end: needed - 1 });
-        }
-        return;
-      }
-      const range = stepRange
-        ?? (selectedTrack ? { trackIds: [selectedTrack.id], start: selectedStepIndex, end: selectedStepIndex } : null);
-      if (!range) return;
-      const laneIds = range.trackIds.filter((id) => tracks.some((entry) => entry.id === id));
-      if (laneIds.length === 0) return;
-      event.preventDefault();
-      const length = range.end - range.start + 1;
-      const targetStart = range.end + 1;
-      const needed = targetStart + length;
-      if (needed > stepsPerPattern) {
-        setPatternLength(needed);
-      }
-      const total = Math.max(needed, stepsPerPattern);
-      laneIds.forEach((laneId) => {
-        const track = tracks.find((entry) => entry.id === laneId);
-        if (!track) return;
-        const steps = track.patterns[currentPattern] || [];
-        const next: NoteEvent[][] = [];
-        for (let index = 0; index < total; index += 1) {
-          if (index >= targetStart && index < needed) {
-            next.push((steps[range.start + (index - targetStart)] ?? []).map((entry) => ({ ...entry })));
-          } else {
-            next.push(steps[index] ?? []);
-          }
-        }
-        applyPatternSegment(laneId, currentPattern, next);
-      });
-      setStepRange({ trackIds: laneIds, start: targetStart, end: needed - 1 });
-      setSelectedTrackId(laneIds[0]);
-      selectStep(targetStart);
+      const handled = key === 'c'
+        ? copyStepRange()
+        : key === 'v'
+          ? pasteCopiedRange()
+          : key === 'd'
+            ? duplicateStepRange()
+            : false;
+      if (handled) event.preventDefault();
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
@@ -2444,7 +2491,7 @@ export const MainWorkspace = () => {
                       onClick={() => setEditorMode(mode)}
                       type="button"
                     >
-                      {mode === 'select' ? 'Select' : 'Edit'}
+                      {mode === 'select' ? 'Select' : 'Draw'}
                     </button>
                   ))}
                 </div>
@@ -2526,9 +2573,35 @@ export const MainWorkspace = () => {
             <div className="editing-canvas-toolbar flex min-h-11 shrink-0 flex-wrap items-center gap-2 border-b border-[var(--border-soft)] bg-[var(--bg-panel-strong)] px-3 py-1.5">
               <div className="flex min-w-0 items-center gap-2">
                 <span className="section-label shrink-0">Pattern {String.fromCharCode(65 + currentPattern)}</span>
-                <span className="hidden max-w-[220px] truncate text-[11px] text-[var(--text-secondary)] sm:inline">
+                <span className="hidden max-w-[220px] truncate text-[11px] text-[var(--text-secondary)] xl:inline">
                   {selectedTrack?.name ?? `${visibleTracks.length} lanes`}
                 </span>
+                <div aria-label="Sequencer editing tool" className="ml-1 flex shrink-0 overflow-hidden rounded-[3px] border border-[var(--border-soft)]" role="group">
+                  <button
+                    aria-label="Use the Draw tool"
+                    aria-pressed={editorMode === 'edit'}
+                    className="editing-tool-button flex h-8 items-center gap-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-tertiary)]"
+                    data-active={editorMode === 'edit' ? 'true' : undefined}
+                    onClick={() => setEditorMode('edit')}
+                    title="Draw or erase notes by clicking and dragging"
+                    type="button"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Draw</span>
+                  </button>
+                  <button
+                    aria-label="Use the Select tool"
+                    aria-pressed={editorMode === 'select'}
+                    className="editing-tool-button flex h-8 items-center gap-1.5 border-l border-[var(--border-soft)] px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-tertiary)]"
+                    data-active={editorMode === 'select' ? 'true' : undefined}
+                    onClick={() => setEditorMode('select')}
+                    title="Select a phrase across steps and lanes"
+                    type="button"
+                  >
+                    <MousePointer2 className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Select</span>
+                  </button>
+                </div>
               </div>
               <div className="ml-auto flex items-center gap-1.5">
                 <button
@@ -2602,6 +2675,87 @@ export const MainWorkspace = () => {
                   type="button"
                 >
                   {compactLanes ? 'Roomy lanes' : 'Compact lanes'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {editingMode && editorMode === 'select' && (
+            <div className="selection-action-bar flex min-h-10 shrink-0 flex-wrap items-center gap-2 border-b border-[var(--border-soft)] bg-[rgba(114,217,255,0.045)] px-3 py-1.5">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="section-label shrink-0">Selection</span>
+                <span className="truncate font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--text-secondary)]">
+                  {stepRange && selectedRangeStats
+                    ? `${countLabel(selectedRangeStats.laneCount, 'lane')} · steps ${stepRange.start + 1}-${stepRange.end + 1} · ${countLabel(selectedRangeStats.noteCount, 'note')}`
+                    : 'No range selected'}
+                </span>
+              </div>
+              <div className="ml-auto flex items-center gap-1.5">
+                <button
+                  aria-label="Duplicate the selected phrase"
+                  className="control-chip flex h-8 items-center gap-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em]"
+                  disabled={!stepRange}
+                  onClick={() => duplicateStepRange()}
+                  title="Duplicate after selection (Cmd/Ctrl+D)"
+                  type="button"
+                >
+                  <CopyPlus className="h-3.5 w-3.5" />
+                  Duplicate
+                </button>
+                <button
+                  aria-label="Copy the selected phrase"
+                  className="control-chip flex h-8 items-center gap-1.5 px-2 text-[10px] font-semibold uppercase tracking-[0.12em]"
+                  disabled={!stepRange}
+                  onClick={() => copyStepRange()}
+                  title="Copy selection (Cmd/Ctrl+C)"
+                  type="button"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Copy</span>
+                </button>
+                <button
+                  aria-label="Paste into the selected phrase position"
+                  className="control-chip flex h-8 items-center gap-1.5 px-2 text-[10px] font-semibold uppercase tracking-[0.12em]"
+                  disabled={!rangeClipboardReady || !selectedTrack}
+                  onClick={pasteCopiedRange}
+                  title="Paste at selection (Cmd/Ctrl+V)"
+                  type="button"
+                >
+                  <ClipboardPaste className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Paste</span>
+                </button>
+                <button
+                  aria-label="Loop the selected phrase"
+                  className="control-chip flex h-8 items-center gap-1.5 px-2 text-[10px] font-semibold uppercase tracking-[0.12em]"
+                  data-active={stepRange && loopRangeStartBeat === stepRange.start && loopRangeEndBeat === stepRange.end + 1 ? 'true' : undefined}
+                  disabled={!stepRange}
+                  onClick={loopSelectedRange}
+                  title="Loop this range during pattern playback"
+                  type="button"
+                >
+                  <Repeat2 className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Loop</span>
+                </button>
+                <button
+                  aria-label="Clear notes in the selected phrase"
+                  className="control-chip flex h-8 items-center gap-1.5 px-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--danger)]"
+                  disabled={!stepRange}
+                  onClick={clearSelectedRange}
+                  title="Clear notes in selection (Delete)"
+                  type="button"
+                >
+                  <Eraser className="h-3.5 w-3.5" />
+                  <span className="hidden md:inline">Clear</span>
+                </button>
+                <button
+                  aria-label="Deselect the phrase"
+                  className="ghost-icon-button flex h-8 w-8 shrink-0 items-center justify-center"
+                  disabled={!stepRange}
+                  onClick={() => setStepRange(null)}
+                  title="Deselect (Escape)"
+                  type="button"
+                >
+                  <X className="h-3.5 w-3.5" />
                 </button>
               </div>
             </div>
