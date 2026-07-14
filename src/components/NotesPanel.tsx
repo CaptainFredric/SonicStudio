@@ -1,4 +1,4 @@
-import { Suspense, useEffect, useRef } from 'react';
+import { Suspense } from 'react';
 import { ChevronDown, ChevronUp, Music4 } from 'lucide-react';
 
 import { useAudio } from '../context/AudioContext';
@@ -18,16 +18,6 @@ const PianoRollView = lazyWithRetry(() => import('./PianoRollView').then((module
 export const NotesPanel = () => {
   const { activeView } = useAudio();
   const open = useNotesPanelOpen();
-  const bodyRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return undefined;
-
-    const frameId = window.requestAnimationFrame(() => {
-      bodyRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    });
-    return () => window.cancelAnimationFrame(frameId);
-  }, [open]);
 
   const toggleOpen = () => {
     const next = !open;
@@ -60,7 +50,7 @@ export const NotesPanel = () => {
         </span>
       </button>
       {open && (
-        <div ref={bodyRef} className="flex min-h-0 flex-col" style={{ height: 'clamp(420px, 64vh, 720px)' }}>
+        <div className="flex min-h-0 flex-col" data-studio-panel-body="notes" style={{ height: 'clamp(420px, 64vh, 720px)' }}>
           <Suspense fallback={<div className="surface-panel flex flex-1 items-center justify-center text-sm text-[var(--text-secondary)]">Opening the note grid</div>}>
             <PianoRollView />
           </Suspense>

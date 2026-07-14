@@ -3,7 +3,7 @@ import { AudioProvider, useAudio } from './context/AudioContext';
 import { TopBar } from './components/TopBar';
 import { MainWorkspace as Sequencer } from './components/MainWorkspace';
 import { NotesPanel } from './components/NotesPanel';
-import { setNotesPanelOpen, useNotesPanelOpen } from './components/notesPanelStore';
+import { openNotesPanel, setNotesPanelOpen, useNotesPanelOpen } from './components/notesPanelStore';
 import { setEditingMode, useEditingMode } from './components/editingModeStore';
 import { DeviceRack } from './components/DeviceRack';
 import { ArrangementPanel } from './components/ArrangementPanel';
@@ -28,7 +28,7 @@ import { readString, writeString } from './utils/safeStorage';
 import { lazyWithRetry } from './utils/lazyWithRetry';
 import { decodeSharePayload } from './utils/shareCodec';
 import { TransportSpectrum } from './components/TransportSpectrum';
-import { revealStudioEditor } from './components/studioViewport';
+import { revealStudioEditor, revealStudioPanel } from './components/studioViewport';
 import { playSupersonicToggleSound } from './audio/uiSounds';
 import { getSupersonicTransitionOrigin, runSupersonicTransition } from './utils/supersonicTransition';
 import { AudioWaveform, Volume2, Settings, Sparkles, Share2, Coffee } from 'lucide-react';
@@ -63,25 +63,30 @@ const PanelDock = () => {
   const [deskVisible, setDeskVisible] = useState(() => readString(DESK_VISIBLE_KEY) === 'true');
   const [arrangementVisible, setArrangementVisible] = useState(() => readString(ARRANGEMENT_VISIBLE_KEY) === 'true');
 
-  const toggleDesk = () => setDeskVisible((value) => {
-    const next = !value;
+  const toggleDesk = () => {
+    const next = !deskVisible;
+    setDeskVisible(next);
     // Mount expanded: the rack reads its collapsed flag once, at mount.
     if (next) void writeString('sonicstudio:deviceRack:collapsed', '0');
     void writeString(DESK_VISIBLE_KEY, next ? 'true' : 'false');
-    if (!next) revealStudioEditor();
-    return next;
-  });
-  const toggleArrangement = () => setArrangementVisible((value) => {
-    const next = !value;
+    if (next) revealStudioPanel('.device-rack-panel[data-expanded="true"]');
+    else revealStudioEditor();
+  };
+  const toggleArrangement = () => {
+    const next = !arrangementVisible;
+    setArrangementVisible(next);
     if (next) void writeString('sonicstudio:arrangement-panel-open', 'true');
     void writeString(ARRANGEMENT_VISIBLE_KEY, next ? 'true' : 'false');
-    if (!next) revealStudioEditor();
-    return next;
-  });
+    if (next) revealStudioPanel('[data-studio-panel-body="arrangement"]');
+    else revealStudioEditor();
+  };
   const toggleNotes = () => {
-    const next = !notesOpen;
-    setNotesPanelOpen(next);
-    if (!next) revealStudioEditor();
+    if (notesOpen) {
+      setNotesPanelOpen(false);
+      revealStudioEditor();
+      return;
+    }
+    openNotesPanel();
   };
 
   const dockChipClass = 'control-chip px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]';

@@ -1,6 +1,7 @@
 import { useSyncExternalStore } from 'react';
 
 import { readString, writeString } from '../utils/safeStorage';
+import { revealStudioPanel } from './studioViewport';
 
 // The note editor (Piano Roll) lives as a collapsible panel inside the
 // Sequencer view rather than its own tab. This tiny store lets the deep-edit
@@ -23,6 +24,7 @@ export const openNotesPanel = () => {
     persist();
     emit();
   }
+  revealStudioPanel('[data-studio-panel-body="notes"]');
 };
 
 export const setNotesPanelOpen = (value: boolean) => {
