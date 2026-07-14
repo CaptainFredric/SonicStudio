@@ -18,6 +18,7 @@ import { DeviceRackShapePanel } from './device-rack/DeviceRackShapePanel';
 import { DeviceRackSidebar } from './device-rack/DeviceRackSidebar';
 import { DeviceRackSourcePanel } from './device-rack/DeviceRackSourcePanel';
 import { DeviceRackSpacePanel } from './device-rack/DeviceRackSpacePanel';
+import { revealStudioEditor } from './studioViewport';
 
 const RACK_COLLAPSED_KEY = 'sonicstudio:deviceRack:collapsed';
 const RACK_HEIGHT_KEY = 'sonicstudio:deviceRack:height';
@@ -105,6 +106,7 @@ export const DeviceRack = () => {
   const [sampleStatus, setSampleStatus] = useState<string | null>(null);
   const [isSoundRecallOpen, setSoundRecallOpen] = useState(false);
   const dragStateRef = useRef<{ startY: number; startHeight: number } | null>(null);
+  const expandedRackRef = useRef<HTMLElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const track = tracks.find((candidate) => candidate.id === selectedTrackId) ?? null;
 
@@ -120,6 +122,15 @@ export const DeviceRack = () => {
     writeString(RACK_VIEW_KEY, activeRackView);
     writeString(RACK_SOURCE_VIEW_KEY, activeSourceSubView);
   }, [activeRackView, activeSourceSubView]);
+
+  useEffect(() => {
+    if (collapsed) return undefined;
+
+    const frameId = window.requestAnimationFrame(() => {
+      expandedRackRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+    return () => window.cancelAnimationFrame(frameId);
+  }, [collapsed]);
 
   const handleResizeStart = useCallback(
     (event: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
@@ -297,7 +308,9 @@ export const DeviceRack = () => {
 
   return (
     <section
+      ref={expandedRackRef}
       className="surface-panel device-rack-panel relative p-3 md:h-[var(--rack-height)] md:shrink-0 md:overflow-auto"
+      data-expanded="true"
       style={{ '--rack-height': `${rackHeight}px` } as React.CSSProperties}
     >
       <div
@@ -321,7 +334,10 @@ export const DeviceRack = () => {
         aria-expanded="true"
         aria-label="Collapse sound desk"
         className="ghost-icon-button absolute right-3 top-3 z-10 flex h-8 w-8 items-center justify-center"
-        onClick={() => setCollapsed(true)}
+        onClick={() => {
+          setCollapsed(true);
+          revealStudioEditor();
+        }}
         title="Collapse sound desk"
         type="button"
       >

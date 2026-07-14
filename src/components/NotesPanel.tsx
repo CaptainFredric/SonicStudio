@@ -4,6 +4,7 @@ import { ChevronDown, ChevronUp, Music4 } from 'lucide-react';
 import { useAudio } from '../context/AudioContext';
 import { lazyWithRetry } from '../utils/lazyWithRetry';
 import { setNotesPanelOpen, useNotesPanelOpen } from './notesPanelStore';
+import { revealStudioEditor } from './studioViewport';
 
 // The Piano Roll is one of the heaviest components in the app and the panel
 // starts collapsed, so its chunk only loads the first time Notes opens.
@@ -20,19 +21,30 @@ export const NotesPanel = () => {
   const bodyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (open) bodyRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (!open) return undefined;
+
+    const frameId = window.requestAnimationFrame(() => {
+      bodyRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+    return () => window.cancelAnimationFrame(frameId);
   }, [open]);
+
+  const toggleOpen = () => {
+    const next = !open;
+    setNotesPanelOpen(next);
+    if (!next) revealStudioEditor();
+  };
 
   if (activeView !== 'SEQUENCER') {
     return null;
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="notes-panel flex flex-col gap-3" data-expanded={open ? 'true' : undefined}>
       <button
         aria-expanded={open}
         className="surface-panel flex items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-[rgba(255,255,255,0.02)]"
-        onClick={() => setNotesPanelOpen(!open)}
+        onClick={toggleOpen}
         type="button"
       >
         <span className="flex min-w-0 items-center gap-2.5">

@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, ChevronUp, Layers3 } from 'lucide-react';
 
 import { useAudio } from '../context/AudioContext';
 import { readString, writeString } from '../utils/safeStorage';
 import { Arranger } from './Arranger';
+import { revealStudioEditor } from './studioViewport';
 
 const ARRANGEMENT_PANEL_KEY = 'sonicstudio:arrangement-panel-open';
 
@@ -18,10 +19,21 @@ export const ArrangementPanel = () => {
   // Collapsed by default for a clean first view; a returning user who opened it
   // keeps it open next session.
   const [open, setOpen] = useState(() => readString(ARRANGEMENT_PANEL_KEY) === 'true');
+  const bodyRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const frameId = window.requestAnimationFrame(() => {
+      bodyRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+    return () => window.cancelAnimationFrame(frameId);
+  }, [open]);
 
   const toggleOpen = () => setOpen((value) => {
     const next = !value;
     void writeString(ARRANGEMENT_PANEL_KEY, next ? 'true' : 'false');
+    if (!next) revealStudioEditor();
     return next;
   });
 
@@ -30,7 +42,7 @@ export const ArrangementPanel = () => {
   }
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="arrangement-panel flex flex-col gap-3" data-expanded={open ? 'true' : undefined}>
       <button
         aria-expanded={open}
         className="surface-panel flex items-center justify-between gap-3 px-4 py-3 text-left transition-colors hover:bg-[rgba(255,255,255,0.02)]"
@@ -50,7 +62,7 @@ export const ArrangementPanel = () => {
         </span>
       </button>
       {open && (
-        <div className="flex min-h-0 flex-col" style={{ height: 'clamp(360px, 58vh, 640px)' }}>
+        <div ref={bodyRef} className="flex min-h-0 flex-col" style={{ height: 'clamp(360px, 58vh, 640px)' }}>
           <Arranger />
         </div>
       )}

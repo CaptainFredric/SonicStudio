@@ -1592,6 +1592,19 @@ html[data-supersonic-transition="out"] .app-shell::after {
     display: none;
   }
 
+  .studio-workbench:has(.sequencer-workspace) {
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    scrollbar-gutter: stable;
+  }
+
+  .studio-workbench:has(.sequencer-workspace) .studio-editor-row {
+    height: clamp(420px, 64dvh, 560px);
+    min-height: clamp(420px, 64dvh, 560px);
+    max-height: clamp(420px, 64dvh, 560px);
+    flex: 0 0 clamp(420px, 64dvh, 560px);
+  }
+
 }
 
 /* Keep the canvas controls to one compact rail when vertical room is scarce.

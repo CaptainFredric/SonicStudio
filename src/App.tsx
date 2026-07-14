@@ -28,6 +28,7 @@ import { readString, writeString } from './utils/safeStorage';
 import { lazyWithRetry } from './utils/lazyWithRetry';
 import { decodeSharePayload } from './utils/shareCodec';
 import { TransportSpectrum } from './components/TransportSpectrum';
+import { revealStudioEditor } from './components/studioViewport';
 import { playSupersonicToggleSound } from './audio/uiSounds';
 import { getSupersonicTransitionOrigin, runSupersonicTransition } from './utils/supersonicTransition';
 import { AudioWaveform, Volume2, Settings, Sparkles, Share2, Coffee } from 'lucide-react';
@@ -67,14 +68,21 @@ const PanelDock = () => {
     // Mount expanded: the rack reads its collapsed flag once, at mount.
     if (next) void writeString('sonicstudio:deviceRack:collapsed', '0');
     void writeString(DESK_VISIBLE_KEY, next ? 'true' : 'false');
+    if (!next) revealStudioEditor();
     return next;
   });
   const toggleArrangement = () => setArrangementVisible((value) => {
     const next = !value;
     if (next) void writeString('sonicstudio:arrangement-panel-open', 'true');
     void writeString(ARRANGEMENT_VISIBLE_KEY, next ? 'true' : 'false');
+    if (!next) revealStudioEditor();
     return next;
   });
+  const toggleNotes = () => {
+    const next = !notesOpen;
+    setNotesPanelOpen(next);
+    if (!next) revealStudioEditor();
+  };
 
   const dockChipClass = 'control-chip px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]';
 
@@ -89,7 +97,7 @@ const PanelDock = () => {
           <button className={dockChipClass} data-active={deskVisible} onClick={toggleDesk} type="button">
             Sound desk
           </button>
-          <button className={dockChipClass} data-active={notesOpen} onClick={() => setNotesPanelOpen(!notesOpen)} type="button">
+          <button className={dockChipClass} data-active={notesOpen} onClick={toggleNotes} type="button">
             Notes
           </button>
           <button className={dockChipClass} data-active={arrangementVisible} onClick={toggleArrangement} type="button">
