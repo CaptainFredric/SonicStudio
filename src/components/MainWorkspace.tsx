@@ -82,7 +82,7 @@ import { openNotesPanel } from './notesPanelStore';
 import { setEditingMode, useEditingMode } from './editingModeStore';
 import { SongTimelineGrid } from './SongTimelineGrid';
 import { buildRunwayContinuation } from '../utils/runwayContinuation';
-import { getSequencerFollowScrollLeft } from '../utils/sequencerViewport';
+import { getSequencerFollowScrollLeft, getSequencerWheelPanDelta } from '../utils/sequencerViewport';
 import { clearPatternRange, copyPatternRange, movePatternRange, writePatternRange } from '../utils/stepRangeEditing';
 
 const LANE_COLUMN_COLLAPSED_KEY = 'sonicstudio:lane-column-collapsed';
@@ -802,7 +802,10 @@ export const MainWorkspace = () => {
   // Two-step arm for the destructive "Delete all lanes" action.
   const [confirmClearLanes, setConfirmClearLanes] = useState(false);
   const [gridScrollLeft, setGridScrollLeft] = useState(0);
+  const [gridScrollTop, setGridScrollTop] = useState(0);
   const [gridViewportWidth, setGridViewportWidth] = useState(0);
+  const [gridViewportHeight, setGridViewportHeight] = useState(0);
+  const [gridScrollHeight, setGridScrollHeight] = useState(0);
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
   const selectedTrackPattern = selectedTrack?.patterns[currentPattern] ?? Array.from({ length: stepsPerPattern }, () => []);
   const currentPatternLabel = `Pattern ${String.fromCharCode(65 + currentPattern)}`;
@@ -898,8 +901,15 @@ export const MainWorkspace = () => {
   const stepRunwayWidth = Math.max(104, SEQUENCER_RUNWAY_STEPS * stepCellWidth);
   const stepGridWidth = (stepsPerPattern * stepCellWidth) + stepRunwayWidth;
   const maxGridScrollLeft = Math.max(0, (laneHeaderWidth + stepGridWidth) - gridViewportWidth);
-  const visibleStepStart = Math.max(0, Math.floor(Math.max(0, gridScrollLeft - laneHeaderWidth) / stepCellWidth));
-  const visibleStepEnd = Math.min(stepsPerPattern, Math.ceil(Math.max(0, (gridScrollLeft + gridViewportWidth - laneHeaderWidth)) / stepCellWidth));
+  const maxGridScrollTop = Math.max(0, gridScrollHeight - gridViewportHeight);
+  const visibleStepStart = Math.min(
+    Math.max(0, stepsPerPattern - 1),
+    Math.max(0, Math.floor(Math.max(0, gridScrollLeft - laneHeaderWidth) / stepCellWidth)),
+  );
+  const visibleStepEnd = Math.max(
+    visibleStepStart + 1,
+    Math.min(stepsPerPattern, Math.ceil(Math.max(0, (gridScrollLeft + gridViewportWidth - laneHeaderWidth)) / stepCellWidth)),
+  );
   const pinnedVisibleTracks = useMemo(() => (
     laneScope === 'PINNED'
       ? []
@@ -936,6 +946,7 @@ export const MainWorkspace = () => {
     () => visibleTrackSections.flatMap((section) => section.tracks.map((entry) => entry.id)),
     [visibleTrackSections],
   );
+  const selectedVisibleLaneIndex = selectedTrackId ? visibleLaneOrder.indexOf(selectedTrackId) : -1;
   const displayedStepRange = stepRangeMovePreview ?? stepRange;
   const movingStepRange = Boolean(
     stepRangeMovePreview
@@ -1104,13 +1115,21 @@ export const MainWorkspace = () => {
 
     const syncGridViewport = () => {
       setGridScrollLeft(node.scrollLeft);
+      setGridScrollTop(node.scrollTop);
       setGridViewportWidth(node.clientWidth);
+      setGridViewportHeight(node.clientHeight);
+      setGridScrollHeight(node.scrollHeight);
     };
 
+    let previousScrollLeft = node.scrollLeft;
+
     const handleGridScroll = () => {
+      const movedHorizontally = Math.abs(node.scrollLeft - previousScrollLeft) > 0.5;
+      previousScrollLeft = node.scrollLeft;
       syncGridViewport();
       if (
-        followPlayheadRef.current
+        movedHorizontally
+        && followPlayheadRef.current
         && performance.now() > programmaticGridScrollUntilRef.current
       ) {
         followPlayheadRef.current = false;
@@ -1121,10 +1140,18 @@ export const MainWorkspace = () => {
     syncGridViewport();
     node.addEventListener('scroll', handleGridScroll, { passive: true });
     window.addEventListener('resize', syncGridViewport);
+    const resizeObserver = typeof ResizeObserver === 'undefined'
+      ? null
+      : new ResizeObserver(syncGridViewport);
+    resizeObserver?.observe(node);
+    if (node.firstElementChild) {
+      resizeObserver?.observe(node.firstElementChild);
+    }
 
     return () => {
       node.removeEventListener('scroll', handleGridScroll);
       window.removeEventListener('resize', syncGridViewport);
+      resizeObserver?.disconnect();
     };
   }, [compactLanes, laneScope, laneHeaderWidth, stepCellWidth, stepsPerPattern, visibleTrackSections.length]);
 
@@ -1142,16 +1169,18 @@ export const MainWorkspace = () => {
         return;
       }
 
-      const canScrollX = node.scrollWidth > node.clientWidth + 1;
-      if (!canScrollX) return;
-      const canScrollY = node.scrollHeight > node.clientHeight + 1;
-      const horizontalIntent = event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY) || !canScrollY;
-      if (!horizontalIntent) return;
-      const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
-      if (delta === 0) return;
-      const atStart = node.scrollLeft <= 0;
-      const atEnd = node.scrollLeft >= node.scrollWidth - node.clientWidth - 1;
-      if ((delta < 0 && atStart) || (delta > 0 && atEnd)) return;
+      const delta = getSequencerWheelPanDelta({
+        clientHeight: node.clientHeight,
+        clientWidth: node.clientWidth,
+        deltaX: event.deltaX,
+        deltaY: event.deltaY,
+        scrollHeight: node.scrollHeight,
+        scrollLeft: node.scrollLeft,
+        scrollTop: node.scrollTop,
+        scrollWidth: node.scrollWidth,
+        shiftKey: event.shiftKey,
+      });
+      if (delta === null) return;
       event.preventDefault();
       node.scrollLeft += delta;
     };
@@ -1317,6 +1346,81 @@ export const MainWorkspace = () => {
       behavior: 'smooth',
       left: Math.max(0, Math.min(maxGridScrollLeft, node.scrollLeft + direction * Math.max(180, node.clientWidth * 0.72))),
     });
+  };
+
+  const handleGridKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!event.shiftKey || event.target !== event.currentTarget) return;
+    if (event.key === 'PageUp' || event.key === 'PageDown') {
+      event.preventDefault();
+      scrollGridByViewport(event.key === 'PageUp' ? -1 : 1);
+      return;
+    }
+    if (event.key === 'Home' || event.key === 'End') {
+      event.preventDefault();
+      gridViewportRef.current?.scrollTo({
+        behavior: 'smooth',
+        left: event.key === 'Home' ? 0 : maxGridScrollLeft,
+      });
+    }
+  };
+
+  const scrollGridLanesByViewport = (direction: -1 | 1) => {
+    const node = gridViewportRef.current;
+    if (!node) return;
+
+    node.scrollTo({
+      behavior: 'smooth',
+      left: node.scrollLeft,
+      top: clampNumber(
+        node.scrollTop + direction * Math.max(120, node.clientHeight * 0.68),
+        0,
+        Math.max(0, node.scrollHeight - node.clientHeight),
+      ),
+    });
+  };
+
+  const scrollTrackIntoView = (trackId: string) => {
+    const node = gridViewportRef.current;
+    if (!node) return;
+    let lane: HTMLElement | null = null;
+    node.querySelectorAll('[data-seq-lane-row]').forEach((entry) => {
+      if (!lane && entry instanceof HTMLElement && entry.dataset.trackId === trackId) {
+        lane = entry;
+      }
+    });
+    if (!lane) return;
+
+    const nodeRect = node.getBoundingClientRect();
+    const laneRect = lane.getBoundingClientRect();
+    const stickyRulerHeight = 48;
+    const workingHeight = Math.max(laneRect.height, node.clientHeight - stickyRulerHeight);
+    const nextTop = node.scrollTop
+      + laneRect.top
+      - nodeRect.top
+      - stickyRulerHeight
+      - Math.max(0, (workingHeight - laneRect.height) * 0.42);
+    node.scrollTo({
+      behavior: 'smooth',
+      left: node.scrollLeft,
+      top: clampNumber(nextTop, 0, Math.max(0, node.scrollHeight - node.clientHeight)),
+    });
+  };
+
+  const revealSelectedTrack = () => {
+    if (!selectedTrackId) return;
+    const section = visibleTrackSections.find((entry) => (
+      entry.tracks.some((track) => track.id === selectedTrackId)
+    ));
+
+    if (section && collapsedGroups[section.key]) {
+      setCollapsedGroups((current) => ({ ...current, [section.key]: false }));
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => scrollTrackIntoView(selectedTrackId));
+      });
+      return;
+    }
+
+    scrollTrackIntoView(selectedTrackId);
   };
 
   const scrollAddLaneStrip = (direction: -1 | 1) => {
@@ -2356,7 +2460,7 @@ export const MainWorkspace = () => {
         stepCellWidth={stepCellWidth}
         stepsPerPattern={stepsPerPattern}
       />
-      <div className={`sequencer-panel-header flex flex-col gap-3 border-b border-[var(--border-soft)] px-5 py-3 md:flex-row md:items-center md:justify-between md:gap-4 ${editingMode ? 'md:hidden' : ''}`}>
+      <div className={`sequencer-panel-header flex flex-col gap-3 border-b border-[var(--border-soft)] px-5 py-3 md:flex-row md:items-center md:justify-between md:gap-4 ${editingMode ? 'hidden' : ''}`}>
         <div className="min-w-0 shrink-0">
           <div className="flex items-baseline gap-2">
             <div className="section-label">Sequencer</div>
@@ -2509,7 +2613,7 @@ export const MainWorkspace = () => {
           indefinite chain resolves to its max-height and paints past the
           panel background, the black-void-on-scroll bug. */}
       <div className={`sequencer-workspace-body flex flex-col overflow-visible md:min-h-0 md:flex-1 md:overflow-hidden xl:flex-row ${editingMode ? 'gap-0 p-0' : 'gap-3 p-4'}`}>
-        <div className="flex min-w-0 flex-col overflow-visible md:min-h-0 md:flex-1">
+        <div className="sequencer-main-column flex min-w-0 flex-col overflow-visible md:min-h-0 md:flex-1">
           <div className={`sequencer-compose-summary surface-panel-muted mb-2 px-4 py-2.5 sm:mb-3 sm:py-3 ${editingMode ? 'hidden' : ''}`}>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
@@ -2944,7 +3048,7 @@ export const MainWorkspace = () => {
             </div>
           )}
 
-          <div className="flex flex-col md:min-h-0 md:flex-1 md:overflow-hidden">
+          <div className="sequencer-canvas-stack flex flex-col md:min-h-0 md:flex-1 md:overflow-hidden">
             <TrackMinimap />
             {transportMode === 'SONG' && (
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -3027,12 +3131,16 @@ export const MainWorkspace = () => {
               />
             )}
             <div
+              aria-label="Pattern grid. Scroll vertically through lanes and horizontally through steps."
               className={`sequencer-grid-scroll overflow-auto rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] min-h-[clamp(340px,50vh,640px)] md:min-h-0 md:max-h-none md:flex-1 ${showSongGrid ? 'hidden' : ''}`}
               data-scrolled={gridScrollLeft > 1 ? 'true' : undefined}
+              onKeyDown={handleGridKeyDown}
               onPointerCancel={() => setPlacementCursor(null)}
               onPointerMove={handlePlacementMove}
               onPointerUp={handlePlacementCommit}
               ref={gridViewportRef}
+              role="region"
+              tabIndex={0}
             >
               <div style={{ minWidth: `${laneHeaderWidth + stepGridWidth}px` }}>
                 <div className="sticky top-0 z-10 flex h-12 border-b border-[var(--border-soft)] bg-[var(--bg-panel-strong)] backdrop-blur">
@@ -3180,6 +3288,8 @@ export const MainWorkspace = () => {
                     return (
                       <div
                         className={`group/lane flex border-b border-[var(--border-soft)] transition-colors ${selected ? 'bg-[rgba(125,211,252,0.06)]' : 'bg-transparent hover:bg-[rgba(255,255,255,0.02)]'}`}
+                        data-seq-lane-row
+                        data-track-id={track.id}
                         key={track.id}
                       >
                         <div
@@ -3629,50 +3739,106 @@ export const MainWorkspace = () => {
               ))}
               </div>
             </div>
-            {maxGridScrollLeft > 0 && !editingMode && (
-              <div className="sequencer-grid-scroll-controls mt-3 rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)] px-4 py-2.5">
-                <div className="flex min-w-0 items-center gap-3">
-                  <span className="section-label shrink-0">Grid scroll</span>
+            {!showSongGrid && (
+              <nav
+                aria-label="Pattern viewport navigation"
+                className="sequencer-viewport-dock"
+                data-editing-mode={editingMode ? 'true' : undefined}
+              >
+                <div className="sequencer-timeline-navigator">
+                  <span className="viewport-dock-label section-label">Timeline</span>
                   <button
-                    aria-label="Scroll the grid left one screen"
+                    aria-label="Scroll the timeline left one screen"
                     className="control-chip flex h-8 w-8 shrink-0 items-center justify-center"
+                    disabled={gridScrollLeft <= 1}
                     onClick={() => scrollGridByViewport(-1)}
+                    title="Earlier steps"
                     type="button"
                   >
                     <ChevronsLeft className="h-4 w-4" />
                   </button>
-                  <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-                    {visibleStepStart + 1}
+                  <span className="viewport-dock-readout font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--text-secondary)]">
+                    {visibleStepStart + 1}-{visibleStepEnd}
+                    <span className="text-[var(--text-tertiary)]"> / {stepsPerPattern}</span>
                   </span>
                   <input
-                    aria-label="Scroll the step grid horizontally"
-                    className="sonic-scroll-strip"
-                    max={maxGridScrollLeft}
+                    aria-label="Scroll horizontally through pattern steps"
+                    aria-valuetext={`Showing steps ${visibleStepStart + 1} through ${visibleStepEnd} of ${stepsPerPattern}`}
+                    className="sonic-scroll-strip timeline-scroll-strip"
+                    disabled={maxGridScrollLeft <= 1}
+                    max={Math.max(1, maxGridScrollLeft)}
                     min={0}
                     onChange={(event) => {
-                      if (!gridViewportRef.current) {
-                        return;
-                      }
-
-                      gridViewportRef.current.scrollLeft = Number(event.target.value);
+                      const node = gridViewportRef.current;
+                      if (!node) return;
+                      node.scrollLeft = Number(event.target.value);
                     }}
-                    step={Math.max(STEP_ZOOM_STEP, stepCellWidth)}
+                    step={Math.max(STEP_ZOOM_STEP, Math.round(stepCellWidth / 2))}
                     type="range"
-                    value={Math.min(gridScrollLeft, maxGridScrollLeft)}
+                    value={Math.min(gridScrollLeft, Math.max(1, maxGridScrollLeft))}
                   />
-                  <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-                    {Math.max(visibleStepStart + 1, visibleStepEnd)}
-                  </span>
                   <button
-                    aria-label="Scroll the grid right one screen"
+                    aria-label="Scroll the timeline right one screen"
                     className="control-chip flex h-8 w-8 shrink-0 items-center justify-center"
+                    disabled={gridScrollLeft >= maxGridScrollLeft - 1}
                     onClick={() => scrollGridByViewport(1)}
+                    title="Later steps"
                     type="button"
                   >
                     <ChevronsRight className="h-4 w-4" />
                   </button>
                 </div>
-              </div>
+                <div className="sequencer-lane-navigator">
+                  <span className="lane-position-label font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--text-tertiary)]">
+                    Lane {selectedVisibleLaneIndex >= 0 ? selectedVisibleLaneIndex + 1 : '-'} / {visibleLaneOrder.length}
+                  </span>
+                  <button
+                    aria-label="Scroll up through lanes"
+                    className="control-chip flex h-8 w-8 shrink-0 items-center justify-center"
+                    disabled={gridScrollTop <= 1}
+                    onClick={() => scrollGridLanesByViewport(-1)}
+                    title="Previous lanes"
+                    type="button"
+                  >
+                    <ArrowUp className="h-3.5 w-3.5" />
+                  </button>
+                  <input
+                    aria-label="Scroll vertically through lanes"
+                    className="sonic-scroll-strip lane-scroll-strip"
+                    disabled={maxGridScrollTop <= 1}
+                    max={Math.max(1, maxGridScrollTop)}
+                    min={0}
+                    onChange={(event) => {
+                      const node = gridViewportRef.current;
+                      if (!node) return;
+                      node.scrollTop = Number(event.target.value);
+                    }}
+                    step={24}
+                    type="range"
+                    value={Math.min(gridScrollTop, Math.max(1, maxGridScrollTop))}
+                  />
+                  <button
+                    aria-label="Reveal the selected lane"
+                    className="control-chip flex h-8 w-8 shrink-0 items-center justify-center"
+                    disabled={!selectedTrackId || selectedVisibleLaneIndex < 0}
+                    onClick={revealSelectedTrack}
+                    title="Center selected lane"
+                    type="button"
+                  >
+                    <LocateFixed className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    aria-label="Scroll down through lanes"
+                    className="control-chip flex h-8 w-8 shrink-0 items-center justify-center"
+                    disabled={gridScrollTop >= maxGridScrollTop - 1}
+                    onClick={() => scrollGridLanesByViewport(1)}
+                    title="Next lanes"
+                    type="button"
+                  >
+                    <ArrowDown className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </nav>
             )}
           </div>
 

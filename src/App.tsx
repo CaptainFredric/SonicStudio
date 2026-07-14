@@ -324,6 +324,7 @@ const CompactTransportBar = () => {
     stickyMobileTransport,
   } = useAudio();
   const isMobile = useMediaQuery('(max-width: 767px)');
+  const editingMode = useEditingMode();
   const isFirstImpression = useFirstImpression();
   const playTogglePendingRef = useRef(false);
   const recordingTogglePendingRef = useRef(false);
@@ -370,6 +371,7 @@ const CompactTransportBar = () => {
   return (
     <div
       className="compact-transport-bar"
+      data-editing-mode={editingMode ? 'true' : undefined}
       data-sticky={stickyMobileTransport ? undefined : 'off'}
       role="group"
       aria-label="Transport controls"
@@ -382,7 +384,7 @@ const CompactTransportBar = () => {
       {isFirstImpression && !isPlaying && (
         <span
           aria-live="polite"
-          className="rounded-full border border-[rgba(114,217,255,0.32)] bg-[rgba(114,217,255,0.08)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--accent-strong)]"
+          className="compact-first-play-hint rounded-full border border-[rgba(114,217,255,0.32)] bg-[rgba(114,217,255,0.08)] px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--accent-strong)]"
           role="note"
         >
           Tap play
@@ -425,8 +427,7 @@ const CompactTransportBar = () => {
         </button>
       </div>
       <div
-        className="overflow-hidden rounded-[3px] border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] px-1.5"
-        style={{ flex: '1 1 120px', minWidth: '96px', maxWidth: '720px' }}
+        className="compact-transport-spectrum overflow-hidden rounded-[3px] border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] px-1.5"
       >
         <TransportSpectrum active={isPlaying} />
       </div>
@@ -741,7 +742,10 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
   };
 
   return (
-    <div className="app-shell min-h-screen w-full antialiased text-[var(--text-primary)] md:flex md:flex-row md:h-screen md:min-h-0 md:overflow-hidden">
+    <div
+      className="app-shell min-h-screen w-full antialiased text-[var(--text-primary)] md:flex md:flex-row md:h-screen md:min-h-0 md:overflow-hidden"
+      data-editing-mode={editingMode ? 'true' : undefined}
+    >
       <MidiKeyboardBridge />
       <ToastStack toasts={toasts} onDismiss={dismissToast} />
       {isGuideOpen && !isLaunchpadOpen && !isShareOpen && !isRecordOpen && !isTranscribeOpen && (
@@ -819,7 +823,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
           </div>
         </>
       ) : null}
-      <div className="flex min-h-screen min-w-0 flex-col md:h-full md:min-h-0 md:flex-1 md:overflow-hidden">
+      <div className="studio-app-frame flex min-h-screen min-w-0 flex-col md:h-full md:min-h-0 md:flex-1 md:overflow-hidden">
         {!editingMode && (
           <div className="px-3 pt-3">
             <TopBar
