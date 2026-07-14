@@ -1,14 +1,26 @@
-import { createEmptyPattern, type NoteEvent } from '../../../project/schema';
+import {
+  createEmptyPattern,
+  MAX_STEPS_PER_PATTERN,
+  MIN_STEPS_PER_PATTERN,
+  type NoteEvent,
+} from '../../../project/schema';
+import {
+  mapBeatAfterPatternColumnDelete,
+  mapBeatAfterPatternColumnInsert,
+  transformPatternColumn,
+  type PatternColumnOperation,
+} from '../../../utils/patternColumnEditing';
 import type { EditorAction, EditorState } from '../editorTypes';
 import {
   cloneStepEvents,
   commitProject,
   resizeProjectTransport,
+  syncSongMarkers,
   transposeNote,
   updatePatternSteps,
   updateTrackAutomationPattern,
 } from './reducerUtils';
-import { updateTrack } from '../projectMutations';
+import { syncArrangerClips, updateTrack } from '../projectMutations';
 
 const normalizeSegmentSteps = (steps: NoteEvent[][], stepsPerPattern: number) => {
   const next = createEmptyPattern(stepsPerPattern);
@@ -177,6 +189,97 @@ const applyPatternStepBatch = (
   return commitProject(state, appliedSegment ? { ...resizedProject, tracks } : resizedProject);
 };
 
+const editPatternColumn = (
+  state: EditorState,
+  patternIndex: number,
+  stepIndex: number,
+  operation: PatternColumnOperation,
+) => {
+  const { present } = state.history;
+  const oldStepCount = present.transport.stepsPerPattern;
+  if (patternIndex < 0 || patternIndex >= present.transport.patternCount) return state;
+  if (stepIndex < 0 || stepIndex >= oldStepCount) return state;
+  if (operation === 'move-left' && stepIndex === 0) return state;
+  if (operation === 'move-right' && stepIndex === oldStepCount - 1) return state;
+  if (operation === 'delete' && oldStepCount <= MIN_STEPS_PER_PATTERN) return state;
+  if ((operation === 'duplicate' || operation === 'insert') && oldStepCount >= MAX_STEPS_PER_PATTERN) return state;
+
+  const structuralEdit = operation === 'delete' || operation === 'duplicate' || operation === 'insert';
+  const editedPatternIndices = structuralEdit
+    ? Array.from({ length: present.transport.patternCount }, (_, index) => index)
+    : [patternIndex];
+  let changed = structuralEdit;
+  const tracks = present.tracks.map((track) => {
+    const patterns = { ...track.patterns };
+    const automation = { ...track.automation };
+
+    editedPatternIndices.forEach((editedPatternIndex) => {
+      const patternOperation = operation === 'duplicate' && editedPatternIndex !== patternIndex
+        ? 'insert'
+        : operation;
+      const result = transformPatternColumn(
+        track.patterns[editedPatternIndex] ?? createEmptyPattern(oldStepCount),
+        track.automation?.[editedPatternIndex],
+        patternOperation,
+        stepIndex,
+        oldStepCount,
+      );
+      changed = changed || result.changed;
+      patterns[editedPatternIndex] = result.steps;
+      automation[editedPatternIndex] = result.automation;
+    });
+
+    return { ...track, automation, patterns };
+  });
+
+  if (!changed) return state;
+
+  const nextStepCount = operation === 'delete'
+    ? oldStepCount - 1
+    : operation === 'duplicate' || operation === 'insert'
+      ? oldStepCount + 1
+      : oldStepCount;
+  if (!structuralEdit) {
+    return commitProject(state, { ...present, tracks });
+  }
+
+  const mapBeat = operation === 'delete'
+    ? (beat: number) => mapBeatAfterPatternColumnDelete(beat, stepIndex, oldStepCount)
+    : (beat: number) => mapBeatAfterPatternColumnInsert(beat, stepIndex, oldStepCount);
+  const arrangerClips = syncArrangerClips(
+    present.arrangerClips.map((clip) => {
+      const nextStart = mapBeat(clip.startBeat);
+      const nextEnd = mapBeat(clip.startBeat + clip.beatLength);
+      return {
+        ...clip,
+        beatLength: Math.max(4, nextEnd - nextStart),
+        startBeat: nextStart,
+      };
+    }),
+    tracks,
+    present.transport.patternCount,
+  );
+  const songLength = arrangerClips.reduce(
+    (maxBeat, clip) => Math.max(maxBeat, clip.startBeat + clip.beatLength),
+    nextStepCount,
+  );
+  const markers = syncSongMarkers(
+    present.markers.map((marker) => ({ ...marker, beat: mapBeat(marker.beat) })),
+    songLength,
+  );
+
+  return commitProject(state, {
+    ...present,
+    arrangerClips,
+    markers,
+    tracks,
+    transport: {
+      ...present.transport,
+      stepsPerPattern: nextStepCount,
+    },
+  });
+};
+
 const humanizePattern = (
   state: EditorState,
   trackId: string,
@@ -270,6 +373,9 @@ export const handleTrackNotePatternAction = (state: EditorState, action: EditorA
 
     case 'APPLY_PATTERN_STEP_BATCH':
       return applyPatternStepBatch(state, action.patternIndex, action.segments, action.stepsPerPattern);
+
+    case 'EDIT_PATTERN_COLUMN':
+      return editPatternColumn(state, action.patternIndex, action.stepIndex, action.operation);
 
     case 'SHIFT_PATTERN':
       return shiftPattern(state, action.trackId, present.transport.currentPattern, action.direction);

@@ -78,19 +78,25 @@ import { TrackIcon, getTrackPersonality } from '../utils/trackPersonality';
 import { useMediaQuery } from '../utils/useMediaQuery';
 import { readString, writeString } from '../utils/safeStorage';
 import { TrackMinimap } from './TrackMinimap';
+import { PatternColumnMenu } from './PatternColumnMenu';
 import { openNotesPanel } from './notesPanelStore';
 import { setEditingMode, useEditingMode } from './editingModeStore';
 import { SongTimelineGrid } from './SongTimelineGrid';
 import { buildRunwayContinuation } from '../utils/runwayContinuation';
 import { getSequencerFollowScrollLeft, getSequencerWheelPanDelta } from '../utils/sequencerViewport';
 import { clearPatternRange, copyPatternRange, movePatternRange, writePatternRange } from '../utils/stepRangeEditing';
+import {
+  mapBeatAfterPatternColumnDelete,
+  mapBeatAfterPatternColumnInsert,
+  type PatternColumnOperation,
+} from '../utils/patternColumnEditing';
 
 const LANE_COLUMN_COLLAPSED_KEY = 'sonicstudio:lane-column-collapsed';
 const TRACK_MAP_OPEN_KEY = 'sonicstudio:track-map-open';
 const COMPOSE_TOOLS_KEY = 'sonicstudio:compose-tools-open';
 const ADD_LANE_OPEN_KEY = 'sonicstudio:add-lane-open';
 const SONG_FLATTEN_KEY = 'sonicstudio:song-flatten';
-import { MAX_STEPS_PER_PATTERN, type InstrumentType, type NoteEvent, type Track } from '../project/schema';
+import { MAX_STEPS_PER_PATTERN, MIN_STEPS_PER_PATTERN, type InstrumentType, type NoteEvent, type Track } from '../project/schema';
 
 const TRACK_BUTTONS = [
   { label: 'Kick', type: 'kick' as const, family: 'Rhythm' },
@@ -660,6 +666,7 @@ export const MainWorkspace = () => {
     createTrack,
     currentPattern,
     duplicateTrack,
+    editPatternColumn,
     loopRangeEndBeat,
     loopRangeStartBeat,
     moveTrack,
@@ -719,6 +726,7 @@ export const MainWorkspace = () => {
   const editingMode = useEditingMode();
   const toggleEditingMode = useCallback(() => setEditingMode(!editingMode), [editingMode]);
   const [selectedStepIndex, setSelectedStepIndex] = useState(0);
+  const [stepColumnMenuIndex, setStepColumnMenuIndex] = useState<number | null>(null);
   // A dragged step range (select mode), spanning one lane or several. Feeds
   // Cmd+D duplication and survives the drag, so you can grab a phrase and
   // stamp it forward.
@@ -1092,11 +1100,41 @@ export const MainWorkspace = () => {
       return;
     }
 
-    const pattern = selectedTrack.patterns[currentPattern] ?? Array.from({ length: stepsPerPattern }, () => []);
+    const pattern = selectedTrack.patterns[currentPattern] ?? [];
     const firstActiveStep = pattern.findIndex((step) => step.length > 0);
     setSelectedStepIndex(firstActiveStep >= 0 ? firstActiveStep : 0);
     setSelectedStepNoteIndex(0);
-  }, [currentPattern, selectedTrack?.id, stepsPerPattern]);
+  }, [currentPattern, selectedTrack?.id]);
+
+  useEffect(() => {
+    setSelectedStepIndex((current) => Math.min(current, Math.max(0, stepsPerPattern - 1)));
+  }, [stepsPerPattern]);
+
+  useEffect(() => {
+    if (stepColumnMenuIndex === null) {
+      return undefined;
+    }
+
+    const closeOnOutsidePointer = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Element && target.closest('[data-step-column-menu-root="true"]')) {
+        return;
+      }
+      setStepColumnMenuIndex(null);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setStepColumnMenuIndex(null);
+      }
+    };
+
+    window.addEventListener('pointerdown', closeOnOutsidePointer);
+    window.addEventListener('keydown', closeOnEscape);
+    return () => {
+      window.removeEventListener('pointerdown', closeOnOutsidePointer);
+      window.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [stepColumnMenuIndex]);
 
   useEffect(() => {
     if (selectedStep.length === 0) {
@@ -1134,6 +1172,9 @@ export const MainWorkspace = () => {
       ) {
         followPlayheadRef.current = false;
         setFollowPlayhead(false);
+      }
+      if (movedHorizontally) {
+        setStepColumnMenuIndex(null);
       }
     };
 
@@ -1507,6 +1548,54 @@ export const MainWorkspace = () => {
     setPatternLength(nextLength);
     return true;
   }, [applyPatternStepBatch, currentPattern, setPatternLength, tracks]);
+
+  const runPatternColumnOperation = useCallback((stepIndex: number, operation: PatternColumnOperation) => {
+    if (operation === 'move-left' && stepIndex === 0) return;
+    if (operation === 'move-right' && stepIndex === stepsPerPattern - 1) return;
+    if (operation === 'delete' && stepsPerPattern <= MIN_STEPS_PER_PATTERN) return;
+    if ((operation === 'duplicate' || operation === 'insert') && stepsPerPattern >= MAX_STEPS_PER_PATTERN) return;
+
+    const structuralEdit = operation === 'delete' || operation === 'duplicate' || operation === 'insert';
+    const nextStepCount = operation === 'delete'
+      ? stepsPerPattern - 1
+      : operation === 'duplicate' || operation === 'insert'
+        ? stepsPerPattern + 1
+        : stepsPerPattern;
+    const nextSelectedStep = operation === 'move-left'
+      ? stepIndex - 1
+      : operation === 'move-right' || operation === 'duplicate' || operation === 'insert'
+        ? stepIndex + 1
+        : Math.min(stepIndex, nextStepCount - 1);
+
+    editPatternColumn(currentPattern, stepIndex, operation);
+
+    if (structuralEdit && loopRangeStartBeat !== null && loopRangeEndBeat !== null) {
+      const mapBeat = operation === 'delete'
+        ? (beat: number) => mapBeatAfterPatternColumnDelete(beat, stepIndex, stepsPerPattern)
+        : (beat: number) => mapBeatAfterPatternColumnInsert(beat, stepIndex, stepsPerPattern);
+      const nextLoopStart = mapBeat(loopRangeStartBeat);
+      const nextLoopEnd = mapBeat(loopRangeEndBeat);
+      if (nextLoopEnd > nextLoopStart) {
+        setLoopRange(nextLoopStart, nextLoopEnd);
+      } else {
+        setLoopRange(null, null);
+      }
+    }
+
+    setSelectedStepIndex(Math.max(0, nextSelectedStep));
+    setSelectedStepNoteIndex(0);
+    setStepRange(null);
+    setStepRangeMovePreview(null);
+    stepRangeMoveGestureRef.current = null;
+    setStepColumnMenuIndex(null);
+  }, [
+    currentPattern,
+    editPatternColumn,
+    loopRangeEndBeat,
+    loopRangeStartBeat,
+    setLoopRange,
+    stepsPerPattern,
+  ]);
 
   // A selection range only makes sense within the pattern and mode it was
   // dragged in; switching either drops it.
@@ -3192,18 +3281,52 @@ export const MainWorkspace = () => {
                     )}
                   </div>
                   <div className="flex" style={{ width: `${stepGridWidth}px` }}>
-                    {Array.from({ length: stepsPerPattern }, (_, stepIndex) => stepIndex).map((stepIndex) => (
-                      <button
-                        className={`shrink-0 border-r border-[var(--border-soft)] flex items-center justify-center ${stepIndex % 4 === 0 ? 'bg-[rgba(255,255,255,0.035)]' : ''} ${selectedStepIndex === stepIndex ? 'text-[var(--accent-strong)]' : ''}`}
-                        key={stepIndex}
-                        onClick={() => selectStep(stepIndex)}
-                        style={{ width: `${stepCellWidth}px` }}
-                      >
-                        <span className={`font-mono text-[11px] ${stepIndex % 4 === 0 ? 'text-[var(--text-primary)]' : 'text-[var(--text-tertiary)]'}`}>
-                          {stepIndex + 1}
-                        </span>
-                      </button>
-                    ))}
+                    {Array.from({ length: stepsPerPattern }, (_, stepIndex) => stepIndex).map((stepIndex) => {
+                      const menuOpen = stepColumnMenuIndex === stepIndex;
+                      const selected = selectedStepIndex === stepIndex;
+                      return (
+                        <div
+                          className={`step-ruler-cell relative shrink-0 border-r border-[var(--border-soft)] ${stepIndex % 4 === 0 ? 'bg-[rgba(255,255,255,0.035)]' : ''}`}
+                          data-menu-open={menuOpen ? 'true' : undefined}
+                          data-selected={selected ? 'true' : undefined}
+                          data-step-column-menu-root="true"
+                          key={stepIndex}
+                          onContextMenu={(event) => {
+                            event.preventDefault();
+                            selectStep(stepIndex);
+                            setStepColumnMenuIndex(stepIndex);
+                          }}
+                          style={{ width: `${stepCellWidth}px` }}
+                        >
+                          <button
+                            aria-label={`Select step ${stepIndex + 1}`}
+                            className="flex h-full w-full items-center justify-center"
+                            onClick={() => {
+                              selectStep(stepIndex);
+                              setStepColumnMenuIndex(null);
+                            }}
+                            title={`Step ${stepIndex + 1}. Right-click or use the menu for whole-column tools.`}
+                            type="button"
+                          >
+                            <span className={`font-mono text-[11px] ${selected ? 'text-[var(--accent-strong)]' : stepIndex % 4 === 0 ? 'text-[var(--text-primary)]' : 'text-[var(--text-tertiary)]'}`}>
+                              {stepIndex + 1}
+                            </span>
+                          </button>
+                          <PatternColumnMenu
+                            currentPattern={currentPattern}
+                            onOpenChange={(open) => {
+                              if (open) selectStep(stepIndex);
+                              setStepColumnMenuIndex(open ? stepIndex : null);
+                            }}
+                            onOperation={(operation) => runPatternColumnOperation(stepIndex, operation)}
+                            open={menuOpen}
+                            selected={selected}
+                            stepIndex={stepIndex}
+                            stepsPerPattern={stepsPerPattern}
+                          />
+                        </div>
+                      );
+                    })}
                     <button
                       aria-label={patternLengthPreview
                         ? `Release to set the pattern to ${patternLengthPreview.steps} steps${patternLengthPreview.fill ? ' and fill the new space' : ''}`

@@ -376,6 +376,215 @@ describe('editorReducer', () => {
     expect(undone.history.present.transport.stepsPerPattern).toBe(originalLength);
   });
 
+  it('moves a complete time column across every lane and its automation', () => {
+    const state = createEditorState('blank-grid');
+    const [firstTrack, secondTrack] = state.history.present.tracks;
+    if (!firstTrack || !secondTrack) {
+      throw new Error('Expected at least two tracks');
+    }
+
+    const seededState: EditorState = {
+      ...state,
+      history: {
+        future: [],
+        past: [],
+        present: {
+          ...state.history.present,
+          tracks: state.history.present.tracks.map((track) => ({
+            ...track,
+            automation: {
+              ...track.automation,
+              0: {
+                level: Array.from({ length: 16 }, (_, index) => (index === 4 ? 0.84 : index === 5 ? 0.31 : 0.5)),
+                tone: Array.from({ length: 16 }, (_, index) => (index === 4 ? 0.18 : index === 5 ? 0.72 : 0.5)),
+              },
+            },
+            patterns: {
+              ...track.patterns,
+              0: Array.from({ length: 16 }, (_, index) => (
+                index === 4
+                  ? [{ gate: 1, note: track.id === firstTrack.id ? 'C4' : 'C2', velocity: 0.7 }]
+                  : index === 5
+                    ? [{ gate: 1, note: track.id === firstTrack.id ? 'D4' : 'D2', velocity: 0.6 }]
+                    : []
+              )),
+            },
+          })),
+        },
+      },
+    };
+
+    const moved = editorReducer(seededState, {
+      type: 'EDIT_PATTERN_COLUMN',
+      operation: 'move-right',
+      patternIndex: 0,
+      stepIndex: 4,
+    });
+
+    expect(moved.history.past).toHaveLength(1);
+    expect(moved.history.present.tracks[0]?.patterns[0]?.[4]?.[0]?.note).toBe('D4');
+    expect(moved.history.present.tracks[0]?.patterns[0]?.[5]?.[0]?.note).toBe('C4');
+    expect(moved.history.present.tracks[1]?.patterns[0]?.[5]?.[0]?.note).toBe('C2');
+    expect(moved.history.present.tracks[0]?.automation[0]?.level.slice(4, 6)).toEqual([0.31, 0.84]);
+    expect(moved.history.present.tracks[0]?.automation[0]?.tone.slice(4, 6)).toEqual([0.72, 0.18]);
+    expect(editorReducer(moved, { type: 'UNDO' }).history.present).toEqual(seededState.history.present);
+  });
+
+  it('clears a time column without changing the pattern length or other banks', () => {
+    const state = createEditorState('blank-grid');
+    const seededState: EditorState = {
+      ...state,
+      history: {
+        future: [],
+        past: [],
+        present: {
+          ...state.history.present,
+          tracks: state.history.present.tracks.map((track) => ({
+            ...track,
+            automation: {
+              ...track.automation,
+              0: {
+                level: Array.from({ length: 16 }, (_, index) => (index === 6 ? 0.91 : 0.5)),
+                tone: Array.from({ length: 16 }, (_, index) => (index === 6 ? 0.12 : 0.5)),
+              },
+            },
+            patterns: {
+              ...track.patterns,
+              0: Array.from({ length: 16 }, (_, index) => (
+                index === 6 ? [{ gate: 1, note: 'C4', velocity: 0.7 }] : []
+              )),
+              1: Array.from({ length: 16 }, (_, index) => (
+                index === 6 ? [{ gate: 1, note: 'G4', velocity: 0.7 }] : []
+              )),
+            },
+          })),
+        },
+      },
+    };
+
+    const cleared = editorReducer(seededState, {
+      type: 'EDIT_PATTERN_COLUMN',
+      operation: 'clear',
+      patternIndex: 0,
+      stepIndex: 6,
+    });
+
+    expect(cleared.history.present.transport.stepsPerPattern).toBe(16);
+    expect(cleared.history.present.tracks.every((track) => track.patterns[0]?.[6]?.length === 0)).toBe(true);
+    expect(cleared.history.present.tracks.every((track) => track.patterns[1]?.[6]?.[0]?.note === 'G4')).toBe(true);
+    expect(cleared.history.present.tracks[0]?.automation[0]?.level[6]).toBe(0.5);
+    expect(cleared.history.present.tracks[0]?.automation[0]?.tone[6]).toBe(0.5);
+    expect(cleared.history.past).toHaveLength(1);
+  });
+
+  it('deletes a time column from every bank and compresses song timing', () => {
+    const state = createEditorState('blank-grid');
+    const resized = editorReducer(state, { type: 'SET_STEPS_PER_PATTERN', stepsPerPattern: 22 });
+    const firstTrack = resized.history.present.tracks[0];
+    if (!firstTrack) {
+      throw new Error('Expected a track');
+    }
+    const makePattern = (deletedNote: string, shiftedNote: string) => Array.from({ length: 22 }, (_, index) => (
+      index === 19
+        ? [{ gate: 1, note: deletedNote, velocity: 0.6 }]
+        : index === 20
+          ? [{ gate: 1, note: shiftedNote, velocity: 0.8 }]
+          : []
+    ));
+    const seededState: EditorState = {
+      ...resized,
+      history: {
+        future: [],
+        past: [],
+        present: {
+          ...resized.history.present,
+          arrangerClips: [
+            { beatLength: 22, id: 'clip-a', patternIndex: 0, startBeat: 0, trackId: firstTrack.id },
+            { beatLength: 22, id: 'clip-b', patternIndex: 1, startBeat: 22, trackId: firstTrack.id },
+          ],
+          markers: [{ beat: 22, id: 'marker-b', name: 'Second section' }],
+          tracks: resized.history.present.tracks.map((track) => ({
+            ...track,
+            automation: {
+              ...track.automation,
+              0: {
+                level: Array.from({ length: 22 }, (_, index) => (index === 19 ? 0.9 : index === 20 ? 0.24 : 0.5)),
+                tone: Array.from({ length: 22 }, () => 0.5),
+              },
+            },
+            patterns: {
+              ...track.patterns,
+              0: makePattern('C4', 'D4'),
+              1: makePattern('E4', 'F4'),
+            },
+          })),
+        },
+      },
+    };
+
+    const deleted = editorReducer(seededState, {
+      type: 'EDIT_PATTERN_COLUMN',
+      operation: 'delete',
+      patternIndex: 0,
+      stepIndex: 19,
+    });
+
+    expect(deleted.history.present.transport.stepsPerPattern).toBe(21);
+    expect(deleted.history.present.tracks.every((track) => track.patterns[0]?.length === 21)).toBe(true);
+    expect(deleted.history.present.tracks[0]?.patterns[0]?.[19]?.[0]?.note).toBe('D4');
+    expect(deleted.history.present.tracks[0]?.patterns[1]?.[19]?.[0]?.note).toBe('F4');
+    expect(deleted.history.present.tracks[0]?.automation[0]?.level[19]).toBe(0.24);
+    expect(deleted.history.present.arrangerClips.map((clip) => [clip.startBeat, clip.beatLength])).toEqual([[0, 21], [21, 21]]);
+    expect(deleted.history.present.markers[0]?.beat).toBe(21);
+    expect(deleted.history.past).toHaveLength(1);
+    expect(editorReducer(deleted, { type: 'UNDO' }).history.present).toEqual(seededState.history.present);
+  });
+
+  it('duplicates one bank column while inserting blank time into the other banks', () => {
+    const state = createEditorState('blank-grid');
+    const firstTrack = state.history.present.tracks[0];
+    if (!firstTrack) {
+      throw new Error('Expected a track');
+    }
+    const seededState: EditorState = {
+      ...state,
+      history: {
+        future: [],
+        past: [],
+        present: {
+          ...state.history.present,
+          arrangerClips: [{ beatLength: 16, id: 'clip-a', patternIndex: 0, startBeat: 0, trackId: firstTrack.id }],
+          tracks: state.history.present.tracks.map((track) => ({
+            ...track,
+            patterns: {
+              ...track.patterns,
+              0: Array.from({ length: 16 }, (_, index) => (
+                index === 3 ? [{ gate: 1, note: 'C4', velocity: 0.7 }] : []
+              )),
+              1: Array.from({ length: 16 }, (_, index) => (
+                index === 4 ? [{ gate: 1, note: 'G4', velocity: 0.7 }] : []
+              )),
+            },
+          })),
+        },
+      },
+    };
+
+    const duplicated = editorReducer(seededState, {
+      type: 'EDIT_PATTERN_COLUMN',
+      operation: 'duplicate',
+      patternIndex: 0,
+      stepIndex: 3,
+    });
+
+    expect(duplicated.history.present.transport.stepsPerPattern).toBe(17);
+    expect(duplicated.history.present.tracks[0]?.patterns[0]?.slice(3, 5).map((step) => step[0]?.note)).toEqual(['C4', 'C4']);
+    expect(duplicated.history.present.tracks[0]?.patterns[1]?.[4]).toEqual([]);
+    expect(duplicated.history.present.tracks[0]?.patterns[1]?.[5]?.[0]?.note).toBe('G4');
+    expect(duplicated.history.present.arrangerClips[0]?.beatLength).toBe(17);
+    expect(duplicated.history.past).toHaveLength(1);
+  });
+
   it('records MIDI notes additively without toggling existing notes off', () => {
     const state = createEditorState('blank-grid');
     const leadTrackId = state.history.present.tracks.find((track) => track.type === 'lead')?.id;

@@ -77,6 +77,7 @@ import {
   type SaveStatus,
 } from '../services/workflowTypes';
 import { type RenderTargetProfileId } from '../utils/export';
+import type { PatternColumnOperation } from '../utils/patternColumnEditing';
 import { createEditorDispatchers } from './editor/editorDispatchers';
 import { createKeyboardShortcutHandler } from './editor/keyboardShortcuts';
 import { createRenderController } from './editor/renderController';
@@ -108,6 +109,7 @@ interface AudioContextType {
   applyMasterSnapshot: (snapshotId: string) => void;
   applyPatternSegment: (trackId: string, patternIndex: number, steps: NoteEvent[][], automation?: PatternAutomation) => void;
   applyPatternStepBatch: (patternIndex: number, segments: Array<{ steps: NoteEvent[][]; trackId: string }>, stepsPerPattern?: number) => void;
+  editPatternColumn: (patternIndex: number, stepIndex: number, operation: PatternColumnOperation) => void;
   arrangerClips: ArrangementClip[];
   bounceHistory: BounceHistoryEntry[];
   bpm: number;

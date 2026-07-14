@@ -12,6 +12,7 @@ import type {
   TrackSource,
   TransportMode,
 } from '../../project/schema';
+import type { PatternColumnOperation } from '../../utils/patternColumnEditing';
 import type { EditorAction } from './editorTypes';
 import type { SongFormId } from './songFormDefinitions';
 
@@ -37,6 +38,7 @@ export const createEditorDispatchers = (dispatch: Dispatch<EditorAction>) => ({
   duplicateArrangerClip: (clipId: string) => dispatch({ type: 'DUPLICATE_ARRANGER_CLIP', clipId }),
   duplicateSongRange: (startBeat: number, endBeat: number, label?: string) => dispatch({ type: 'DUPLICATE_SONG_RANGE', endBeat, label, startBeat }),
   duplicateTrack: (trackId: string) => dispatch({ type: 'DUPLICATE_TRACK', trackId }),
+  editPatternColumn: (patternIndex: number, stepIndex: number, operation: PatternColumnOperation) => dispatch({ type: 'EDIT_PATTERN_COLUMN', operation, patternIndex, stepIndex }),
   loopArrangerClip: (clipId: string, copies: number) => dispatch({ type: 'LOOP_ARRANGER_CLIP', clipId, copies }),
   makeClipPatternUnique: (clipId: string) => dispatch({ type: 'MAKE_CLIP_PATTERN_UNIQUE', clipId }),
   moveTrack: (trackId: string, direction: 'up' | 'down') => dispatch({ type: 'MOVE_TRACK', direction, trackId }),
