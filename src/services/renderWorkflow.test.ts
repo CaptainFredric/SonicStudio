@@ -36,8 +36,10 @@ describe('renderWorkflow', () => {
     });
 
     expect(payload).not.toBeNull();
+    expect(payload?.project.arrangementLength).toBe(12);
     expect(payload?.project.arrangerClips.every((clip) => clip.startBeat >= 0)).toBe(true);
     expect(payload?.project.arrangerClips.every((clip) => clip.startBeat + clip.beatLength <= 12)).toBe(true);
+    expect(payload?.project.arrangerClips.some((clip) => clip.startBeat === 0 && clip.patternOffset === 8)).toBe(true);
     expect(payload?.project.markers).toEqual([{ beat: 11, id: 'marker-b', name: 'Drop' }]);
   });
 

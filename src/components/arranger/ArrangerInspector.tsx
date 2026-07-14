@@ -2,7 +2,7 @@ import React from 'react';
 import { Braces, Copy, Layers3 } from 'lucide-react';
 
 import type { SongFormId } from '../../context/editor/songFormDefinitions';
-import { type ArrangementClip, type NoteEvent, type SongMarker, type Track } from '../../project/schema';
+import { type ArrangementClip, type NoteEvent, type SavedSongSection, type Track } from '../../project/schema';
 import { AutomationPanel } from './inspector/AutomationPanel';
 import { ComposePanel } from './inspector/ComposePanel';
 import { ShapePanel } from './inspector/ShapePanel';
@@ -16,13 +16,18 @@ import type {
 
 interface ArrangerInspectorProps {
   applySongForm: (formId: SongFormId) => void;
+  clearSongRange: (startBeat: number, endBeat: number) => void;
   collapsedGroups: Record<LaneSectionKey, boolean>;
   composerStepCount: number;
   composerSteps: NoteEvent[][];
   createSongMarker: (beat: number, name: string) => void;
+  currentPatternCount: number;
   currentStep: number;
+  deleteSongRange: (startBeat: number, endBeat: number) => void;
   duplicateArrangerClip: (clipId: string) => void;
   duplicateSongRange: (startBeat: number, endBeat: number, label: string) => void;
+  insertBlankSongSection: (atBeat: number, beatLength: number, name: string) => void;
+  insertSavedSongSection: (savedSectionId: string, atBeat: number) => void;
   inspectorTab: InspectorTab;
   isOpen: boolean;
   isStepMappedSampleTrack: boolean;
@@ -32,13 +37,17 @@ interface ArrangerInspectorProps {
   loopRangeEndBeat: number | null;
   loopRangeStartBeat: number | null;
   makeClipPatternUnique: (clipId: string) => void;
-  markerCount: number;
   onBeginPaint: (note: string, stepIndex: number, isActive: boolean) => void;
   onBeginSlicePaint: (stepIndex: number, sliceIndex: number | null, isActive: boolean) => void;
   onContinuePaint: (note: string, stepIndex: number) => void;
   onContinueSlicePaint: (stepIndex: number) => void;
+  onDeleteSavedSection: (savedSectionId: string) => void;
   onJumpToBoundary: (step: number) => void;
+  onMoveSongMarker: (markerId: string, beat: number) => void;
   onRemoveSongMarker: (markerId: string) => void;
+  onRenameSavedSection: (savedSectionId: string, name: string) => void;
+  onRenameSongMarker: (markerId: string, name: string) => void;
+  onSaveSongRange: (startBeat: number, endBeat: number, name: string) => void;
   onSelectSampleSlice: (trackId: string, sliceIndex: number) => void;
   onSetActiveView: (view: 'PIANO_ROLL') => void;
   onSetCurrentPattern: (patternIndex: number) => void;
@@ -50,10 +59,10 @@ interface ArrangerInspectorProps {
   onToggleCollapsedGroup: (key: LaneSectionKey) => void;
   onToggleClipPatternStep: (clipId: string, stepIndex: number, note: string, mode?: 'add' | 'remove') => void;
   onTransformClipPattern: (clipId: string, transform: string, amount?: number) => void;
-  onUpdateSongMarker: (markerId: string, updates: Partial<SongMarker>) => void;
   phraseRows: string[];
   phraseSummary: string;
   removeArrangerClip: (clipId: string) => void;
+  savedSections: SavedSongSection[];
   sectionRanges: SectionRange[];
   selectedAutomationLevel: number;
   selectedAutomationTone: number;
@@ -69,7 +78,7 @@ interface ArrangerInspectorProps {
   selectedPhraseStep: NoteEvent[];
   selectedPhraseStepIndex: number;
   setClipPatternStepSlice: (clipId: string, stepIndex: number, sliceIndex: number | null) => void;
-  songMarkers: SongMarker[];
+  songLengthInBeats: number;
   splitArrangerClip: (clipId: string, splitBeat: number) => void;
   splitBeat: number | null;
   updateClipPatternAutomationStep: (
@@ -88,13 +97,18 @@ interface ArrangerInspectorProps {
 
 export const ArrangerInspector = ({
   applySongForm,
+  clearSongRange,
   collapsedGroups,
   composerStepCount,
   composerSteps,
   createSongMarker,
+  currentPatternCount,
   currentStep,
+  deleteSongRange,
   duplicateArrangerClip,
   duplicateSongRange,
+  insertBlankSongSection,
+  insertSavedSongSection,
   inspectorTab,
   isOpen,
   isStepMappedSampleTrack,
@@ -104,13 +118,17 @@ export const ArrangerInspector = ({
   loopRangeEndBeat,
   loopRangeStartBeat,
   makeClipPatternUnique,
-  markerCount,
   onBeginPaint,
   onBeginSlicePaint,
   onContinuePaint,
   onContinueSlicePaint,
+  onDeleteSavedSection,
   onJumpToBoundary,
+  onMoveSongMarker,
   onRemoveSongMarker,
+  onRenameSavedSection,
+  onRenameSongMarker,
+  onSaveSongRange,
   onSelectSampleSlice,
   onSetActiveView,
   onSetCurrentPattern,
@@ -122,10 +140,10 @@ export const ArrangerInspector = ({
   onToggleCollapsedGroup,
   onToggleClipPatternStep,
   onTransformClipPattern,
-  onUpdateSongMarker,
   phraseRows,
   phraseSummary,
   removeArrangerClip,
+  savedSections,
   sectionRanges,
   selectedAutomationLevel,
   selectedAutomationTone,
@@ -138,7 +156,7 @@ export const ArrangerInspector = ({
   selectedPhraseStep,
   selectedPhraseStepIndex,
   setClipPatternStepSlice,
-  songMarkers,
+  songLengthInBeats,
   splitArrangerClip,
   splitBeat,
   updateClipPatternAutomationStep,
@@ -172,22 +190,31 @@ export const ArrangerInspector = ({
       {inspectorTab === 'SECTIONS' ? (
         <SongToolsPanel
           applySongForm={applySongForm}
+          clearSongRange={clearSongRange}
           collapsedGroups={collapsedGroups}
           createSongMarker={createSongMarker}
+          currentPatternCount={currentPatternCount}
           currentStep={currentStep}
+          deleteSongRange={deleteSongRange}
           duplicateSongRange={duplicateSongRange}
+          insertBlankSongSection={insertBlankSongSection}
+          insertSavedSongSection={insertSavedSongSection}
           laneSections={laneSections}
           loopRangeEndBeat={loopRangeEndBeat}
           loopRangeStartBeat={loopRangeStartBeat}
-          markerCount={markerCount}
+          onDeleteSavedSection={onDeleteSavedSection}
           onJumpToBoundary={onJumpToBoundary}
+          onMoveSongMarker={onMoveSongMarker}
           onRemoveSongMarker={onRemoveSongMarker}
+          onRenameSavedSection={onRenameSavedSection}
+          onRenameSongMarker={onRenameSongMarker}
+          onSaveSongRange={onSaveSongRange}
           onSetLoopRange={onSetLoopRange}
           onToggleCollapsedGroup={onToggleCollapsedGroup}
-          onUpdateSongMarker={onUpdateSongMarker}
+          savedSections={savedSections}
           sectionRanges={sectionRanges}
           selectedClip={selectedClip}
-          songMarkers={songMarkers}
+          songLengthInBeats={songLengthInBeats}
         />
       ) : selectedClip && selectedClipTrack ? (
         <div className="space-y-4 pt-4">

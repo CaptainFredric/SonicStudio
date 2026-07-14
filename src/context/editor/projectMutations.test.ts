@@ -5,6 +5,7 @@ import {
   duplicateArrangerClipProject,
   makeClipPatternUniqueProject,
   splitArrangerClipProject,
+  syncArrangerClips,
 } from './projectMutations';
 
 const createLinkedClipProject = (patternCount = 4): { clipId: string; project: Project } => {
@@ -65,9 +66,22 @@ describe('projectMutations', () => {
     expect(trailingClip).toMatchObject({
       beatLength: sourceClip.beatLength - 8,
       patternIndex: sourceClip.patternIndex,
+      patternOffset: 8,
       startBeat: sourceClip.startBeat + 8,
       trackId: sourceClip.trackId,
     });
+  });
+
+  it('keeps clips addressable beyond the old 4096-step timeline ceiling', () => {
+    const project = createProjectFromTemplate('night-transit');
+    const sourceClip = project.arrangerClips[0];
+    const synced = syncArrangerClips(
+      [{ ...sourceClip, startBeat: 5000 }],
+      project.tracks,
+      project.transport.patternCount,
+    );
+
+    expect(synced[0].startBeat).toBe(5000);
   });
 
   it('clamps split requests to keep both halves viable', () => {

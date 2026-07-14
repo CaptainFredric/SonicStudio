@@ -99,14 +99,21 @@ export const buildWindowRenderProject = (
   const clippedProject = cloneProject(project);
   clippedProject.arrangerClips = clippedProject.arrangerClips
     .filter((clip) => clip.startBeat < normalizedEnd && clip.startBeat + clip.beatLength > normalizedStart)
-    .map((clip) => ({
-      ...clip,
-      beatLength: Math.max(
-        1,
-        Math.min(clip.startBeat + clip.beatLength, normalizedEnd) - Math.max(clip.startBeat, normalizedStart),
-      ),
-      startBeat: Math.max(clip.startBeat, normalizedStart) - normalizedStart,
-    }));
+    .map((clip) => {
+      const overlapStart = Math.max(clip.startBeat, normalizedStart);
+      return {
+        ...clip,
+        beatLength: Math.max(
+          1,
+          Math.min(clip.startBeat + clip.beatLength, normalizedEnd) - overlapStart,
+        ),
+        patternOffset: (
+          (clip.patternOffset ?? 0) + overlapStart - clip.startBeat
+        ) % project.transport.stepsPerPattern,
+        startBeat: overlapStart - normalizedStart,
+      };
+    });
+  clippedProject.arrangementLength = normalizedEnd - normalizedStart;
   clippedProject.markers = clippedProject.markers
     .filter((marker) => marker.beat >= normalizedStart && marker.beat < normalizedEnd)
     .map((marker) => ({

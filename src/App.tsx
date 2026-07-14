@@ -335,6 +335,8 @@ const CompactTransportBar = () => {
     setSuperSonicMode,
     uiSoundsEnabled,
     stickyMobileTransport,
+    transportMode,
+    setTransportMode,
   } = useAudio();
   const isMobile = useMediaQuery('(max-width: 767px)');
   const editingMode = useEditingMode();
@@ -403,6 +405,28 @@ const CompactTransportBar = () => {
           Tap play
         </span>
       )}
+      <div className="compact-transport-mode" role="group" aria-label="Playback mode">
+        <button
+          aria-pressed={transportMode === 'PATTERN'}
+          className="compact-mode-btn"
+          data-active={transportMode === 'PATTERN' ? 'true' : undefined}
+          onClick={() => setTransportMode('PATTERN')}
+          title="Play and edit the current pattern"
+          type="button"
+        >
+          Pattern
+        </button>
+        <button
+          aria-pressed={transportMode === 'SONG'}
+          className="compact-mode-btn"
+          data-active={transportMode === 'SONG' ? 'true' : undefined}
+          onClick={() => setTransportMode('SONG')}
+          title="Play and edit the full arrangement"
+          type="button"
+        >
+          Song
+        </button>
+      </div>
       <div className="compact-transport-group">
         <button
           aria-label={isPlaying ? 'Pause playback' : 'Play'}

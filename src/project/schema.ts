@@ -77,6 +77,7 @@ export interface ArrangementClip {
   id: string;
   trackId: string;
   patternIndex: number;
+  patternOffset?: number;
   startBeat: number;
   beatLength: number;
 }
@@ -85,6 +86,33 @@ export interface SongMarker {
   beat: number;
   id: string;
   name: string;
+}
+
+export interface SavedSongSectionClip {
+  automation: PatternAutomation;
+  beatLength: number;
+  pattern: StepValue[];
+  patternOffset: number;
+  relativeStartBeat: number;
+  sourcePatternIndex: number;
+  sourceTrackId: string;
+  sourceTrackName: string;
+  sourceTrackType: InstrumentType;
+}
+
+export interface SavedSongSectionMarker {
+  beat: number;
+  name: string;
+}
+
+export interface SavedSongSection {
+  beatLength: number;
+  clips: SavedSongSectionClip[];
+  createdAt: string;
+  id: string;
+  markers: SavedSongSectionMarker[];
+  name: string;
+  stepsPerPattern: number;
 }
 
 export interface PatternAutomation {
@@ -230,10 +258,12 @@ export interface BounceHistoryEntry {
 }
 
 export interface Project {
+  arrangementLength: number;
   bounceHistory: BounceHistoryEntry[];
   master: MasterSettings;
   masterSnapshots: MasterSnapshot[];
   metadata: ProjectMetadata;
+  savedSongSections: SavedSongSection[];
   trackSnapshots: TrackSnapshot[];
   transport: TransportSettings;
   tracks: Track[];
@@ -262,9 +292,15 @@ export const MAX_PATTERN_COUNT = 16;
 export const MAX_STEPS_PER_PATTERN = 4096;
 export const MIN_PATTERN_COUNT = 1;
 export const MIN_STEPS_PER_PATTERN = 8;
-export const PROJECT_SCHEMA_VERSION = 12;
+export const PROJECT_SCHEMA_VERSION = 13;
+export const MAX_ARRANGER_BEAT_POSITION = 99999;
 
-const MAX_ARRANGER_BEAT_POSITION = 99999;
+export const getProjectSongLength = (project: Project): number => (
+  project.arrangerClips.reduce(
+    (maxBeat, clip) => Math.max(maxBeat, clip.startBeat + clip.beatLength),
+    Math.max(project.transport.stepsPerPattern, project.arrangementLength || 0),
+  )
+);
 
 export const INITIAL_MASTER: MasterSettings = {
   glueCompression: 0.42,
@@ -861,11 +897,16 @@ const createProjectFrame = (
   return {
     buildProject: (arrangerClips: ArrangementClip[], markers: SongMarker[] = []): Project => ({
       arrangerClips,
+      arrangementLength: arrangerClips.reduce(
+        (maxBeat, clip) => Math.max(maxBeat, clip.startBeat + clip.beatLength),
+        transport.stepsPerPattern,
+      ),
       bounceHistory: [],
       master: INITIAL_MASTER,
       masterSnapshots: [],
       markers,
       metadata: buildProjectMetadata(projectName),
+      savedSongSections: [],
       trackSnapshots: [],
       tracks,
       transport,
@@ -1272,6 +1313,118 @@ const normalizeAutomation = (
   return nextAutomation;
 };
 
+const normalizeSavedSongSections = (
+  input: unknown,
+  stepsPerPattern: number,
+): SavedSongSection[] => {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+
+  return input.slice(0, 24).flatMap((value, sectionIndex) => {
+    if (!isRecord(value)) {
+      return [];
+    }
+
+    const beatLength = clamp(
+      typeof value.beatLength === 'number' ? Math.round(value.beatLength) : stepsPerPattern,
+      4,
+      MAX_ARRANGER_BEAT_POSITION,
+    );
+    const rawClips = Array.isArray(value.clips) ? value.clips : [];
+    const clips = rawClips.flatMap((rawClip) => {
+      if (!isRecord(rawClip) || !isInstrumentType(rawClip.sourceTrackType)) {
+        return [];
+      }
+
+      const rawPattern = Array.isArray(rawClip.pattern) ? rawClip.pattern : [];
+      const patternLength = clamp(
+        Math.max(stepsPerPattern, rawPattern.length),
+        stepsPerPattern,
+        MAX_STEPS_PER_PATTERN,
+      );
+      const relativeStartBeat = clamp(
+        typeof rawClip.relativeStartBeat === 'number' ? Math.round(rawClip.relativeStartBeat) : 0,
+        0,
+        Math.max(0, beatLength - 4),
+      );
+      const maximumClipLength = beatLength - relativeStartBeat;
+      const pattern = Array.from({ length: patternLength }, (_, stepIndex) => (
+        normalizeStepValue(rawPattern[stepIndex])
+      ));
+      const rawAutomation = isRecord(rawClip.automation) ? rawClip.automation : {};
+      const rawLevel = Array.isArray(rawAutomation.level) ? rawAutomation.level : [];
+      const rawTone = Array.isArray(rawAutomation.tone) ? rawAutomation.tone : [];
+
+      return [{
+        automation: {
+          level: Array.from({ length: patternLength }, (_, stepIndex) => clampAutomationValue(
+            typeof rawLevel[stepIndex] === 'number' ? rawLevel[stepIndex] : 0.5,
+          )),
+          tone: Array.from({ length: patternLength }, (_, stepIndex) => clampAutomationValue(
+            typeof rawTone[stepIndex] === 'number' ? rawTone[stepIndex] : 0.5,
+          )),
+        },
+        beatLength: clamp(
+          typeof rawClip.beatLength === 'number' ? Math.round(rawClip.beatLength) : beatLength,
+          4,
+          maximumClipLength,
+        ),
+        pattern,
+        patternOffset: clamp(
+          typeof rawClip.patternOffset === 'number' ? Math.round(rawClip.patternOffset) : 0,
+          0,
+          Math.max(0, patternLength - 1),
+        ),
+        relativeStartBeat,
+        sourcePatternIndex: clamp(
+          typeof rawClip.sourcePatternIndex === 'number' ? Math.round(rawClip.sourcePatternIndex) : 0,
+          0,
+          MAX_PATTERN_COUNT - 1,
+        ),
+        sourceTrackId: typeof rawClip.sourceTrackId === 'string' ? rawClip.sourceTrackId : '',
+        sourceTrackName: typeof rawClip.sourceTrackName === 'string' && rawClip.sourceTrackName.trim()
+          ? rawClip.sourceTrackName.trim().slice(0, 32)
+          : `Lane ${sectionIndex + 1}`,
+        sourceTrackType: rawClip.sourceTrackType,
+      } satisfies SavedSongSectionClip];
+    });
+    const rawMarkers = Array.isArray(value.markers) ? value.markers : [];
+    const markers = rawMarkers.flatMap((rawMarker, markerIndex) => {
+      if (!isRecord(rawMarker)) {
+        return [];
+      }
+
+      return [{
+        beat: clamp(
+          typeof rawMarker.beat === 'number' ? Math.round(rawMarker.beat) : 0,
+          1,
+          Math.max(1, beatLength - 1),
+        ),
+        name: typeof rawMarker.name === 'string' && rawMarker.name.trim()
+          ? rawMarker.name.trim().slice(0, 24)
+          : `Part ${markerIndex + 1}`,
+      } satisfies SavedSongSectionMarker];
+    });
+
+    return [{
+      beatLength,
+      clips,
+      createdAt: typeof value.createdAt === 'string' ? value.createdAt : new Date().toISOString(),
+      id: typeof value.id === 'string' && value.id ? value.id : createId('saved_section'),
+      markers,
+      name: typeof value.name === 'string' && value.name.trim()
+        ? value.name.trim().slice(0, 24)
+        : `Saved section ${sectionIndex + 1}`,
+      stepsPerPattern: clamp(
+        typeof value.stepsPerPattern === 'number' ? Math.round(value.stepsPerPattern) : stepsPerPattern,
+        MIN_STEPS_PER_PATTERN,
+        MAX_STEPS_PER_PATTERN,
+      ),
+    } satisfies SavedSongSection];
+  });
+};
+
 const normalizeTransport = (transport: unknown): TransportSettings => {
   const candidate = isRecord(transport) ? transport : {};
   const patternCount = clamp(
@@ -1514,7 +1667,7 @@ const normalizeArrangerClips = (
   const validTrackIds = new Set(tracks.map((track) => track.id));
 
   return arrangerClips
-    .map((clip) => {
+    .map((clip): ArrangementClip | null => {
       const candidate = isRecord(clip) ? clip : {};
       const trackId = typeof candidate.trackId === 'string' && validTrackIds.has(candidate.trackId)
         ? candidate.trackId
@@ -1535,6 +1688,11 @@ const normalizeArrangerClips = (
           typeof candidate.patternIndex === 'number' ? Math.round(candidate.patternIndex) : 0,
           0,
           transport.patternCount - 1,
+        ),
+        patternOffset: clamp(
+          typeof candidate.patternOffset === 'number' ? Math.round(candidate.patternOffset) : 0,
+          0,
+          Math.max(0, transport.stepsPerPattern - 1),
         ),
         startBeat: clamp(
           typeof candidate.startBeat === 'number' ? Math.round(candidate.startBeat) : 0,
@@ -1639,6 +1797,7 @@ export const createArrangerClip = (
   beatLength: clamp(Math.round(options.beatLength ?? transport.stepsPerPattern), 4, MAX_ARRANGER_BEAT_POSITION),
   id: options.id ?? createId('clip'),
   patternIndex: clamp(Math.round(options.patternIndex ?? transport.currentPattern), 0, transport.patternCount - 1),
+  patternOffset: clamp(Math.round(options.patternOffset ?? 0), 0, Math.max(0, transport.stepsPerPattern - 1)),
   startBeat: clamp(Math.round(options.startBeat ?? 0), 0, MAX_ARRANGER_BEAT_POSITION),
   trackId,
 });
@@ -3699,13 +3858,19 @@ export const normalizeProject = (rawInput: unknown): Project | null => {
     (maxBeat, clip) => Math.max(maxBeat, clip.startBeat + clip.beatLength),
     transport.stepsPerPattern,
   );
+  const arrangementLength = clamp(
+    typeof input.arrangementLength === 'number' ? Math.round(input.arrangementLength) : maxMarkerBeat,
+    maxMarkerBeat,
+    MAX_ARRANGER_BEAT_POSITION,
+  );
 
   return {
     arrangerClips: resolvedArrangerClips,
+    arrangementLength,
     bounceHistory: normalizeBounceHistory(input.bounceHistory),
     master: normalizeMaster(input.master),
     masterSnapshots: normalizeMasterSnapshots(input.masterSnapshots),
-    markers: normalizeSongMarkers(input.markers, maxMarkerBeat),
+    markers: normalizeSongMarkers(input.markers, arrangementLength),
     metadata: {
       createdAt,
       id: typeof metadata.id === 'string' && metadata.id ? metadata.id : createId('project'),
@@ -3713,6 +3878,7 @@ export const normalizeProject = (rawInput: unknown): Project | null => {
       updatedAt,
       version: PROJECT_SCHEMA_VERSION,
     },
+    savedSongSections: normalizeSavedSongSections(input.savedSongSections, transport.stepsPerPattern),
     trackSnapshots: normalizeTrackSnapshots(input.trackSnapshots),
     tracks,
     transport,

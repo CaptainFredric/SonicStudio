@@ -15,6 +15,7 @@ import {
   Eraser,
   Focus,
   LocateFixed,
+  MapPinPlus,
   Maximize2,
   Minus,
   Mic,
@@ -82,6 +83,8 @@ import { PatternColumnMenu } from './PatternColumnMenu';
 import { openNotesPanel } from './notesPanelStore';
 import { setEditingMode, useEditingMode } from './editingModeStore';
 import { SongTimelineGrid } from './SongTimelineGrid';
+import { SongSectionManagerDialog } from './SongSectionManager';
+import { buildSectionRanges } from './arranger/arrangerSelectors';
 import { buildRunwayContinuation } from '../utils/runwayContinuation';
 import { getSequencerFollowScrollLeft, getSequencerWheelPanDelta } from '../utils/sequencerViewport';
 import { clearPatternRange, copyPatternRange, movePatternRange, writePatternRange } from '../utils/stepRangeEditing';
@@ -660,20 +663,26 @@ export const MainWorkspace = () => {
     applySongForm,
     applyPatternSegment,
     applyPatternStepBatch,
+    clearSongRange,
     clearPatternAt,
     clearTrack,
     continuePatternRunway,
     createTrack,
     currentPattern,
     duplicateTrack,
+    duplicateSongRange,
+    deleteSongRange,
     editPatternColumn,
     loopRangeEndBeat,
     loopRangeStartBeat,
+    insertBlankSongSection,
+    insertSavedSongSection,
     moveTrack,
     patternCount,
     pinnedTrackIds,
     previewTrack,
     removeTrack,
+    removeSavedSongSection,
     audioStabilityMode,
     isPlaying,
     selectedTrackId,
@@ -700,9 +709,12 @@ export const MainWorkspace = () => {
     arrangerClips,
     songLengthInBeats,
     songMarkers,
+    savedSongSections,
     createSongMarker,
+    saveSongRange,
     updateSongMarker,
     removeSongMarker,
+    renameSavedSongSection,
     reorderTrack,
     transposePattern,
     updateStepEvent,
@@ -717,6 +729,13 @@ export const MainWorkspace = () => {
   // remembered between sessions.
   const [songFlatten, setSongFlatten] = useState(() => readString(SONG_FLATTEN_KEY) === 'true');
   const showSongGrid = transportMode === 'SONG' && songFlatten;
+  const [sectionManagerOpen, setSectionManagerOpen] = useState(false);
+  const [managedSectionId, setManagedSectionId] = useState<string | null>(null);
+  const closeSectionManager = useCallback(() => setSectionManagerOpen(false), []);
+  const songSectionRanges = useMemo(
+    () => buildSectionRanges(arrangerClips, songMarkers, songLengthInBeats),
+    [arrangerClips, songLengthInBeats, songMarkers],
+  );
   // The compose rack and track map collapse by default so the step grid
   // leads the view; roomy desktops open them automatically.
   // Start collapsed so the default view is the pattern grid and the timeline,
@@ -3148,19 +3167,47 @@ export const MainWorkspace = () => {
                 </span>
                 <div className="flex shrink-0 items-center gap-2">
                   {songFlatten && (
-                    <button
-                      className="control-chip h-7 px-2.5 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                      onClick={() => {
-                        const bar = Math.round(engine.currentStep / stepsPerPattern) * stepsPerPattern;
-                        if (!songMarkers.some((marker) => marker.beat === bar)) {
+                    <div className="flex overflow-hidden rounded-[3px] border border-[var(--border-soft)]">
+                      <button
+                        className="flex h-8 items-center gap-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] transition-colors hover:bg-[rgba(255,255,255,0.05)]"
+                        onClick={() => {
+                          const bar = Math.min(
+                            songLengthInBeats,
+                            Math.max(0, Math.round(engine.currentStep / 16) * 16),
+                          );
+                          if (bar >= songLengthInBeats) {
+                            setManagedSectionId(null);
+                            setSectionManagerOpen(true);
+                            return;
+                          }
+                          const existingMarker = songMarkers.find((marker) => marker.beat === bar);
+                          if (existingMarker) {
+                            setManagedSectionId(existingMarker.id);
+                            setSectionManagerOpen(true);
+                            return;
+                          }
                           createSongMarker(bar, `Section ${songMarkers.length + 1}`);
-                        }
-                      }}
-                      title="Mark a new section at the playhead. Rename it by double-clicking its label."
-                      type="button"
-                    >
-                      + Mark section
-                    </button>
+                        }}
+                        title="Label the bar at the playhead without moving any music"
+                        type="button"
+                      >
+                        <MapPinPlus className="h-3.5 w-3.5" />
+                        Mark
+                      </button>
+                      <button
+                        className="flex h-8 items-center gap-1.5 border-l border-[var(--border-soft)] bg-[var(--accent-muted)] px-3 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--accent-strong)] transition-colors hover:brightness-110"
+                        onClick={() => {
+                          setManagedSectionId(null);
+                          setSectionManagerOpen(true);
+                        }}
+                        title="Add, clear, cut, duplicate, save, or reuse song sections"
+                        type="button"
+                      >
+                        <SlidersHorizontal className="h-3.5 w-3.5" />
+                        Sections
+                        <span className="font-mono text-[9px] opacity-75">{songSectionRanges.length}</span>
+                      </button>
+                    </div>
                   )}
                 <div className="flex shrink-0 overflow-hidden rounded-[3px] border border-[var(--border-soft)]">
                   <button
@@ -3214,7 +3261,10 @@ export const MainWorkspace = () => {
                 }}
                 onSeek={(beat) => engine.seekToBeat(beat)}
                 onRenameSection={(markerId, name) => updateSongMarker(markerId, { name })}
-                onRemoveSection={removeSongMarker}
+                onManageSection={(markerId) => {
+                  setManagedSectionId(markerId);
+                  setSectionManagerOpen(true);
+                }}
                 onReorderTrack={reorderTrack}
                 onDeleteTrack={removeTrack}
               />
@@ -4844,6 +4894,36 @@ export const MainWorkspace = () => {
         </aside>
         )}
       </div>
+      {sectionManagerOpen && (
+        <SongSectionManagerDialog
+          currentPatternCount={patternCount}
+          currentStep={engine.currentStep}
+          focusedSectionId={managedSectionId}
+          loopRangeEndBeat={loopRangeEndBeat}
+          loopRangeStartBeat={loopRangeStartBeat}
+          onClearSection={clearSongRange}
+          onClose={closeSectionManager}
+          onCreateMarker={createSongMarker}
+          onDeleteSavedSection={removeSavedSongSection}
+          onDeleteSection={deleteSongRange}
+          onDuplicateSection={duplicateSongRange}
+          onInsertBlankSection={insertBlankSongSection}
+          onInsertSavedSection={insertSavedSongSection}
+          onJumpToSection={(beat) => engine.seekToBeat(beat)}
+          onMoveMarker={(markerId, beat) => updateSongMarker(markerId, { beat })}
+          onRemoveMarker={(markerId) => {
+            removeSongMarker(markerId);
+            if (managedSectionId === markerId) setManagedSectionId(null);
+          }}
+          onRenameMarker={(markerId, name) => updateSongMarker(markerId, { name })}
+          onRenameSavedSection={renameSavedSongSection}
+          onSaveSection={saveSongRange}
+          onSetLoopRange={setLoopRange}
+          savedSections={savedSongSections}
+          sectionRanges={songSectionRanges}
+          songLengthInBeats={songLengthInBeats}
+        />
+      )}
     </section>
   );
 };

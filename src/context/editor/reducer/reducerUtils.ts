@@ -3,6 +3,7 @@ import {
   createEmptyPattern,
   createStepEvent,
   defaultNoteForTrack,
+  getProjectSongLength,
   getTrackVoicePresetDefinitions,
   MAX_PATTERN_COUNT,
   MAX_STEPS_PER_PATTERN,
@@ -67,15 +68,21 @@ export const transposeNote = (note: string, semitones: number): string => {
   return midiToNote(midi + semitones);
 };
 
-export const syncSongMarkers = (markers: SongMarker[], maxBeat: number): SongMarker[] => (
-  markers
+export const syncSongMarkers = (markers: SongMarker[], maxBeat: number): SongMarker[] => {
+  const beats = new Set<number>();
+  return markers
     .map((marker, index) => ({
       ...marker,
       beat: clamp(Math.round(marker.beat || 0), 0, Math.max(maxBeat, 0)),
       name: marker.name.trim() ? marker.name.trim().slice(0, 24) : `Marker ${index + 1}`,
     }))
     .sort((left, right) => left.beat - right.beat)
-);
+    .filter((marker) => {
+      if (beats.has(marker.beat)) return false;
+      beats.add(marker.beat);
+      return true;
+    });
+};
 
 export const createInitialEditorState = (routeState?: StudioRouteState): EditorState => {
   const baseSession = routeState?.requestedTemplate
@@ -120,10 +127,7 @@ export const ensurePinnedTrackIds = (project: Project, pinnedTrackIds: string[])
 );
 
 export const songLengthFromProject = (project: Project) => (
-  project.arrangerClips.reduce(
-    (maxBeat, clip) => Math.max(maxBeat, clip.startBeat + clip.beatLength),
-    project.transport.stepsPerPattern,
-  )
+  getProjectSongLength(project)
 );
 
 export const getLoopBoundsForProject = (
@@ -168,65 +172,6 @@ export const clampCurrentStepToLoopBounds = (
   }
 
   return currentStep;
-};
-
-export const buildSongRangeDuplicate = (
-  project: Project,
-  startBeat: number,
-  endBeat: number,
-  label?: string,
-): Project => {
-  const normalizedStartBeat = clamp(Math.round(startBeat), 0, songLengthFromProject(project));
-  const normalizedEndBeat = clamp(Math.round(endBeat), normalizedStartBeat + 1, songLengthFromProject(project));
-  const rangeLength = normalizedEndBeat - normalizedStartBeat;
-
-  if (rangeLength <= 0) {
-    return project;
-  }
-
-  const duplicateClips = project.arrangerClips.flatMap((clip) => {
-    const clipStart = clip.startBeat;
-    const clipEnd = clip.startBeat + clip.beatLength;
-    const overlapStart = Math.max(clipStart, normalizedStartBeat);
-    const overlapEnd = Math.min(clipEnd, normalizedEndBeat);
-
-    if (overlapEnd <= overlapStart) {
-      return [];
-    }
-
-    return [{
-      ...clip,
-      beatLength: overlapEnd - overlapStart,
-      id: `clip_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-      startBeat: normalizedEndBeat + (overlapStart - normalizedStartBeat),
-    }];
-  });
-
-  if (duplicateClips.length === 0) {
-    return project;
-  }
-
-  const duplicatedMarkers = project.markers
-    .filter((marker) => marker.beat >= normalizedStartBeat && marker.beat < normalizedEndBeat)
-    .map((marker) => ({
-      ...marker,
-      beat: normalizedEndBeat + (marker.beat - normalizedStartBeat),
-      id: `marker_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
-      name: label ? `${label} Copy` : `${marker.name} Copy`,
-    }));
-
-  return {
-    ...project,
-    arrangerClips: syncArrangerClips(
-      [...project.arrangerClips, ...duplicateClips],
-      project.tracks,
-      project.transport.patternCount,
-    ),
-    markers: syncSongMarkers(
-      [...project.markers, ...duplicatedMarkers],
-      Math.max(songLengthFromProject(project), normalizedEndBeat + rangeLength),
-    ),
-  };
 };
 
 const stampProjectUpdate = (project: Project): Project => ({

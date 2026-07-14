@@ -32,6 +32,18 @@ describe('arrangerSelectors', () => {
     expect(sections[0].clipCount).toBeGreaterThan(0);
   });
 
+  it('keeps music before the first named marker available as an opening section', () => {
+    const project = createProjectFromTemplate('night-transit');
+    project.markers = [{ beat: 16, id: 'marker-break', name: 'Break' }];
+
+    const sections = buildSectionRanges(project.arrangerClips, project.markers, 48);
+
+    expect(sections.map(({ endBeat, id, startBeat }) => ({ endBeat, id, startBeat }))).toEqual([
+      { endBeat: 16, id: 'marker_fallback', startBeat: 0 },
+      { endBeat: 48, id: 'marker-break', startBeat: 16 },
+    ]);
+  });
+
   it('creates pinned and grouped lane sections from the canonical lane data', () => {
     const project = createProjectFromTemplate('night-transit');
     const pinnedTrackIds = [project.tracks[0].id, project.tracks[3].id];

@@ -23,6 +23,7 @@ import {
   type MasterSettings,
   type NoteEvent,
   type PatternAutomation,
+  type SavedSongSection,
   type SampleSliceMemory,
   type SessionTemplateId,
   type SongMarker,
@@ -182,13 +183,20 @@ interface AudioContextType {
   deleteScoresheet: (id: string) => void;
   redo: () => void;
   renderState: RenderState;
+  clearSongRange: (startBeat: number, endBeat: number) => void;
+  deleteSongRange: (startBeat: number, endBeat: number) => void;
+  insertBlankSongSection: (atBeat: number, beatLength: number, name: string) => void;
+  insertSavedSongSection: (savedSectionId: string, atBeat: number) => void;
   removeArrangerClip: (clipId: string) => void;
   removeSongMarker: (markerId: string) => void;
+  removeSavedSongSection: (savedSectionId: string) => void;
   removeTrack: (trackId: string) => void;
   renameProject: (name: string) => void;
+  renameSavedSongSection: (savedSectionId: string, name: string) => void;
   renameTrack: (trackId: string, name: string) => void;
   restoreCheckpoint: (checkpointId: string) => boolean;
   saveProject: () => void;
+  saveSongRange: (startBeat: number, endBeat: number, name: string) => void;
   exportTrainingCorpus: () => void;
   trainingCorpusSummary: TrainingCorpusSummary;
   saveCheckpoint: (label?: string) => void;
@@ -219,6 +227,7 @@ interface AudioContextType {
   setSharedReverb: (enabled: boolean) => void;
   setMetronomeEnabled: (enabled: boolean) => void;
   songMarkers: SongMarker[];
+  savedSongSections: SavedSongSection[];
   setClipPatternStepSlice: (clipId: string, stepIndex: number, sliceIndex: number | null, note?: string) => void;
   setLoopRange: (startBeat: number | null, endBeat: number | null) => void;
   selectSampleSlice: (trackId: string, sliceIndex: number | null) => void;
@@ -955,6 +964,7 @@ export const AudioProvider = ({
     renderState,
     trainingCorpusSummary,
     saveStatus,
+    savedSongSections: project.savedSongSections,
     selectedArrangerClipId,
     selectedTrackId,
     songLengthInBeats,

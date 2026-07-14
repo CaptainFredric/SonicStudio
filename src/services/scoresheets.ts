@@ -1,4 +1,4 @@
-import { type StudioSession } from '../project/schema';
+import { getProjectSongLength, type StudioSession } from '../project/schema';
 import { hydrateSessionPayload } from '../project/storage';
 import { readJson, removeKey, writeJson } from '../utils/safeStorage';
 import { detectKey, type KeyMode } from './keyDetector';
@@ -205,10 +205,7 @@ export const summarizeScoresheet = (sheet: Scoresheet): ScoresheetGlance => {
       }
     }
   }
-  const songLengthSteps = project.arrangerClips.reduce(
-    (maxBeat, clip) => Math.max(maxBeat, clip.startBeat + clip.beatLength),
-    project.transport.stepsPerPattern,
-  );
+  const songLengthSteps = getProjectSongLength(project);
   const stepsPerPattern = Math.max(1, project.transport.stepsPerPattern);
   return {
     bpm: Math.round(project.transport.bpm),

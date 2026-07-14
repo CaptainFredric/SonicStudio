@@ -6,6 +6,7 @@ import { getSamplePresetMeta, getSampleUrl } from './sampleLibrary';
 import { findFirstPlayableStepInLoop, hasPlayableStepAt, isTrackAudible, lastActivePatternStep, resolvePatternStepForPlayback } from './playbackResolver';
 import { latencyHintForMode, lookaheadForMode, shouldCapSampleRate } from './schedulerTiming';
 import type { AudioStabilityMode } from '../project/preferences';
+import { getProjectSongLength } from '../project/schema';
 import type {
   ArrangementClip,
   MasterSettings,
@@ -87,6 +88,7 @@ const FX_MAX_POLYPHONY = 8;
 const PAD_MAX_POLYPHONY = 10;
 
 export class ToneEngine {
+  private arrangementLength = 16;
   private arrangerClips: ArrangementClip[] = [];
   private arrangerClipsByTrack: Record<string, ArrangementClip[]> = {};
   private audioStabilityMode: AudioStabilityMode = 'auto';
@@ -350,6 +352,7 @@ export class ToneEngine {
   }
 
   public syncProject(project: Project) {
+    this.arrangementLength = getProjectSongLength(project);
     this.arrangerClips = project.arrangerClips;
     this.arrangerClipsByTrack = project.arrangerClips.reduce<Record<string, ArrangementClip[]>>((lookup, clip) => {
       if (!lookup[clip.trackId]) {
@@ -440,7 +443,7 @@ export class ToneEngine {
     );
 
     return {
-      endBeat: Math.max(clipTail, this.stepsPerPattern),
+      endBeat: Math.max(clipTail, this.arrangementLength, this.stepsPerPattern),
       startBeat: 0,
     };
   }

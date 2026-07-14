@@ -8,11 +8,60 @@ import {
 } from '../projectMutations';
 import { buildSongFormProject } from '../songFormBuilder';
 import {
+  clearSongRange,
+  deleteSongRange,
+  duplicateSongRange,
+  insertBlankSongSection,
+  insertSavedSongSection,
+  removeSavedSongSection,
+  renameSavedSongSection,
+  saveSongRange,
+} from '../songSectionEditing';
+import {
   ARRANGER_SNAP,
-  buildSongRangeDuplicate,
   commitProject,
   updateStepPattern,
 } from './reducerUtils';
+
+const withInsertedLoopTime = (
+  state: EditorState,
+  nextState: EditorState,
+  atBeat: number,
+  beatLength: number,
+): EditorState => {
+  const { loopRangeEndBeat, loopRangeStartBeat } = state.ui;
+  if (loopRangeStartBeat === null || loopRangeEndBeat === null || nextState === state) return nextState;
+
+  return {
+    ...nextState,
+    ui: {
+      ...nextState.ui,
+      loopRangeEndBeat: loopRangeEndBeat > atBeat ? loopRangeEndBeat + beatLength : loopRangeEndBeat,
+      loopRangeStartBeat: loopRangeStartBeat >= atBeat ? loopRangeStartBeat + beatLength : loopRangeStartBeat,
+    },
+  };
+};
+
+const withDeletedLoopTime = (
+  state: EditorState,
+  nextState: EditorState,
+  startBeat: number,
+  endBeat: number,
+): EditorState => {
+  const { loopRangeEndBeat, loopRangeStartBeat } = state.ui;
+  if (loopRangeStartBeat === null || loopRangeEndBeat === null || nextState === state) return nextState;
+  const length = Math.max(0, endBeat - startBeat);
+  const overlaps = loopRangeStartBeat < endBeat && loopRangeEndBeat > startBeat;
+
+  return {
+    ...nextState,
+    ui: {
+      ...nextState.ui,
+      loopRangeEndBeat: overlaps ? null : loopRangeEndBeat >= endBeat ? loopRangeEndBeat - length : loopRangeEndBeat,
+      loopRangeStartBeat: overlaps ? null : loopRangeStartBeat >= endBeat ? loopRangeStartBeat - length : loopRangeStartBeat,
+    },
+  };
+};
 
 export const handleArrangerAction = (state: EditorState, action: EditorAction): EditorState | null => {
   const { present } = state.history;
@@ -32,11 +81,49 @@ export const handleArrangerAction = (state: EditorState, action: EditorAction): 
       );
     }
 
-    case 'DUPLICATE_SONG_RANGE':
-      return commitProject(
+    case 'DUPLICATE_SONG_RANGE': {
+      const nextState = commitProject(
         state,
-        buildSongRangeDuplicate(present, action.startBeat, action.endBeat, action.label),
+        duplicateSongRange(present, action.startBeat, action.endBeat, action.label),
       );
+      return withInsertedLoopTime(state, nextState, action.endBeat, Math.max(0, action.endBeat - action.startBeat));
+    }
+
+    case 'INSERT_BLANK_SONG_SECTION': {
+      const nextState = commitProject(
+        state,
+        insertBlankSongSection(present, action.atBeat, action.beatLength, action.name),
+      );
+      return withInsertedLoopTime(state, nextState, action.atBeat, action.beatLength);
+    }
+
+    case 'CLEAR_SONG_RANGE':
+      return commitProject(state, clearSongRange(present, action.startBeat, action.endBeat));
+
+    case 'DELETE_SONG_RANGE': {
+      const nextState = commitProject(state, deleteSongRange(present, action.startBeat, action.endBeat));
+      return withDeletedLoopTime(state, nextState, action.startBeat, action.endBeat);
+    }
+
+    case 'SAVE_SONG_RANGE':
+      return commitProject(state, saveSongRange(present, action.startBeat, action.endBeat, action.name));
+
+    case 'INSERT_SAVED_SONG_SECTION': {
+      const section = present.savedSongSections.find((candidate) => candidate.id === action.savedSectionId);
+      const nextState = commitProject(
+        state,
+        insertSavedSongSection(present, action.savedSectionId, action.atBeat),
+      );
+      return section
+        ? withInsertedLoopTime(state, nextState, action.atBeat, section.beatLength)
+        : nextState;
+    }
+
+    case 'REMOVE_SAVED_SONG_SECTION':
+      return commitProject(state, removeSavedSongSection(present, action.savedSectionId));
+
+    case 'RENAME_SAVED_SONG_SECTION':
+      return commitProject(state, renameSavedSongSection(present, action.savedSectionId, action.name));
 
     case 'DUPLICATE_ARRANGER_CLIP': {
       const mutation = duplicateArrangerClipProject(present, action.clipId);

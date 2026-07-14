@@ -651,4 +651,102 @@ describe('editorReducer', () => {
     const nextTrack = np.tracks.find((candidate) => candidate.id === track.id);
     expect((nextTrack?.patterns[existing.patternIndex]?.[localStep] ?? []).some((event) => event.note === 'D3')).toBe(true);
   });
+
+  it('deletes a song section as one undoable cut and clears an overlapping loop', () => {
+    const state = createEditorState('blank-grid');
+    const track = state.history.present.tracks[0];
+    const seeded: EditorState = {
+      ...state,
+      history: {
+        future: [],
+        past: [],
+        present: {
+          ...state.history.present,
+          arrangementLength: 48,
+          arrangerClips: [0, 16, 32].map((startBeat, patternIndex) => ({
+            beatLength: 16,
+            id: `section_clip_${patternIndex}`,
+            patternIndex,
+            startBeat,
+            trackId: track.id,
+          })),
+          markers: [
+            { beat: 0, id: 'section_intro', name: 'Intro' },
+            { beat: 16, id: 'section_verse', name: 'Verse' },
+            { beat: 32, id: 'section_hook', name: 'Hook' },
+          ],
+        },
+      },
+      ui: { ...state.ui, loopRangeEndBeat: 32, loopRangeStartBeat: 16 },
+    };
+
+    const deleted = editorReducer(seeded, { type: 'DELETE_SONG_RANGE', endBeat: 32, startBeat: 16 });
+
+    expect(deleted.history.past).toHaveLength(1);
+    expect(deleted.history.present.arrangementLength).toBe(32);
+    expect(deleted.history.present.arrangerClips.map((clip) => clip.startBeat)).toEqual([0, 16]);
+    expect(deleted.history.present.markers.map((marker) => marker.name)).toEqual(['Intro', 'Hook']);
+    expect(deleted.ui.loopRangeStartBeat).toBeNull();
+    expect(deleted.ui.loopRangeEndBeat).toBeNull();
+    expect(editorReducer(deleted, { type: 'UNDO' }).history.present).toEqual(seeded.history.present);
+  });
+
+  it('keeps a loop stable at an insertion boundary and grows it for an internal insertion', () => {
+    const state = createEditorState('blank-grid');
+    const seeded: EditorState = {
+      ...state,
+      history: {
+        ...state.history,
+        present: { ...state.history.present, arrangementLength: 32 },
+      },
+      ui: { ...state.ui, loopRangeEndBeat: 16, loopRangeStartBeat: 0 },
+    };
+
+    const insertedAfterLoop = editorReducer(seeded, {
+      type: 'INSERT_BLANK_SONG_SECTION',
+      atBeat: 16,
+      beatLength: 16,
+      name: 'Verse',
+    });
+    expect(insertedAfterLoop.ui.loopRangeStartBeat).toBe(0);
+    expect(insertedAfterLoop.ui.loopRangeEndBeat).toBe(16);
+
+    const insertedInsideLoop = editorReducer(
+      { ...seeded, ui: { ...seeded.ui, loopRangeEndBeat: 24 } },
+      {
+        type: 'INSERT_BLANK_SONG_SECTION',
+        atBeat: 16,
+        beatLength: 16,
+        name: 'Break',
+      },
+    );
+    expect(insertedInsideLoop.ui.loopRangeStartBeat).toBe(0);
+    expect(insertedInsideLoop.ui.loopRangeEndBeat).toBe(40);
+  });
+
+  it('saves and recalls a section through reducer history', () => {
+    const state = createEditorState('blank-grid');
+    const saved = editorReducer(state, {
+      type: 'SAVE_SONG_RANGE',
+      endBeat: 16,
+      name: 'Opening',
+      startBeat: 0,
+    });
+    const savedSection = saved.history.present.savedSongSections[0];
+    if (!savedSection) {
+      throw new Error('Expected a saved section');
+    }
+
+    const recalled = editorReducer(saved, {
+      type: 'INSERT_SAVED_SONG_SECTION',
+      atBeat: 16,
+      savedSectionId: savedSection.id,
+    });
+
+    expect(saved.history.past).toHaveLength(1);
+    expect(recalled.history.past).toHaveLength(2);
+    expect(recalled.history.present.arrangementLength).toBe(32);
+    expect(recalled.history.present.transport.patternCount).toBe(state.history.present.transport.patternCount + 1);
+    expect(recalled.history.present.markers.some((marker) => marker.beat === 16 && marker.name === 'Opening')).toBe(true);
+  });
 });

@@ -15,6 +15,7 @@ import {
   cloneStepEvents,
   commitProject,
   resizeProjectTransport,
+  songLengthFromProject,
   syncSongMarkers,
   transposeNote,
   updatePatternSteps,
@@ -261,7 +262,7 @@ const editPatternColumn = (
   );
   const songLength = arrangerClips.reduce(
     (maxBeat, clip) => Math.max(maxBeat, clip.startBeat + clip.beatLength),
-    nextStepCount,
+    Math.max(nextStepCount, mapBeat(songLengthFromProject(present))),
   );
   const markers = syncSongMarkers(
     present.markers.map((marker) => ({ ...marker, beat: mapBeat(marker.beat) })),
@@ -270,6 +271,7 @@ const editPatternColumn = (
 
   return commitProject(state, {
     ...present,
+    arrangementLength: songLength,
     arrangerClips,
     markers,
     tracks,

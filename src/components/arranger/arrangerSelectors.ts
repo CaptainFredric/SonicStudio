@@ -43,9 +43,16 @@ export const buildSectionRanges = (
   timelineSteps: number,
 ): SectionRange[] => {
   const sortedMarkers = [...songMarkers].sort((left, right) => left.beat - right.beat);
-  const boundaries = sortedMarkers.length > 0
-    ? sortedMarkers
-    : [{ beat: 0, id: 'marker_fallback', name: 'Song' }];
+  const fallbackBoundary = {
+    beat: 0,
+    id: 'marker_fallback',
+    name: sortedMarkers.length > 0 ? 'Opening' : 'Song',
+  };
+  const boundaries = sortedMarkers.length === 0
+    ? [fallbackBoundary]
+    : sortedMarkers[0].beat > 0
+      ? [fallbackBoundary, ...sortedMarkers]
+      : sortedMarkers;
 
   return boundaries.map((marker, index) => {
     const nextMarker = boundaries[index + 1];
@@ -62,7 +69,7 @@ export const buildSectionRanges = (
       label: marker.name,
       startBeat,
     };
-  });
+  }).filter((section) => section.endBeat > section.startBeat);
 };
 
 export interface BuildLaneDataOptions {

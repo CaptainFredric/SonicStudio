@@ -43,7 +43,7 @@ const makeArrangerClipsByTrack = (project: ReturnType<typeof createProjectFromTe
 };
 
 describe('playbackResolver', () => {
-  it('falls back to current pattern in song mode when a track has no clips', () => {
+  it('stays silent in song mode when a track has no arranged clips', () => {
     const project = createProjectFromTemplate('blank-grid');
     clearPatternNotes(project);
     const track = project.tracks[0];
@@ -62,11 +62,7 @@ describe('playbackResolver', () => {
       transportMode: 'SONG',
     });
 
-    expect(resolved).not.toBeNull();
-    expect(resolved?.patternIndex).toBe(0);
-    expect(resolved?.stepIndex).toBe(3);
-    expect(resolved?.note).toHaveLength(1);
-    expect(resolved?.note[0]?.note).toBe('C3');
+    expect(resolved).toBeNull();
   });
 
   it('returns null in song mode when clips exist but none are active at the current step', () => {
@@ -99,6 +95,36 @@ describe('playbackResolver', () => {
     expect(resolved).toBeNull();
   });
 
+  it('continues from a clip pattern offset after a structural edit', () => {
+    const project = createProjectFromTemplate('blank-grid');
+    clearPatternNotes(project);
+    const track = project.tracks[0];
+    if (!track) {
+      throw new Error('Expected at least one track');
+    }
+    track.patterns[0][6] = [{ gate: 1, note: 'F3', velocity: 0.8 }];
+    project.arrangerClips = [{
+      beatLength: 8,
+      id: 'offset-clip',
+      patternIndex: 0,
+      patternOffset: 6,
+      startBeat: 12,
+      trackId: track.id,
+    }];
+
+    const resolved = resolvePatternStepForPlayback({
+      arrangerClipsByTrack: makeArrangerClipsByTrack(project),
+      currentPattern: 0,
+      songStep: 12,
+      stepsPerPattern: project.transport.stepsPerPattern,
+      track,
+      transportMode: 'SONG',
+    });
+
+    expect(resolved?.stepIndex).toBe(6);
+    expect(resolved?.note[0]?.note).toBe('F3');
+  });
+
   it('locates the first playable step in loop bounds', () => {
     const project = createProjectFromTemplate('blank-grid');
     clearPatternNotes(project);
@@ -110,7 +136,7 @@ describe('playbackResolver', () => {
     track.patterns[0][5] = [{ gate: 0.7, note: 'E3', velocity: 0.8 }];
 
     const firstPlayable = findFirstPlayableStepInLoop({
-      arrangerClipsByTrack: {},
+      arrangerClipsByTrack: makeArrangerClipsByTrack(project),
       currentPattern: 0,
       loopBounds: { endBeat: 16, startBeat: 0 },
       stepsPerPattern: project.transport.stepsPerPattern,
@@ -133,7 +159,7 @@ describe('playbackResolver', () => {
     track.patterns[0][9] = [{ gate: 1, note: 'G3', velocity: 0.9 }];
 
     const firstPlayable = findFirstPlayableStepInLoop({
-      arrangerClipsByTrack: {},
+      arrangerClipsByTrack: makeArrangerClipsByTrack(project),
       currentPattern: 0,
       loopBounds: { endBeat: 16, startBeat: 8 },
       stepsPerPattern: project.transport.stepsPerPattern,

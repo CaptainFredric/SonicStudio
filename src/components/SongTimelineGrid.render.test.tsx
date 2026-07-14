@@ -49,7 +49,7 @@ const renderGrid = (overrides: Partial<Parameters<typeof SongTimelineGrid>[0]> =
     onEraseStep: vi.fn(),
     onSeek: vi.fn(),
     onRenameSection: vi.fn(),
-    onRemoveSection: vi.fn(),
+    onManageSection: vi.fn(),
     onReorderTrack: vi.fn(),
     onDeleteTrack: vi.fn(),
     ...overrides,

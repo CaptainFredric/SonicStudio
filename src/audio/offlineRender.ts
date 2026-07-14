@@ -1,6 +1,6 @@
 import * as Tone from 'tone';
 
-import { type Project } from '../project/schema';
+import { getProjectSongLength, type Project } from '../project/schema';
 import { ToneEngine } from './ToneEngine';
 
 type OfflineTailMode = 'short' | 'standard' | 'long';
@@ -13,13 +13,7 @@ const TAIL_SECONDS: Record<OfflineTailMode, number> = {
 
 const getPlaybackBeats = (project: Project) => (
   project.transport.mode === 'SONG'
-    ? Math.max(
-        project.arrangerClips.reduce(
-          (maxBeat, clip) => Math.max(maxBeat, clip.startBeat + clip.beatLength),
-          project.transport.stepsPerPattern,
-        ),
-        project.transport.stepsPerPattern,
-      )
+    ? getProjectSongLength(project)
     : project.transport.stepsPerPattern
 );
 

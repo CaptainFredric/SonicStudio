@@ -94,22 +94,12 @@ export const resolvePatternStepForPlayback = ({
   ));
 
   if (!activeClip) {
-    // Song mode can be active before clips are arranged. In that case, fall
-    // back to the current pattern so Play always produces audible feedback.
-    if (trackClips.length === 0) {
-      const stepIndex = songStep % stepsPerPattern;
-      const patternSteps = track.patterns[currentPattern];
-      return {
-        note: patternSteps?.[stepIndex] ?? [],
-        patternIndex: currentPattern,
-        stepIndex,
-      };
-    }
-
     return null;
   }
 
-  const localStep = (songStep - activeClip.startBeat) % stepsPerPattern;
+  const localStep = (
+    songStep - activeClip.startBeat + (activeClip.patternOffset ?? 0)
+  ) % stepsPerPattern;
   const patternSteps = track.patterns[activeClip.patternIndex];
 
   return {

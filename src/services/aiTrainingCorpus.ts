@@ -25,12 +25,13 @@
 //     track count, which track IDs are live) for pattern-level
 //     conditioning.
 
-import type {
-  ArrangementClip,
-  InstrumentType,
-  Project,
-  SongMarker,
-  Track,
+import {
+  getProjectSongLength,
+  type ArrangementClip,
+  type InstrumentType,
+  type Project,
+  type SongMarker,
+  type Track,
 } from '../project/schema';
 
 import { detectKey, type KeyMode } from './keyDetector';
@@ -322,10 +323,7 @@ export const summarizeTrainingCorpus = (project: Project): TrainingCorpusSummary
     });
   });
 
-  const songLengthInSteps = project.arrangerClips.reduce(
-    (maxBeat, clip) => Math.max(maxBeat, clip.startBeat + clip.beatLength),
-    stepsPerPattern,
-  );
+  const songLengthInSteps = getProjectSongLength(project);
 
   return {
     trackCount: project.tracks.length,

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronsLeft, ChevronsRight, GripVertical, Music2, Pencil, Trash2, X } from 'lucide-react';
+import { ChevronsLeft, ChevronsRight, GripVertical, MoreHorizontal, Music2, Pencil, Trash2 } from 'lucide-react';
 import type React from 'react';
 
 import { engine } from '../audio/ToneEngine';
@@ -32,7 +32,7 @@ interface SongTimelineGridProps {
   onEraseStep?: (trackId: string, patternIndex: number, localStep: number) => void;
   onSeek?: (beat: number) => void;
   onRenameSection?: (markerId: string, name: string) => void;
-  onRemoveSection?: (markerId: string) => void;
+  onManageSection?: (markerId: string) => void;
   onReorderTrack?: (trackId: string, toIndex: number) => void;
   onDeleteTrack?: (trackId: string) => void;
 }
@@ -60,7 +60,7 @@ export const SongTimelineGrid = ({
   onEraseStep,
   onSeek,
   onRenameSection,
-  onRemoveSection,
+  onManageSection,
   onReorderTrack,
   onDeleteTrack,
 }: SongTimelineGridProps) => {
@@ -203,13 +203,24 @@ export const SongTimelineGrid = ({
 
   const sections = useMemo(() => {
     const sorted = [...songMarkers].sort((a, b) => a.beat - b.beat);
-    return sorted.map((marker, index) => ({
+    const fallback = {
+      beat: 0,
+      id: 'marker_fallback',
+      name: sorted.length > 0 ? 'Opening' : 'Song',
+    };
+    const boundaries = sorted.length === 0
+      ? [fallback]
+      : sorted[0].beat > 0
+        ? [fallback, ...sorted]
+        : sorted;
+
+    return boundaries.map((marker, index) => ({
       id: marker.id,
       name: marker.name,
       start: marker.beat,
-      end: index < sorted.length - 1 ? sorted[index + 1].beat : songSteps,
+      end: index < boundaries.length - 1 ? boundaries[index + 1].beat : songSteps,
       color: SECTION_COLORS[index % SECTION_COLORS.length],
-    }));
+    })).filter((section) => section.end > section.start);
   }, [songMarkers, songSteps]);
 
   const windowStart = Math.max(0, Math.floor(scrollLeft / cellW) - OVERSCAN);
@@ -406,7 +417,7 @@ export const SongTimelineGrid = ({
                     >
                       {section.name}
                     </button>
-                    {onRenameSection && (
+                    {onRenameSection && section.id !== 'marker_fallback' && (
                       <button
                         aria-label={`Rename ${section.name}`}
                         className="shrink-0 rounded-[2px] p-0.5 text-[var(--text-tertiary)] transition-colors hover:text-[var(--text-primary)]"
@@ -417,15 +428,15 @@ export const SongTimelineGrid = ({
                         <Pencil className="h-2.5 w-2.5" />
                       </button>
                     )}
-                    {onRemoveSection && (
+                    {onManageSection && (
                       <button
-                        aria-label={`Remove ${section.name}`}
-                        className="mr-0.5 shrink-0 rounded-[2px] p-0.5 text-[var(--text-tertiary)] transition-colors hover:text-[var(--danger)]"
-                        onClick={() => onRemoveSection(section.id)}
-                        title={`Remove ${section.name}`}
+                        aria-label={`Manage ${section.name}`}
+                        className="mr-0.5 shrink-0 rounded-[2px] p-0.5 text-[var(--text-tertiary)] opacity-60 transition-all hover:bg-[rgba(255,255,255,0.06)] hover:text-[var(--text-primary)] hover:opacity-100 focus:opacity-100"
+                        onClick={() => onManageSection(section.id)}
+                        title={`Manage, clear, save, or delete ${section.name}`}
                         type="button"
                       >
-                        <X className="h-2.5 w-2.5" />
+                        <MoreHorizontal className="h-3 w-3" />
                       </button>
                     )}
                   </>

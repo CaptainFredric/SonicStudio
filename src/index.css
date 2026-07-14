@@ -3049,6 +3049,46 @@ html[data-supersonic="true"] .session-player-deck-chip[data-role="intro"] {
   position: static;
 }
 
+.compact-transport-mode {
+  display: flex;
+  flex: 0 0 auto;
+  height: 2.6rem;
+  overflow: hidden;
+  border: 1px solid var(--border-soft);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--bg-panel-strong) 88%, transparent);
+}
+
+.compact-mode-btn {
+  min-width: 3.35rem;
+  padding: 0 0.55rem;
+  border: 0;
+  border-left: 1px solid var(--border-soft);
+  background: transparent;
+  color: var(--text-tertiary);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transition: background 150ms ease, color 150ms ease;
+}
+
+.compact-mode-btn:first-child {
+  border-left: 0;
+}
+
+.compact-mode-btn:hover,
+.compact-mode-btn:focus-visible {
+  background: rgba(255,255,255,0.05);
+  color: var(--text-primary);
+}
+
+.compact-mode-btn[data-active="true"] {
+  background: var(--accent-muted);
+  color: var(--accent-strong);
+  box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--accent) 68%, transparent);
+}
+
 .compact-transport-group {
   display: flex;
   gap: 0.4rem;

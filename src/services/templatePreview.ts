@@ -10,6 +10,7 @@
 
 import {
   createProjectFromTemplate,
+  getProjectSongLength,
   SESSION_TEMPLATE_DEFINITIONS,
   type InstrumentType,
   type SessionTemplateId,
@@ -36,10 +37,7 @@ export interface TemplatePreview {
 }
 
 const songLengthInSteps = (project: ReturnType<typeof createProjectFromTemplate>) => (
-  project.arrangerClips.reduce(
-    (maxBeat, clip) => Math.max(maxBeat, clip.startBeat + clip.beatLength),
-    project.transport.stepsPerPattern,
-  )
+  getProjectSongLength(project)
 );
 
 // Order matters: the audition picks the first matching lane so the

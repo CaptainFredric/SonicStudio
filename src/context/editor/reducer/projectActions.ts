@@ -88,11 +88,22 @@ export const handleProjectAction = (state: EditorState, action: EditorAction): E
     }
 
     case 'CREATE_SONG_MARKER': {
+      const markerBeat = clamp(Math.round(action.beat), 0, songLengthFromProject(present));
+      const existingMarker = present.markers.find((marker) => marker.beat === markerBeat);
+      if (existingMarker) {
+        if (!action.name?.trim()) return state;
+        return commitProject(state, {
+          ...present,
+          markers: present.markers.map((marker) => (
+            marker.id === existingMarker.id
+              ? { ...marker, name: action.name?.trim().slice(0, 24) || marker.name }
+              : marker
+          )),
+        });
+      }
+
       const nextMarker = {
-        beat: clamp(Math.round(action.beat), 0, Math.max(
-          present.arrangerClips.reduce((maxBeat, clip) => Math.max(maxBeat, clip.startBeat + clip.beatLength), present.transport.stepsPerPattern),
-          present.transport.stepsPerPattern,
-        )),
+        beat: markerBeat,
         id: `marker_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
         name: action.name?.trim() ? action.name.trim().slice(0, 24) : `Marker ${present.markers.length + 1}`,
       };

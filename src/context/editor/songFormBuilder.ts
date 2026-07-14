@@ -93,6 +93,7 @@ export const buildSongFormProject = (
   return {
     project: {
       ...project,
+      arrangementLength: cursor,
       arrangerClips: syncedClips,
       markers: syncSongMarkers(nextMarkers, cursor),
       transport: {

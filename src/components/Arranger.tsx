@@ -56,17 +56,23 @@ export const Arranger = () => {
     applySongForm,
     arrangerClips,
     bpm,
+    clearSongRange,
     createSongMarker,
     currentPattern,
     duplicateArrangerClip,
     duplicateSongRange,
+    deleteSongRange,
+    insertBlankSongSection,
+    insertSavedSongSection,
     loopArrangerClip,
     loopRangeEndBeat,
     loopRangeStartBeat,
     makeClipPatternUnique,
     moveTrack,
+    patternCount,
     pinnedTrackIds,
     removeArrangerClip,
+    removeSavedSongSection,
     selectSampleSlice,
     selectedArrangerClipId,
     selectedTrackId,
@@ -76,6 +82,8 @@ export const Arranger = () => {
     setSelectedArrangerClipId,
     setSelectedTrackId,
     setStepsPerPattern,
+    savedSongSections,
+    saveSongRange,
     songMarkers,
     songLengthInBeats,
     splitArrangerClip,
@@ -94,6 +102,7 @@ export const Arranger = () => {
     updateClipPatternStepEvent,
     updateSongMarker,
     removeSongMarker,
+    renameSavedSongSection,
   } = useAudio();
   const [queuedNoteStringId, setQueuedNoteStringId] = useQueuedNoteStringId();
 
@@ -497,13 +506,18 @@ export const Arranger = () => {
       <div className={`arranger-layout grid min-h-0 flex-1 gap-4 p-5 ${isInspectorOpen ? 'xl:grid-cols-[320px_minmax(0,1fr)]' : 'grid-cols-1'}`}>
         <ArrangerInspector
           applySongForm={applySongForm}
+          clearSongRange={clearSongRange}
           collapsedGroups={collapsedGroups}
           composerStepCount={composerStepCount}
           composerSteps={composerSteps}
           createSongMarker={createSongMarker}
+          currentPatternCount={patternCount}
           currentStep={currentStep}
+          deleteSongRange={deleteSongRange}
           duplicateArrangerClip={duplicateArrangerClip}
           duplicateSongRange={duplicateSongRange}
+          insertBlankSongSection={insertBlankSongSection}
+          insertSavedSongSection={insertSavedSongSection}
           inspectorTab={inspectorTab}
           isOpen={isInspectorOpen}
           isStepMappedSampleTrack={isStepMappedSampleTrack}
@@ -513,13 +527,17 @@ export const Arranger = () => {
           loopRangeEndBeat={loopRangeEndBeat}
           loopRangeStartBeat={loopRangeStartBeat}
           makeClipPatternUnique={makeClipPatternUnique}
-          markerCount={markerCount}
           onBeginPaint={beginPaint}
           onBeginSlicePaint={beginSlicePaint}
           onContinuePaint={continuePaint}
           onContinueSlicePaint={continueSlicePaint}
+          onDeleteSavedSection={removeSavedSongSection}
           onJumpToBoundary={jumpToBoundary}
+          onMoveSongMarker={(markerId, beat) => updateSongMarker(markerId, { beat })}
           onRemoveSongMarker={removeSongMarker}
+          onRenameSavedSection={renameSavedSongSection}
+          onRenameSongMarker={(markerId, name) => updateSongMarker(markerId, { name })}
+          onSaveSongRange={saveSongRange}
           onSelectSampleSlice={selectSampleSlice}
           onSetActiveView={() => openNotesPanel()}
           onSetCurrentPattern={setCurrentPattern}
@@ -531,10 +549,10 @@ export const Arranger = () => {
           onToggleCollapsedGroup={(key) => setCollapsedGroups((current) => ({ ...current, [key]: !current[key] }))}
           onToggleClipPatternStep={toggleClipPatternStep}
           onTransformClipPattern={transformClipPattern}
-          onUpdateSongMarker={updateSongMarker}
           phraseRows={phraseRows}
           phraseSummary={phraseSummary}
           removeArrangerClip={removeArrangerClip}
+          savedSections={savedSongSections}
           sectionRanges={sectionRanges}
           selectedAutomationLevel={selectedAutomationLevel}
           selectedAutomationTone={selectedAutomationTone}
@@ -547,7 +565,7 @@ export const Arranger = () => {
           selectedPhraseStep={selectedPhraseStep}
           selectedPhraseStepIndex={selectedPhraseStepIndex}
           setClipPatternStepSlice={setClipPatternStepSlice}
-          songMarkers={songMarkers}
+          songLengthInBeats={songLengthInBeats}
           splitArrangerClip={splitArrangerClip}
           splitBeat={splitBeat}
           updateClipPatternAutomationStep={updateClipPatternAutomationStep}

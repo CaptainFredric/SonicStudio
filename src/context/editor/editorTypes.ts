@@ -42,15 +42,19 @@ export type EditorAction =
   | { type: 'CLEAR_TRACK'; trackId: string }
   | { type: 'CLEAR_ALL_TRACK_NOTES' }
   | { type: 'CLEAR_PATTERN_AT'; trackId: string; patternIndex: number }
+  | { type: 'CLEAR_SONG_RANGE'; endBeat: number; startBeat: number }
   | { type: 'CONTINUE_PATTERN_RUNWAY'; patternIndex: number; steps: NoteEvent[][]; stepsPerPattern: number; trackId: string }
   | { type: 'CREATE_SONG_MARKER'; beat: number; name?: string }
   | { type: 'CREATE_TRACK'; trackType: InstrumentType }
   | { type: 'CREATE_SAMPLE_SLICE'; trackId: string; slice?: Partial<SampleSliceMemory> }
   | { type: 'DELETE_SAMPLE_SLICE'; trackId: string; sliceIndex: number }
   | { type: 'DELETE_MASTER_SNAPSHOT'; snapshotId: string }
+  | { type: 'DELETE_SONG_RANGE'; endBeat: number; startBeat: number }
   | { type: 'DELETE_TRACK_SNAPSHOT'; snapshotId: string }
   | { type: 'DUPLICATE_ARRANGER_CLIP'; clipId: string }
   | { type: 'DUPLICATE_SONG_RANGE'; endBeat: number; label?: string; startBeat: number }
+  | { type: 'INSERT_BLANK_SONG_SECTION'; atBeat: number; beatLength: number; name: string }
+  | { type: 'INSERT_SAVED_SONG_SECTION'; atBeat: number; savedSectionId: string }
   | { type: 'LOOP_ARRANGER_CLIP'; clipId: string; copies: number }
   | { type: 'MAKE_CLIP_PATTERN_UNIQUE'; clipId: string }
   | { type: 'SPLIT_ARRANGER_CLIP'; clipId: string; splitAtBeat?: number }
@@ -61,6 +65,7 @@ export type EditorAction =
   | { type: 'HYDRATE_SESSION'; session: StudioSession }
   | { type: 'REDO' }
   | { type: 'REMOVE_ARRANGER_CLIP'; clipId: string }
+  | { type: 'REMOVE_SAVED_SONG_SECTION'; savedSectionId: string }
   | { type: 'REMOVE_SONG_MARKER'; markerId: string }
   | { type: 'REMOVE_TRACK'; trackId: string }
   | { type: 'SET_SELECTED_ARRANGER_CLIP'; clipId: string | null }
@@ -86,6 +91,7 @@ export type EditorAction =
   | { type: 'SET_METRONOME_ENABLED'; enabled: boolean }
   | { type: 'SET_TRANSPORT_MODE'; mode: TransportMode }
   | { type: 'SAVE_MASTER_SNAPSHOT'; snapshotId?: string | null }
+  | { type: 'SAVE_SONG_RANGE'; endBeat: number; name: string; startBeat: number }
   | { type: 'SAVE_TRACK_SNAPSHOT'; snapshotId?: string | null; trackId: string }
   | { type: 'TOGGLE_MUTE'; trackId: string }
   | { type: 'TOGGLE_PAN'; pan: number; trackId: string }
@@ -109,5 +115,6 @@ export type EditorAction =
   | { type: 'UPDATE_PATTERN_AUTOMATION_STEP'; trackId: string; patternIndex: number; stepIndex: number; lane: 'level' | 'tone'; value: number }
   | { type: 'UPDATE_PATTERN_STEP_EVENT'; noteIndex: number; stepIndex: number; trackId: string; patternIndex: number; updates: Partial<NoteEvent> }
   | { type: 'UPDATE_SONG_MARKER'; markerId: string; updates: Partial<Omit<SongMarker, 'id'>> }
+  | { type: 'RENAME_SAVED_SONG_SECTION'; name: string; savedSectionId: string }
   | { type: 'UPDATE_SAMPLE_SLICE'; trackId: string; sliceIndex: number; updates: Partial<SampleSliceMemory> }
   | { type: 'UPDATE_STEP_EVENT'; noteIndex: number; stepIndex: number; trackId: string; updates: Partial<NoteEvent> };

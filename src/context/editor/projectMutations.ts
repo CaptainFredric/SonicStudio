@@ -1,6 +1,7 @@
 import {
   createArrangerClip as buildArrangerClip,
   createEmptyPattern,
+  MAX_ARRANGER_BEAT_POSITION,
   MAX_STEPS_PER_PATTERN,
   type ArrangementClip,
   type NoteEvent,
@@ -26,6 +27,7 @@ export const syncArrangerClips = (
   }
 
   const trackOrder = new Map(tracks.map((track, index) => [track.id, index]));
+  const stepCount = Math.max(1, tracks[0]?.patterns[0]?.length ?? MAX_STEPS_PER_PATTERN);
 
   return arrangerClips
     .filter((clip) => trackOrder.has(clip.trackId))
@@ -33,7 +35,8 @@ export const syncArrangerClips = (
       ...clip,
       beatLength: clamp(Math.round(clip.beatLength || 16), 4, MAX_STEPS_PER_PATTERN),
       patternIndex: clamp(Math.round(clip.patternIndex || 0), 0, Math.max(patternCount - 1, 0)),
-      startBeat: clamp(Math.round(clip.startBeat || 0), 0, 4096),
+      patternOffset: clamp(Math.round(clip.patternOffset || 0), 0, stepCount - 1),
+      startBeat: clamp(Math.round(clip.startBeat || 0), 0, MAX_ARRANGER_BEAT_POSITION),
     }))
     .sort((left, right) => {
       const leftTrackIndex = trackOrder.get(left.trackId) ?? 0;
@@ -286,6 +289,7 @@ export const splitArrangerClipProject = (
   const splitClip = buildArrangerClip(sourceClip.trackId, project.transport, {
     beatLength: secondLength,
     patternIndex: sourceClip.patternIndex,
+    patternOffset: ((sourceClip.patternOffset ?? 0) + firstLength) % project.transport.stepsPerPattern,
     startBeat: sourceClip.startBeat + firstLength,
   });
 
