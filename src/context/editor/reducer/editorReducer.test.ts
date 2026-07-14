@@ -241,6 +241,112 @@ describe('editorReducer', () => {
     expect(targetTrack?.automation?.[0]?.tone[1]).toBe(0.22);
   });
 
+  it('preserves existing automation when a segment only replaces notes', () => {
+    const state = createEditorState('blank-grid');
+    const leadTrack = state.history.present.tracks.find((track) => track.type === 'lead');
+    if (!leadTrack) {
+      throw new Error('Expected lead track');
+    }
+    const automation = {
+      level: Array.from({ length: state.history.present.transport.stepsPerPattern }, (_, index) => (index === 4 ? 0.88 : 0.5)),
+      tone: Array.from({ length: state.history.present.transport.stepsPerPattern }, (_, index) => (index === 5 ? 0.24 : 0.5)),
+    };
+    const seededState: EditorState = {
+      ...state,
+      history: {
+        ...state.history,
+        present: {
+          ...state.history.present,
+          tracks: state.history.present.tracks.map((track) => (
+            track.id === leadTrack.id
+              ? { ...track, automation: { ...track.automation, 0: automation } }
+              : track
+          )),
+        },
+      },
+    };
+
+    const edited = editorReducer(seededState, {
+      type: 'APPLY_PATTERN_SEGMENT',
+      patternIndex: 0,
+      steps: [[{ gate: 1, note: 'D4', velocity: 0.7 }]],
+      trackId: leadTrack.id,
+    });
+
+    expect(edited.history.present.tracks.find((track) => track.id === leadTrack.id)?.automation[0]).toEqual(automation);
+  });
+
+  it('applies multi-lane note edits as one undoable action without resetting automation', () => {
+    const state = createEditorState('blank-grid');
+    const [firstTrack, secondTrack] = state.history.present.tracks;
+    if (!firstTrack || !secondTrack) {
+      throw new Error('Expected at least two tracks');
+    }
+
+    const automation = {
+      level: Array.from({ length: state.history.present.transport.stepsPerPattern }, (_, index) => (index === 2 ? 0.91 : 0.5)),
+      tone: Array.from({ length: state.history.present.transport.stepsPerPattern }, (_, index) => (index === 3 ? 0.17 : 0.5)),
+    };
+    const seededState: EditorState = {
+      ...state,
+      history: {
+        ...state.history,
+        present: {
+          ...state.history.present,
+          tracks: state.history.present.tracks.map((track) => (
+            track.id === firstTrack.id
+              ? { ...track, automation: { ...track.automation, 0: automation } }
+              : track
+          )),
+        },
+      },
+    };
+
+    const edited = editorReducer(seededState, {
+      type: 'APPLY_PATTERN_STEP_BATCH',
+      patternIndex: 0,
+      segments: [
+        { steps: [[{ gate: 1, note: 'C4', velocity: 0.72 }]], trackId: firstTrack.id },
+        { steps: [[], [{ gate: 0.75, note: 'G3', velocity: 0.64 }]], trackId: secondTrack.id },
+      ],
+    });
+
+    expect(edited.history.past).toHaveLength(1);
+    expect(edited.history.present.tracks.find((track) => track.id === firstTrack.id)?.patterns[0]?.[0]?.[0]?.note).toBe('C4');
+    expect(edited.history.present.tracks.find((track) => track.id === secondTrack.id)?.patterns[0]?.[1]?.[0]?.note).toBe('G3');
+    expect(edited.history.present.tracks.find((track) => track.id === firstTrack.id)?.automation[0]).toEqual(automation);
+
+    const undone = editorReducer(edited, { type: 'UNDO' });
+    expect(undone.history.present).toEqual(seededState.history.present);
+  });
+
+  it('grows the pattern and writes a phrase in the same history entry', () => {
+    const state = createEditorState('blank-grid');
+    const firstTrack = state.history.present.tracks[0];
+    if (!firstTrack) {
+      throw new Error('Expected a track');
+    }
+
+    const originalLength = state.history.present.transport.stepsPerPattern;
+    const nextLength = originalLength + 4;
+    const steps = Array.from({ length: nextLength }, (_, index) => (
+      index === nextLength - 1 ? [{ gate: 1, note: 'A4', velocity: 0.8 }] : []
+    ));
+    const edited = editorReducer(state, {
+      type: 'APPLY_PATTERN_STEP_BATCH',
+      patternIndex: 0,
+      segments: [{ steps, trackId: firstTrack.id }],
+      stepsPerPattern: nextLength,
+    });
+
+    expect(edited.history.past).toHaveLength(1);
+    expect(edited.history.present.transport.stepsPerPattern).toBe(nextLength);
+    expect(edited.history.present.tracks[0]?.patterns[0]?.[nextLength - 1]?.[0]?.note).toBe('A4');
+
+    const undone = editorReducer(edited, { type: 'UNDO' });
+    expect(undone.history.present.transport.stepsPerPattern).toBe(originalLength);
+  });
+
   it('commits a runway continuation and pattern resize as one undoable edit', () => {
     const state = createEditorState('blank-grid');
     const leadTrackId = state.history.present.tracks.find((track) => track.type === 'lead')?.id;

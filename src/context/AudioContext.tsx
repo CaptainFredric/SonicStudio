@@ -107,6 +107,7 @@ interface AudioContextType {
   applyTrackSnapshot: (trackId: string, snapshotId: string) => void;
   applyMasterSnapshot: (snapshotId: string) => void;
   applyPatternSegment: (trackId: string, patternIndex: number, steps: NoteEvent[][], automation?: PatternAutomation) => void;
+  applyPatternStepBatch: (patternIndex: number, segments: Array<{ steps: NoteEvent[][]; trackId: string }>, stepsPerPattern?: number) => void;
   arrangerClips: ArrangementClip[];
   bounceHistory: BounceHistoryEntry[];
   bpm: number;

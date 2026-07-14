@@ -37,6 +37,7 @@ export type EditorAction =
   | { type: 'APPEND_BOUNCE_HISTORY'; entry: BounceHistoryEntry }
   | { type: 'APPLY_MASTER_SNAPSHOT'; snapshotId: string }
   | { type: 'APPLY_PATTERN_SEGMENT'; automation?: PatternAutomation; patternIndex: number; steps: NoteEvent[][]; trackId: string }
+  | { type: 'APPLY_PATTERN_STEP_BATCH'; patternIndex: number; segments: Array<{ steps: NoteEvent[][]; trackId: string }>; stepsPerPattern?: number }
   | { type: 'CLEAR_TRACK'; trackId: string }
   | { type: 'CLEAR_ALL_TRACK_NOTES' }
   | { type: 'CLEAR_PATTERN_AT'; trackId: string; patternIndex: number }

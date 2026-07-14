@@ -30,3 +30,15 @@ export const clearPatternRange = (
 ): NoteEvent[][] => Array.from({ length: totalSteps }, (_, index) => (
   index >= start && index <= end ? [] : cloneStep(steps[index] ?? [])
 ));
+
+export const movePatternRange = (
+  steps: NoteEvent[][],
+  start: number,
+  end: number,
+  targetStart: number,
+  totalSteps: number,
+): NoteEvent[][] => {
+  const source = copyPatternRange(steps, start, end);
+  const withoutSource = clearPatternRange(steps, start, end, totalSteps);
+  return writePatternRange(withoutSource, source, targetStart, totalSteps);
+};

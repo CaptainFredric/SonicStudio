@@ -21,6 +21,7 @@ export const createEditorDispatchers = (dispatch: Dispatch<EditorAction>) => ({
   applySongForm: (formId: SongFormId) => dispatch({ type: 'APPLY_SONG_FORM', formId }),
   applyMasterSnapshot: (snapshotId: string) => dispatch({ type: 'APPLY_MASTER_SNAPSHOT', snapshotId }),
   applyPatternSegment: (trackId: string, patternIndex: number, steps: NoteEvent[][], automation?: PatternAutomation) => dispatch({ type: 'APPLY_PATTERN_SEGMENT', automation, patternIndex, steps, trackId }),
+  applyPatternStepBatch: (patternIndex: number, segments: Array<{ steps: NoteEvent[][]; trackId: string }>, stepsPerPattern?: number) => dispatch({ type: 'APPLY_PATTERN_STEP_BATCH', patternIndex, segments, stepsPerPattern }),
   applyTrackSnapshot: (trackId: string, snapshotId: string) => dispatch({ type: 'APPLY_TRACK_SNAPSHOT', snapshotId, trackId }),
   applyTrackVoicePreset: (trackId: string, presetId: string) => dispatch({ type: 'APPLY_TRACK_VOICE_PRESET', presetId, trackId }),
   clearPatternAt: (trackId: string, patternIndex: number) => dispatch({ type: 'CLEAR_PATTERN_AT', trackId, patternIndex }),

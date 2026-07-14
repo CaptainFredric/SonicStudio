@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowDown,
+  ArrowLeft,
   ArrowLeftRight,
+  ArrowRight,
   ArrowUp,
   ChevronDown,
   ChevronUp,
@@ -81,7 +83,7 @@ import { setEditingMode, useEditingMode } from './editingModeStore';
 import { SongTimelineGrid } from './SongTimelineGrid';
 import { buildRunwayContinuation } from '../utils/runwayContinuation';
 import { getSequencerFollowScrollLeft } from '../utils/sequencerViewport';
-import { clearPatternRange, copyPatternRange, writePatternRange } from '../utils/stepRangeEditing';
+import { clearPatternRange, copyPatternRange, movePatternRange, writePatternRange } from '../utils/stepRangeEditing';
 
 const LANE_COLUMN_COLLAPSED_KEY = 'sonicstudio:lane-column-collapsed';
 const TRACK_MAP_OPEN_KEY = 'sonicstudio:track-map-open';
@@ -140,6 +142,13 @@ interface StepRangeSelection {
   end: number;
   start: number;
   trackIds: string[];
+}
+
+interface StepRangeMoveGesture {
+  anchorStep: number;
+  original: StepRangeSelection;
+  targetStart: number;
+  totalSteps: number;
 }
 
 const clampNumber = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
@@ -644,6 +653,7 @@ export const MainWorkspace = () => {
   const {
     applySongForm,
     applyPatternSegment,
+    applyPatternStepBatch,
     clearPatternAt,
     clearTrack,
     continuePatternRunway,
@@ -713,6 +723,9 @@ export const MainWorkspace = () => {
   // Cmd+D duplication and survives the drag, so you can grab a phrase and
   // stamp it forward.
   const [stepRange, setStepRange] = useState<StepRangeSelection | null>(null);
+  const [stepRangeMovePreview, setStepRangeMovePreview] = useState<StepRangeSelection | null>(null);
+  const stepRangeMoveGestureRef = useRef<StepRangeMoveGesture | null>(null);
+  const commitStepRangeMoveRef = useRef<() => void>(() => undefined);
   // The copied block: one steps-array per lane, in lane order. A ref, so it
   // survives pattern switches and pastes across banks.
   const rangeClipboardRef = useRef<{ lanes: NoteEvent[][][]; length: number } | null>(null);
@@ -776,6 +789,7 @@ export const MainWorkspace = () => {
   // pattern a step at a time (left shrinks it), while a plain tap still adds
   // a full bar. GarageBand's grab-the-region-edge gesture, on the step grid.
   const runwayDragRef = useRef<{ pointerId: number; startX: number; startSteps: number; lastSteps: number; alt: boolean; dragged: boolean } | null>(null);
+  const [patternLengthPreview, setPatternLengthPreview] = useState<{ fill: boolean; steps: number } | null>(null);
   const laneRunwayGestureRef = useRef<LaneRunwayGesture | null>(null);
   const [laneRunwayPreview, setLaneRunwayPreview] = useState<LaneRunwayGesture | null>(null);
   const addLaneStripRef = useRef<HTMLDivElement | null>(null);
@@ -921,6 +935,12 @@ export const MainWorkspace = () => {
   const visibleLaneOrder = useMemo(
     () => visibleTrackSections.flatMap((section) => section.tracks.map((entry) => entry.id)),
     [visibleTrackSections],
+  );
+  const displayedStepRange = stepRangeMovePreview ?? stepRange;
+  const movingStepRange = Boolean(
+    stepRangeMovePreview
+    && stepRange
+    && stepRangeMovePreview.start !== stepRange.start
   );
   const selectedRangeStats = useMemo(() => {
     if (!stepRange) return null;
@@ -1362,21 +1382,34 @@ export const MainWorkspace = () => {
     setPatternLength(stepsPerPattern + stepDelta);
   }, [setPatternLength, stepsPerPattern]);
 
-  // GarageBand-style loop fill: when the pattern grows with Alt held, the new
-  // steps repeat the material each lane already has instead of arriving empty.
-  const loopFillNewSteps = useCallback((oldLength: number, newLength: number) => {
-    if (newLength <= oldLength) return;
-    tracks.forEach((track) => {
-      const steps = track.patterns[currentPattern] || [];
-      if (!hasLoopSource(steps, oldLength)) return;
-      applyPatternSegment(track.id, currentPattern, loopFillSteps(steps, oldLength, newLength));
-    });
-  }, [applyPatternSegment, currentPattern, tracks]);
+  // Pattern resizing previews locally while the pointer moves, then commits
+  // once on release. Alt-fill repeats every lane through the same atomic edit,
+  // so one Undo restores both the notes and the former pattern length.
+  const commitPatternResize = useCallback((oldLength: number, newLength: number, fill: boolean) => {
+    const nextLength = clampNumber(Math.round(newLength), 16, MAX_STEPS_PER_PATTERN);
+    if (nextLength === oldLength) return false;
+    if (fill && nextLength > oldLength) {
+      const segments = tracks.flatMap((track) => {
+        const steps = track.patterns[currentPattern] || [];
+        return hasLoopSource(steps, oldLength)
+          ? [{ steps: loopFillSteps(steps, oldLength, nextLength), trackId: track.id }]
+          : [];
+      });
+      if (segments.length > 0) {
+        applyPatternStepBatch(currentPattern, segments, nextLength);
+        return true;
+      }
+    }
+    setPatternLength(nextLength);
+    return true;
+  }, [applyPatternStepBatch, currentPattern, setPatternLength, tracks]);
 
   // A selection range only makes sense within the pattern and mode it was
   // dragged in; switching either drops it.
   useEffect(() => {
     setStepRange(null);
+    setStepRangeMovePreview(null);
+    stepRangeMoveGestureRef.current = null;
   }, [editorMode, currentPattern]);
 
   const copyStepRange = (range: StepRangeSelection | null = stepRange) => {
@@ -1402,11 +1435,9 @@ export const MainWorkspace = () => {
     if (anchorLane < 0) return false;
     const targetStart = stepRange?.start ?? selectedStepIndex;
     const needed = targetStart + clipboard.length;
-    if (needed > stepsPerPattern) {
-      setPatternLength(needed);
-    }
     const total = Math.max(needed, stepsPerPattern);
     const pastedLaneIds: string[] = [];
+    const segments: Array<{ steps: NoteEvent[][]; trackId: string }> = [];
     clipboard.lanes.forEach((laneSteps, laneOffset) => {
       const laneId = visibleLaneOrder[anchorLane + laneOffset];
       if (!laneId) return;
@@ -1414,10 +1445,11 @@ export const MainWorkspace = () => {
       if (!track) return;
       const steps = track.patterns[currentPattern] || [];
       const next = writePatternRange(steps, laneSteps, targetStart, total);
-      applyPatternSegment(laneId, currentPattern, next);
+      segments.push({ steps: next, trackId: laneId });
       pastedLaneIds.push(laneId);
     });
     if (pastedLaneIds.length === 0) return false;
+    applyPatternStepBatch(currentPattern, segments, total > stepsPerPattern ? total : undefined);
     setStepRange({ trackIds: pastedLaneIds, start: targetStart, end: needed - 1 });
     setSelectedTrackId(pastedLaneIds[0]);
     selectStep(targetStart);
@@ -1435,18 +1467,16 @@ export const MainWorkspace = () => {
     const length = sourceRange.end - sourceRange.start + 1;
     const targetStart = sourceRange.end + 1;
     const needed = targetStart + length;
-    if (needed > stepsPerPattern) {
-      setPatternLength(needed);
-    }
     const total = Math.max(needed, stepsPerPattern);
-    laneIds.forEach((laneId) => {
+    const segments = laneIds.flatMap((laneId) => {
       const track = tracks.find((entry) => entry.id === laneId);
-      if (!track) return;
+      if (!track) return [];
       const steps = track.patterns[currentPattern] || [];
       const source = copyPatternRange(steps, sourceRange.start, sourceRange.end);
       const next = writePatternRange(steps, source, targetStart, total);
-      applyPatternSegment(laneId, currentPattern, next);
+      return [{ steps: next, trackId: laneId }];
     });
+    applyPatternStepBatch(currentPattern, segments, total > stepsPerPattern ? total : undefined);
     setStepRange({ trackIds: laneIds, start: targetStart, end: needed - 1 });
     setSelectedTrackId(laneIds[0]);
     selectStep(targetStart);
@@ -1455,15 +1485,61 @@ export const MainWorkspace = () => {
 
   const clearSelectedRange = () => {
     if (!stepRange) return false;
-    stepRange.trackIds.forEach((laneId) => {
+    const segments = stepRange.trackIds.flatMap((laneId) => {
       const track = tracks.find((entry) => entry.id === laneId);
-      if (!track) return;
+      if (!track) return [];
       const steps = track.patterns[currentPattern] || [];
       const next = clearPatternRange(steps, stepRange.start, stepRange.end, stepsPerPattern);
-      applyPatternSegment(laneId, currentPattern, next);
+      return [{ steps: next, trackId: laneId }];
     });
+    if (segments.length === 0) return false;
+    applyPatternStepBatch(currentPattern, segments);
     return true;
   };
+
+  const moveStepRangeTo = (
+    targetStart: number,
+    range: StepRangeSelection | null = stepRange,
+  ) => {
+    if (!range) return false;
+    const length = range.end - range.start + 1;
+    const nextStart = clampNumber(Math.round(targetStart), 0, Math.max(0, stepsPerPattern - length));
+    if (nextStart === range.start) return false;
+    const laneIds = range.trackIds.filter((id) => tracks.some((entry) => entry.id === id));
+    const segments = laneIds.flatMap((laneId) => {
+      const track = tracks.find((entry) => entry.id === laneId);
+      if (!track) return [];
+      const steps = track.patterns[currentPattern] || [];
+      return [{
+        steps: movePatternRange(steps, range.start, range.end, nextStart, stepsPerPattern),
+        trackId: laneId,
+      }];
+    });
+    if (segments.length === 0) return false;
+    applyPatternStepBatch(currentPattern, segments);
+    if (loopRangeStartBeat === range.start && loopRangeEndBeat === range.end + 1) {
+      setLoopRange(nextStart, nextStart + length);
+    }
+    setStepRange({ trackIds: laneIds, start: nextStart, end: nextStart + length - 1 });
+    setSelectedTrackId(laneIds[0]);
+    selectStep(nextStart);
+    return true;
+  };
+
+  const nudgeSelectedRange = (direction: -1 | 1, distance = 1) => (
+    stepRange ? moveStepRangeTo(stepRange.start + (direction * distance), stepRange) : false
+  );
+
+  useEffect(() => {
+    commitStepRangeMoveRef.current = () => {
+      const gesture = stepRangeMoveGestureRef.current;
+      stepRangeMoveGestureRef.current = null;
+      setStepRangeMovePreview(null);
+      if (gesture && gesture.targetStart !== gesture.original.start) {
+        moveStepRangeTo(gesture.targetStart, gesture.original);
+      }
+    };
+  });
 
   const loopSelectedRange = () => {
     if (!stepRange) return false;
@@ -1479,11 +1555,18 @@ export const MainWorkspace = () => {
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
       if (event.key === 'Escape') {
         setStepRange(null);
+        setStepRangeMovePreview(null);
+        stepRangeMoveGestureRef.current = null;
         return;
       }
       if ((event.key === 'Backspace' || event.key === 'Delete') && stepRange) {
         event.preventDefault();
         clearSelectedRange();
+        return;
+      }
+      if (stepRange && (event.key === 'ArrowLeft' || event.key === 'ArrowRight') && !(event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+        nudgeSelectedRange(event.key === 'ArrowLeft' ? -1 : 1, event.shiftKey ? 16 : 1);
         return;
       }
       if (!(event.metaKey || event.ctrlKey)) return;
@@ -1544,22 +1627,53 @@ export const MainWorkspace = () => {
     selectStep(0);
   };
 
-  const paintStateRef = useRef<{ trackId: string; mode: 'add' | 'remove' | 'select'; visited: Set<string>; note?: string; anchor?: number } | null>(null);
+  const paintStateRef = useRef<{ trackId: string; mode: 'add' | 'remove' | 'select' | 'move'; visited: Set<string>; note?: string; anchor?: number } | null>(null);
   // SuperSonic touch placement: a preview cell that tracks the finger so a
   // note can be aimed before it commits on release.
   const [placementCursor, setPlacementCursor] = useState<{ trackId: string; stepIndex: number } | null>(null);
   useEffect(() => {
     if (typeof window === 'undefined') return undefined;
-    const endPaint = () => {
+    const resetPaint = () => {
       paintStateRef.current = null;
       laneRunwayGestureRef.current = null;
       setLaneRunwayPreview(null);
     };
-    window.addEventListener('pointerup', endPaint);
-    window.addEventListener('pointercancel', endPaint);
+    const trackRangeMove = (event: PointerEvent) => {
+      const gesture = stepRangeMoveGestureRef.current;
+      if (!gesture) return;
+      const cell = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-seq-cell="true"]');
+      const stepIndex = Number(cell?.dataset.stepIndex);
+      if (!Number.isFinite(stepIndex)) return;
+      const length = gesture.original.end - gesture.original.start + 1;
+      const targetStart = clampNumber(
+        gesture.original.start + (stepIndex - gesture.anchorStep),
+        0,
+        Math.max(0, gesture.totalSteps - length),
+      );
+      if (gesture.targetStart === targetStart) return;
+      gesture.targetStart = targetStart;
+      setStepRangeMovePreview({
+        ...gesture.original,
+        start: targetStart,
+        end: targetStart + length - 1,
+      });
+    };
+    const finishPaint = () => {
+      commitStepRangeMoveRef.current();
+      resetPaint();
+    };
+    const cancelPaint = () => {
+      stepRangeMoveGestureRef.current = null;
+      setStepRangeMovePreview(null);
+      resetPaint();
+    };
+    window.addEventListener('pointermove', trackRangeMove);
+    window.addEventListener('pointerup', finishPaint);
+    window.addEventListener('pointercancel', cancelPaint);
     return () => {
-      window.removeEventListener('pointerup', endPaint);
-      window.removeEventListener('pointercancel', endPaint);
+      window.removeEventListener('pointermove', trackRangeMove);
+      window.removeEventListener('pointerup', finishPaint);
+      window.removeEventListener('pointercancel', cancelPaint);
     };
   }, []);
 
@@ -1682,6 +1796,27 @@ export const MainWorkspace = () => {
     selectStep(stepIndex);
 
     if (editorMode === 'select') {
+      const pressesCurrentRange = Boolean(
+        stepRange
+        && stepRange.trackIds.includes(trackId)
+        && stepIndex >= stepRange.start
+        && stepIndex <= stepRange.end
+      );
+      if (pressesCurrentRange && stepRange) {
+        event.preventDefault();
+        const original = { ...stepRange, trackIds: [...stepRange.trackIds] };
+        stepRangeMoveGestureRef.current = {
+          anchorStep: stepIndex,
+          original,
+          targetStart: original.start,
+          totalSteps: stepsPerPattern,
+        };
+        setStepRangeMovePreview(original);
+        paintStateRef.current = { trackId, mode: 'move', visited: new Set(), anchor: stepIndex };
+        return;
+      }
+      stepRangeMoveGestureRef.current = null;
+      setStepRangeMovePreview(null);
       paintStateRef.current = { trackId, mode: 'select', note, visited: new Set([`${stepIndex}`]), anchor: stepIndex };
       setStepRange({ trackIds: [trackId], start: stepIndex, end: stepIndex });
       return;
@@ -1706,6 +1841,25 @@ export const MainWorkspace = () => {
   ) => {
     const state = paintStateRef.current;
     if (!state) return;
+    if (state.mode === 'move') {
+      const gesture = stepRangeMoveGestureRef.current;
+      if (!gesture) return;
+      const length = gesture.original.end - gesture.original.start + 1;
+      const stepDelta = stepIndex - gesture.anchorStep;
+      const targetStart = clampNumber(
+        gesture.original.start + stepDelta,
+        0,
+        Math.max(0, stepsPerPattern - length),
+      );
+      if (gesture.targetStart === targetStart) return;
+      gesture.targetStart = targetStart;
+      setStepRangeMovePreview({
+        ...gesture.original,
+        start: targetStart,
+        end: targetStart + length - 1,
+      });
+      return;
+    }
     if (state.mode === 'select') {
       // No visited gate, and no same-lane guard: the marquee sweeps across
       // lanes as well as steps, and dragging back shrinks it again.
@@ -2685,12 +2839,37 @@ export const MainWorkspace = () => {
               <div className="flex min-w-0 items-center gap-2">
                 <span className="section-label shrink-0">Selection</span>
                 <span className="truncate font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--text-secondary)]">
-                  {stepRange && selectedRangeStats
-                    ? `${countLabel(selectedRangeStats.laneCount, 'lane')} · steps ${stepRange.start + 1}-${stepRange.end + 1} · ${countLabel(selectedRangeStats.noteCount, 'note')}`
+                  {displayedStepRange && selectedRangeStats
+                    ? `${movingStepRange ? 'Move to' : countLabel(selectedRangeStats.laneCount, 'lane')} · steps ${displayedStepRange.start + 1}-${displayedStepRange.end + 1} · ${countLabel(selectedRangeStats.noteCount, 'note')}`
                     : 'No range selected'}
                 </span>
               </div>
-              <div className="ml-auto flex items-center gap-1.5">
+              <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
+                <div aria-label="Move selection" className="flex overflow-hidden rounded-[3px] border border-[var(--border-soft)]" role="group">
+                  <button
+                    aria-label="Move the selected phrase left"
+                    className="control-chip flex h-8 w-8 items-center justify-center border-0"
+                    disabled={!stepRange || stepRange.start === 0}
+                    onClick={(event) => nudgeSelectedRange(-1, event.shiftKey ? 16 : 1)}
+                    title="Move left one step (Left Arrow). Shift-click for one bar."
+                    type="button"
+                  >
+                    <ArrowLeft className="h-3.5 w-3.5" />
+                  </button>
+                  <span className="flex h-8 items-center border-x border-[var(--border-soft)] px-2 font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--text-tertiary)]">
+                    Move
+                  </span>
+                  <button
+                    aria-label="Move the selected phrase right"
+                    className="control-chip flex h-8 w-8 items-center justify-center border-0"
+                    disabled={!stepRange || stepRange.end >= stepsPerPattern - 1}
+                    onClick={(event) => nudgeSelectedRange(1, event.shiftKey ? 16 : 1)}
+                    title="Move right one step (Right Arrow). Shift-click for one bar."
+                    type="button"
+                  >
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </button>
+                </div>
                 <button
                   aria-label="Duplicate the selected phrase"
                   className="control-chip flex h-8 items-center gap-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em]"
@@ -2751,7 +2930,11 @@ export const MainWorkspace = () => {
                   aria-label="Deselect the phrase"
                   className="ghost-icon-button flex h-8 w-8 shrink-0 items-center justify-center"
                   disabled={!stepRange}
-                  onClick={() => setStepRange(null)}
+                  onClick={() => {
+                    setStepRange(null);
+                    setStepRangeMovePreview(null);
+                    stepRangeMoveGestureRef.current = null;
+                  }}
                   title="Deselect (Escape)"
                   type="button"
                 >
@@ -2914,10 +3097,18 @@ export const MainWorkspace = () => {
                       </button>
                     ))}
                     <button
-                      className="group relative flex shrink-0 cursor-ew-resize touch-none flex-col items-center justify-center border-l border-dashed border-[var(--border-soft)] bg-[linear-gradient(90deg,rgba(255,255,255,0.03),rgba(114,217,255,0.08))] transition-colors hover:border-[rgba(114,217,255,0.28)] hover:bg-[linear-gradient(90deg,rgba(255,255,255,0.04),rgba(114,217,255,0.12))]"
-                      onPointerCancel={() => { runwayDragRef.current = null; }}
+                      aria-label={patternLengthPreview
+                        ? `Release to set the pattern to ${patternLengthPreview.steps} steps${patternLengthPreview.fill ? ' and fill the new space' : ''}`
+                        : 'Add a bar tap +16 · drag to size · alt fills'}
+                      className="pattern-length-runway group relative flex shrink-0 cursor-ew-resize touch-none flex-col items-center justify-center border-l border-dashed border-[var(--border-soft)] bg-[linear-gradient(90deg,rgba(255,255,255,0.03),rgba(114,217,255,0.08))] transition-colors hover:border-[rgba(114,217,255,0.28)] hover:bg-[linear-gradient(90deg,rgba(255,255,255,0.04),rgba(114,217,255,0.12))]"
+                      data-active={patternLengthPreview ? 'true' : undefined}
+                      onPointerCancel={() => {
+                        runwayDragRef.current = null;
+                        setPatternLengthPreview(null);
+                      }}
                       onPointerDown={(event) => {
                         runwayDragRef.current = { pointerId: event.pointerId, startX: event.clientX, startSteps: stepsPerPattern, lastSteps: stepsPerPattern, alt: event.altKey, dragged: false };
+                        setPatternLengthPreview({ fill: event.altKey, steps: stepsPerPattern });
                         try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* synthetic events */ }
                       }}
                       onPointerMove={(event) => {
@@ -2928,20 +3119,20 @@ export const MainWorkspace = () => {
                         if (event.altKey) drag.alt = true;
                         const next = clampNumber(drag.startSteps + Math.round(dx / stepCellWidth), 16, MAX_STEPS_PER_PATTERN);
                         drag.lastSteps = next;
-                        if (next !== stepsPerPattern) setPatternLength(next);
+                        setPatternLengthPreview({ fill: drag.alt, steps: next });
                       }}
                       onPointerUp={(event) => {
                         const drag = runwayDragRef.current;
                         runwayDragRef.current = null;
+                        setPatternLengthPreview(null);
                         try { event.currentTarget.releasePointerCapture(event.pointerId); } catch { /* synthetic events */ }
                         if (!drag) return;
                         const alt = drag.alt || event.altKey;
                         if (!drag.dragged) {
-                          extendPatternBy(16);
-                          if (alt) loopFillNewSteps(drag.startSteps, drag.startSteps + 16);
+                          commitPatternResize(drag.startSteps, drag.startSteps + 16, alt);
                           window.requestAnimationFrame(() => jumpToStep(drag.startSteps));
-                        } else if (alt && drag.lastSteps > drag.startSteps) {
-                          loopFillNewSteps(drag.startSteps, drag.lastSteps);
+                        } else {
+                          commitPatternResize(drag.startSteps, drag.lastSteps, alt);
                         }
                       }}
                       style={{ width: `${stepRunwayWidth}px` }}
@@ -2950,9 +3141,13 @@ export const MainWorkspace = () => {
                     >
                       <span className="flex items-center gap-1 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-secondary)]">
                         <Plus className="h-3 w-3 text-[var(--accent-strong)]" strokeWidth={3} />
-                        Add a bar
+                        {patternLengthPreview ? `${patternLengthPreview.steps} steps` : 'Add a bar'}
                       </span>
-                      <span className="mt-1 text-[10px] text-[var(--text-tertiary)]">tap +16 · drag to size · alt fills</span>
+                      <span className="mt-1 text-[10px] text-[var(--text-tertiary)]">
+                        {patternLengthPreview
+                          ? `${patternLengthPreview.steps - stepsPerPattern >= 0 ? '+' : ''}${patternLengthPreview.steps - stepsPerPattern} on release${patternLengthPreview.fill ? ' · fill on' : ''}`
+                          : 'tap +16 · drag to size · alt fills'}
+                      </span>
                     </button>
                   </div>
                 </div>
@@ -3190,7 +3385,9 @@ export const MainWorkspace = () => {
                           {patternSteps.map((value, stepIndex) => {
                             const isActive = value.length > 0;
                             const isSelectedStep = selectedStepIndex === stepIndex;
-                            const inRange = stepRange !== null && stepRange.trackIds.includes(track.id) && stepIndex >= stepRange.start && stepIndex <= stepRange.end;
+                            const inRange = displayedStepRange !== null && displayedStepRange.trackIds.includes(track.id) && stepIndex >= displayedStepRange.start && stepIndex <= displayedStepRange.end;
+                            const inMoveSource = movingStepRange && stepRange !== null && stepRange.trackIds.includes(track.id) && stepIndex >= stepRange.start && stepIndex <= stepRange.end;
+                            const inMoveTarget = movingStepRange && stepRangeMovePreview !== null && stepRangeMovePreview.trackIds.includes(track.id) && stepIndex >= stepRangeMovePreview.start && stepIndex <= stepRangeMovePreview.end;
                             const leadEvent = value[0];
                             const extraNotes = Math.max(0, value.length - 1);
                             const maxGate = value.reduce((gate, event) => Math.max(gate, event.gate), 0);
@@ -3205,8 +3402,10 @@ export const MainWorkspace = () => {
                               <button
                                 aria-label={`${track.name} step ${stepIndex + 1}`}
                                 aria-pressed={isActive}
-                                className={`group relative shrink-0 touch-none border transition-colors ${editorMode === 'select' ? 'cursor-pointer' : 'cursor-crosshair'} ${compactLanes ? 'min-h-[38px]' : 'min-h-[48px]'} ${isActive ? 'border-transparent' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.05)]'} ${inRange ? 'ring-2 ring-inset ring-[rgba(125,211,252,0.4)]' : isSelectedStep ? 'outline outline-1 outline-offset-0 outline-[rgba(125,211,252,0.26)]' : ''} ${placementCursor && placementCursor.trackId === track.id && placementCursor.stepIndex === stepIndex ? 'seq-place-cursor' : ''}`}
+                                className={`group relative shrink-0 touch-none border transition-colors ${editorMode === 'select' ? (inRange && !movingStepRange ? 'cursor-grab active:cursor-grabbing' : 'cursor-pointer') : 'cursor-crosshair'} ${compactLanes ? 'min-h-[38px]' : 'min-h-[48px]'} ${isActive ? 'border-transparent' : 'border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] hover:bg-[rgba(255,255,255,0.05)]'} ${inRange ? 'ring-2 ring-inset ring-[rgba(125,211,252,0.4)]' : isSelectedStep ? 'outline outline-1 outline-offset-0 outline-[rgba(125,211,252,0.26)]' : ''} ${placementCursor && placementCursor.trackId === track.id && placementCursor.stepIndex === stepIndex ? 'seq-place-cursor' : ''}`}
                                 data-seq-cell="true"
+                                data-range-move-source={inMoveSource ? 'true' : undefined}
+                                data-range-move-target={inMoveTarget ? 'true' : undefined}
                                 data-step-index={stepIndex}
                                 data-track-id={track.id}
                                 key={`${track.id}-${stepIndex}`}
