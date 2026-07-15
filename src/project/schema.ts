@@ -290,6 +290,7 @@ export const DEFAULT_PATTERN_COUNT = 4;
 export const DEFAULT_STEPS_PER_PATTERN = 16;
 export const MAX_PATTERN_COUNT = 16;
 export const MAX_STEPS_PER_PATTERN = 4096;
+export const MIN_ARRANGEMENT_STEPS = 4;
 export const MIN_PATTERN_COUNT = 1;
 export const MIN_STEPS_PER_PATTERN = 8;
 export const PROJECT_SCHEMA_VERSION = 13;
@@ -298,7 +299,7 @@ export const MAX_ARRANGER_BEAT_POSITION = 99999;
 export const getProjectSongLength = (project: Project): number => (
   project.arrangerClips.reduce(
     (maxBeat, clip) => Math.max(maxBeat, clip.startBeat + clip.beatLength),
-    Math.max(project.transport.stepsPerPattern, project.arrangementLength || 0),
+    Math.max(MIN_ARRANGEMENT_STEPS, project.arrangementLength || 0),
   )
 );
 
@@ -3854,13 +3855,14 @@ export const normalizeProject = (rawInput: unknown): Project | null => {
   const resolvedArrangerClips = arrangerClips.length > 0
     ? arrangerClips
     : legacySectionsToClips(input.arranger, tracks, transport);
-  const maxMarkerBeat = resolvedArrangerClips.reduce(
+  const maxClipBeat = resolvedArrangerClips.reduce(
     (maxBeat, clip) => Math.max(maxBeat, clip.startBeat + clip.beatLength),
-    transport.stepsPerPattern,
+    MIN_ARRANGEMENT_STEPS,
   );
+  const fallbackArrangementLength = Math.max(transport.stepsPerPattern, maxClipBeat);
   const arrangementLength = clamp(
-    typeof input.arrangementLength === 'number' ? Math.round(input.arrangementLength) : maxMarkerBeat,
-    maxMarkerBeat,
+    typeof input.arrangementLength === 'number' ? Math.round(input.arrangementLength) : fallbackArrangementLength,
+    maxClipBeat,
     MAX_ARRANGER_BEAT_POSITION,
   );
 

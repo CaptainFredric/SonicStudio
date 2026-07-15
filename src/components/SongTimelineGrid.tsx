@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronsLeft, ChevronsRight, GripVertical, MoreHorizontal, Music2, Trash2 } from 'lucide-react';
+import { ChevronsLeft, ChevronsRight, CopyPlus, GripVertical, MoreHorizontal, Music2, Trash2 } from 'lucide-react';
 import type React from 'react';
 
 import { engine } from '../audio/ToneEngine';
 import { resolvePatternStepForPlayback } from '../audio/playbackResolver';
 import { SUPERSONIC_NOTE_OFFSETS, getTrackAnchorNote, pitchRank, shiftPitch } from '../utils/notePlacement';
+import { snapSectionLength } from '../utils/sectionResizeSnapping';
 import { TrackIcon } from '../utils/trackPersonality';
-import { MAX_ARRANGER_BEAT_POSITION, type ArrangementClip, type SongMarker, type Track } from '../project/schema';
+import { MAX_ARRANGER_BEAT_POSITION, MIN_ARRANGEMENT_STEPS, type ArrangementClip, type SongMarker, type Track } from '../project/schema';
 
 const SECTION_COLORS = [
   '#22d3ee', '#818cf8', '#f472b6', '#fbbf24', '#34d399', '#fb7185', '#60a5fa', '#a78bfa', '#f59e0b',
@@ -28,6 +29,18 @@ interface SectionMoveGesture {
   targetBeat: number;
 }
 
+interface ClipMoveGesture {
+  clipId: string;
+  moved: boolean;
+  originClientX: number;
+  originClientY: number;
+  pointerBeatOffset: number;
+  previewStartBeat: number;
+  previewTrackId: string;
+  sourceStartBeat: number;
+  sourceTrackId: string;
+}
+
 interface SongTimelineGridProps {
   tracks: Track[];
   arrangerClips: ArrangementClip[];
@@ -36,6 +49,8 @@ interface SongTimelineGridProps {
   songMarkers: SongMarker[];
   cellWidth?: number;
   compactLanes?: boolean;
+  clipEditing?: boolean;
+  selectedClipId?: string | null;
   selectedTrackId: string | null;
   superSonicMode?: boolean;
   onSelectTrack: (trackId: string) => void;
@@ -50,6 +65,10 @@ interface SongTimelineGridProps {
   onResizeSectionEnd?: (sectionId: string, startBeat: number, currentEndBeat: number, nextEndBeat: number) => void;
   onReorderTrack?: (trackId: string, toIndex: number) => void;
   onDeleteTrack?: (trackId: string) => void;
+  onSelectClip?: (clipId: string) => void;
+  onMoveClip?: (clipId: string, trackId: string, startBeat: number) => void;
+  onDuplicateClip?: (clipId: string) => void;
+  onDeleteClip?: (clipId: string) => void;
 }
 
 // A flattened, scrollable view of the whole arrangement: one lane per track with
@@ -68,6 +87,8 @@ export const SongTimelineGrid = ({
   songMarkers,
   cellWidth,
   compactLanes = false,
+  clipEditing = false,
+  selectedClipId,
   selectedTrackId,
   superSonicMode = false,
   onSelectTrack,
@@ -82,6 +103,10 @@ export const SongTimelineGrid = ({
   onResizeSectionEnd,
   onReorderTrack,
   onDeleteTrack,
+  onSelectClip,
+  onMoveClip,
+  onDuplicateClip,
+  onDeleteClip,
 }: SongTimelineGridProps) => {
   const rootRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -104,7 +129,11 @@ export const SongTimelineGrid = ({
   const [dropIndex, setDropIndex] = useState<number | null>(null);
   // The track gutter slides shut to a thin icon strip so a long song gets the
   // full width, then back open on toggle.
-  const [gutterCollapsed, setGutterCollapsed] = useState(false);
+  const [gutterCollapsed, setGutterCollapsed] = useState(() => (
+    typeof window !== 'undefined'
+    && typeof window.matchMedia === 'function'
+    && window.matchMedia('(max-width: 767px)').matches
+  ));
   // Which empty, placeable cell the pointer is over, so the SuperSonic pitch
   // ladder shows inline in just that cell.
   const [hoverCell, setHoverCell] = useState<{ trackId: string; step: number } | null>(null);
@@ -123,6 +152,8 @@ export const SongTimelineGrid = ({
   const moveGestureRef = useRef<SectionMoveGesture | null>(null);
   const moveCallbackRef = useRef(onMoveSection);
   const suppressSectionClickRef = useRef(false);
+  const [clipMovePreview, setClipMovePreview] = useState<ClipMoveGesture | null>(null);
+  const clipMoveGestureRef = useRef<ClipMoveGesture | null>(null);
 
   useEffect(() => {
     resizeCallbackRef.current = onResizeSectionEnd;
@@ -131,6 +162,12 @@ export const SongTimelineGrid = ({
   useEffect(() => {
     moveCallbackRef.current = onMoveSection;
   }, [onMoveSection]);
+
+  useEffect(() => {
+    if (clipEditing) return;
+    clipMoveGestureRef.current = null;
+    setClipMovePreview(null);
+  }, [clipEditing]);
 
   // Drag editing, decided by the starting cell: press a filled cell and drag to
   // erase every filled cell crossed (gaps are skipped), or press an empty cell
@@ -168,7 +205,7 @@ export const SongTimelineGrid = ({
   const noteInset = Math.max(3, Math.min(18, Math.floor(laneH * 0.18)));
   const placementEnabled = superSonicMode && Boolean(onPlaceNote);
 
-  const originalSongSteps = Math.max(stepsPerPattern, Math.round(songLengthInBeats));
+  const originalSongSteps = Math.max(MIN_ARRANGEMENT_STEPS, Math.round(songLengthInBeats));
   const resizeDelta = resizePreview ? resizePreview.draftEnd - resizePreview.originalEnd : 0;
   const songSteps = originalSongSteps + resizeDelta;
   // Render a couple of empty bars past the song's end so there is always
@@ -433,9 +470,11 @@ export const SongTimelineGrid = ({
         node.scrollLeft -= Math.max(10, cellW);
       }
       const rawStep = (event.clientX - rect.left + node.scrollLeft) / cellW;
-      const snappedStep = event.shiftKey
-        ? Math.round(rawStep / stepsPerPattern) * stepsPerPattern
-        : Math.round(rawStep);
+      const snappedStep = gesture.start + snapSectionLength(
+        rawStep - gesture.start,
+        stepsPerPattern,
+        event.shiftKey,
+      );
       const draftEnd = Math.max(gesture.minimumEnd, Math.min(gesture.maximumEnd, snappedStep));
       if (draftEnd === gesture.draftEnd) return;
       const nextGesture = { ...gesture, draftEnd };
@@ -531,6 +570,134 @@ export const SongTimelineGrid = ({
     };
   }, [baseSections, cellW, originalSongSteps]);
 
+  useEffect(() => {
+    const finishClipMove = (commit: boolean) => {
+      const gesture = clipMoveGestureRef.current;
+      clipMoveGestureRef.current = null;
+      setClipMovePreview(null);
+      document.documentElement.style.removeProperty('cursor');
+      document.documentElement.style.removeProperty('user-select');
+      if (
+        commit
+        && gesture?.moved
+        && (
+          gesture.previewStartBeat !== gesture.sourceStartBeat
+          || gesture.previewTrackId !== gesture.sourceTrackId
+        )
+      ) {
+        onMoveClip?.(gesture.clipId, gesture.previewTrackId, gesture.previewStartBeat);
+      }
+    };
+    const moveClip = (event: PointerEvent) => {
+      const gesture = clipMoveGestureRef.current;
+      const node = scrollRef.current;
+      if (!gesture || !node) return;
+      const moved = gesture.moved
+        || Math.abs(event.clientX - gesture.originClientX) >= 4
+        || Math.abs(event.clientY - gesture.originClientY) >= 4;
+      if (!moved) return;
+
+      const rect = node.getBoundingClientRect();
+      if (event.clientX > rect.right - 28) {
+        programmaticScrollRef.current = true;
+        node.scrollLeft += Math.max(10, cellW);
+      } else if (event.clientX < rect.left + 28) {
+        programmaticScrollRef.current = true;
+        node.scrollLeft -= Math.max(10, cellW);
+      }
+      const rawStart = ((event.clientX - rect.left + node.scrollLeft) / cellW) - gesture.pointerBeatOffset;
+      const previewStartBeat = Math.max(0, Math.round(rawStart / 4) * 4);
+      const laneIndex = Math.max(
+        0,
+        Math.min(
+          tracks.length - 1,
+          Math.floor((event.clientY - rect.top - RULER_HEIGHT) / laneH),
+        ),
+      );
+      const previewTrackId = tracks[laneIndex]?.id ?? gesture.previewTrackId;
+      const nextGesture = {
+        ...gesture,
+        moved: true,
+        previewStartBeat,
+        previewTrackId,
+      };
+      clipMoveGestureRef.current = nextGesture;
+      setClipMovePreview(nextGesture);
+      followingRef.current = false;
+      setFollowing(false);
+      document.documentElement.style.cursor = 'grabbing';
+      document.documentElement.style.userSelect = 'none';
+    };
+    const cancelClipMove = () => finishClipMove(false);
+    const commitClipMove = () => finishClipMove(true);
+    const handleClipMoveKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && clipMoveGestureRef.current) {
+        event.preventDefault();
+        cancelClipMove();
+      }
+    };
+    window.addEventListener('pointermove', moveClip);
+    window.addEventListener('pointerup', commitClipMove);
+    window.addEventListener('pointercancel', cancelClipMove);
+    window.addEventListener('keydown', handleClipMoveKey);
+    return () => {
+      window.removeEventListener('pointermove', moveClip);
+      window.removeEventListener('pointerup', commitClipMove);
+      window.removeEventListener('pointercancel', cancelClipMove);
+      window.removeEventListener('keydown', handleClipMoveKey);
+    };
+  }, [cellW, laneH, onMoveClip, tracks]);
+
+  const beginClipMove = (event: React.PointerEvent, clip: ArrangementClip) => {
+    const node = scrollRef.current;
+    if (!clipEditing || !node || event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const rect = node.getBoundingClientRect();
+    const pointerBeat = (event.clientX - rect.left + node.scrollLeft) / cellW;
+    onSelectClip?.(clip.id);
+    onSelectTrack(clip.trackId);
+    clipMoveGestureRef.current = {
+      clipId: clip.id,
+      moved: false,
+      originClientX: event.clientX,
+      originClientY: event.clientY,
+      pointerBeatOffset: pointerBeat - clip.startBeat,
+      previewStartBeat: clip.startBeat,
+      previewTrackId: clip.trackId,
+      sourceStartBeat: clip.startBeat,
+      sourceTrackId: clip.trackId,
+    };
+  };
+
+  const moveClipWithKeyboard = (event: React.KeyboardEvent, clip: ArrangementClip) => {
+    if (!clipEditing) return;
+    if (event.key === 'Delete' || event.key === 'Backspace') {
+      event.preventDefault();
+      onDeleteClip?.(clip.id);
+      return;
+    }
+    if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'd') {
+      event.preventDefault();
+      onDuplicateClip?.(clip.id);
+      return;
+    }
+    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
+    event.preventDefault();
+    const trackIndex = tracks.findIndex((track) => track.id === clip.trackId);
+    const nextTrackIndex = event.key === 'ArrowUp'
+      ? Math.max(0, trackIndex - 1)
+      : event.key === 'ArrowDown'
+        ? Math.min(tracks.length - 1, trackIndex + 1)
+        : trackIndex;
+    const nextStartBeat = event.key === 'ArrowLeft'
+      ? Math.max(0, clip.startBeat - 4)
+      : event.key === 'ArrowRight'
+        ? clip.startBeat + 4
+        : clip.startBeat;
+    onMoveClip?.(clip.id, tracks[nextTrackIndex]?.id ?? clip.trackId, nextStartBeat);
+  };
+
   const beginSectionResize = (
     event: React.PointerEvent,
     section: (typeof baseSections)[number],
@@ -540,7 +707,7 @@ export const SongTimelineGrid = ({
     event.stopPropagation();
     const minimumEnd = Math.max(
       section.start + MIN_SECTION_STEPS,
-      section.end - (originalSongSteps - stepsPerPattern),
+      section.end - (originalSongSteps - MIN_ARRANGEMENT_STEPS),
     );
     const gesture = {
       draftEnd: section.end,
@@ -570,7 +737,7 @@ export const SongTimelineGrid = ({
     const direction = event.key === 'ArrowRight' ? 1 : -1;
     const minimumEnd = Math.max(
       section.start + MIN_SECTION_STEPS,
-      section.end - (originalSongSteps - stepsPerPattern),
+      section.end - (originalSongSteps - MIN_ARRANGEMENT_STEPS),
     );
     const maximumEnd = section.end + (MAX_ARRANGER_BEAT_POSITION - originalSongSteps);
     const nextEnd = Math.max(minimumEnd, Math.min(maximumEnd, section.end + (amount * direction)));
@@ -804,14 +971,14 @@ export const SongTimelineGrid = ({
                     <button
                       aria-label={`Resize the end of ${section.name}`}
                       aria-valuemax={originalSection.end + (MAX_ARRANGER_BEAT_POSITION - originalSongSteps)}
-                      aria-valuemin={Math.max(originalSection.start + MIN_SECTION_STEPS, originalSection.end - (originalSongSteps - stepsPerPattern))}
+                      aria-valuemin={Math.max(originalSection.start + MIN_SECTION_STEPS, originalSection.end - (originalSongSteps - MIN_ARRANGEMENT_STEPS))}
                       aria-valuenow={section.end}
                       className="absolute -right-2 top-0 z-20 flex h-full w-4 cursor-ew-resize touch-none items-center justify-center focus-visible:outline-none"
                       data-section-resize-handle={section.id}
                       onKeyDown={(event) => resizeSectionWithKeyboard(event, originalSection)}
                       onPointerDown={(event) => beginSectionResize(event, originalSection)}
                       role="slider"
-                      title={`Drag to resize ${section.name}. Hold Shift to snap by bar.`}
+                      title={`Drag to resize ${section.name}. Magnetic snap every 4 steps; hold Shift to lock full bars.`}
                       type="button"
                     >
                       <span
@@ -874,7 +1041,7 @@ export const SongTimelineGrid = ({
                     data-song-cell="true"
                     data-track-id={track.id}
                     data-song-step={songStep}
-                    disabled={Boolean(resizePreview || movePreview)}
+                    disabled={clipEditing || Boolean(resizePreview || movePreview)}
                     onPointerDown={(event) => {
                       // Reset first: a prior drag that ended on another cell (or
                       // off-grid) fires no click to self-clear the flag, so without
@@ -1041,6 +1208,78 @@ export const SongTimelineGrid = ({
                   </button>
                 );
               })}
+              {clipEditing && arrangerClips
+                .filter((clip) => (
+                  clipMovePreview?.clipId === clip.id
+                    ? clipMovePreview.previewTrackId === track.id
+                    : clip.trackId === track.id
+                ))
+                .map((clip) => {
+                  const previewing = clipMovePreview?.clipId === clip.id;
+                  const startBeat = previewing ? clipMovePreview.previewStartBeat : clip.startBeat;
+                  const selected = selectedClipId === clip.id;
+                  return (
+                    <div
+                      className="group absolute inset-y-1 overflow-hidden rounded-[3px] border shadow-[0_2px_8px_rgba(0,0,0,0.3)]"
+                      data-arranger-clip={clip.id}
+                      data-moving={previewing && clipMovePreview.moved ? 'true' : undefined}
+                      data-selected={selected ? 'true' : undefined}
+                      key={clip.id}
+                      style={{
+                        background: `${track.color}${selected ? '46' : '30'}`,
+                        borderColor: selected ? track.color : `${track.color}88`,
+                        boxShadow: selected ? `inset 0 0 0 1px ${track.color}, 0 3px 12px rgba(0,0,0,0.42)` : undefined,
+                        left: startBeat * cellW,
+                        opacity: previewing ? 0.82 : 1,
+                        width: Math.max(36, clip.beatLength * cellW),
+                        zIndex: selected || previewing ? 14 : 8,
+                      }}
+                    >
+                      <button
+                        aria-label={`Move Pattern ${String.fromCharCode(65 + clip.patternIndex)} clip on ${track.name}`}
+                        className="absolute inset-0 flex cursor-grab items-center gap-1 overflow-hidden px-2 text-left active:cursor-grabbing"
+                        onClick={() => {
+                          onSelectClip?.(clip.id);
+                          onSelectTrack(track.id);
+                        }}
+                        onDoubleClick={() => onDuplicateClip?.(clip.id)}
+                        onKeyDown={(event) => moveClipWithKeyboard(event, clip)}
+                        onPointerDown={(event) => beginClipMove(event, clip)}
+                        title={`Pattern ${String.fromCharCode(65 + clip.patternIndex)} · ${clip.beatLength} steps. Drag in time or to another lane.`}
+                        type="button"
+                      >
+                        <GripVertical className="h-3 w-3 shrink-0 opacity-65" />
+                        <span className="truncate font-mono text-[9px] font-semibold uppercase tracking-[0.11em]" style={{ color: track.color }}>
+                          P{String.fromCharCode(65 + clip.patternIndex)} · {clip.beatLength}
+                        </span>
+                      </button>
+                      {selected && (
+                        <div className="absolute right-1 top-1/2 z-10 flex -translate-y-1/2 items-center gap-0.5 rounded-[2px] bg-[var(--bg-panel-strong)]/90 p-0.5 shadow-sm">
+                          <button
+                            aria-label="Duplicate selected clip"
+                            className="flex h-6 w-6 items-center justify-center rounded-[2px] text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.08)] hover:text-[var(--text-primary)]"
+                            onClick={(event) => { event.stopPropagation(); onDuplicateClip?.(clip.id); }}
+                            onPointerDown={(event) => event.stopPropagation()}
+                            title="Duplicate clip (Cmd/Ctrl+D)"
+                            type="button"
+                          >
+                            <CopyPlus className="h-3 w-3" />
+                          </button>
+                          <button
+                            aria-label="Delete selected clip"
+                            className="flex h-6 w-6 items-center justify-center rounded-[2px] text-[var(--text-secondary)] hover:bg-[rgba(244,63,94,0.14)] hover:text-[var(--danger)]"
+                            onClick={(event) => { event.stopPropagation(); onDeleteClip?.(clip.id); }}
+                            onPointerDown={(event) => event.stopPropagation()}
+                            title="Delete clip"
+                            type="button"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
             </div>
           ))}
 
@@ -1053,7 +1292,7 @@ export const SongTimelineGrid = ({
           />
         </div>
       </div>
-      {!following && !resizePreview && !movePreview && (
+      {!following && !resizePreview && !movePreview && !clipMovePreview && (
         <button
           aria-label="Follow the playhead"
           className="absolute bottom-2 right-2 z-20 flex items-center gap-1.5 rounded-full border border-[var(--accent-strong)] bg-[var(--bg-panel-strong)] px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--accent-strong)] shadow-[0_2px_10px_rgba(0,0,0,0.45)] transition-colors hover:bg-[var(--accent-muted)]"

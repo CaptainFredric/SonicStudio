@@ -6,7 +6,7 @@ import { resolvePatternStepForPlayback } from '../audio/playbackResolver';
 import { useAudio } from '../context/AudioContext';
 import { NOTE_NAMES } from '../utils/notePlacement';
 import { TrackIcon } from '../utils/trackPersonality';
-import type { ArrangementClip, StepValue, Track } from '../project/schema';
+import { MIN_ARRANGEMENT_STEPS, type ArrangementClip, type StepValue, type Track } from '../project/schema';
 
 const SECTION_COLORS = [
   '#22d3ee', '#818cf8', '#f472b6', '#fbbf24', '#34d399', '#fb7185', '#60a5fa', '#a78bfa', '#f59e0b',
@@ -64,7 +64,7 @@ export const WholeSongPianoRoll = () => {
 
   const track = tracks.find((candidate) => candidate.id === selectedTrackId) ?? tracks[0] ?? null;
 
-  const totalSteps = Math.max(stepsPerPattern, Math.round(songLengthInBeats));
+  const totalSteps = Math.max(MIN_ARRANGEMENT_STEPS, Math.round(songLengthInBeats));
   const totalWidth = totalSteps * CELL_WIDTH;
 
   // Pitch range = the notes the track actually uses (padded), so the grid frames

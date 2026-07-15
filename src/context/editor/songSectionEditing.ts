@@ -1,6 +1,7 @@
 import {
   MAX_PATTERN_COUNT,
   MAX_ARRANGER_BEAT_POSITION,
+  MIN_ARRANGEMENT_STEPS,
   resizeTrackPatterns,
   type ArrangementClip,
   type NoteEvent,
@@ -168,7 +169,7 @@ export const resizeSongSectionEnd = (
   );
   const minimumEnd = Math.max(
     start + MIN_CLIP_LENGTH,
-    currentEnd - (songLength - project.transport.stepsPerPattern),
+    currentEnd - (songLength - MIN_ARRANGEMENT_STEPS),
   );
   const maximumEnd = currentEnd + (MAX_ARRANGER_BEAT_POSITION - songLength);
   const nextEnd = clamp(Math.round(nextEndBeat), minimumEnd, maximumEnd);
@@ -302,7 +303,7 @@ export const deleteSongRange = (
   endBeat: number,
 ): Project => {
   const range = normalizeRange(project, startBeat, endBeat);
-  const nextLength = Math.max(project.transport.stepsPerPattern, range.songLength - range.length);
+  const nextLength = Math.max(MIN_ARRANGEMENT_STEPS, range.songLength - range.length);
   const clips = project.arrangerClips.flatMap((clip) => {
     const clipEnd = clip.startBeat + clip.beatLength;
     if (clipEnd <= range.start) return [clip];

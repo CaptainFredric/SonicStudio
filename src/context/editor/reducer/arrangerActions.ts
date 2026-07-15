@@ -3,6 +3,7 @@ import type { EditorAction, EditorState } from '../editorTypes';
 import {
   duplicateArrangerClipProject,
   makeClipPatternUniqueProject,
+  moveArrangerClipProject,
   splitArrangerClipProject,
   syncArrangerClips,
 } from '../projectMutations';
@@ -163,6 +164,22 @@ export const handleArrangerAction = (state: EditorState, action: EditorAction): 
         action.startBeat,
         action.endBeat,
         action.targetBeat,
+      );
+    }
+
+    case 'MOVE_ARRANGER_CLIP': {
+      const mutation = moveArrangerClipProject(
+        present,
+        action.clipId,
+        action.trackId,
+        action.startBeat,
+      );
+      if (!mutation) return state;
+      return commitProject(
+        state,
+        mutation.project,
+        mutation.selectedTrackId,
+        mutation.selectedArrangerClipId,
       );
     }
 

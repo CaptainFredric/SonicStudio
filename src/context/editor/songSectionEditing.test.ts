@@ -102,6 +102,23 @@ describe('song section editing', () => {
     ]);
   });
 
+  it('shortens a one-bar song to a four-step phrase', () => {
+    const base = buildSectionProject();
+    const project: Project = {
+      ...base,
+      arrangementLength: 16,
+      arrangerClips: [{ ...base.arrangerClips[0], beatLength: 16 }],
+      markers: [{ beat: 0, id: 'marker_loop', name: 'Loop' }],
+    };
+
+    const result = resizeSongSectionEnd(project, 0, 16, 4);
+
+    expect(songLengthFromProject(result)).toBe(4);
+    expect(result.arrangementLength).toBe(4);
+    expect(result.arrangerClips).toHaveLength(1);
+    expect(result.arrangerClips[0].beatLength).toBe(4);
+  });
+
   it('moves a section before another section with its clips and marker intact', () => {
     const result = moveSongSection(buildSectionProject(), 16, 32, 0);
 

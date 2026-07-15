@@ -98,6 +98,7 @@ const TRACK_MAP_OPEN_KEY = 'sonicstudio:track-map-open';
 const COMPOSE_TOOLS_KEY = 'sonicstudio:compose-tools-open';
 const ADD_LANE_OPEN_KEY = 'sonicstudio:add-lane-open';
 const SONG_FLATTEN_KEY = 'sonicstudio:song-flatten';
+const SONG_EDIT_LAYER_KEY = 'sonicstudio:song-edit-layer';
 const SONG_TIMELINE_ZOOM_KEY = 'sonicstudio:song-timeline-zoom';
 import { MAX_STEPS_PER_PATTERN, MIN_STEPS_PER_PATTERN, type InstrumentType, type NoteEvent, type Track } from '../project/schema';
 
@@ -166,6 +167,12 @@ const clampNumber = (value: number, min: number, max: number) => Math.min(max, M
 // Count plus a noun that pluralizes when it should, so summaries never read
 // "1 active steps" or "1 notes".
 const countLabel = (count: number, noun: string) => `${count} ${noun}${count === 1 ? '' : 's'}`;
+const formatSongSpan = (steps: number, stepsPerPattern: number) => {
+  if (steps < stepsPerPattern) return countLabel(steps, 'step');
+  const bars = steps / Math.max(1, stepsPerPattern);
+  if (Number.isInteger(bars)) return countLabel(bars, 'bar');
+  return `${Number(bars.toFixed(2))} bars`;
+};
 const isRhythmTrackType = (trackType: InstrumentType) => (
   trackType === 'kick' || trackType === 'snare' || trackType === 'hihat'
 );
@@ -672,6 +679,7 @@ export const MainWorkspace = () => {
     createTrack,
     currentPattern,
     duplicateTrack,
+    duplicateArrangerClip,
     duplicateSongRange,
     deleteSongRange,
     editPatternColumn,
@@ -680,20 +688,24 @@ export const MainWorkspace = () => {
     insertBlankSongSection,
     insertSavedSongSection,
     moveSongSection,
+    moveArrangerClip,
     moveTrack,
     patternCount,
     pinnedTrackIds,
     previewTrack,
     removeTrack,
+    removeArrangerClip,
     removeSavedSongSection,
     audioStabilityMode,
     isPlaying,
     selectedTrackId,
+    selectedArrangerClipId,
     setActiveView,
     setCurrentPattern,
     setLoopRange,
     setPatternCount,
     setSelectedTrackId,
+    setSelectedArrangerClipId,
     setStepsPerPattern,
     setTransportMode,
     transportMode,
@@ -732,6 +744,9 @@ export const MainWorkspace = () => {
   // arrangement height. The "Whole song" toggle switches over and the choice is
   // remembered between sessions.
   const [songFlatten, setSongFlatten] = useState(() => readString(SONG_FLATTEN_KEY) === 'true');
+  const [songEditLayer, setSongEditLayer] = useState<'notes' | 'clips'>(() => (
+    readString(SONG_EDIT_LAYER_KEY) === 'clips' ? 'clips' : 'notes'
+  ));
   const showSongGrid = transportMode === 'SONG' && songFlatten;
   const [sectionManagerOpen, setSectionManagerOpen] = useState(false);
   const [managedSectionId, setManagedSectionId] = useState<string | null>(null);
@@ -2605,7 +2620,7 @@ export const MainWorkspace = () => {
           </div>
           <p className="mt-1 hidden text-sm text-[var(--text-secondary)] xl:block">
             {showSongGrid
-              ? `${Math.max(1, Math.ceil(songLengthInBeats / stepsPerPattern))} bars · ${countLabel(songSectionRanges.length, 'section')} · ${countLabel(visibleTracks.length, 'visible track')}`
+              ? `${formatSongSpan(songLengthInBeats, stepsPerPattern)} · ${countLabel(songSectionRanges.length, 'section')} · ${countLabel(visibleTracks.length, 'visible track')}`
               : 'Build the current pattern here before you move it into Song view.'}
           </p>
         </div>
@@ -2761,13 +2776,35 @@ export const MainWorkspace = () => {
                 <div>
                   <div className="section-label hidden sm:block">Arrange</div>
                   <div className="text-sm font-medium text-[var(--text-primary)] sm:mt-1">
-                    {countLabel(songSectionRanges.length, 'section')} across {countLabel(Math.max(1, Math.ceil(songLengthInBeats / stepsPerPattern)), 'bar')}
+                    {countLabel(songSectionRanges.length, 'section')} across {formatSongSpan(songLengthInBeats, stepsPerPattern)}
                   </div>
                   <div className="mt-1 hidden text-[11px] text-[var(--text-secondary)] sm:block">
                     {countLabel(songLengthInBeats, 'step')} · {countLabel(visibleTracks.length, 'visible track')}
                   </div>
                 </div>
-                <div className="flex items-center gap-1.5">
+                <div className="flex flex-wrap items-center justify-end gap-1.5">
+                  <div aria-label="Song edit layer" className="flex h-8 overflow-hidden rounded-[3px] border border-[var(--border-soft)]" role="group">
+                    <button
+                      aria-pressed={songEditLayer === 'notes'}
+                      className="editing-tool-button flex h-full items-center gap-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-tertiary)]"
+                      data-active={songEditLayer === 'notes' ? 'true' : undefined}
+                      onClick={() => { setSongEditLayer('notes'); writeString(SONG_EDIT_LAYER_KEY, 'notes'); }}
+                      title="Draw and erase notes"
+                      type="button"
+                    >
+                      <Pencil className="h-3.5 w-3.5" /> Notes
+                    </button>
+                    <button
+                      aria-pressed={songEditLayer === 'clips'}
+                      className="editing-tool-button flex h-full items-center gap-1.5 border-l border-[var(--border-soft)] px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-tertiary)]"
+                      data-active={songEditLayer === 'clips' ? 'true' : undefined}
+                      onClick={() => { setSongEditLayer('clips'); writeString(SONG_EDIT_LAYER_KEY, 'clips'); }}
+                      title="Select, move, duplicate, or delete clips"
+                      type="button"
+                    >
+                      <MousePointer2 className="h-3.5 w-3.5" /> Clips
+                    </button>
+                  </div>
                   <button
                     className="control-chip flex h-8 items-center gap-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em]"
                     onClick={() => {
@@ -3025,7 +3062,7 @@ export const MainWorkspace = () => {
                     <Music2 className="h-3.5 w-3.5 shrink-0 text-[var(--accent)]" />
                     <span className="section-label shrink-0">Song timeline</span>
                     <span className="hidden font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--text-tertiary)] sm:inline">
-                      {Math.max(1, Math.ceil(songLengthInBeats / stepsPerPattern))} bars · {songSectionRanges.length} sections
+                      {formatSongSpan(songLengthInBeats, stepsPerPattern)} · {countLabel(songSectionRanges.length, 'section')}
                     </span>
                     <div aria-label="Song editing view" className="ml-1 flex shrink-0 overflow-hidden rounded-[3px] border border-[var(--border-soft)]" role="group">
                       <button
@@ -3045,7 +3082,29 @@ export const MainWorkspace = () => {
                       </button>
                     </div>
                   </div>
-                  <div className="ml-auto flex items-center gap-1.5">
+                  <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
+                    <div aria-label="Song edit layer" className="flex h-8 overflow-hidden rounded-[3px] border border-[var(--border-soft)]" role="group">
+                      <button
+                        aria-pressed={songEditLayer === 'notes'}
+                        className="editing-tool-button flex h-full items-center gap-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-tertiary)]"
+                        data-active={songEditLayer === 'notes' ? 'true' : undefined}
+                        onClick={() => { setSongEditLayer('notes'); writeString(SONG_EDIT_LAYER_KEY, 'notes'); }}
+                        title="Draw and erase notes"
+                        type="button"
+                      >
+                        <Pencil className="h-3.5 w-3.5" /> Notes
+                      </button>
+                      <button
+                        aria-pressed={songEditLayer === 'clips'}
+                        className="editing-tool-button flex h-full items-center gap-1.5 border-l border-[var(--border-soft)] px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-tertiary)]"
+                        data-active={songEditLayer === 'clips' ? 'true' : undefined}
+                        onClick={() => { setSongEditLayer('clips'); writeString(SONG_EDIT_LAYER_KEY, 'clips'); }}
+                        title="Select, move, duplicate, or delete clips"
+                        type="button"
+                      >
+                        <MousePointer2 className="h-3.5 w-3.5" /> Clips
+                      </button>
+                    </div>
                     <button
                       className="control-chip flex h-8 items-center gap-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em]"
                       onClick={() => {
@@ -3344,6 +3403,8 @@ export const MainWorkspace = () => {
                 arrangerClips={arrangerClips}
                 cellWidth={songTimelineCellWidth}
                 compactLanes={compactLanes}
+                clipEditing={songEditLayer === 'clips'}
+                selectedClipId={selectedArrangerClipId}
                 stepsPerPattern={stepsPerPattern}
                 songLengthInBeats={songLengthInBeats}
                 songMarkers={songMarkers}
@@ -3381,6 +3442,17 @@ export const MainWorkspace = () => {
                 }}
                 onReorderTrack={reorderTrack}
                 onDeleteTrack={removeTrack}
+                onSelectClip={(clipId) => {
+                  const clip = arrangerClips.find((candidate) => candidate.id === clipId);
+                  setSelectedArrangerClipId(clipId);
+                  if (clip) {
+                    setSelectedTrackId(clip.trackId);
+                    setCurrentPattern(clip.patternIndex);
+                  }
+                }}
+                onMoveClip={(clipId, trackId, startBeat) => moveArrangerClip(clipId, trackId, startBeat)}
+                onDuplicateClip={duplicateArrangerClip}
+                onDeleteClip={removeArrangerClip}
               />
             )}
             <div

@@ -6,7 +6,7 @@ import { getSamplePresetMeta, getSampleUrl } from './sampleLibrary';
 import { findFirstPlayableStepInLoop, hasPlayableStepAt, isTrackAudible, lastActivePatternStep, resolvePatternStepForPlayback } from './playbackResolver';
 import { latencyHintForMode, lookaheadForMode, shouldCapSampleRate } from './schedulerTiming';
 import type { AudioStabilityMode } from '../project/preferences';
-import { getProjectSongLength } from '../project/schema';
+import { getProjectSongLength, MIN_ARRANGEMENT_STEPS } from '../project/schema';
 import type {
   ArrangementClip,
   MasterSettings,
@@ -443,7 +443,7 @@ export class ToneEngine {
     );
 
     return {
-      endBeat: Math.max(clipTail, this.arrangementLength, this.stepsPerPattern),
+      endBeat: Math.max(clipTail, this.arrangementLength, MIN_ARRANGEMENT_STEPS),
       startBeat: 0,
     };
   }

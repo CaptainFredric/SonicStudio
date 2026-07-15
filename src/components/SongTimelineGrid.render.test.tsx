@@ -181,6 +181,32 @@ describe('SongTimelineGrid', () => {
     expect(props.onResizeSectionEnd).toHaveBeenCalledWith(project.markers[0].id, 0, 16, 20);
   });
 
+  it('lets the last section shrink below one bar to four steps', () => {
+    const { container, getByRole, project, props } = renderGrid();
+    const sectionName = project.markers[0]?.name ?? 'Song';
+    const handle = getByRole('slider', { name: `Resize the end of ${sectionName}` });
+    const scroller = container.querySelector('[data-song-timeline-scroll="true"]');
+    if (!(scroller instanceof HTMLElement)) throw new Error('Expected the song timeline scroller');
+    vi.spyOn(scroller, 'getBoundingClientRect').mockReturnValue({
+      bottom: 300,
+      height: 300,
+      left: 0,
+      right: 800,
+      top: 0,
+      width: 800,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+
+    expect(handle.getAttribute('aria-valuemin')).toBe('4');
+    fireEvent.pointerDown(handle, { button: 0, clientX: 320 });
+    fireEvent.pointerMove(window, { clientX: 80 });
+    fireEvent.pointerUp(window);
+
+    expect(props.onResizeSectionEnd).toHaveBeenCalledWith(project.markers[0].id, 0, 16, 4);
+  });
+
   it('moves a section one position with Alt and an arrow key', () => {
     const markers = [
       { beat: 0, id: 'marker_intro', name: 'Intro' },
@@ -193,6 +219,75 @@ describe('SongTimelineGrid', () => {
     fireEvent.keyDown(section, { altKey: true, key: 'ArrowRight' });
 
     expect(props.onMoveSection).toHaveBeenCalledWith('marker_intro', 0, 16, 32);
+  });
+
+  it('moves a selected clip on the four-step grid from the keyboard', () => {
+    const view = renderGrid({
+      clipEditing: true,
+      onMoveClip: vi.fn(),
+      onSelectClip: vi.fn(),
+    });
+    const { getByRole, project, props } = view;
+    const clip = project.arrangerClips[0];
+    const track = project.tracks.find((candidate) => candidate.id === clip.trackId)!;
+    const clipButton = getByRole('button', {
+      name: `Move Pattern ${String.fromCharCode(65 + clip.patternIndex)} clip on ${track.name}`,
+    });
+
+    fireEvent.keyDown(clipButton, { key: 'ArrowRight' });
+
+    expect(props.onMoveClip).toHaveBeenCalledWith(clip.id, clip.trackId, clip.startBeat + 4);
+  });
+
+  it('drags a clip in time and onto another lane', () => {
+    const view = renderGrid({
+      clipEditing: true,
+      onMoveClip: vi.fn(),
+      onSelectClip: vi.fn(),
+    });
+    const { container, getByRole, project, props } = view;
+    const clip = project.arrangerClips[0];
+    const sourceTrack = project.tracks.find((candidate) => candidate.id === clip.trackId)!;
+    const targetTrack = project.tracks[1];
+    const scroller = container.querySelector('[data-song-timeline-scroll="true"]');
+    if (!(scroller instanceof HTMLElement)) throw new Error('Expected the song timeline scroller');
+    vi.spyOn(scroller, 'getBoundingClientRect').mockReturnValue({
+      bottom: 300,
+      height: 300,
+      left: 0,
+      right: 800,
+      top: 0,
+      width: 800,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+    const clipButton = getByRole('button', {
+      name: `Move Pattern ${String.fromCharCode(65 + clip.patternIndex)} clip on ${sourceTrack.name}`,
+    });
+
+    fireEvent.pointerDown(clipButton, { button: 0, clientX: 10, clientY: 50 });
+    fireEvent.pointerMove(window, { clientX: 90, clientY: 90 });
+    fireEvent.pointerUp(window);
+
+    expect(props.onMoveClip).toHaveBeenCalledWith(clip.id, targetTrack.id, 4);
+  });
+
+  it('offers direct duplicate and delete actions for a selected clip', () => {
+    const view = renderGrid({
+      clipEditing: true,
+      onDeleteClip: vi.fn(),
+      onDuplicateClip: vi.fn(),
+    });
+    const { getByRole, project, props, rerender } = view;
+    const clip = project.arrangerClips[0];
+    rerender(<SongTimelineGrid {...props} selectedClipId={clip.id} />);
+
+    fireEvent.click(getByRole('button', { name: 'Duplicate selected clip' }));
+    fireEvent.click(getByRole('button', { name: 'Delete selected clip' }));
+
+    expect(props.onDuplicateClip).toHaveBeenCalledWith(clip.id);
+    expect(props.onDeleteClip).toHaveBeenCalledWith(clip.id);
   });
 
   it('keeps a plain section click as a seek instead of a move', () => {

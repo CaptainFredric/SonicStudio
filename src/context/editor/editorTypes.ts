@@ -61,6 +61,7 @@ export type EditorAction =
   | { type: 'DUPLICATE_TRACK'; trackId: string }
   | { type: 'EDIT_PATTERN_COLUMN'; operation: PatternColumnOperation; patternIndex: number; stepIndex: number }
   | { type: 'MOVE_TRACK'; direction: 'up' | 'down'; trackId: string }
+  | { type: 'MOVE_ARRANGER_CLIP'; clipId: string; startBeat: number; trackId: string }
   | { type: 'REORDER_TRACK'; trackId: string; toIndex: number }
   | { type: 'HYDRATE_SESSION'; session: StudioSession }
   | { type: 'REDO' }

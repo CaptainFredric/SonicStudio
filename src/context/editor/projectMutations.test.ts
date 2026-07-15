@@ -4,6 +4,7 @@ import { createProjectFromTemplate, type Project } from '../../project/schema';
 import {
   duplicateArrangerClipProject,
   makeClipPatternUniqueProject,
+  moveArrangerClipProject,
   splitArrangerClipProject,
   syncArrangerClips,
 } from './projectMutations';
@@ -49,6 +50,38 @@ describe('projectMutations', () => {
       startBeat: sourceClip.startBeat + sourceClip.beatLength,
       trackId: sourceClip.trackId,
     });
+  });
+
+  it('moves a clip to another lane without changing its musical content', () => {
+    const project = createProjectFromTemplate('night-transit');
+    const sourceClip = project.arrangerClips[0];
+    const sourceTrack = project.tracks.find((track) => track.id === sourceClip.trackId)!;
+    const targetTrack = project.tracks.find((track) => track.id !== sourceClip.trackId)!;
+    const sourcePattern = sourceTrack.patterns[sourceClip.patternIndex];
+    const oldPatternCount = project.transport.patternCount;
+
+    const mutation = moveArrangerClipProject(project, sourceClip.id, targetTrack.id, 12);
+
+    expect(mutation).not.toBeNull();
+    const movedClip = mutation!.project.arrangerClips.find((clip) => clip.id === sourceClip.id);
+    expect(movedClip).toMatchObject({
+      patternIndex: oldPatternCount,
+      startBeat: 12,
+      trackId: targetTrack.id,
+    });
+    expect(mutation!.project.transport.patternCount).toBe(oldPatternCount + 1);
+    expect(mutation!.project.tracks.find((track) => track.id === targetTrack.id)?.patterns[oldPatternCount]).toEqual(sourcePattern);
+    expect(sourceTrack.patterns[sourceClip.patternIndex]).toEqual(sourcePattern);
+  });
+
+  it('moves a clip in its lane on the four-step grid without allocating a pattern', () => {
+    const project = createProjectFromTemplate('night-transit');
+    const sourceClip = project.arrangerClips[0];
+
+    const mutation = moveArrangerClipProject(project, sourceClip.id, sourceClip.trackId, 9);
+
+    expect(mutation?.project.arrangerClips.find((clip) => clip.id === sourceClip.id)?.startBeat).toBe(8);
+    expect(mutation?.project.transport.patternCount).toBe(project.transport.patternCount);
   });
 
   it('splits a clip on the requested snap and selects the trailing clip', () => {

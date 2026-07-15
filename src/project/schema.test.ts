@@ -5,6 +5,7 @@ import {
   createProjectFromTemplate,
   createStepEvent,
   createTrack,
+  getProjectSongLength,
   getTrackVoicePresetDefinitions,
   normalizeProject,
   resizeTrackPatterns,
@@ -122,6 +123,18 @@ describe('track defaults', () => {
     expect(normalizedLeadTrack!.patterns[0][48]?.[0]?.note).toBe('G4');
     expect(normalizedLeadTrack!.automation?.[0].level[48]).toBeCloseTo(0.66, 2);
     expect(normalizedLeadTrack!.automation?.[0].tone[48]).toBeCloseTo(0.41, 2);
+  });
+
+  it('preserves an explicitly shortened four-step song through normalization', () => {
+    const project = createProjectFromTemplate('midnight-trap');
+    project.arrangementLength = 4;
+    project.arrangerClips = project.arrangerClips.map((clip) => ({ ...clip, beatLength: 4 }));
+
+    const normalized = normalizeProject(project);
+
+    expect(normalized).toBeTruthy();
+    expect(normalized!.arrangementLength).toBe(4);
+    expect(getProjectSongLength(normalized!)).toBe(4);
   });
 
   it('offers foundational primary voice starts on melodic lanes', () => {

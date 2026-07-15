@@ -2,7 +2,9 @@ import {
   createArrangerClip as buildArrangerClip,
   createEmptyPattern,
   MAX_ARRANGER_BEAT_POSITION,
+  MAX_PATTERN_COUNT,
   MAX_STEPS_PER_PATTERN,
+  resizeTrackPatterns,
   type ArrangementClip,
   type NoteEvent,
   type Project,
@@ -183,6 +185,96 @@ export const duplicateArrangerClipProject = (
     },
     selectedArrangerClipId: duplicatedClip.id,
     selectedTrackId: sourceClip.trackId,
+  };
+};
+
+export const moveArrangerClipProject = (
+  project: Project,
+  clipId: string,
+  targetTrackId: string,
+  startBeat: number,
+): ({ project: Project } & ProjectMutationSelection) | null => {
+  const sourceClip = project.arrangerClips.find((clip) => clip.id === clipId);
+  const sourceTrack = sourceClip
+    ? project.tracks.find((track) => track.id === sourceClip.trackId)
+    : null;
+  const targetTrack = project.tracks.find((track) => track.id === targetTrackId);
+  if (!sourceClip || !sourceTrack || !targetTrack) return null;
+
+  const nextStartBeat = clamp(
+    Math.round(startBeat / 4) * 4,
+    0,
+    MAX_ARRANGER_BEAT_POSITION - sourceClip.beatLength,
+  );
+  if (sourceClip.trackId === targetTrackId) {
+    if (sourceClip.startBeat === nextStartBeat) return null;
+    return {
+      project: {
+        ...project,
+        arrangementLength: Math.max(project.arrangementLength, nextStartBeat + sourceClip.beatLength),
+        arrangerClips: syncArrangerClips(
+          project.arrangerClips.map((clip) => (
+            clip.id === clipId ? { ...clip, startBeat: nextStartBeat } : clip
+          )),
+          project.tracks,
+          project.transport.patternCount,
+        ),
+      },
+      selectedArrangerClipId: clipId,
+      selectedTrackId: targetTrackId,
+    };
+  }
+
+  if (project.transport.patternCount >= MAX_PATTERN_COUNT) return null;
+
+  const nextPatternIndex = project.transport.patternCount;
+  const nextPatternCount = nextPatternIndex + 1;
+  const resizedTracks = project.tracks.map((track) => (
+    resizeTrackPatterns(track, nextPatternCount, project.transport.stepsPerPattern)
+  ));
+  const sourcePattern = sourceTrack.patterns[sourceClip.patternIndex]
+    ?? createEmptyPattern(project.transport.stepsPerPattern);
+  const sourceAutomation = sourceTrack.automation?.[sourceClip.patternIndex] ?? {
+    level: Array.from({ length: project.transport.stepsPerPattern }, () => 0.5),
+    tone: Array.from({ length: project.transport.stepsPerPattern }, () => 0.5),
+  };
+  const nextTracks = resizedTracks.map((track) => (
+    track.id === targetTrackId
+      ? {
+          ...track,
+          automation: {
+            ...track.automation,
+            [nextPatternIndex]: {
+              level: [...sourceAutomation.level],
+              tone: [...sourceAutomation.tone],
+            },
+          },
+          patterns: {
+            ...track.patterns,
+            [nextPatternIndex]: sourcePattern.map(cloneStepEvents),
+          },
+        }
+      : track
+  ));
+
+  return {
+    project: {
+      ...project,
+      arrangementLength: Math.max(project.arrangementLength, nextStartBeat + sourceClip.beatLength),
+      arrangerClips: syncArrangerClips(
+        project.arrangerClips.map((clip) => (
+          clip.id === clipId
+            ? { ...clip, patternIndex: nextPatternIndex, startBeat: nextStartBeat, trackId: targetTrackId }
+            : clip
+        )),
+        nextTracks,
+        nextPatternCount,
+      ),
+      tracks: nextTracks,
+      transport: { ...project.transport, patternCount: nextPatternCount },
+    },
+    selectedArrangerClipId: clipId,
+    selectedTrackId: targetTrackId,
   };
 };
 
