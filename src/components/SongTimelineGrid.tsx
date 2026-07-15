@@ -112,6 +112,7 @@ export const SongTimelineGrid = ({
   const scrollRef = useRef<HTMLDivElement>(null);
   const playheadRef = useRef<HTMLDivElement>(null);
   const [scrollLeft, setScrollLeft] = useState(0);
+  const [scrollTop, setScrollTop] = useState(0);
   const [viewportWidth, setViewportWidth] = useState(800);
   const [availableHeight, setAvailableHeight] = useState(0);
   // Whether the view auto-scrolls to keep the playhead in sight. A manual scroll
@@ -800,7 +801,7 @@ export const SongTimelineGrid = ({
     <div ref={rootRef} className="relative flex min-h-[240px] flex-1 overflow-hidden rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]">
       {/* Track-name gutter, aligned row-for-row with the lanes. Slides shut to a
           thin icon strip; drag a lane to reorder. */}
-      <div className="shrink-0 border-r border-[var(--border-soft)] bg-[var(--bg-panel-strong)] transition-[width] duration-200" style={{ width: gutterCollapsed ? 36 : GUTTER_WIDTH }}>
+      <div className="shrink-0 overflow-hidden border-r border-[var(--border-soft)] bg-[var(--bg-panel-strong)] transition-[width] duration-200" style={{ width: gutterCollapsed ? 36 : GUTTER_WIDTH }}>
         <div
           className={`flex items-center border-b border-[var(--border-soft)] ${gutterCollapsed ? 'justify-center' : 'justify-between px-3'}`}
           style={{ height: RULER_HEIGHT }}
@@ -821,6 +822,7 @@ export const SongTimelineGrid = ({
             {gutterCollapsed ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
           </button>
         </div>
+        <div data-song-track-gutter-list="true" style={{ transform: `translateY(-${scrollTop}px)` }}>
         {tracks.map((track, index) => {
           const isSelected = track.id === selectedTrackId;
           return (
@@ -873,15 +875,17 @@ export const SongTimelineGrid = ({
             </div>
           );
         })}
+        </div>
       </div>
 
       {/* Scrollable, virtualized timeline. */}
       <div
         ref={scrollRef}
-        className="relative flex-1 overflow-x-auto"
+        className="relative flex-1 overflow-auto"
         data-song-timeline-scroll="true"
         onScroll={(event) => {
           setScrollLeft(event.currentTarget.scrollLeft);
+          setScrollTop(event.currentTarget.scrollTop);
           setHoverCell(null);
           // A scroll we did not initiate means the user moved the view, so stop
           // following until they ask to resume.
@@ -895,7 +899,7 @@ export const SongTimelineGrid = ({
       >
         <div className="relative" style={{ width: totalWidth }}>
           {/* Editable section ruler. */}
-          <div className="relative border-b border-[var(--border-soft)] bg-[var(--bg-panel-strong)]" style={{ height: RULER_HEIGHT, width: totalWidth }}>
+          <div className="sticky top-0 z-20 border-b border-[var(--border-soft)] bg-[var(--bg-panel-strong)]" style={{ height: RULER_HEIGHT, width: totalWidth }}>
             {sections.map((section, sectionIndex) => {
               const originalSection = baseSections.find((candidate) => candidate.id === section.id) ?? section;
               const isResizing = resizePreview?.sectionId === section.id;

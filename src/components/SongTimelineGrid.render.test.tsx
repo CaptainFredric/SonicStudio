@@ -75,6 +75,19 @@ describe('SongTimelineGrid', () => {
     expect(cells.length).toBe(project.tracks.length * 48);
   });
 
+  it('keeps lane labels aligned when the timeline scrolls vertically', () => {
+    const { container } = renderGrid();
+    const scroller = container.querySelector('[data-song-timeline-scroll="true"]');
+    const gutterList = container.querySelector('[data-song-track-gutter-list="true"]');
+    if (!(scroller instanceof HTMLElement) || !(gutterList instanceof HTMLElement)) {
+      throw new Error('Expected the song timeline and track gutter');
+    }
+
+    fireEvent.scroll(scroller, { target: { scrollTop: 72 } });
+
+    expect(gutterList.style.transform).toBe('translateY(-72px)');
+  });
+
   it('erases a filled cell on press without toggling it back on the click', () => {
     const { cell, project, props } = renderGrid();
     const kick = project.tracks[0];
