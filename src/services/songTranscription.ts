@@ -24,6 +24,8 @@ import {
   createProjectFromTemplate,
   createStepEvent,
   createTrack,
+  MAX_PATTERN_COUNT,
+  resizeTrackPatterns,
   type InstrumentType,
   type Project,
   type StudioSession,
@@ -573,7 +575,7 @@ export const transcribeAudioBuffer = (
 // --- Session assembly -----------------------------------------------------
 
 /** Pick a sensible synth voice for the transcribed line from its register. */
-const inferMelodyTrackType = (notes: TranscriptionNote[]): InstrumentType => {
+export const inferMelodyTrackType = (notes: TranscriptionNote[]): InstrumentType => {
   if (notes.length === 0) return 'lead';
   const averageMidi = notes.reduce((sum, note) => sum + note.midi, 0) / notes.length;
   if (averageMidi < 48) return 'bass';
@@ -602,7 +604,7 @@ export const buildSessionFromTranscription = (
   );
   const totalSteps = Math.min(MAX_TOTAL_STEPS, Math.max(16, maxStep));
   const stepsPerPattern = totalSteps <= 16 ? 16 : totalSteps <= 32 ? 32 : 64;
-  const patternCount = Math.max(1, Math.min(8, Math.ceil(totalSteps / stepsPerPattern)));
+  const patternCount = Math.max(1, Math.min(MAX_PATTERN_COUNT, Math.ceil(totalSteps / stepsPerPattern)));
   const mode: TransportMode = totalSteps > stepsPerPattern ? 'SONG' : 'PATTERN';
 
   const trackType = inferMelodyTrackType(result.notes);
@@ -619,7 +621,7 @@ export const buildSessionFromTranscription = (
     }
     const patternIndex = Math.floor(absoluteStep / stepsPerPattern);
     const stepIndex = absoluteStep % stepsPerPattern;
-    const gate = clamp(note.durationSteps, 0.125, 4);
+    const gate = clamp(note.durationSteps, 0.125, 8);
     track.patterns[patternIndex][stepIndex].push(
       createStepEvent(note.note, { gate, velocity: note.velocity }),
     );
@@ -690,5 +692,117 @@ export const buildSessionFromTranscription = (
       selectedArrangerClipId: project.arrangerClips[0]?.id ?? null,
       selectedTrackId: track.id,
     },
+  };
+};
+
+export interface AppendTranscriptionOptions {
+  laneName?: string;
+  startPattern?: number;
+}
+
+export interface AppendedTranscription {
+  addedPatternCount: number;
+  placedNoteCount: number;
+  session: StudioSession;
+  startPattern: number;
+  trackId: string;
+}
+
+/**
+ * Add a transcription as a new lane without replacing any existing work.
+ * The phrase begins at the chosen pattern and may extend the project's pattern
+ * count, but never changes the established grid size or silently drops notes.
+ */
+export const appendTranscriptionToSession = (
+  currentSession: StudioSession,
+  result: TranscriptionResult,
+  options: AppendTranscriptionOptions = {},
+): AppendedTranscription | null => {
+  if (result.notes.length === 0) {
+    return null;
+  }
+
+  const { project } = currentSession;
+  const stepsPerPattern = project.transport.stepsPerPattern;
+  const startPattern = clamp(
+    Math.round(options.startPattern ?? project.transport.currentPattern),
+    0,
+    project.transport.patternCount - 1,
+  );
+  const phraseStepCount = result.notes.reduce(
+    (max, note) => Math.max(max, note.startStep + note.durationSteps),
+    1,
+  );
+  const absoluteStartStep = startPattern * stepsPerPattern;
+  const requiredPatternCount = Math.ceil((absoluteStartStep + phraseStepCount) / stepsPerPattern);
+
+  if (requiredPatternCount > MAX_PATTERN_COUNT) {
+    return null;
+  }
+
+  const patternCount = Math.max(project.transport.patternCount, requiredPatternCount);
+  const transport: TransportSettings = {
+    ...project.transport,
+    patternCount,
+  };
+  const track = createTrack(inferMelodyTrackType(result.notes), {
+    name: options.laneName?.trim() || 'Transcribed melody',
+    patternCount,
+    stepsPerPattern,
+  });
+  const usedPatternIndices = new Set<number>();
+
+  for (const note of result.notes) {
+    const absoluteStep = absoluteStartStep + note.startStep;
+    const patternIndex = Math.floor(absoluteStep / stepsPerPattern);
+    const stepIndex = absoluteStep % stepsPerPattern;
+    const pattern = track.patterns[patternIndex];
+    if (!pattern?.[stepIndex]) {
+      return null;
+    }
+
+    pattern[stepIndex].push(createStepEvent(note.note, {
+      gate: clamp(note.durationSteps, 0.125, 8),
+      velocity: note.velocity,
+    }));
+    usedPatternIndices.add(patternIndex);
+  }
+
+  const addedClips = [...usedPatternIndices]
+    .sort((left, right) => left - right)
+    .map((patternIndex) => createArrangerClip(track.id, transport, {
+      beatLength: stepsPerPattern,
+      patternIndex,
+      startBeat: patternIndex * stepsPerPattern,
+    }));
+  const nextProject: Project = {
+    ...project,
+    arrangementLength: Math.max(project.arrangementLength, requiredPatternCount * stepsPerPattern),
+    arrangerClips: [...project.arrangerClips, ...addedClips],
+    metadata: {
+      ...project.metadata,
+      updatedAt: new Date().toISOString(),
+    },
+    tracks: [
+      ...project.tracks.map((candidate) => resizeTrackPatterns(candidate, patternCount, stepsPerPattern)),
+      track,
+    ],
+    transport,
+  };
+
+  return {
+    addedPatternCount: patternCount - project.transport.patternCount,
+    placedNoteCount: result.notes.length,
+    session: {
+      project: nextProject,
+      ui: {
+        ...currentSession.ui,
+        activeView: 'SEQUENCER',
+        selectedArrangerClipId: addedClips[0]?.id ?? currentSession.ui.selectedArrangerClipId,
+        selectedTrackId: track.id,
+      },
+    },
+    startPattern,
+    trackId: track.id,
   };
 };

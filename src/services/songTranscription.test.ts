@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  appendTranscriptionToSession,
   buildSessionFromTranscription,
   correctOctaveJumps,
   detectPitchHz,
@@ -12,6 +13,7 @@ import {
   type FrameAnalysis,
   type TranscriptionResult,
 } from './songTranscription';
+import { createProjectFromTemplate, createStepEvent, MAX_PATTERN_COUNT } from '../project/schema';
 
 const SAMPLE_RATE = 44100;
 
@@ -119,6 +121,101 @@ describe('buildSessionFromTranscription', () => {
       '   ',
     );
     expect(session.project.metadata.name).toBe('Transcribed take');
+  });
+
+  it('keeps long takes through the full supported pattern range', () => {
+    const session = buildSessionFromTranscription(
+      {
+        bpm: 120,
+        confidence: 0.8,
+        durationSeconds: 120,
+        polyphonic: false,
+        summary: 'long take',
+        notes: [{ midi: 69, note: 'A4', startStep: 1000, durationSteps: 8, velocity: 0.7 }],
+      },
+      'Long take',
+    );
+
+    expect(session.project.transport.patternCount).toBe(MAX_PATTERN_COUNT);
+    expect(session.project.tracks[0].patterns[15][40][0]).toMatchObject({ gate: 8, note: 'A4' });
+  });
+});
+
+describe('appendTranscriptionToSession', () => {
+  it('adds a lane at the selected pattern without replacing the song', () => {
+    const project = createProjectFromTemplate('blank-grid');
+    project.metadata.name = 'Keep this song';
+    project.transport.bpm = 98;
+    project.transport.currentPattern = 3;
+    project.tracks[0].patterns[0][0] = [createStepEvent('C4')];
+
+    const appended = appendTranscriptionToSession(
+      {
+        project,
+        ui: {
+          activeView: 'MIXER',
+          isSettingsOpen: false,
+          loopRangeEndBeat: null,
+          loopRangeStartBeat: null,
+          pinnedTrackIds: [],
+          selectedArrangerClipId: null,
+          selectedTrackId: project.tracks[0].id,
+        },
+      },
+      {
+        bpm: 120,
+        confidence: 0.8,
+        durationSeconds: 4,
+        polyphonic: false,
+        summary: 'phrase',
+        notes: [
+          { midi: 60, note: 'C4', startStep: 0, durationSteps: 2, velocity: 0.8 },
+          { midi: 64, note: 'E4', startStep: 18, durationSteps: 2, velocity: 0.7 },
+        ],
+      },
+      { laneName: 'Kitchen melody' },
+    );
+
+    expect(appended).not.toBeNull();
+    expect(appended!.session.project.metadata.name).toBe('Keep this song');
+    expect(appended!.session.project.transport.bpm).toBe(98);
+    expect(appended!.session.project.tracks).toHaveLength(project.tracks.length + 1);
+    expect(appended!.session.project.tracks[0].patterns[0][0][0].note).toBe('C4');
+    expect(appended!.session.project.transport.patternCount).toBe(5);
+    const lane = appended!.session.project.tracks.at(-1)!;
+    expect(lane.name).toBe('Kitchen melody');
+    expect(lane.patterns[3][0][0].note).toBe('C4');
+    expect(lane.patterns[4][2][0].note).toBe('E4');
+    expect(appended!.session.ui.selectedTrackId).toBe(lane.id);
+  });
+
+  it('refuses a phrase that cannot fit instead of dropping its ending', () => {
+    const project = createProjectFromTemplate('blank-grid');
+    project.transport.currentPattern = project.transport.patternCount - 1;
+    const appended = appendTranscriptionToSession(
+      {
+        project,
+        ui: {
+          activeView: 'SEQUENCER',
+          isSettingsOpen: false,
+          loopRangeEndBeat: null,
+          loopRangeStartBeat: null,
+          pinnedTrackIds: [],
+          selectedArrangerClipId: null,
+          selectedTrackId: project.tracks[0].id,
+        },
+      },
+      {
+        bpm: 120,
+        confidence: 0.8,
+        durationSeconds: 120,
+        polyphonic: false,
+        summary: 'too long',
+        notes: [{ midi: 60, note: 'C4', startStep: 900, durationSteps: 8, velocity: 0.8 }],
+      },
+    );
+
+    expect(appended).toBeNull();
   });
 });
 
