@@ -578,17 +578,26 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
     void runTranscription(buffer, buildAnalysisOptions(bpmOverride, rescueSensitivity, 1));
   }, [bpmOverride, runTranscription, sensitivity]);
 
-  const commitEdit = useCallback((nextNotes: TranscriptionNote[], nextSelection = selectedNoteIndex) => {
+  const commitEdit = useCallback((
+    nextNotes: TranscriptionNote[],
+    nextSelection = selectedNoteIndex,
+    resultPatch: Partial<Pick<TranscriptionResult, 'bpm'>> = {},
+  ) => {
     if (!result) return;
     stopPhrasePreview();
     setEditHistory((current) => [...current, result].slice(-MAX_EDIT_HISTORY));
     setRedoHistory([]);
-    setResult({ ...result, notes: nextNotes });
+    setResult({ ...result, ...resultPatch, notes: nextNotes });
+    if (resultPatch.bpm !== undefined) {
+      const nextBpm = String(resultPatch.bpm);
+      setBpmOverride(nextBpm);
+      setAppliedAnalysisKey(analysisKey(nextBpm, sensitivity, minNoteSteps));
+    }
     setSelectedNoteIndex(nextNotes.length === 0
       ? null
       : Math.max(0, Math.min(nextSelection ?? 0, nextNotes.length - 1)));
     setShelfSaved(false);
-  }, [result, selectedNoteIndex, stopPhrasePreview]);
+  }, [minNoteSteps, result, selectedNoteIndex, sensitivity, stopPhrasePreview]);
 
   const updateSelectedNote = useCallback((updater: (note: TranscriptionNote) => TranscriptionNote) => {
     if (!result || selectedNoteIndex === null || !result.notes[selectedNoteIndex]) return;
@@ -609,12 +618,16 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
     stopPhrasePreview();
     setRedoHistory((current) => [...current, result].slice(-MAX_EDIT_HISTORY));
     setResult(previous);
+    if (previous.bpm !== result.bpm) {
+      setBpmOverride(String(previous.bpm));
+      setAppliedAnalysisKey(analysisKey(String(previous.bpm), sensitivity, minNoteSteps));
+    }
     setEditHistory((current) => current.slice(0, -1));
     setSelectedNoteIndex((current) => previous.notes.length === 0
       ? null
       : Math.min(current ?? 0, previous.notes.length - 1));
     setShelfSaved(false);
-  }, [editHistory, result, stopPhrasePreview]);
+  }, [editHistory, minNoteSteps, result, sensitivity, stopPhrasePreview]);
 
   const redoEdit = useCallback(() => {
     const next = redoHistory.at(-1);
@@ -623,11 +636,15 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
     setEditHistory((current) => [...current, result].slice(-MAX_EDIT_HISTORY));
     setRedoHistory((current) => current.slice(0, -1));
     setResult(next);
+    if (next.bpm !== result.bpm) {
+      setBpmOverride(String(next.bpm));
+      setAppliedAnalysisKey(analysisKey(String(next.bpm), sensitivity, minNoteSteps));
+    }
     setSelectedNoteIndex((current) => next.notes.length === 0
       ? null
       : Math.min(current ?? 0, next.notes.length - 1));
     setShelfSaved(false);
-  }, [redoHistory, result, stopPhrasePreview]);
+  }, [minNoteSteps, redoHistory, result, sensitivity, stopPhrasePreview]);
 
   const transposeAll = useCallback((semitones: number) => {
     if (!result) return;
@@ -644,7 +661,7 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
       0,
     );
     const midi = previous?.midi ?? 60;
-    commitEdit([
+    const nextNotes: TranscriptionNote[] = [
       ...result.notes,
       {
         durationSteps: Math.max(1, previous?.durationSteps ?? 2),
@@ -653,8 +670,13 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
         startStep,
         velocity: previous?.velocity ?? 0.78,
       },
-    ], result.notes.length);
-  }, [commitEdit, result, selectedNoteIndex]);
+    ];
+    commitEdit(
+      nextNotes,
+      result.notes.length,
+      result.notes.length === 0 ? { bpm: currentSession.project.transport.bpm } : undefined,
+    );
+  }, [commitEdit, currentSession.project.transport.bpm, result, selectedNoteIndex]);
 
   const movePhraseToStart = useCallback(() => {
     if (!result?.notes.length) return;
@@ -764,7 +786,9 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
     0,
     requiredPatternCount - currentSession.project.transport.patternCount,
   );
-  const tempoMismatch = Boolean(result && result.bpm !== currentSession.project.transport.bpm);
+  const tempoMismatch = Boolean(
+    result?.notes.length && result.bpm !== currentSession.project.transport.bpm,
+  );
   const working = status === 'decoding' || status === 'analyzing';
   const signalQuality = result?.diagnostics?.quality ?? 'unpitched';
   const recordingSignal = inputPeak >= 0.985
@@ -960,11 +984,18 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
                       <div className="mt-1 truncate text-[12px] font-medium text-[var(--text-primary)]">{sourceLabel}</div>
                     </div>
                   </div>
-                  {peaks.length > 0 ? <div className="mt-3"><WaveformStrip peaks={peaks} /></div> : null}
+                  {peaks.length > 0 ? (
+                    <div className="mt-3">
+                      <WaveformStrip
+                        peaks={peaks}
+                        strength={result.diagnostics ? Math.min(1, result.diagnostics.peakLevel * 8) : 1}
+                      />
+                    </div>
+                  ) : null}
                   {sourceUrl ? <audio className="mt-3 h-9 w-full" controls preload="metadata" src={sourceUrl} /> : null}
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     <ResultStat label="Notes" value={String(result.notes.length)} />
-                    <ResultStat label="Tempo" value={`${result.bpm}`} />
+                    <ResultStat label="Tempo" value={result.notes.length > 0 ? `${result.bpm}` : '—'} />
                     <ResultStat label="Read" value={`${confidencePercent}%`} />
                     <ResultStat label="Signal" value={formatSignalQuality(signalQuality)} />
                   </div>
@@ -1083,8 +1114,8 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
                     >
                       Move to start
                     </button>
-                    <button className="control-chip px-2.5 py-1.5 text-[10px] uppercase tracking-[0.12em]" onClick={() => transposeAll(-12)} type="button">Oct -</button>
-                    <button className="control-chip px-2.5 py-1.5 text-[10px] uppercase tracking-[0.12em]" onClick={() => transposeAll(12)} type="button">Oct +</button>
+                    <button className="control-chip px-2.5 py-1.5 text-[10px] uppercase tracking-[0.12em]" disabled={result.notes.length === 0} onClick={() => transposeAll(-12)} type="button">Oct -</button>
+                    <button className="control-chip px-2.5 py-1.5 text-[10px] uppercase tracking-[0.12em]" disabled={result.notes.length === 0} onClick={() => transposeAll(12)} type="button">Oct +</button>
                     <button
                       className="control-chip flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] uppercase tracking-[0.12em]"
                       disabled={editHistory.length === 0}
@@ -1353,13 +1384,16 @@ const RecordingStat = ({
   );
 };
 
-const WaveformStrip = ({ peaks }: { peaks: number[] }) => (
+const WaveformStrip = ({ peaks, strength = 1 }: { peaks: number[]; strength?: number }) => (
   <div aria-hidden="true" className="flex h-14 items-center gap-[1px] overflow-hidden rounded-[3px] border border-[var(--border-soft)] bg-[rgba(6,9,13,0.4)] px-2">
     {peaks.map((peak, index) => (
       <span
         className="min-w-0 flex-1 rounded-[1px] bg-[var(--accent)]"
         key={index}
-        style={{ height: `${Math.max(5, Math.round(peak * 100))}%`, opacity: 0.25 + peak * 0.65 }}
+        style={{
+          height: `${Math.max(3, Math.round(peak * strength * 100))}%`,
+          opacity: 0.2 + peak * strength * 0.65,
+        }}
       />
     ))}
   </div>
