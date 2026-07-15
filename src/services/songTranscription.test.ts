@@ -6,7 +6,9 @@ import {
   correctOctaveJumps,
   detectPitchHz,
   frequencyToMidi,
+  getAdaptiveSilenceFloor,
   highPassFilter,
+  measureSignal,
   midiToNoteName,
   segmentNotes,
   transcribeSamples,
@@ -87,6 +89,28 @@ describe('transcribeSamples', () => {
     const result = transcribeSamples(new Float32Array(SAMPLE_RATE), SAMPLE_RATE);
     expect(result.notes).toHaveLength(0);
     expect(result.summary).toContain('No clear');
+    expect(result.diagnostics?.quality).toBe('silent');
+  });
+
+  it('recovers a clean quiet melody with the adaptive signal floor', () => {
+    const result = transcribeSamples(sineTone(329.63, 1, 0.01), SAMPLE_RATE, { bpm: 120 });
+    expect(result.notes[0]?.note).toMatch(/E[34]/);
+    expect(result.diagnostics?.quality).toBe('quiet');
+    expect(result.diagnostics?.voicedSeconds).toBeGreaterThan(0.5);
+  });
+});
+
+describe('transcription signal diagnostics', () => {
+  it('measures source loudness and peak level', () => {
+    const measured = measureSignal(new Float32Array([0, -0.5, 0.25, 0.5]));
+    expect(measured.peakLevel).toBe(0.5);
+    expect(measured.averageRms).toBeCloseTo(0.375, 3);
+  });
+
+  it('lowers the pitch gate for a quiet source without exceeding the configured floor', () => {
+    expect(getAdaptiveSilenceFloor(0.008, 0.012)).toBeCloseTo(0.004, 4);
+    expect(getAdaptiveSilenceFloor(0.4, 0.012)).toBe(0.012);
+    expect(getAdaptiveSilenceFloor(0, 0.012)).toBe(0.012);
   });
 });
 
@@ -216,6 +240,38 @@ describe('appendTranscriptionToSession', () => {
     );
 
     expect(appended).toBeNull();
+  });
+
+  it('honors an explicit placement pattern instead of silently using the playhead', () => {
+    const project = createProjectFromTemplate('blank-grid');
+    project.transport.currentPattern = 3;
+    const appended = appendTranscriptionToSession(
+      {
+        project,
+        ui: {
+          activeView: 'SEQUENCER',
+          isSettingsOpen: false,
+          loopRangeEndBeat: null,
+          loopRangeStartBeat: null,
+          pinnedTrackIds: [],
+          selectedArrangerClipId: null,
+          selectedTrackId: project.tracks[0].id,
+        },
+      },
+      {
+        bpm: 120,
+        confidence: 0.8,
+        durationSeconds: 2,
+        polyphonic: false,
+        summary: 'placed phrase',
+        notes: [{ midi: 67, note: 'G4', startStep: 0, durationSteps: 2, velocity: 0.8 }],
+      },
+      { startPattern: 1 },
+    );
+
+    expect(appended?.startPattern).toBe(1);
+    expect(appended?.session.project.tracks.at(-1)?.patterns[1][0][0].note).toBe('G4');
+    expect(appended?.session.project.tracks.at(-1)?.patterns[3][0]).toHaveLength(0);
   });
 });
 

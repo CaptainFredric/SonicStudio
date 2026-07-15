@@ -81,6 +81,21 @@ export interface TranscriptionResult {
   polyphonic: boolean;
   /** Short human-readable note about what was detected. */
   summary: string;
+  /** Input measurements used by the review UI to explain weak takes and
+   *  suggest the right recovery action instead of presenting a dead end. */
+  diagnostics?: TranscriptionDiagnostics;
+}
+
+export type TranscriptionSignalQuality = 'silent' | 'quiet' | 'unpitched' | 'good' | 'clipping';
+
+export interface TranscriptionDiagnostics {
+  averageRms: number;
+  detectedHighMidi: number | null;
+  detectedLowMidi: number | null;
+  peakLevel: number;
+  quality: TranscriptionSignalQuality;
+  voicedFraction: number;
+  voicedSeconds: number;
 }
 
 export interface TranscriptionOptions {
@@ -133,6 +148,33 @@ const median = (values: number[]): number => {
 };
 
 const clamp = (value: number, low: number, high: number) => Math.max(low, Math.min(high, value));
+
+export const measureSignal = (samples: Float32Array): { averageRms: number; peakLevel: number } => {
+  if (samples.length === 0) {
+    return { averageRms: 0, peakLevel: 0 };
+  }
+  let energy = 0;
+  let peakLevel = 0;
+  for (let index = 0; index < samples.length; index += 1) {
+    const sample = samples[index];
+    energy += sample * sample;
+    peakLevel = Math.max(peakLevel, Math.abs(sample));
+  }
+  return {
+    averageRms: Math.sqrt(energy / samples.length),
+    peakLevel,
+  };
+};
+
+/**
+ * Quiet clean tones should not disappear behind a fixed gate. The detector's
+ * clarity check still rejects room noise, while this floor follows the source
+ * level far enough down to recover a soft hum or distant instrument.
+ */
+export const getAdaptiveSilenceFloor = (averageRms: number, configuredFloor: number): number => {
+  if (averageRms <= 0) return configuredFloor;
+  return Math.min(configuredFloor, clamp(averageRms * 0.5, 0.0015, configuredFloor));
+};
 
 // --- Signal preparation ---------------------------------------------------
 
@@ -497,7 +539,10 @@ export const transcribeSamples = (
   // Strip DC offset and sub-sonic rumble (cutoff sits below the lowest tracked
   // note at 65 Hz, so notes survive while floor noise does not).
   const conditioned = highPassFilter(mono, workingRate, 40);
-  const rawFrames = analyzeFrames(conditioned, workingRate, sensitivityToPitchOptions(options.sensitivity ?? 0.5));
+  const signal = measureSignal(conditioned);
+  const pitchOptions = sensitivityToPitchOptions(options.sensitivity ?? 0.5);
+  pitchOptions.silenceRms = getAdaptiveSilenceFloor(signal.averageRms, pitchOptions.silenceRms);
+  const rawFrames = analyzeFrames(conditioned, workingRate, pitchOptions);
   // Fold octave slips back before smoothing, then median-smooth single-frame jitter.
   const frames = smoothPitchTrack(correctOctaveJumps(rawFrames));
 
@@ -520,6 +565,27 @@ export const transcribeSamples = (
   const stability = totalTransitions > 0 ? stableTransitions / totalTransitions : 0;
   const polyphonic = voicedFraction > 0.25 && stability < 0.55;
   const confidence = clamp(voicedFraction * 0.45 + stability * 0.55, 0, 1);
+  const voicedMidis = voiced
+    .map((frame) => frame.midi)
+    .filter((midi): midi is number => midi !== null);
+  const signalQuality: TranscriptionSignalQuality = signal.averageRms < 0.0015 || signal.peakLevel < 0.005
+    ? 'silent'
+    : signal.peakLevel >= 0.985
+      ? 'clipping'
+      : signal.averageRms < 0.012
+        ? 'quiet'
+        : voicedFraction < 0.06
+          ? 'unpitched'
+          : 'good';
+  const diagnostics: TranscriptionDiagnostics = {
+    averageRms: Number(signal.averageRms.toFixed(4)),
+    detectedHighMidi: voicedMidis.length > 0 ? Math.round(Math.max(...voicedMidis)) : null,
+    detectedLowMidi: voicedMidis.length > 0 ? Math.round(Math.min(...voicedMidis)) : null,
+    peakLevel: Number(signal.peakLevel.toFixed(4)),
+    quality: signalQuality,
+    voicedFraction: Number(voicedFraction.toFixed(3)),
+    voicedSeconds: Number((voiced.length * hopSeconds).toFixed(2)),
+  };
 
   const tempo = options.bpm
     ? { bpm: options.bpm, confidence: 1 }
@@ -551,7 +617,11 @@ export const transcribeSamples = (
   }
 
   const summary = notes.length === 0
-    ? 'No clear pitched notes were found. Try a louder, cleaner take.'
+    ? signalQuality === 'silent'
+      ? 'No clear pitched notes were found because the source is nearly silent.'
+      : signalQuality === 'quiet'
+        ? 'No clear pitched notes were found in this quiet take. The recovery pass may still pull them forward.'
+        : 'No clear pitched notes were found. Audio was present, but it did not hold a stable single pitch.'
     : polyphonic
       ? `Followed the most prominent melody line across a dense mix. ${notes.length} notes.`
       : `Transcribed ${notes.length} notes from a clean monophonic take.`;
@@ -561,6 +631,7 @@ export const transcribeSamples = (
     bpm,
     durationSeconds,
     confidence,
+    diagnostics,
     polyphonic,
     summary,
   };

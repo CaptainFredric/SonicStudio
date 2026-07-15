@@ -11,6 +11,7 @@ import {
   Minus,
   Play,
   Plus,
+  Redo2,
   RotateCcw,
   SlidersHorizontal,
   Square,
@@ -32,6 +33,7 @@ import { captureNoteStringFromTranscription } from '../services/noteStringLibrar
 import {
   appendTranscriptionToSession,
   buildSessionFromTranscription,
+  frequencyToMidi,
   inferMelodyTrackType,
   midiToNoteName,
   mixToMono,
@@ -40,6 +42,7 @@ import {
   type TranscriptionOptions,
   type TranscriptionResult,
 } from '../services/songTranscription';
+import { detectPitchYin } from '../utils/pitchDetection';
 import { extractPeaks } from '../utils/waveformPeaks';
 
 type NoticeTone = 'info' | 'success' | 'error';
@@ -113,6 +116,7 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
   const [status, setStatus] = useState<TranscriberStatus>('idle');
   const [result, setResult] = useState<TranscriptionResult | null>(null);
   const [editHistory, setEditHistory] = useState<TranscriptionResult[]>([]);
+  const [redoHistory, setRedoHistory] = useState<TranscriptionResult[]>([]);
   const [selectedNoteIndex, setSelectedNoteIndex] = useState<number | null>(null);
   const [peaks, setPeaks] = useState<number[]>([]);
   const [sensitivity, setSensitivity] = useState(0.5);
@@ -125,6 +129,13 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
   const [appliedAnalysisKey, setAppliedAnalysisKey] = useState('');
   const [recordingElapsed, setRecordingElapsed] = useState(0);
   const [inputLevel, setInputLevel] = useState(0);
+  const [inputPeak, setInputPeak] = useState(0);
+  const [livePitch, setLivePitch] = useState<string | null>(null);
+  const [pitchedSeconds, setPitchedSeconds] = useState(0);
+  const [previewingPhrase, setPreviewingPhrase] = useState(false);
+  const [placementPattern, setPlacementPattern] = useState(
+    currentSession.project.transport.currentPattern,
+  );
   const [shelfSaved, setShelfSaved] = useState(false);
 
   const transcriberDialogRef = useRef<HTMLDivElement | null>(null);
@@ -136,12 +147,21 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
   const meterContextRef = useRef<AudioContext | null>(null);
   const meterSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
   const meterFrameRef = useRef<number | null>(null);
+  const meterPitchedMsRef = useRef(0);
+  const meterLastPitchCheckRef = useRef(0);
   const recordingStartedAtRef = useRef(0);
   const recordingRequestIdRef = useRef(0);
   const inputRequestIdRef = useRef(0);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const requestIdRef = useRef(0);
   const pendingWorkerRef = useRef<PendingWorker | null>(null);
+  const phrasePreviewTimeoutsRef = useRef<number[]>([]);
+
+  const stopPhrasePreview = useCallback(() => {
+    phrasePreviewTimeoutsRef.current.forEach((timeoutId) => window.clearTimeout(timeoutId));
+    phrasePreviewTimeoutsRef.current = [];
+    setPreviewingPhrase(false);
+  }, []);
 
   const replaceSourceUrl = useCallback((nextUrl: string | null) => {
     setSourceUrl((current) => {
@@ -162,6 +182,7 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
       meterContextRef.current = null;
     }
     setInputLevel(0);
+    setLivePitch(null);
   }, []);
 
   const stopStream = useCallback(() => {
@@ -197,9 +218,11 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
     inputRequestIdRef.current += 1;
     cancelAnalysis();
     cancelRecording();
+    stopPhrasePreview();
     setStatus('idle');
     setResult(null);
     setEditHistory([]);
+    setRedoHistory([]);
     setSelectedNoteIndex(null);
     setPeaks([]);
     setSourceLabel('');
@@ -208,10 +231,13 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
     setBpmOverride('');
     setAppliedAnalysisKey('');
     setRecordingElapsed(0);
+    setInputPeak(0);
+    setLivePitch(null);
+    setPitchedSeconds(0);
     setShelfSaved(false);
     decodedBufferRef.current = null;
     replaceSourceUrl(null);
-  }, [cancelAnalysis, cancelRecording, replaceSourceUrl]);
+  }, [cancelAnalysis, cancelRecording, replaceSourceUrl, stopPhrasePreview]);
 
   const handleClose = useCallback(() => {
     resetState();
@@ -219,16 +245,27 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
   }, [onClose, resetState]);
 
   useEffect(() => {
-    if (!open) {
+    if (open) return undefined;
+    const timeoutId = window.setTimeout(() => {
       cancelAnalysis();
       cancelRecording();
-    }
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [cancelAnalysis, cancelRecording, open]);
 
   useEffect(() => () => {
     cancelAnalysis();
     cancelRecording();
-  }, [cancelAnalysis, cancelRecording]);
+    stopPhrasePreview();
+  }, [cancelAnalysis, cancelRecording, stopPhrasePreview]);
+
+  useEffect(() => {
+    if (!open || status !== 'idle') return undefined;
+    const timeoutId = window.setTimeout(() => {
+      setPlacementPattern(currentSession.project.transport.currentPattern);
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [currentSession.project.transport.currentPattern, open, status]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -297,8 +334,10 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
       }
 
       if (requestId !== requestIdRef.current) return;
+      stopPhrasePreview();
       setResult(transcription);
       setEditHistory([]);
+      setRedoHistory([]);
       setSelectedNoteIndex(transcription.notes.length > 0 ? 0 : null);
       setBpmOverride(String(transcription.bpm));
       setAppliedAnalysisKey(analysisKey(
@@ -312,7 +351,7 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
       setErrorMessage(error instanceof Error ? error.message : 'Transcription failed.');
       setStatus('error');
     }
-  }, [cancelAnalysis]);
+  }, [cancelAnalysis, stopPhrasePreview]);
 
   const ingestAudio = useCallback(async (
     data: ArrayBuffer,
@@ -323,12 +362,14 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
     const inputRequestId = requestedInputId ?? inputRequestIdRef.current + 1;
     inputRequestIdRef.current = inputRequestId;
     cancelAnalysis();
+    stopPhrasePreview();
     setSourceLabel(label);
     setLaneName(`${sourceName(label)} melody`.slice(0, 48));
     setStatus('decoding');
     setErrorMessage('');
     setResult(null);
     setEditHistory([]);
+    setRedoHistory([]);
     setSelectedNoteIndex(null);
     setShelfSaved(false);
     replaceSourceUrl(previewUrl);
@@ -356,7 +397,7 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
       setErrorMessage(error instanceof Error ? error.message : 'Could not read that audio.');
       setStatus('error');
     }
-  }, [cancelAnalysis, minNoteSteps, replaceSourceUrl, runTranscription, sensitivity]);
+  }, [cancelAnalysis, minNoteSteps, replaceSourceUrl, runTranscription, sensitivity, stopPhrasePreview]);
 
   const handleFileChosen = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -397,7 +438,7 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
     const context = new AudioContextClass();
     const source = context.createMediaStreamSource(stream);
     const analyser = context.createAnalyser();
-    analyser.fftSize = 1024;
+    analyser.fftSize = 2048;
     source.connect(analyser);
     meterContextRef.current = context;
     meterSourceRef.current = source;
@@ -405,9 +446,35 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
     const update = () => {
       analyser.getFloatTimeDomainData(samples);
       let energy = 0;
-      for (const sample of samples) energy += sample * sample;
+      let framePeak = 0;
+      for (const sample of samples) {
+        energy += sample * sample;
+        framePeak = Math.max(framePeak, Math.abs(sample));
+      }
       const rms = Math.sqrt(energy / samples.length);
       setInputLevel(Math.min(1, rms * 8));
+      setInputPeak((current) => Math.max(current, framePeak));
+
+      const now = performance.now();
+      if (now - meterLastPitchCheckRef.current >= 90) {
+        const checkInterval = meterLastPitchCheckRef.current > 0
+          ? Math.min(160, now - meterLastPitchCheckRef.current)
+          : 0;
+        meterLastPitchCheckRef.current = now;
+        const reading = detectPitchYin(samples, context.sampleRate, {
+          maxHz: 1760,
+          minHz: 65,
+          silenceRms: 0.004,
+          threshold: 0.2,
+        });
+        if (reading && reading.clarity >= 0.28) {
+          setLivePitch(midiToNoteName(frequencyToMidi(reading.hz)));
+          meterPitchedMsRef.current += checkInterval;
+          setPitchedSeconds(meterPitchedMsRef.current / 1000);
+        } else {
+          setLivePitch(null);
+        }
+      }
       meterFrameRef.current = window.requestAnimationFrame(update);
     };
     update();
@@ -419,6 +486,7 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
       setStatus('error');
       return;
     }
+    stopPhrasePreview();
     cancelAnalysis();
     cancelRecording();
     const recordingRequestId = recordingRequestIdRef.current + 1;
@@ -463,9 +531,15 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
       };
       recorder.start(250);
       recordingStartedAtRef.current = Date.now();
+      meterLastPitchCheckRef.current = 0;
+      meterPitchedMsRef.current = 0;
       setRecordingElapsed(0);
+      setInputPeak(0);
+      setLivePitch(null);
+      setPitchedSeconds(0);
       setResult(null);
       setEditHistory([]);
+      setRedoHistory([]);
       setSelectedNoteIndex(null);
       setErrorMessage('');
       setShelfSaved(false);
@@ -479,7 +553,7 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
         : 'Microphone access was blocked. Allow it in the browser, or upload a file instead.');
       setStatus('error');
     }
-  }, [cancelAnalysis, cancelRecording, ingestAudio, startMeter, stopStream]);
+  }, [cancelAnalysis, cancelRecording, ingestAudio, startMeter, stopPhrasePreview, stopStream]);
 
   const stopRecording = useCallback(() => {
     const recorder = mediaRecorderRef.current;
@@ -495,15 +569,26 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
     void runTranscription(buffer, buildAnalysisOptions(bpmOverride, sensitivity, minNoteSteps));
   }, [bpmOverride, minNoteSteps, runTranscription, sensitivity]);
 
+  const rescueQuietTake = useCallback(() => {
+    const buffer = decodedBufferRef.current;
+    if (!buffer) return;
+    const rescueSensitivity = Math.max(0.85, sensitivity);
+    setSensitivity(rescueSensitivity);
+    setMinNoteSteps(1);
+    void runTranscription(buffer, buildAnalysisOptions(bpmOverride, rescueSensitivity, 1));
+  }, [bpmOverride, runTranscription, sensitivity]);
+
   const commitEdit = useCallback((nextNotes: TranscriptionNote[], nextSelection = selectedNoteIndex) => {
     if (!result) return;
+    stopPhrasePreview();
     setEditHistory((current) => [...current, result].slice(-MAX_EDIT_HISTORY));
+    setRedoHistory([]);
     setResult({ ...result, notes: nextNotes });
     setSelectedNoteIndex(nextNotes.length === 0
       ? null
       : Math.max(0, Math.min(nextSelection ?? 0, nextNotes.length - 1)));
     setShelfSaved(false);
-  }, [result, selectedNoteIndex]);
+  }, [result, selectedNoteIndex, stopPhrasePreview]);
 
   const updateSelectedNote = useCallback((updater: (note: TranscriptionNote) => TranscriptionNote) => {
     if (!result || selectedNoteIndex === null || !result.notes[selectedNoteIndex]) return;
@@ -520,19 +605,93 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
 
   const undoEdit = useCallback(() => {
     const previous = editHistory.at(-1);
-    if (!previous) return;
+    if (!previous || !result) return;
+    stopPhrasePreview();
+    setRedoHistory((current) => [...current, result].slice(-MAX_EDIT_HISTORY));
     setResult(previous);
     setEditHistory((current) => current.slice(0, -1));
     setSelectedNoteIndex((current) => previous.notes.length === 0
       ? null
       : Math.min(current ?? 0, previous.notes.length - 1));
     setShelfSaved(false);
-  }, [editHistory]);
+  }, [editHistory, result, stopPhrasePreview]);
+
+  const redoEdit = useCallback(() => {
+    const next = redoHistory.at(-1);
+    if (!next || !result) return;
+    stopPhrasePreview();
+    setEditHistory((current) => [...current, result].slice(-MAX_EDIT_HISTORY));
+    setRedoHistory((current) => current.slice(0, -1));
+    setResult(next);
+    setSelectedNoteIndex((current) => next.notes.length === 0
+      ? null
+      : Math.min(current ?? 0, next.notes.length - 1));
+    setShelfSaved(false);
+  }, [redoHistory, result, stopPhrasePreview]);
 
   const transposeAll = useCallback((semitones: number) => {
     if (!result) return;
     commitEdit(result.notes.map((note) => transposeNote(note, semitones)));
   }, [commitEdit, result]);
+
+  const addManualNote = useCallback(() => {
+    if (!result) return;
+    const previous = selectedNoteIndex !== null
+      ? result.notes[selectedNoteIndex]
+      : result.notes.at(-1);
+    const startStep = result.notes.reduce(
+      (max, note) => Math.max(max, note.startStep + note.durationSteps),
+      0,
+    );
+    const midi = previous?.midi ?? 60;
+    commitEdit([
+      ...result.notes,
+      {
+        durationSteps: Math.max(1, previous?.durationSteps ?? 2),
+        midi,
+        note: midiToNoteName(midi),
+        startStep,
+        velocity: previous?.velocity ?? 0.78,
+      },
+    ], result.notes.length);
+  }, [commitEdit, result, selectedNoteIndex]);
+
+  const movePhraseToStart = useCallback(() => {
+    if (!result?.notes.length) return;
+    const firstStep = Math.min(...result.notes.map((note) => note.startStep));
+    if (firstStep <= 0) return;
+    commitEdit(result.notes.map((note) => ({ ...note, startStep: note.startStep - firstStep })));
+  }, [commitEdit, result]);
+
+  const clearNotes = useCallback(() => {
+    if (!result?.notes.length) return;
+    commitEdit([], null);
+  }, [commitEdit, result]);
+
+  const previewPhrase = useCallback(() => {
+    if (!result?.notes.length) return;
+    stopPhrasePreview();
+    setPreviewingPhrase(true);
+    const orderedNotes = result.notes
+      .map((note, index) => ({ index, note }))
+      .sort((left, right) => left.note.startStep - right.note.startStep);
+    const firstStep = orderedNotes[0].note.startStep;
+    const stepMs = 60_000 / result.bpm / 4;
+    const trackType = inferMelodyTrackType(result.notes);
+    orderedNotes.forEach(({ index, note }) => {
+      const timeoutId = window.setTimeout(() => {
+        setSelectedNoteIndex(index);
+        void auditionInstrumentNote(trackType, note.note, note.velocity);
+      }, Math.max(0, (note.startStep - firstStep) * stepMs));
+      phrasePreviewTimeoutsRef.current.push(timeoutId);
+    });
+    const finalStep = Math.max(...orderedNotes.map(({ note }) => note.startStep + note.durationSteps));
+    const completionId = window.setTimeout(
+      stopPhrasePreview,
+      Math.max(120, (finalStep - firstStep) * stepMs + 120),
+    );
+    phrasePreviewTimeoutsRef.current.push(completionId);
+  }, [auditionInstrumentNote, result, stopPhrasePreview]);
 
   const auditionSelected = useCallback(() => {
     if (!result || selectedNoteIndex === null) return;
@@ -545,7 +704,7 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
     if (!result?.notes.length) return;
     const appended = appendTranscriptionToSession(currentSession, result, {
       laneName,
-      startPattern: currentSession.project.transport.currentPattern,
+      startPattern: placementPattern,
     });
     if (!appended) {
       onNotify?.('error', 'Phrase does not fit', 'Start it as a new project, choose an earlier pattern, or shorten the source and analyze again.');
@@ -558,7 +717,7 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
       `${appended.placedNoteCount} notes placed from Pattern ${appended.startPattern + 1}${appended.addedPatternCount ? ` · ${appended.addedPatternCount} pattern${appended.addedPatternCount === 1 ? '' : 's'} added` : ''}.`,
     );
     handleClose();
-  }, [currentSession, handleClose, laneName, loadTranscribedSession, onNotify, result]);
+  }, [currentSession, handleClose, laneName, loadTranscribedSession, onNotify, placementPattern, result]);
 
   const startNewProject = useCallback(() => {
     if (!result?.notes.length) return;
@@ -588,18 +747,33 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
   const analysisDirty = status === 'ready' && draftAnalysisKey !== appliedAnalysisKey;
   const confidencePercent = result ? Math.round(result.confidence * 100) : 0;
   const selectedNote = result && selectedNoteIndex !== null ? result.notes[selectedNoteIndex] ?? null : null;
+  const firstPhraseStep = result?.notes.length
+    ? Math.min(...result.notes.map((note) => note.startStep))
+    : 0;
   const phraseStepCount = result?.notes.reduce(
     (max, note) => Math.max(max, note.startStep + note.durationSteps),
     1,
   ) ?? 1;
-  const startPattern = currentSession.project.transport.currentPattern;
+  const startPattern = placementPattern;
   const requiredPatternCount = Math.ceil(
     ((startPattern * currentSession.project.transport.stepsPerPattern) + phraseStepCount)
     / currentSession.project.transport.stepsPerPattern,
   );
   const canAppend = requiredPatternCount <= MAX_PATTERN_COUNT;
+  const addedPatternCount = Math.max(
+    0,
+    requiredPatternCount - currentSession.project.transport.patternCount,
+  );
   const tempoMismatch = Boolean(result && result.bpm !== currentSession.project.transport.bpm);
   const working = status === 'decoding' || status === 'analyzing';
+  const signalQuality = result?.diagnostics?.quality ?? 'unpitched';
+  const recordingSignal = inputPeak >= 0.985
+    ? { label: 'Lower the input', tone: 'text-[var(--danger)]' }
+    : livePitch
+      ? { label: `${livePitch} locked`, tone: 'text-[var(--success)]' }
+      : inputLevel < 0.035
+        ? { label: 'Move closer', tone: 'text-[var(--warning)]' }
+        : { label: 'Hold one pitch', tone: 'text-[var(--accent)]' };
 
   if (!open) return null;
 
@@ -678,6 +852,9 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
                       style={{ width: `${Math.max(2, inputLevel * 100)}%` }}
                     />
                   </span>
+                  <span className={`mt-1.5 block font-mono text-[9px] uppercase tracking-[0.12em] ${recordingSignal.tone}`}>
+                    {recordingSignal.label}
+                  </span>
                 </span>
               </button>
             ) : (
@@ -730,6 +907,23 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
                   {Math.max(0, Math.ceil(MAX_RECORDING_SECONDS - recordingElapsed))}s left
                 </div>
               </div>
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                <RecordingStat
+                  label="Input peak"
+                  tone={inputPeak >= 0.985 ? 'danger' : inputPeak >= 0.08 ? 'good' : 'warning'}
+                  value={`${Math.round(inputPeak * 100)}%`}
+                />
+                <RecordingStat
+                  label="Pitch"
+                  tone={livePitch ? 'good' : 'neutral'}
+                  value={livePitch ?? 'Searching'}
+                />
+                <RecordingStat
+                  label="Pitched audio"
+                  tone={pitchedSeconds >= 0.6 ? 'good' : 'neutral'}
+                  value={`${pitchedSeconds.toFixed(1)}s`}
+                />
+              </div>
             </section>
           ) : null}
 
@@ -768,10 +962,11 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
                   </div>
                   {peaks.length > 0 ? <div className="mt-3"><WaveformStrip peaks={peaks} /></div> : null}
                   {sourceUrl ? <audio className="mt-3 h-9 w-full" controls preload="metadata" src={sourceUrl} /> : null}
-                  <div className="mt-3 grid grid-cols-3 gap-2">
+                  <div className="mt-3 grid grid-cols-2 gap-2">
                     <ResultStat label="Notes" value={String(result.notes.length)} />
                     <ResultStat label="Tempo" value={`${result.bpm}`} />
                     <ResultStat label="Read" value={`${confidencePercent}%`} />
+                    <ResultStat label="Signal" value={formatSignalQuality(signalQuality)} />
                   </div>
                   <p className="mt-3 text-[11px] leading-5 text-[var(--text-secondary)]">{result.summary}</p>
                   {result.polyphonic ? (
@@ -866,6 +1061,28 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
                     <p className="mt-1 text-[11px] leading-5 text-[var(--text-secondary)]">Select a block to hear it, shift its pitch or timing, or remove it before anything reaches the song.</p>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
+                    <button
+                      aria-pressed={previewingPhrase}
+                      className="control-chip flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] uppercase tracking-[0.12em]"
+                      data-active={previewingPhrase ? 'true' : 'false'}
+                      disabled={result.notes.length === 0}
+                      onClick={previewingPhrase ? stopPhrasePreview : previewPhrase}
+                      type="button"
+                    >
+                      {previewingPhrase ? <Square className="h-3 w-3 fill-current" /> : <Play className="h-3 w-3 fill-current" />}
+                      {previewingPhrase ? 'Stop' : 'Play phrase'}
+                    </button>
+                    <button className="control-chip flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] uppercase tracking-[0.12em]" onClick={addManualNote} type="button">
+                      <Plus className="h-3 w-3" /> Add note
+                    </button>
+                    <button
+                      className="control-chip px-2.5 py-1.5 text-[10px] uppercase tracking-[0.12em]"
+                      disabled={result.notes.length === 0 || firstPhraseStep === 0}
+                      onClick={movePhraseToStart}
+                      type="button"
+                    >
+                      Move to start
+                    </button>
                     <button className="control-chip px-2.5 py-1.5 text-[10px] uppercase tracking-[0.12em]" onClick={() => transposeAll(-12)} type="button">Oct -</button>
                     <button className="control-chip px-2.5 py-1.5 text-[10px] uppercase tracking-[0.12em]" onClick={() => transposeAll(12)} type="button">Oct +</button>
                     <button
@@ -875,6 +1092,22 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
                       type="button"
                     >
                       <Undo2 className="h-3 w-3" /> Undo edit
+                    </button>
+                    <button
+                      className="control-chip flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] uppercase tracking-[0.12em]"
+                      disabled={redoHistory.length === 0}
+                      onClick={redoEdit}
+                      type="button"
+                    >
+                      <Redo2 className="h-3 w-3" /> Redo
+                    </button>
+                    <button
+                      className="control-chip flex items-center gap-1.5 px-2.5 py-1.5 text-[10px] uppercase tracking-[0.12em] text-[var(--danger)]"
+                      disabled={result.notes.length === 0}
+                      onClick={clearNotes}
+                      type="button"
+                    >
+                      <Trash2 className="h-3 w-3" /> Clear
                     </button>
                   </div>
                 </div>
@@ -905,19 +1138,80 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
                 ) : (
                   <div className="mt-4 rounded-[3px] border border-dashed border-[var(--border-soft)] px-4 py-8 text-center">
                     <div className="text-[12px] font-medium text-[var(--text-primary)]">No clear notes yet</div>
-                    <p className="mt-2 text-[11px] leading-5 text-[var(--text-tertiary)]">Raise sensitivity for a quiet take, or record again with one melody closer to the microphone.</p>
+                    <p className="mx-auto mt-2 max-w-[56ch] text-[11px] leading-5 text-[var(--text-tertiary)]">
+                      {signalQuality === 'silent'
+                        ? 'The source is nearly silent. Record again and wait until the pitch readout locks before stopping.'
+                        : signalQuality === 'quiet'
+                          ? 'A melody may be hiding in this quiet take. Run the recovery pass, then remove any extra notes it catches.'
+                          : 'Sound was present, but it did not hold one pitch long enough. Try recovery or begin the lane manually.'}
+                    </p>
+                    <div className="mt-4 flex flex-wrap justify-center gap-2">
+                      <button
+                        className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.12em]"
+                        onClick={signalQuality === 'silent' ? () => void startRecording() : rescueQuietTake}
+                        type="button"
+                      >
+                        {signalQuality === 'silent' ? <Mic className="h-3.5 w-3.5" /> : <Wand2 className="h-3.5 w-3.5" />}
+                        {signalQuality === 'silent' ? 'Record again' : 'Recover this take'}
+                      </button>
+                      <button className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.12em]" onClick={addManualNote} type="button">
+                        <Plus className="h-3.5 w-3.5" /> Add C4 manually
+                      </button>
+                    </div>
                   </div>
                 )}
 
-                <label className="mt-4 grid gap-1.5 border-t border-[var(--border-soft)] pt-4">
-                  <span className="section-label">Lane name</span>
-                  <input
-                    className="control-field h-10 px-3 text-sm"
-                    maxLength={48}
-                    onChange={(event) => setLaneName(event.target.value)}
-                    value={laneName}
-                  />
-                </label>
+                <div className="mt-4 grid gap-4 border-t border-[var(--border-soft)] pt-4 sm:grid-cols-[minmax(0,1fr)_220px]">
+                  <label className="grid content-start gap-1.5">
+                    <span className="section-label">Lane name</span>
+                    <input
+                      className="control-field h-10 px-3 text-sm"
+                      maxLength={48}
+                      onChange={(event) => setLaneName(event.target.value)}
+                      value={laneName}
+                    />
+                  </label>
+                  <div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="section-label">Place in song</span>
+                      {placementPattern !== currentSession.project.transport.currentPattern ? (
+                        <button
+                          className="font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--accent)]"
+                          onClick={() => setPlacementPattern(currentSession.project.transport.currentPattern)}
+                          type="button"
+                        >
+                          Use current
+                        </button>
+                      ) : null}
+                    </div>
+                    <div className="mt-1.5 flex h-10 items-center justify-between rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.025)] px-1.5">
+                      <button
+                        aria-label="Place one pattern earlier"
+                        className="ghost-icon-button flex h-7 w-7 items-center justify-center"
+                        disabled={placementPattern <= 0}
+                        onClick={() => setPlacementPattern((current) => Math.max(0, current - 1))}
+                        type="button"
+                      >
+                        <Minus className="h-3.5 w-3.5" />
+                      </button>
+                      <span className="font-mono text-xs font-semibold text-[var(--text-primary)]">Pattern {placementPattern + 1}</span>
+                      <button
+                        aria-label="Place one pattern later"
+                        className="ghost-icon-button flex h-7 w-7 items-center justify-center"
+                        disabled={placementPattern >= currentSession.project.transport.patternCount - 1}
+                        onClick={() => setPlacementPattern((current) => Math.min(currentSession.project.transport.patternCount - 1, current + 1))}
+                        type="button"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    <p className="mt-1.5 text-[9px] leading-4 text-[var(--text-tertiary)]">
+                      {addedPatternCount > 0
+                        ? `Placement adds ${addedPatternCount} pattern${addedPatternCount === 1 ? '' : 's'} to fit the ending.`
+                        : 'The existing song length can hold this phrase.'}
+                    </p>
+                  </div>
+                </div>
 
                 {tempoMismatch ? (
                   <div className="mt-3 flex items-start justify-between gap-3 rounded-[3px] border border-[rgba(114,217,255,0.22)] bg-[rgba(114,217,255,0.05)] px-3 py-3 text-[10px] leading-4 text-[var(--text-secondary)]">
@@ -1026,6 +1320,38 @@ const ResultStat = ({ label, value }: { label: string; value: string }) => (
     <div className="mt-1 font-mono text-xs font-semibold text-[var(--text-primary)]">{value}</div>
   </div>
 );
+
+const formatSignalQuality = (quality: NonNullable<TranscriptionResult['diagnostics']>['quality']) => ({
+  clipping: 'Too hot',
+  good: 'Good',
+  quiet: 'Quiet',
+  silent: 'Silent',
+  unpitched: 'Unpitched',
+}[quality]);
+
+const RecordingStat = ({
+  label,
+  tone,
+  value,
+}: {
+  label: string;
+  tone: 'danger' | 'good' | 'neutral' | 'warning';
+  value: string;
+}) => {
+  const color = tone === 'danger'
+    ? 'var(--danger)'
+    : tone === 'good'
+      ? 'var(--success)'
+      : tone === 'warning'
+        ? 'var(--warning)'
+        : 'var(--text-secondary)';
+  return (
+    <div className="min-w-0 rounded-[3px] border border-[var(--border-soft)] bg-[rgba(6,9,13,0.28)] px-3 py-2">
+      <div className="truncate font-mono text-[8px] uppercase tracking-[0.12em] text-[var(--text-tertiary)]">{label}</div>
+      <div className="mt-1 truncate font-mono text-[10px] font-semibold" style={{ color }}>{value}</div>
+    </div>
+  );
+};
 
 const WaveformStrip = ({ peaks }: { peaks: number[] }) => (
   <div aria-hidden="true" className="flex h-14 items-center gap-[1px] overflow-hidden rounded-[3px] border border-[var(--border-soft)] bg-[rgba(6,9,13,0.4)] px-2">
