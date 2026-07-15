@@ -1,19 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronsLeft, ChevronsRight, GripVertical, MoreHorizontal, Music2, Pencil, Trash2 } from 'lucide-react';
+import { ChevronsLeft, ChevronsRight, GripVertical, MoreHorizontal, Music2, Trash2 } from 'lucide-react';
 import type React from 'react';
 
 import { engine } from '../audio/ToneEngine';
 import { resolvePatternStepForPlayback } from '../audio/playbackResolver';
 import { SUPERSONIC_NOTE_OFFSETS, getTrackAnchorNote, pitchRank, shiftPitch } from '../utils/notePlacement';
 import { TrackIcon } from '../utils/trackPersonality';
-import type { ArrangementClip, SongMarker, Track } from '../project/schema';
+import { MAX_ARRANGER_BEAT_POSITION, type ArrangementClip, type SongMarker, type Track } from '../project/schema';
 
 const SECTION_COLORS = [
   '#22d3ee', '#818cf8', '#f472b6', '#fbbf24', '#34d399', '#fb7185', '#60a5fa', '#a78bfa', '#f59e0b',
 ];
 
-const RULER_HEIGHT = 30;
+const RULER_HEIGHT = 36;
 const GUTTER_WIDTH = 156;
+const MIN_SECTION_STEPS = 4;
 
 const OVERSCAN = 8;
 
@@ -23,6 +24,8 @@ interface SongTimelineGridProps {
   stepsPerPattern: number;
   songLengthInBeats: number;
   songMarkers: SongMarker[];
+  cellWidth?: number;
+  compactLanes?: boolean;
   selectedTrackId: string | null;
   superSonicMode?: boolean;
   onSelectTrack: (trackId: string) => void;
@@ -33,6 +36,7 @@ interface SongTimelineGridProps {
   onSeek?: (beat: number) => void;
   onRenameSection?: (markerId: string, name: string) => void;
   onManageSection?: (markerId: string) => void;
+  onResizeSectionEnd?: (sectionId: string, startBeat: number, currentEndBeat: number, nextEndBeat: number) => void;
   onReorderTrack?: (trackId: string, toIndex: number) => void;
   onDeleteTrack?: (trackId: string) => void;
 }
@@ -51,6 +55,8 @@ export const SongTimelineGrid = ({
   stepsPerPattern,
   songLengthInBeats,
   songMarkers,
+  cellWidth,
+  compactLanes = false,
   selectedTrackId,
   superSonicMode = false,
   onSelectTrack,
@@ -61,13 +67,16 @@ export const SongTimelineGrid = ({
   onSeek,
   onRenameSection,
   onManageSection,
+  onResizeSectionEnd,
   onReorderTrack,
   onDeleteTrack,
 }: SongTimelineGridProps) => {
+  const rootRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const playheadRef = useRef<HTMLDivElement>(null);
   const [scrollLeft, setScrollLeft] = useState(0);
   const [viewportWidth, setViewportWidth] = useState(800);
+  const [availableHeight, setAvailableHeight] = useState(0);
   // Whether the view auto-scrolls to keep the playhead in sight. A manual scroll
   // turns this off so the user can look around without being yanked back; the
   // "Follow" pill re-engages it. Mirrored to a ref so the rAF loop reads it
@@ -87,6 +96,21 @@ export const SongTimelineGrid = ({
   // Which empty, placeable cell the pointer is over, so the SuperSonic pitch
   // ladder shows inline in just that cell.
   const [hoverCell, setHoverCell] = useState<{ trackId: string; step: number } | null>(null);
+  const [resizePreview, setResizePreview] = useState<{
+    draftEnd: number;
+    maximumEnd: number;
+    minimumEnd: number;
+    name: string;
+    originalEnd: number;
+    sectionId: string;
+    start: number;
+  } | null>(null);
+  const resizeGestureRef = useRef<typeof resizePreview>(null);
+  const resizeCallbackRef = useRef(onResizeSectionEnd);
+
+  useEffect(() => {
+    resizeCallbackRef.current = onResizeSectionEnd;
+  }, [onResizeSectionEnd]);
 
   // Drag editing, decided by the starting cell: press a filled cell and drag to
   // erase every filled cell crossed (gaps are skipped), or press an empty cell
@@ -113,11 +137,20 @@ export const SongTimelineGrid = ({
 
   // SuperSonic mode is for precise placement, so the cells grow to fit the
   // pitch ladder; otherwise stay dense for the song overview.
-  const cellW = superSonicMode ? 30 : 20;
-  const laneH = superSonicMode ? 48 : 34;
+  const cellW = Math.max(superSonicMode ? 30 : 12, Math.round(cellWidth ?? (superSonicMode ? 30 : 20)));
+  const baseLaneHeight = superSonicMode ? 48 : compactLanes ? 28 : 36;
+  const laneH = tracks.length === 0 || availableHeight <= RULER_HEIGHT
+    ? baseLaneHeight
+    : Math.max(
+        baseLaneHeight,
+        Math.min(112, Math.floor((availableHeight - RULER_HEIGHT) / tracks.length)),
+      );
+  const noteInset = Math.max(3, Math.min(18, Math.floor(laneH * 0.18)));
   const placementEnabled = superSonicMode && Boolean(onPlaceNote);
 
-  const songSteps = Math.max(stepsPerPattern, Math.round(songLengthInBeats));
+  const originalSongSteps = Math.max(stepsPerPattern, Math.round(songLengthInBeats));
+  const resizeDelta = resizePreview ? resizePreview.draftEnd - resizePreview.originalEnd : 0;
+  const songSteps = originalSongSteps + resizeDelta;
   // Render a couple of empty bars past the song's end so there is always
   // somewhere to add onto: clicking into this trailing zone drops a clip and
   // grows the song. This works for any loaded scene, so a library song can be
@@ -156,6 +189,16 @@ export const SongTimelineGrid = ({
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
   }, [cellW]);
+
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root) return undefined;
+    const measure = () => setAvailableHeight(root.clientHeight);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(root);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -201,7 +244,7 @@ export const SongTimelineGrid = ({
     return map;
   }, [arrangerClips]);
 
-  const sections = useMemo(() => {
+  const baseSections = useMemo(() => {
     const sorted = [...songMarkers].sort((a, b) => a.beat - b.beat);
     const fallback = {
       beat: 0,
@@ -218,10 +261,24 @@ export const SongTimelineGrid = ({
       id: marker.id,
       name: marker.name,
       start: marker.beat,
-      end: index < boundaries.length - 1 ? boundaries[index + 1].beat : songSteps,
+      end: index < boundaries.length - 1 ? boundaries[index + 1].beat : originalSongSteps,
       color: SECTION_COLORS[index % SECTION_COLORS.length],
     })).filter((section) => section.end > section.start);
-  }, [songMarkers, songSteps]);
+  }, [songMarkers, originalSongSteps]);
+
+  const sections = useMemo(() => {
+    if (!resizePreview) return baseSections;
+    const delta = resizePreview.draftEnd - resizePreview.originalEnd;
+    return baseSections.map((section) => {
+      if (section.id === resizePreview.sectionId) {
+        return { ...section, end: resizePreview.draftEnd };
+      }
+      if (section.start >= resizePreview.originalEnd) {
+        return { ...section, end: section.end + delta, start: section.start + delta };
+      }
+      return section;
+    }).filter((section) => section.end > section.start);
+  }, [baseSections, resizePreview]);
 
   const windowStart = Math.max(0, Math.floor(scrollLeft / cellW) - OVERSCAN);
   const windowEnd = Math.min(totalSteps, Math.ceil((scrollLeft + viewportWidth) / cellW) + OVERSCAN);
@@ -230,14 +287,27 @@ export const SongTimelineGrid = ({
     windowSteps.push(step);
   }
 
-  const resolveAt = (track: Track, songStep: number) => resolvePatternStepForPlayback({
-    arrangerClipsByTrack,
-    currentPattern: 0,
-    songStep,
-    stepsPerPattern,
-    track,
-    transportMode: 'SONG',
-  });
+  const sourceStepForPreview = (songStep: number) => {
+    if (!resizePreview) return songStep;
+    if (resizeDelta > 0) {
+      if (songStep >= resizePreview.originalEnd && songStep < resizePreview.draftEnd) return null;
+      return songStep >= resizePreview.draftEnd ? songStep - resizeDelta : songStep;
+    }
+    return songStep >= resizePreview.draftEnd ? songStep - resizeDelta : songStep;
+  };
+
+  const resolveAt = (track: Track, songStep: number) => {
+    const sourceStep = sourceStepForPreview(songStep);
+    if (sourceStep === null) return null;
+    return resolvePatternStepForPlayback({
+      arrangerClipsByTrack,
+      currentPattern: 0,
+      songStep: sourceStep,
+      stepsPerPattern,
+      track,
+      transportMode: 'SONG',
+    });
+  };
 
   // Apply the active drag to a cell. Resolves fresh (a paint drag may have just
   // created the clip that now covers this bar) and re-checks fill so revisiting
@@ -271,6 +341,112 @@ export const SongTimelineGrid = ({
 
   const barLineEvery = stepsPerPattern;
 
+  useEffect(() => {
+    const finishResize = (commit: boolean) => {
+      const gesture = resizeGestureRef.current;
+      resizeGestureRef.current = null;
+      setResizePreview(null);
+      document.documentElement.style.removeProperty('cursor');
+      document.documentElement.style.removeProperty('user-select');
+      if (commit && gesture && gesture.draftEnd !== gesture.originalEnd) {
+        resizeCallbackRef.current?.(
+          gesture.sectionId,
+          gesture.start,
+          gesture.originalEnd,
+          gesture.draftEnd,
+        );
+      }
+    };
+    const moveResize = (event: PointerEvent) => {
+      const gesture = resizeGestureRef.current;
+      const node = scrollRef.current;
+      if (!gesture || !node) return;
+      const rect = node.getBoundingClientRect();
+      if (event.clientX > rect.right - 28) {
+        programmaticScrollRef.current = true;
+        node.scrollLeft += Math.max(10, cellW);
+      } else if (event.clientX < rect.left + 28) {
+        programmaticScrollRef.current = true;
+        node.scrollLeft -= Math.max(10, cellW);
+      }
+      const rawStep = (event.clientX - rect.left + node.scrollLeft) / cellW;
+      const snappedStep = event.shiftKey
+        ? Math.round(rawStep / stepsPerPattern) * stepsPerPattern
+        : Math.round(rawStep);
+      const draftEnd = Math.max(gesture.minimumEnd, Math.min(gesture.maximumEnd, snappedStep));
+      if (draftEnd === gesture.draftEnd) return;
+      const nextGesture = { ...gesture, draftEnd };
+      resizeGestureRef.current = nextGesture;
+      setResizePreview(nextGesture);
+    };
+    const cancelResize = () => finishResize(false);
+    const commitResize = () => finishResize(true);
+    const handleResizeKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && resizeGestureRef.current) {
+        event.preventDefault();
+        cancelResize();
+      }
+    };
+    window.addEventListener('pointermove', moveResize);
+    window.addEventListener('pointerup', commitResize);
+    window.addEventListener('pointercancel', cancelResize);
+    window.addEventListener('keydown', handleResizeKey);
+    return () => {
+      window.removeEventListener('pointermove', moveResize);
+      window.removeEventListener('pointerup', commitResize);
+      window.removeEventListener('pointercancel', cancelResize);
+      window.removeEventListener('keydown', handleResizeKey);
+    };
+  }, [cellW, stepsPerPattern]);
+
+  const beginSectionResize = (
+    event: React.PointerEvent,
+    section: (typeof baseSections)[number],
+  ) => {
+    if (!onResizeSectionEnd || event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const minimumEnd = Math.max(
+      section.start + MIN_SECTION_STEPS,
+      section.end - (originalSongSteps - stepsPerPattern),
+    );
+    const gesture = {
+      draftEnd: section.end,
+      maximumEnd: section.end + (MAX_ARRANGER_BEAT_POSITION - originalSongSteps),
+      minimumEnd,
+      name: section.name,
+      originalEnd: section.end,
+      sectionId: section.id,
+      start: section.start,
+    };
+    followingRef.current = false;
+    setFollowing(false);
+    resizeGestureRef.current = gesture;
+    setResizePreview(gesture);
+    document.documentElement.style.cursor = 'ew-resize';
+    document.documentElement.style.userSelect = 'none';
+  };
+
+  const resizeSectionWithKeyboard = (
+    event: React.KeyboardEvent,
+    section: (typeof baseSections)[number],
+  ) => {
+    if (!onResizeSectionEnd || (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight')) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const amount = event.shiftKey ? stepsPerPattern : 1;
+    const direction = event.key === 'ArrowRight' ? 1 : -1;
+    const minimumEnd = Math.max(
+      section.start + MIN_SECTION_STEPS,
+      section.end - (originalSongSteps - stepsPerPattern),
+    );
+    const maximumEnd = section.end + (MAX_ARRANGER_BEAT_POSITION - originalSongSteps);
+    const nextEnd = Math.max(minimumEnd, Math.min(maximumEnd, section.end + (amount * direction)));
+    if (nextEnd !== section.end) {
+      onResizeSectionEnd(section.id, section.start, section.end, nextEnd);
+    }
+  };
+
   // Re-engage auto-follow and snap the view to the playhead. Triggered by the
   // "Follow" pill that appears once a manual scroll has turned following off.
   const resumeFollow = () => {
@@ -284,7 +460,7 @@ export const SongTimelineGrid = ({
   };
 
   return (
-    <div className="relative flex overflow-hidden rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]">
+    <div ref={rootRef} className="relative flex min-h-[240px] flex-1 overflow-hidden rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]">
       {/* Track-name gutter, aligned row-for-row with the lanes. Slides shut to a
           thin icon strip; drag a lane to reorder. */}
       <div className="shrink-0 border-r border-[var(--border-soft)] bg-[var(--bg-panel-strong)] transition-[width] duration-200" style={{ width: gutterCollapsed ? 36 : GUTTER_WIDTH }}>
@@ -366,6 +542,7 @@ export const SongTimelineGrid = ({
       <div
         ref={scrollRef}
         className="relative flex-1 overflow-x-auto"
+        data-song-timeline-scroll="true"
         onScroll={(event) => {
           setScrollLeft(event.currentTarget.scrollLeft);
           setHoverCell(null);
@@ -382,67 +559,104 @@ export const SongTimelineGrid = ({
         <div className="relative" style={{ width: totalWidth }}>
           {/* Editable section ruler. */}
           <div className="relative border-b border-[var(--border-soft)] bg-[var(--bg-panel-strong)]" style={{ height: RULER_HEIGHT, width: totalWidth }}>
-            {sections.length === 0 && (
-              <div className="flex h-full items-center px-2 text-[10px] text-[var(--text-tertiary)]">
-                No sections yet. Use Mark section to name parts of the song.
-              </div>
-            )}
-            {sections.map((section) => (
-              <div
-                key={section.id}
-                className="group absolute top-0 flex h-full items-center overflow-hidden border-l border-[var(--chrome-line)]"
-                style={{ left: section.start * cellW, width: (section.end - section.start) * cellW, background: `${section.color}14` }}
-              >
-                {editingMarkerId === section.id ? (
-                  <input
-                    autoFocus
-                    className="mx-1 h-[18px] w-full min-w-0 rounded-[2px] border border-[var(--accent-strong)] bg-[var(--bg-panel-strong)] px-1 text-[10px] text-[var(--text-primary)]"
-                    onBlur={commitRename}
-                    onChange={(event) => setDraftName(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter') commitRename();
-                      if (event.key === 'Escape') setEditingMarkerId(null);
-                    }}
-                    value={draftName}
-                  />
-                ) : (
-                  <>
+            {sections.map((section, sectionIndex) => {
+              const originalSection = baseSections.find((candidate) => candidate.id === section.id) ?? section;
+              const isResizing = resizePreview?.sectionId === section.id;
+              const sectionLength = section.end - section.start;
+              const wholeBars = Math.floor(sectionLength / stepsPerPattern);
+              const remainingSteps = sectionLength % stepsPerPattern;
+              return (
+                <div
+                  key={section.id}
+                  className="group absolute top-0 flex h-full items-center border-l border-[var(--chrome-line)]"
+                  data-resizing={isResizing ? 'true' : undefined}
+                  style={{
+                    left: section.start * cellW,
+                    width: sectionLength * cellW,
+                    background: `${section.color}${isResizing ? '28' : '14'}`,
+                    boxShadow: isResizing ? `inset 0 0 0 1px ${section.color}aa` : undefined,
+                    zIndex: isResizing ? 30 : baseSections.length - sectionIndex,
+                  }}
+                >
+                  {editingMarkerId === section.id ? (
+                    <input
+                      autoFocus
+                      className="mx-1 h-[18px] w-full min-w-0 rounded-[2px] border border-[var(--accent-strong)] bg-[var(--bg-panel-strong)] px-1 text-[10px] text-[var(--text-primary)]"
+                      onBlur={commitRename}
+                      onChange={(event) => setDraftName(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter') commitRename();
+                        if (event.key === 'Escape') setEditingMarkerId(null);
+                      }}
+                      value={draftName}
+                    />
+                  ) : (
+                    <div className="flex h-full min-w-0 flex-1 items-center overflow-hidden pr-2">
+                      <button
+                        className="flex-1 truncate px-1.5 text-left text-[9px] font-semibold uppercase tracking-[0.12em]"
+                        onClick={() => onSeek?.(section.start)}
+                        onDoubleClick={() => { setEditingMarkerId(section.id); setDraftName(section.name); }}
+                        style={{ color: section.color }}
+                        title={`Tap to jump to ${section.name}`}
+                        type="button"
+                      >
+                        {section.name}
+                      </button>
+                      {onManageSection && (
+                        <button
+                          aria-label={`Manage ${section.name}`}
+                          className="mr-0.5 shrink-0 rounded-[2px] p-0.5 text-[var(--text-tertiary)] opacity-0 transition-all hover:bg-[rgba(255,255,255,0.06)] hover:text-[var(--text-primary)] hover:opacity-100 focus:opacity-100 group-hover:opacity-70"
+                          onClick={() => onManageSection(section.id)}
+                          title={`Manage, clear, save, or delete ${section.name}`}
+                          type="button"
+                        >
+                          <MoreHorizontal className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  {onResizeSectionEnd && (
                     <button
-                      className="flex-1 truncate px-1.5 text-left text-[9px] font-semibold uppercase tracking-[0.12em]"
-                      onClick={() => onSeek?.(section.start)}
-                      onDoubleClick={() => { setEditingMarkerId(section.id); setDraftName(section.name); }}
-                      style={{ color: section.color }}
-                      title={`Tap to jump to ${section.name}`}
+                      aria-label={`Resize the end of ${section.name}`}
+                      aria-valuemax={originalSection.end + (MAX_ARRANGER_BEAT_POSITION - originalSongSteps)}
+                      aria-valuemin={Math.max(originalSection.start + MIN_SECTION_STEPS, originalSection.end - (originalSongSteps - stepsPerPattern))}
+                      aria-valuenow={section.end}
+                      className="absolute -right-2 top-0 z-20 flex h-full w-4 cursor-ew-resize touch-none items-center justify-center focus-visible:outline-none"
+                      data-section-resize-handle={section.id}
+                      onKeyDown={(event) => resizeSectionWithKeyboard(event, originalSection)}
+                      onPointerDown={(event) => beginSectionResize(event, originalSection)}
+                      role="slider"
+                      title={`Drag to resize ${section.name}. Hold Shift to snap by bar.`}
                       type="button"
                     >
-                      {section.name}
+                      <span
+                        className="flex h-6 w-2 items-center justify-center rounded-[2px] border transition-all group-hover:w-2.5"
+                        style={{
+                          background: isResizing ? section.color : 'var(--bg-panel-strong)',
+                          borderColor: isResizing ? section.color : `${section.color}88`,
+                          color: isResizing ? 'var(--bg-app)' : section.color,
+                          boxShadow: isResizing ? `0 0 12px ${section.color}88` : undefined,
+                        }}
+                      >
+                        <GripVertical className="h-3 w-3" />
+                      </span>
                     </button>
-                    {onRenameSection && section.id !== 'marker_fallback' && (
-                      <button
-                        aria-label={`Rename ${section.name}`}
-                        className="shrink-0 rounded-[2px] p-0.5 text-[var(--text-tertiary)] transition-colors hover:text-[var(--text-primary)]"
-                        onClick={() => { setEditingMarkerId(section.id); setDraftName(section.name); }}
-                        title={`Rename ${section.name}`}
-                        type="button"
-                      >
-                        <Pencil className="h-2.5 w-2.5" />
-                      </button>
-                    )}
-                    {onManageSection && (
-                      <button
-                        aria-label={`Manage ${section.name}`}
-                        className="mr-0.5 shrink-0 rounded-[2px] p-0.5 text-[var(--text-tertiary)] opacity-60 transition-all hover:bg-[rgba(255,255,255,0.06)] hover:text-[var(--text-primary)] hover:opacity-100 focus:opacity-100"
-                        onClick={() => onManageSection(section.id)}
-                        title={`Manage, clear, save, or delete ${section.name}`}
-                        type="button"
-                      >
-                        <MoreHorizontal className="h-3 w-3" />
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
-            ))}
+                  )}
+                  {isResizing && (
+                    <div
+                      className="pointer-events-none absolute -top-9 right-0 z-40 whitespace-nowrap rounded-[3px] border border-[var(--border-strong)] bg-[var(--bg-panel-strong)] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.1em] text-[var(--text-primary)] shadow-[0_4px_16px_rgba(0,0,0,0.45)]"
+                    >
+                      {wholeBars > 0 ? `${wholeBars} bar${wholeBars === 1 ? '' : 's'}` : ''}
+                      {wholeBars > 0 && remainingSteps > 0 ? ' + ' : ''}
+                      {remainingSteps > 0 || wholeBars === 0 ? `${remainingSteps || sectionLength} steps` : ''}
+                      <span className="ml-2" style={{ color: section.color }}>
+                        {resizeDelta > 0 ? '+' : ''}{resizeDelta}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
 
           {/* Lanes. */}
@@ -475,6 +689,7 @@ export const SongTimelineGrid = ({
                     data-song-cell="true"
                     data-track-id={track.id}
                     data-song-step={songStep}
+                    disabled={Boolean(resizePreview)}
                     onPointerDown={(event) => {
                       // Reset first: a prior drag that ended on another cell (or
                       // off-grid) fires no click to self-clear the flag, so without
@@ -576,8 +791,8 @@ export const SongTimelineGrid = ({
                         return (
                           <span
                             aria-hidden
-                            className="absolute inset-x-[1.5px] inset-y-[3px] rounded-[2px]"
-                            style={{ background: track.color, opacity: 0.2 }}
+                            className="absolute inset-x-[1.5px] rounded-[2px]"
+                            style={{ background: track.color, bottom: noteInset, opacity: 0.2, top: noteInset }}
                           >
                             <span className="absolute inset-[1.5px] flex flex-col gap-px overflow-hidden rounded-[1px]">
                               {sorted.map((event, noteIndex) => (
@@ -594,8 +809,8 @@ export const SongTimelineGrid = ({
                       }
                       return (
                         <span
-                          className="absolute inset-x-[1.5px] inset-y-[3px] overflow-hidden rounded-[2px]"
-                          style={{ background: track.color, opacity: 0.92 }}
+                          className="absolute inset-x-[1.5px] overflow-hidden rounded-[2px]"
+                          style={{ background: track.color, bottom: noteInset, opacity: 0.92, top: noteInset }}
                           title={events[0]?.note}
                         >
                           <span className="absolute inset-x-0 top-0 h-[2px] bg-white/55" />
@@ -653,7 +868,7 @@ export const SongTimelineGrid = ({
           />
         </div>
       </div>
-      {!following && (
+      {!following && !resizePreview && (
         <button
           aria-label="Follow the playhead"
           className="absolute bottom-2 right-2 z-20 flex items-center gap-1.5 rounded-full border border-[var(--accent-strong)] bg-[var(--bg-panel-strong)] px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--accent-strong)] shadow-[0_2px_10px_rgba(0,0,0,0.45)] transition-colors hover:bg-[var(--accent-muted)]"

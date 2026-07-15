@@ -15,11 +15,13 @@ import {
   insertSavedSongSection,
   removeSavedSongSection,
   renameSavedSongSection,
+  resizeSongSectionEnd,
   saveSongRange,
 } from '../songSectionEditing';
 import {
   ARRANGER_SNAP,
   commitProject,
+  songLengthFromProject,
   updateStepPattern,
 } from './reducerUtils';
 
@@ -103,6 +105,29 @@ export const handleArrangerAction = (state: EditorState, action: EditorAction): 
     case 'DELETE_SONG_RANGE': {
       const nextState = commitProject(state, deleteSongRange(present, action.startBeat, action.endBeat));
       return withDeletedLoopTime(state, nextState, action.startBeat, action.endBeat);
+    }
+
+    case 'RESIZE_SONG_SECTION_END': {
+      const project = resizeSongSectionEnd(
+        present,
+        action.startBeat,
+        action.currentEndBeat,
+        action.nextEndBeat,
+      );
+      const lengthDelta = songLengthFromProject(project) - songLengthFromProject(present);
+      const nextState = commitProject(state, project);
+      if (lengthDelta > 0) {
+        return withInsertedLoopTime(state, nextState, action.currentEndBeat, lengthDelta);
+      }
+      if (lengthDelta < 0) {
+        return withDeletedLoopTime(
+          state,
+          nextState,
+          action.currentEndBeat + lengthDelta,
+          action.currentEndBeat,
+        );
+      }
+      return nextState;
     }
 
     case 'SAVE_SONG_RANGE':

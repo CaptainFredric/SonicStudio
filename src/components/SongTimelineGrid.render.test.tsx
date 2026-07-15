@@ -50,6 +50,7 @@ const renderGrid = (overrides: Partial<Parameters<typeof SongTimelineGrid>[0]> =
     onSeek: vi.fn(),
     onRenameSection: vi.fn(),
     onManageSection: vi.fn(),
+    onResizeSectionEnd: vi.fn(),
     onReorderTrack: vi.fn(),
     onDeleteTrack: vi.fn(),
     ...overrides,
@@ -138,5 +139,44 @@ describe('SongTimelineGrid', () => {
     fireEvent.pointerUp(window); // drag ends off-cell, no click fires
     fireEvent.pointerDown(cell(kick.id, 6), { button: 0 });
     expect(props.onEraseStep).toHaveBeenCalledTimes(2);
+  });
+
+  it('resizes a section edge with the keyboard in steps or full bars', () => {
+    const { getByRole, project, props } = renderGrid();
+    const sectionName = project.markers[0]?.name ?? 'Song';
+    const handle = getByRole('slider', { name: `Resize the end of ${sectionName}` });
+
+    fireEvent.keyDown(handle, { key: 'ArrowRight' });
+    fireEvent.keyDown(handle, { key: 'ArrowRight', shiftKey: true });
+
+    expect(props.onResizeSectionEnd).toHaveBeenNthCalledWith(1, project.markers[0].id, 0, 16, 17);
+    expect(props.onResizeSectionEnd).toHaveBeenNthCalledWith(2, project.markers[0].id, 0, 16, 32);
+  });
+
+  it('previews a dragged section edge and commits one resize on release', () => {
+    const { container, getByRole, project, props } = renderGrid();
+    const sectionName = project.markers[0]?.name ?? 'Song';
+    const handle = getByRole('slider', { name: `Resize the end of ${sectionName}` });
+    const scroller = container.querySelector('[data-song-timeline-scroll="true"]');
+    if (!(scroller instanceof HTMLElement)) throw new Error('Expected the song timeline scroller');
+    vi.spyOn(scroller, 'getBoundingClientRect').mockReturnValue({
+      bottom: 300,
+      height: 300,
+      left: 0,
+      right: 800,
+      top: 0,
+      width: 800,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+
+    fireEvent.pointerDown(handle, { button: 0, clientX: 320 });
+    fireEvent.pointerMove(window, { clientX: 400 });
+    expect(container.querySelector('[data-resizing="true"]')).not.toBeNull();
+    fireEvent.pointerUp(window);
+
+    expect(props.onResizeSectionEnd).toHaveBeenCalledTimes(1);
+    expect(props.onResizeSectionEnd).toHaveBeenCalledWith(project.markers[0].id, 0, 16, 20);
   });
 });

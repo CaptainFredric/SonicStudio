@@ -51,6 +51,7 @@ export const createEditorDispatchers = (dispatch: Dispatch<EditorAction>) => ({
   removeArrangerClip: (clipId: string) => dispatch({ type: 'REMOVE_ARRANGER_CLIP', clipId }),
   removeSavedSongSection: (savedSectionId: string) => dispatch({ type: 'REMOVE_SAVED_SONG_SECTION', savedSectionId }),
   removeSongMarker: (markerId: string) => dispatch({ type: 'REMOVE_SONG_MARKER', markerId }),
+  resizeSongSectionEnd: (startBeat: number, currentEndBeat: number, nextEndBeat: number) => dispatch({ type: 'RESIZE_SONG_SECTION_END', currentEndBeat, nextEndBeat, startBeat }),
   removeTrack: (trackId: string) => dispatch({ type: 'REMOVE_TRACK', trackId }),
   renameProject: (name: string) => dispatch({ type: 'SET_PROJECT_NAME', name }),
   renameSavedSongSection: (savedSectionId: string, name: string) => dispatch({ type: 'RENAME_SAVED_SONG_SECTION', name, savedSectionId }),

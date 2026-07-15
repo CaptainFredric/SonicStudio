@@ -9,6 +9,7 @@ import {
   insertSavedSongSection,
   removeSavedSongSection,
   renameSavedSongSection,
+  resizeSongSectionEnd,
   saveSongRange,
 } from './songSectionEditing';
 import { songLengthFromProject } from './reducer/reducerUtils';
@@ -65,6 +66,38 @@ describe('song section editing', () => {
     expect(result.markers.map((marker) => [marker.beat, marker.name])).toEqual([
       [0, 'Intro'],
       [16, 'Hook'],
+    ]);
+  });
+
+  it('stretches a section by inserting time and shifting everything after its edge', () => {
+    const result = resizeSongSectionEnd(buildSectionProject(), 0, 16, 24);
+
+    expect(songLengthFromProject(result)).toBe(56);
+    expect(result.arrangerClips.map((clip) => [clip.startBeat, clip.beatLength])).toEqual([
+      [0, 16],
+      [24, 16],
+      [40, 16],
+    ]);
+    expect(result.markers.map((marker) => [marker.beat, marker.name])).toEqual([
+      [0, 'Intro'],
+      [24, 'Verse'],
+      [40, 'Hook'],
+    ]);
+  });
+
+  it('shortens a section by removing time and pulling later music to its edge', () => {
+    const result = resizeSongSectionEnd(buildSectionProject(), 0, 16, 12);
+
+    expect(songLengthFromProject(result)).toBe(44);
+    expect(result.arrangerClips.map((clip) => [clip.startBeat, clip.beatLength])).toEqual([
+      [0, 12],
+      [12, 16],
+      [28, 16],
+    ]);
+    expect(result.markers.map((marker) => [marker.beat, marker.name])).toEqual([
+      [0, 'Intro'],
+      [12, 'Verse'],
+      [28, 'Hook'],
     ]);
   });
 

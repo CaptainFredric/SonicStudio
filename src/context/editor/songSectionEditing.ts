@@ -153,6 +153,45 @@ export const insertBlankSongSection = (
   return syncSectionProject(project, clips, markers, nextLength);
 };
 
+export const resizeSongSectionEnd = (
+  project: Project,
+  startBeat: number,
+  currentEndBeat: number,
+  nextEndBeat: number,
+): Project => {
+  const songLength = songLengthFromProject(project);
+  const start = clamp(Math.round(startBeat), 0, Math.max(0, songLength - MIN_CLIP_LENGTH));
+  const currentEnd = clamp(
+    Math.round(currentEndBeat),
+    start + MIN_CLIP_LENGTH,
+    songLength,
+  );
+  const minimumEnd = Math.max(
+    start + MIN_CLIP_LENGTH,
+    currentEnd - (songLength - project.transport.stepsPerPattern),
+  );
+  const maximumEnd = currentEnd + (MAX_ARRANGER_BEAT_POSITION - songLength);
+  const nextEnd = clamp(Math.round(nextEndBeat), minimumEnd, maximumEnd);
+  if (nextEnd === currentEnd) return project;
+
+  if (nextEnd < currentEnd) {
+    return deleteSongRange(project, nextEnd, currentEnd);
+  }
+
+  const insertedLength = nextEnd - currentEnd;
+  return syncSectionProject(
+    project,
+    splitAndShiftClipsForInsertion(
+      project.arrangerClips,
+      currentEnd,
+      insertedLength,
+      project.transport.stepsPerPattern,
+    ),
+    shiftMarkersForInsertion(project.markers, currentEnd, insertedLength),
+    songLength + insertedLength,
+  );
+};
+
 export const clearSongRange = (
   project: Project,
   startBeat: number,

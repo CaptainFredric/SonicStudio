@@ -724,6 +724,50 @@ describe('editorReducer', () => {
     expect(insertedInsideLoop.ui.loopRangeEndBeat).toBe(40);
   });
 
+  it('resizes a section as one undoable edit and keeps later music aligned', () => {
+    const state = createEditorState('blank-grid');
+    const track = state.history.present.tracks[0];
+    const seeded: EditorState = {
+      ...state,
+      history: {
+        future: [],
+        past: [],
+        present: {
+          ...state.history.present,
+          arrangementLength: 48,
+          arrangerClips: [0, 16, 32].map((startBeat, patternIndex) => ({
+            beatLength: 16,
+            id: `resize_clip_${patternIndex}`,
+            patternIndex,
+            startBeat,
+            trackId: track.id,
+          })),
+          markers: [
+            { beat: 0, id: 'resize_intro', name: 'Intro' },
+            { beat: 16, id: 'resize_verse', name: 'Verse' },
+            { beat: 32, id: 'resize_hook', name: 'Hook' },
+          ],
+        },
+      },
+      ui: { ...state.ui, loopRangeEndBeat: 48, loopRangeStartBeat: 32 },
+    };
+
+    const resized = editorReducer(seeded, {
+      type: 'RESIZE_SONG_SECTION_END',
+      currentEndBeat: 16,
+      nextEndBeat: 24,
+      startBeat: 0,
+    });
+
+    expect(resized.history.past).toHaveLength(1);
+    expect(resized.history.present.arrangementLength).toBe(56);
+    expect(resized.history.present.arrangerClips.map((clip) => clip.startBeat)).toEqual([0, 24, 40]);
+    expect(resized.history.present.markers.map((marker) => marker.beat)).toEqual([0, 24, 40]);
+    expect(resized.ui.loopRangeStartBeat).toBe(40);
+    expect(resized.ui.loopRangeEndBeat).toBe(56);
+    expect(editorReducer(resized, { type: 'UNDO' }).history.present).toEqual(seeded.history.present);
+  });
+
   it('saves and recalls a section through reducer history', () => {
     const state = createEditorState('blank-grid');
     const saved = editorReducer(state, {

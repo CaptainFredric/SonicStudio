@@ -190,6 +190,7 @@ interface AudioContextType {
   removeArrangerClip: (clipId: string) => void;
   removeSongMarker: (markerId: string) => void;
   removeSavedSongSection: (savedSectionId: string) => void;
+  resizeSongSectionEnd: (startBeat: number, currentEndBeat: number, nextEndBeat: number) => void;
   removeTrack: (trackId: string) => void;
   renameProject: (name: string) => void;
   renameSavedSongSection: (savedSectionId: string, name: string) => void;
