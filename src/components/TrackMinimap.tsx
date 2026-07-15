@@ -6,6 +6,7 @@ import { resolvePatternStepForPlayback } from '../audio/playbackResolver';
 import { useAudio } from '../context/AudioContext';
 import type { ArrangementClip } from '../project/schema';
 import { readString, writeString } from '../utils/safeStorage';
+import { resolveInitialTimelineCollapsed } from './studioViewport';
 
 const COLLAPSED_KEY = 'sonicstudio:track-timeline-collapsed';
 
@@ -33,13 +34,14 @@ export const TrackMinimap = () => {
   const diamondRef = useRef<HTMLDivElement>(null);
   const [areaWidth, setAreaWidth] = useState(320);
   const areaRef = useRef<HTMLDivElement>(null);
-  // Collapsible on every screen size so it can be hidden to cut clutter; the
-  // choice is remembered between sessions.
-  const [collapsed, setCollapsed] = useState(() => readString(COLLAPSED_KEY) === 'true');
-
-  useEffect(() => {
-    writeString(COLLAPSED_KEY, collapsed ? 'true' : 'false');
-  }, [collapsed]);
+  // Short screens start with the overview folded so the note grid gets the
+  // first viewport. Once the user chooses a state, that explicit preference
+  // wins at every size. Legacy "false" values came from an old mount effect,
+  // so they intentionally count as no manual preference.
+  const [collapsed, setCollapsed] = useState(() => resolveInitialTimelineCollapsed(
+    readString(COLLAPSED_KEY),
+    typeof window !== 'undefined' && window.matchMedia('(max-height: 900px)').matches,
+  ));
   const draggingRef = useRef(false);
   // Remember whether the transport was running when a scrub began, so playback
   // can resume from the dropped spot on release.
@@ -188,7 +190,11 @@ export const TrackMinimap = () => {
       <button
         aria-expanded={!collapsed}
         className="flex items-center justify-between gap-2 text-left transition-colors"
-        onClick={() => setCollapsed((current) => !current)}
+        onClick={() => setCollapsed((current) => {
+          const next = !current;
+          void writeString(COLLAPSED_KEY, next ? 'collapsed' : 'expanded');
+          return next;
+        })}
         type="button"
       >
         <span className="flex items-center gap-1.5">

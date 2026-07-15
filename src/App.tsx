@@ -3,7 +3,7 @@ import { AudioProvider, useAudio } from './context/AudioContext';
 import { TopBar } from './components/TopBar';
 import { MainWorkspace as Sequencer } from './components/MainWorkspace';
 import { NotesPanel } from './components/NotesPanel';
-import { openNotesPanel, setNotesPanelOpen, useNotesPanelOpen } from './components/notesPanelStore';
+import { setNotesPanelOpen, useNotesPanelOpen } from './components/notesPanelStore';
 import { setEditingMode, useEditingMode } from './components/editingModeStore';
 import { DeviceRack } from './components/DeviceRack';
 import { ArrangementPanel } from './components/ArrangementPanel';
@@ -29,10 +29,11 @@ import { lazyWithRetry } from './utils/lazyWithRetry';
 import { decodeSharePayload } from './utils/shareCodec';
 import { TransportSpectrum } from './components/TransportSpectrum';
 import { revealStudioEditor, revealStudioPanel } from './components/studioViewport';
+import { resolveInitialStudioPanel, resolveNextStudioPanel, type StudioPanelId } from './components/studioPanelState';
 import { playSupersonicToggleSound } from './audio/uiSounds';
 import { getSupersonicTransitionOrigin, runSupersonicTransition } from './utils/supersonicTransition';
 import { AudioWaveform, Volume2, Settings, Sparkles, Share2, Coffee } from 'lucide-react';
-import { Circle, Layers, Maximize2, Minimize2, Minus, Pause, Play, Plus, Square, Zap } from 'lucide-react';
+import { Circle, Layers, Maximize2, Minimize2, Minus, Pause, Play, Plus, Square, X, Zap } from 'lucide-react';
 
 const SUPPORT_URL = 'https://buymeacoffee.com/captainarm1';
 
@@ -48,71 +49,111 @@ const SongTranscriber = lazyWithRetry(() => import('./components/SongTranscriber
 const ShareDialog = lazyWithRetry(() => import('./components/ShareDialog').then((module) => ({ default: module.ShareDialog })), 'share');
 const OnboardingGuide = lazyWithRetry(() => import('./components/OnboardingGuide').then((module) => ({ default: module.OnboardingGuide })), 'guide');
 
-// The lower panel dock: one slim bar with a chip per panel (Sound desk,
-// Notes, Arrangement). A chip mounts its panel already expanded; toggling it
-// off unmounts it, so closed panels cost no row at all instead of stacking
-// three collapsed bars. Notes rides the shared notes store, which keeps every
-// "Deep edit" button opening it from anywhere in the studio.
+// The lower inspector is a single-tab dock. Sound, Notes, and Arrangement used
+// to mount independently, which could stack several full editors and leave the
+// active canvas thousands of pixels away. Keeping exactly one panel active
+// matches a desktop DAW inspector and gives the editor a predictable scroll
+// model. Notes still rides the shared store so every "Deep edit" action can
+// open this dock without prop drilling.
 const DESK_VISIBLE_KEY = 'sonicstudio:panel-desk-visible';
 const ARRANGEMENT_VISIBLE_KEY = 'sonicstudio:panel-arrangement-visible';
 
 const PanelDock = () => {
+  const { activeView } = useAudio();
   const notesOpen = useNotesPanelOpen();
-  // Every panel starts unmounted: the dock is a single slim bar until the
-  // user asks for a panel, so nothing sits under the grid by default.
-  const [deskVisible, setDeskVisible] = useState(() => readString(DESK_VISIBLE_KEY) === 'true');
-  const [arrangementVisible, setArrangementVisible] = useState(() => readString(ARRANGEMENT_VISIBLE_KEY) === 'true');
+  const [selectedPanel, setSelectedPanel] = useState<StudioPanelId | null>(() => resolveInitialStudioPanel({
+    arrangementVisible: readString(ARRANGEMENT_VISIBLE_KEY) === 'true',
+    deskVisible: readString(DESK_VISIBLE_KEY) === 'true',
+    notesOpen,
+  }));
+  // Notes is an external store because deep-edit actions can request it from
+  // distant editors. Deriving the visible tab from that source keeps the dock
+  // in sync without a second render-setting effect.
+  const activePanel: StudioPanelId | null = notesOpen ? 'notes' : selectedPanel;
 
-  const toggleDesk = () => {
-    const next = !deskVisible;
-    setDeskVisible(next);
-    // Mount expanded: the rack reads its collapsed flag once, at mount.
-    if (next) void writeString('sonicstudio:deviceRack:collapsed', '0');
-    void writeString(DESK_VISIBLE_KEY, next ? 'true' : 'false');
-    if (next) revealStudioPanel('.device-rack-panel[data-expanded="true"]');
-    else revealStudioEditor();
-  };
-  const toggleArrangement = () => {
-    const next = !arrangementVisible;
-    setArrangementVisible(next);
-    if (next) void writeString('sonicstudio:arrangement-panel-open', 'true');
-    void writeString(ARRANGEMENT_VISIBLE_KEY, next ? 'true' : 'false');
-    if (next) revealStudioPanel('[data-studio-panel-body="arrangement"]');
-    else revealStudioEditor();
-  };
-  const toggleNotes = () => {
-    if (notesOpen) {
-      setNotesPanelOpen(false);
-      revealStudioEditor();
-      return;
+  useEffect(() => {
+    void writeString(DESK_VISIBLE_KEY, activePanel === 'desk' ? 'true' : 'false');
+    void writeString(ARRANGEMENT_VISIBLE_KEY, activePanel === 'arrangement' ? 'true' : 'false');
+  }, [activePanel]);
+
+  const togglePanel = (requested: StudioPanelId) => {
+    const next = resolveNextStudioPanel(activePanel, requested);
+    setSelectedPanel(next);
+    setNotesPanelOpen(next === 'notes');
+    if (next === 'desk') {
+      // Mount the rack expanded; its own compact control can still minimise it.
+      void writeString('sonicstudio:deviceRack:collapsed', '0');
     }
-    openNotesPanel();
+    if (next) {
+      revealStudioPanel('[data-studio-panel-dock="true"]', 'smooth', 'start');
+    } else {
+      revealStudioEditor();
+    }
   };
 
-  const dockChipClass = 'control-chip px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]';
+  if (activeView !== 'SEQUENCER') {
+    return null;
+  }
+
+  const panels: Array<{ id: StudioPanelId; label: string }> = [
+    { id: 'desk', label: 'Sound desk' },
+    { id: 'notes', label: 'Notes' },
+    { id: 'arrangement', label: 'Arrangement' },
+  ];
+  const activeLabel = panels.find((panel) => panel.id === activePanel)?.label;
+  const dockChipClass = 'control-chip whitespace-nowrap px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]';
 
   return (
     <>
-      <div className="surface-panel flex flex-wrap items-center gap-3 px-4 py-2">
-        <span className="flex items-center gap-2.5">
+      <div
+        className="studio-panel-dock surface-panel flex min-w-0 items-center gap-2 px-3 py-2"
+        data-studio-panel-dock="true"
+      >
+        <span className="hidden shrink-0 items-center gap-2.5 sm:flex">
           <Layers className="h-4 w-4 shrink-0 text-[var(--accent)]" />
-          <span className="section-label">Studio panels</span>
+          <span className="section-label">Inspector</span>
         </span>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <button className={dockChipClass} data-active={deskVisible} onClick={toggleDesk} type="button">
-            Sound desk
-          </button>
-          <button className={dockChipClass} data-active={notesOpen} onClick={toggleNotes} type="button">
-            Notes
-          </button>
-          <button className={dockChipClass} data-active={arrangementVisible} onClick={toggleArrangement} type="button">
-            Arrangement
-          </button>
+        <div aria-label="Studio inspector" className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto" role="tablist">
+          {panels.map((panel) => (
+            <button
+              aria-controls={`studio-panel-${panel.id}`}
+              aria-selected={activePanel === panel.id}
+              className={dockChipClass}
+              data-active={activePanel === panel.id}
+              id={`studio-panel-tab-${panel.id}`}
+              key={panel.id}
+              onClick={() => togglePanel(panel.id)}
+              role="tab"
+              type="button"
+            >
+              {panel.label}
+            </button>
+          ))}
         </div>
+        {activePanel && activeLabel && (
+          <button
+            aria-label={`Close ${activeLabel} panel`}
+            className="ghost-icon-button flex h-8 w-8 shrink-0 items-center justify-center"
+            onClick={() => togglePanel(activePanel)}
+            title={`Close ${activeLabel}`}
+            type="button"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
       </div>
-      {deskVisible && <DeviceRack />}
-      {notesOpen && <NotesPanel />}
-      {arrangementVisible && <ArrangementPanel />}
+      {activePanel && (
+        <div
+          aria-labelledby={`studio-panel-tab-${activePanel}`}
+          className="studio-panel-body min-h-0"
+          id={`studio-panel-${activePanel}`}
+          role="tabpanel"
+        >
+          {activePanel === 'desk' && <DeviceRack />}
+          {activePanel === 'notes' && <NotesPanel />}
+          {activePanel === 'arrangement' && <ArrangementPanel />}
+        </div>
+      )}
     </>
   );
 };
@@ -173,7 +214,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe,
   );
 
   return (
-    <aside className="studio-rail w-full shrink-0 px-2 py-2 md:w-[88px] md:py-3 md:min-h-0 md:overflow-y-auto" data-tour-target="views">
+    <aside aria-label="Studio navigation" className="studio-rail w-full shrink-0 px-2 py-2 md:w-[88px] md:py-3 md:min-h-0 md:overflow-y-auto" data-tour-target="views">
       <div className="section-label hidden md:block">Views</div>
       <div className="grid grid-cols-4 gap-1.5 md:mb-2 md:grid-cols-1 md:gap-2">
         <button
@@ -302,6 +343,13 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe,
 
 const ViewRouter = () => {
   const { activeView } = useAudio();
+  const previousViewRef = useRef(activeView);
+  useEffect(() => {
+    if (previousViewRef.current === activeView) return;
+    previousViewRef.current = activeView;
+    revealStudioEditor('auto');
+  }, [activeView]);
+
   return (
     <main className="relative flex min-h-[44vh] flex-col md:min-h-0 md:min-w-0 md:flex-1 md:overflow-y-auto md:overflow-x-hidden">
       {/* Keyed on the view so switching SEQ <-> MIX replays a soft entrance
