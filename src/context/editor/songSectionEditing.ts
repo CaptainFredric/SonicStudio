@@ -192,6 +192,77 @@ export const resizeSongSectionEnd = (
   );
 };
 
+export const moveSongSection = (
+  project: Project,
+  startBeat: number,
+  endBeat: number,
+  targetBeat: number,
+): Project => {
+  const range = normalizeRange(project, startBeat, endBeat);
+  const target = clamp(Math.round(targetBeat), 0, range.songLength);
+  if (target >= range.start && target <= range.end) return project;
+
+  // Reorder time as three contiguous blocks, splitting clips only where a
+  // boundary crosses them so each pattern keeps the same playback phase.
+  const movingRight = target > range.end;
+  const movedStart = movingRight ? target - range.length : target;
+  const cutPoints = [range.start, range.end, target].sort((left, right) => left - right);
+  const mapSegmentStart = (segmentStart: number, segmentEnd: number) => {
+    const midpoint = segmentStart + ((segmentEnd - segmentStart) / 2);
+    if (midpoint >= range.start && midpoint < range.end) {
+      return movedStart + (segmentStart - range.start);
+    }
+    if (!movingRight && midpoint >= target && midpoint < range.start) {
+      return segmentStart + range.length;
+    }
+    if (movingRight && midpoint >= range.end && midpoint < target) {
+      return segmentStart - range.length;
+    }
+    return segmentStart;
+  };
+
+  const clips = project.arrangerClips.flatMap((clip) => {
+    const clipEnd = clip.startBeat + clip.beatLength;
+    const boundaries = [
+      clip.startBeat,
+      ...cutPoints.filter((beat) => beat > clip.startBeat && beat < clipEnd),
+      clipEnd,
+    ];
+    const segments = boundaries.slice(0, -1).flatMap((segmentStart, index) => {
+      const segmentEnd = boundaries[index + 1];
+      const beatLength = segmentEnd - segmentStart;
+      if (beatLength < MIN_CLIP_LENGTH) return [];
+      return [{ beatLength, segmentStart }];
+    });
+
+    return segments.map((segment, index) => ({
+      ...clip,
+      beatLength: segment.beatLength,
+      id: index === 0 ? clip.id : createId('clip'),
+      patternOffset: advanceClipOffset(
+        clip,
+        segment.segmentStart - clip.startBeat,
+        project.transport.stepsPerPattern,
+      ),
+      startBeat: mapSegmentStart(segment.segmentStart, segment.segmentStart + segment.beatLength),
+    }));
+  });
+  const markers = project.markers.map((marker) => {
+    if (marker.beat >= range.start && marker.beat < range.end) {
+      return { ...marker, beat: movedStart + (marker.beat - range.start) };
+    }
+    if (!movingRight && marker.beat >= target && marker.beat < range.start) {
+      return { ...marker, beat: marker.beat + range.length };
+    }
+    if (movingRight && marker.beat >= range.end && marker.beat < target) {
+      return { ...marker, beat: marker.beat - range.length };
+    }
+    return marker;
+  });
+
+  return syncSectionProject(project, clips, markers, range.songLength);
+};
+
 export const clearSongRange = (
   project: Project,
   startBeat: number,

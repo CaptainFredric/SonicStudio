@@ -45,6 +45,7 @@ export const createEditorDispatchers = (dispatch: Dispatch<EditorAction>) => ({
   editPatternColumn: (patternIndex: number, stepIndex: number, operation: PatternColumnOperation) => dispatch({ type: 'EDIT_PATTERN_COLUMN', operation, patternIndex, stepIndex }),
   loopArrangerClip: (clipId: string, copies: number) => dispatch({ type: 'LOOP_ARRANGER_CLIP', clipId, copies }),
   makeClipPatternUnique: (clipId: string) => dispatch({ type: 'MAKE_CLIP_PATTERN_UNIQUE', clipId }),
+  moveSongSection: (startBeat: number, endBeat: number, targetBeat: number) => dispatch({ type: 'MOVE_SONG_SECTION', endBeat, startBeat, targetBeat }),
   moveTrack: (trackId: string, direction: 'up' | 'down') => dispatch({ type: 'MOVE_TRACK', direction, trackId }),
   reorderTrack: (trackId: string, toIndex: number) => dispatch({ type: 'REORDER_TRACK', toIndex, trackId }),
   redo: () => dispatch({ type: 'REDO' }),

@@ -13,6 +13,7 @@ import {
   duplicateSongRange,
   insertBlankSongSection,
   insertSavedSongSection,
+  moveSongSection,
   removeSavedSongSection,
   renameSavedSongSection,
   resizeSongSectionEnd,
@@ -65,6 +66,50 @@ const withDeletedLoopTime = (
   };
 };
 
+const withMovedLoopTime = (
+  state: EditorState,
+  nextState: EditorState,
+  startBeat: number,
+  endBeat: number,
+  targetBeat: number,
+): EditorState => {
+  const { loopRangeEndBeat, loopRangeStartBeat } = state.ui;
+  if (loopRangeStartBeat === null || loopRangeEndBeat === null || nextState === state) return nextState;
+  const length = Math.max(0, endBeat - startBeat);
+  if (length === 0 || (targetBeat >= startBeat && targetBeat <= endBeat)) return nextState;
+
+  let delta: number | null = null;
+  if (loopRangeStartBeat >= startBeat && loopRangeEndBeat <= endBeat) {
+    delta = targetBeat < startBeat ? targetBeat - startBeat : targetBeat - endBeat;
+  } else if (
+    targetBeat < startBeat
+    && loopRangeStartBeat >= targetBeat
+    && loopRangeEndBeat <= startBeat
+  ) {
+    delta = length;
+  } else if (
+    targetBeat > endBeat
+    && loopRangeStartBeat >= endBeat
+    && loopRangeEndBeat <= targetBeat
+  ) {
+    delta = -length;
+  } else {
+    const affectedStart = Math.min(startBeat, targetBeat);
+    const affectedEnd = Math.max(endBeat, targetBeat);
+    const unaffected = loopRangeEndBeat <= affectedStart || loopRangeStartBeat >= affectedEnd;
+    if (unaffected) return nextState;
+  }
+
+  return {
+    ...nextState,
+    ui: {
+      ...nextState.ui,
+      loopRangeEndBeat: delta === null ? null : loopRangeEndBeat + delta,
+      loopRangeStartBeat: delta === null ? null : loopRangeStartBeat + delta,
+    },
+  };
+};
+
 export const handleArrangerAction = (state: EditorState, action: EditorAction): EditorState | null => {
   const { present } = state.history;
 
@@ -105,6 +150,20 @@ export const handleArrangerAction = (state: EditorState, action: EditorAction): 
     case 'DELETE_SONG_RANGE': {
       const nextState = commitProject(state, deleteSongRange(present, action.startBeat, action.endBeat));
       return withDeletedLoopTime(state, nextState, action.startBeat, action.endBeat);
+    }
+
+    case 'MOVE_SONG_SECTION': {
+      const nextState = commitProject(
+        state,
+        moveSongSection(present, action.startBeat, action.endBeat, action.targetBeat),
+      );
+      return withMovedLoopTime(
+        state,
+        nextState,
+        action.startBeat,
+        action.endBeat,
+        action.targetBeat,
+      );
     }
 
     case 'RESIZE_SONG_SECTION_END': {

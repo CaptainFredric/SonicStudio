@@ -18,6 +18,16 @@ const MIN_SECTION_STEPS = 4;
 
 const OVERSCAN = 8;
 
+interface SectionMoveGesture {
+  end: number;
+  moved: boolean;
+  name: string;
+  originClientX: number;
+  sectionId: string;
+  start: number;
+  targetBeat: number;
+}
+
 interface SongTimelineGridProps {
   tracks: Track[];
   arrangerClips: ArrangementClip[];
@@ -36,6 +46,7 @@ interface SongTimelineGridProps {
   onSeek?: (beat: number) => void;
   onRenameSection?: (markerId: string, name: string) => void;
   onManageSection?: (markerId: string) => void;
+  onMoveSection?: (sectionId: string, startBeat: number, endBeat: number, targetBeat: number) => void;
   onResizeSectionEnd?: (sectionId: string, startBeat: number, currentEndBeat: number, nextEndBeat: number) => void;
   onReorderTrack?: (trackId: string, toIndex: number) => void;
   onDeleteTrack?: (trackId: string) => void;
@@ -67,6 +78,7 @@ export const SongTimelineGrid = ({
   onSeek,
   onRenameSection,
   onManageSection,
+  onMoveSection,
   onResizeSectionEnd,
   onReorderTrack,
   onDeleteTrack,
@@ -107,10 +119,18 @@ export const SongTimelineGrid = ({
   } | null>(null);
   const resizeGestureRef = useRef<typeof resizePreview>(null);
   const resizeCallbackRef = useRef(onResizeSectionEnd);
+  const [movePreview, setMovePreview] = useState<SectionMoveGesture | null>(null);
+  const moveGestureRef = useRef<SectionMoveGesture | null>(null);
+  const moveCallbackRef = useRef(onMoveSection);
+  const suppressSectionClickRef = useRef(false);
 
   useEffect(() => {
     resizeCallbackRef.current = onResizeSectionEnd;
   }, [onResizeSectionEnd]);
+
+  useEffect(() => {
+    moveCallbackRef.current = onMoveSection;
+  }, [onMoveSection]);
 
   // Drag editing, decided by the starting cell: press a filled cell and drag to
   // erase every filled cell crossed (gaps are skipped), or press an empty cell
@@ -266,7 +286,7 @@ export const SongTimelineGrid = ({
     })).filter((section) => section.end > section.start);
   }, [songMarkers, originalSongSteps]);
 
-  const sections = useMemo(() => {
+  const resizedSections = useMemo(() => {
     if (!resizePreview) return baseSections;
     const delta = resizePreview.draftEnd - resizePreview.originalEnd;
     return baseSections.map((section) => {
@@ -280,6 +300,30 @@ export const SongTimelineGrid = ({
     }).filter((section) => section.end > section.start);
   }, [baseSections, resizePreview]);
 
+  const sections = useMemo(() => {
+    if (!movePreview || movePreview.targetBeat >= movePreview.start && movePreview.targetBeat <= movePreview.end) {
+      return resizedSections;
+    }
+    const sourceIndex = resizedSections.findIndex((section) => section.id === movePreview.sectionId);
+    if (sourceIndex < 0) return resizedSections;
+    const targetIndex = movePreview.targetBeat >= originalSongSteps
+      ? resizedSections.length
+      : resizedSections.findIndex((section) => section.start === movePreview.targetBeat);
+    if (targetIndex < 0) return resizedSections;
+
+    const reordered = [...resizedSections];
+    const [moving] = reordered.splice(sourceIndex, 1);
+    const insertionIndex = movePreview.targetBeat > movePreview.end ? targetIndex - 1 : targetIndex;
+    reordered.splice(Math.max(0, insertionIndex), 0, moving);
+    let cursor = 0;
+    return reordered.map((section) => {
+      const length = section.end - section.start;
+      const positioned = { ...section, end: cursor + length, start: cursor };
+      cursor += length;
+      return positioned;
+    });
+  }, [movePreview, originalSongSteps, resizedSections]);
+
   const windowStart = Math.max(0, Math.floor(scrollLeft / cellW) - OVERSCAN);
   const windowEnd = Math.min(totalSteps, Math.ceil((scrollLeft + viewportWidth) / cellW) + OVERSCAN);
   const windowSteps: number[] = [];
@@ -288,6 +332,25 @@ export const SongTimelineGrid = ({
   }
 
   const sourceStepForPreview = (songStep: number) => {
+    if (movePreview && (movePreview.targetBeat < movePreview.start || movePreview.targetBeat > movePreview.end)) {
+      const length = movePreview.end - movePreview.start;
+      if (movePreview.targetBeat < movePreview.start) {
+        if (songStep >= movePreview.targetBeat && songStep < movePreview.targetBeat + length) {
+          return movePreview.start + (songStep - movePreview.targetBeat);
+        }
+        if (songStep >= movePreview.targetBeat + length && songStep < movePreview.end) {
+          return songStep - length;
+        }
+      } else {
+        const movedStart = movePreview.targetBeat - length;
+        if (songStep >= movePreview.start && songStep < movedStart) {
+          return songStep + length;
+        }
+        if (songStep >= movedStart && songStep < movePreview.targetBeat) {
+          return movePreview.start + (songStep - movedStart);
+        }
+      }
+    }
     if (!resizePreview) return songStep;
     if (resizeDelta > 0) {
       if (songStep >= resizePreview.originalEnd && songStep < resizePreview.draftEnd) return null;
@@ -399,6 +462,75 @@ export const SongTimelineGrid = ({
     };
   }, [cellW, stepsPerPattern]);
 
+  useEffect(() => {
+    const finishMove = (commit: boolean) => {
+      const gesture = moveGestureRef.current;
+      moveGestureRef.current = null;
+      setMovePreview(null);
+      document.documentElement.style.removeProperty('cursor');
+      document.documentElement.style.removeProperty('user-select');
+      if (
+        commit
+        && gesture?.moved
+        && (gesture.targetBeat < gesture.start || gesture.targetBeat > gesture.end)
+      ) {
+        moveCallbackRef.current?.(
+          gesture.sectionId,
+          gesture.start,
+          gesture.end,
+          gesture.targetBeat,
+        );
+      }
+    };
+    const moveSection = (event: PointerEvent) => {
+      const gesture = moveGestureRef.current;
+      const node = scrollRef.current;
+      if (!gesture || !node) return;
+      const moved = gesture.moved || Math.abs(event.clientX - gesture.originClientX) >= 5;
+      if (!moved) return;
+
+      const rect = node.getBoundingClientRect();
+      if (event.clientX > rect.right - 28) {
+        programmaticScrollRef.current = true;
+        node.scrollLeft += Math.max(10, cellW);
+      } else if (event.clientX < rect.left + 28) {
+        programmaticScrollRef.current = true;
+        node.scrollLeft -= Math.max(10, cellW);
+      }
+      const rawBeat = (event.clientX - rect.left + node.scrollLeft) / cellW;
+      const boundaries = [...baseSections.map((section) => section.start), originalSongSteps];
+      const targetBeat = boundaries.reduce((closest, beat) => (
+        Math.abs(beat - rawBeat) < Math.abs(closest - rawBeat) ? beat : closest
+      ), boundaries[0] ?? gesture.start);
+      const nextGesture = { ...gesture, moved: true, targetBeat };
+      moveGestureRef.current = nextGesture;
+      suppressSectionClickRef.current = true;
+      followingRef.current = false;
+      setFollowing(false);
+      setMovePreview(nextGesture);
+      document.documentElement.style.cursor = 'grabbing';
+      document.documentElement.style.userSelect = 'none';
+    };
+    const cancelMove = () => finishMove(false);
+    const commitMove = () => finishMove(true);
+    const handleMoveKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && moveGestureRef.current?.moved) {
+        event.preventDefault();
+        cancelMove();
+      }
+    };
+    window.addEventListener('pointermove', moveSection);
+    window.addEventListener('pointerup', commitMove);
+    window.addEventListener('pointercancel', cancelMove);
+    window.addEventListener('keydown', handleMoveKey);
+    return () => {
+      window.removeEventListener('pointermove', moveSection);
+      window.removeEventListener('pointerup', commitMove);
+      window.removeEventListener('pointercancel', cancelMove);
+      window.removeEventListener('keydown', handleMoveKey);
+    };
+  }, [baseSections, cellW, originalSongSteps]);
+
   const beginSectionResize = (
     event: React.PointerEvent,
     section: (typeof baseSections)[number],
@@ -445,6 +577,44 @@ export const SongTimelineGrid = ({
     if (nextEnd !== section.end) {
       onResizeSectionEnd(section.id, section.start, section.end, nextEnd);
     }
+  };
+
+  const beginSectionMove = (
+    event: React.PointerEvent,
+    section: (typeof baseSections)[number],
+  ) => {
+    if (!onMoveSection || event.button !== 0 || editingMarkerId === section.id) return;
+    event.stopPropagation();
+    suppressSectionClickRef.current = false;
+    moveGestureRef.current = {
+      end: section.end,
+      moved: false,
+      name: section.name,
+      originClientX: event.clientX,
+      sectionId: section.id,
+      start: section.start,
+      targetBeat: section.start,
+    };
+  };
+
+  const moveSectionWithKeyboard = (
+    event: React.KeyboardEvent,
+    section: (typeof baseSections)[number],
+  ) => {
+    if (
+      !onMoveSection
+      || !event.altKey
+      || (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight')
+    ) return;
+    const sectionIndex = baseSections.findIndex((candidate) => candidate.id === section.id);
+    const movingLeft = event.key === 'ArrowLeft';
+    if ((movingLeft && sectionIndex <= 0) || (!movingLeft && sectionIndex >= baseSections.length - 1)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const targetBeat = movingLeft
+      ? baseSections[sectionIndex - 1].start
+      : baseSections[sectionIndex + 1].end;
+    onMoveSection(section.id, section.start, section.end, targetBeat);
   };
 
   // Re-engage auto-follow and snap the view to the playhead. Triggered by the
@@ -562,6 +732,7 @@ export const SongTimelineGrid = ({
             {sections.map((section, sectionIndex) => {
               const originalSection = baseSections.find((candidate) => candidate.id === section.id) ?? section;
               const isResizing = resizePreview?.sectionId === section.id;
+              const isMoving = movePreview?.sectionId === section.id;
               const sectionLength = section.end - section.start;
               const wholeBars = Math.floor(sectionLength / stepsPerPattern);
               const remainingSteps = sectionLength % stepsPerPattern;
@@ -569,13 +740,17 @@ export const SongTimelineGrid = ({
                 <div
                   key={section.id}
                   className="group absolute top-0 flex h-full items-center border-l border-[var(--chrome-line)]"
+                  data-moving={isMoving ? 'true' : undefined}
                   data-resizing={isResizing ? 'true' : undefined}
                   style={{
                     left: section.start * cellW,
                     width: sectionLength * cellW,
                     background: `${section.color}${isResizing ? '28' : '14'}`,
-                    boxShadow: isResizing ? `inset 0 0 0 1px ${section.color}aa` : undefined,
-                    zIndex: isResizing ? 30 : baseSections.length - sectionIndex,
+                    boxShadow: isResizing || isMoving
+                      ? `inset 0 0 0 1px ${section.color}cc, 0 4px 14px rgba(0,0,0,0.38)`
+                      : undefined,
+                    opacity: movePreview && !isMoving ? 0.72 : 1,
+                    zIndex: isResizing || isMoving ? 30 : baseSections.length - sectionIndex,
                   }}
                 >
                   {editingMarkerId === section.id ? (
@@ -593,14 +768,24 @@ export const SongTimelineGrid = ({
                   ) : (
                     <div className="flex h-full min-w-0 flex-1 items-center overflow-hidden pr-2">
                       <button
-                        className="flex-1 truncate px-1.5 text-left text-[9px] font-semibold uppercase tracking-[0.12em]"
-                        onClick={() => onSeek?.(section.start)}
+                        aria-label={`Move ${section.name}`}
+                        className="flex h-full min-w-0 flex-1 cursor-grab items-center gap-0.5 truncate px-1 text-left text-[9px] font-semibold uppercase tracking-[0.12em] active:cursor-grabbing"
+                        onClick={() => {
+                          if (suppressSectionClickRef.current) {
+                            suppressSectionClickRef.current = false;
+                            return;
+                          }
+                          onSeek?.(section.start);
+                        }}
                         onDoubleClick={() => { setEditingMarkerId(section.id); setDraftName(section.name); }}
+                        onKeyDown={(event) => moveSectionWithKeyboard(event, originalSection)}
+                        onPointerDown={(event) => beginSectionMove(event, originalSection)}
                         style={{ color: section.color }}
-                        title={`Tap to jump to ${section.name}`}
+                        title={`Drag ${section.name} to reorder. Alt+Left/Right moves one section.`}
                         type="button"
                       >
-                        {section.name}
+                        {onMoveSection && <GripVertical className="h-3 w-3 shrink-0 opacity-50 transition-opacity group-hover:opacity-100" />}
+                        <span className="truncate">{section.name}</span>
                       </button>
                       {onManageSection && (
                         <button
@@ -689,7 +874,7 @@ export const SongTimelineGrid = ({
                     data-song-cell="true"
                     data-track-id={track.id}
                     data-song-step={songStep}
-                    disabled={Boolean(resizePreview)}
+                    disabled={Boolean(resizePreview || movePreview)}
                     onPointerDown={(event) => {
                       // Reset first: a prior drag that ended on another cell (or
                       // off-grid) fires no click to self-clear the flag, so without
@@ -868,7 +1053,7 @@ export const SongTimelineGrid = ({
           />
         </div>
       </div>
-      {!following && !resizePreview && (
+      {!following && !resizePreview && !movePreview && (
         <button
           aria-label="Follow the playhead"
           className="absolute bottom-2 right-2 z-20 flex items-center gap-1.5 rounded-full border border-[var(--accent-strong)] bg-[var(--bg-panel-strong)] px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--accent-strong)] shadow-[0_2px_10px_rgba(0,0,0,0.45)] transition-colors hover:bg-[var(--accent-muted)]"

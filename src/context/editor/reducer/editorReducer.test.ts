@@ -768,6 +768,50 @@ describe('editorReducer', () => {
     expect(editorReducer(resized, { type: 'UNDO' }).history.present).toEqual(seeded.history.present);
   });
 
+  it('moves a section as one undoable edit and carries its loop range', () => {
+    const state = createEditorState('blank-grid');
+    const track = state.history.present.tracks[0];
+    const seeded: EditorState = {
+      ...state,
+      history: {
+        future: [],
+        past: [],
+        present: {
+          ...state.history.present,
+          arrangementLength: 48,
+          arrangerClips: [0, 16, 32].map((startBeat, patternIndex) => ({
+            beatLength: 16,
+            id: `move_clip_${patternIndex}`,
+            patternIndex,
+            startBeat,
+            trackId: track.id,
+          })),
+          markers: [
+            { beat: 0, id: 'move_intro', name: 'Intro' },
+            { beat: 16, id: 'move_verse', name: 'Verse' },
+            { beat: 32, id: 'move_hook', name: 'Hook' },
+          ],
+        },
+      },
+      ui: { ...state.ui, loopRangeEndBeat: 32, loopRangeStartBeat: 16 },
+    };
+
+    const moved = editorReducer(seeded, {
+      type: 'MOVE_SONG_SECTION',
+      endBeat: 32,
+      startBeat: 16,
+      targetBeat: 48,
+    });
+
+    expect(moved.history.past).toHaveLength(1);
+    expect(moved.history.present.arrangementLength).toBe(48);
+    expect(moved.history.present.arrangerClips.map((clip) => clip.patternIndex)).toEqual([0, 2, 1]);
+    expect(moved.history.present.markers.map((marker) => marker.name)).toEqual(['Intro', 'Hook', 'Verse']);
+    expect(moved.ui.loopRangeStartBeat).toBe(32);
+    expect(moved.ui.loopRangeEndBeat).toBe(48);
+    expect(editorReducer(moved, { type: 'UNDO' }).history.present).toEqual(seeded.history.present);
+  });
+
   it('saves and recalls a section through reducer history', () => {
     const state = createEditorState('blank-grid');
     const saved = editorReducer(state, {

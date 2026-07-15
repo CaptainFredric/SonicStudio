@@ -187,6 +187,7 @@ interface AudioContextType {
   deleteSongRange: (startBeat: number, endBeat: number) => void;
   insertBlankSongSection: (atBeat: number, beatLength: number, name: string) => void;
   insertSavedSongSection: (savedSectionId: string, atBeat: number) => void;
+  moveSongSection: (startBeat: number, endBeat: number, targetBeat: number) => void;
   removeArrangerClip: (clipId: string) => void;
   removeSongMarker: (markerId: string) => void;
   removeSavedSongSection: (savedSectionId: string) => void;

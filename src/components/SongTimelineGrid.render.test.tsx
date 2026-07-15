@@ -50,6 +50,7 @@ const renderGrid = (overrides: Partial<Parameters<typeof SongTimelineGrid>[0]> =
     onSeek: vi.fn(),
     onRenameSection: vi.fn(),
     onManageSection: vi.fn(),
+    onMoveSection: vi.fn(),
     onResizeSectionEnd: vi.fn(),
     onReorderTrack: vi.fn(),
     onDeleteTrack: vi.fn(),
@@ -178,5 +179,63 @@ describe('SongTimelineGrid', () => {
 
     expect(props.onResizeSectionEnd).toHaveBeenCalledTimes(1);
     expect(props.onResizeSectionEnd).toHaveBeenCalledWith(project.markers[0].id, 0, 16, 20);
+  });
+
+  it('moves a section one position with Alt and an arrow key', () => {
+    const markers = [
+      { beat: 0, id: 'marker_intro', name: 'Intro' },
+      { beat: 16, id: 'marker_verse', name: 'Verse' },
+      { beat: 32, id: 'marker_hook', name: 'Hook' },
+    ];
+    const { getByRole, props } = renderGrid({ songLengthInBeats: 48, songMarkers: markers });
+    const section = getByRole('button', { name: 'Move Intro' });
+
+    fireEvent.keyDown(section, { altKey: true, key: 'ArrowRight' });
+
+    expect(props.onMoveSection).toHaveBeenCalledWith('marker_intro', 0, 16, 32);
+  });
+
+  it('keeps a plain section click as a seek instead of a move', () => {
+    const { getByRole, project, props } = renderGrid();
+    const sectionName = project.markers[0]?.name ?? 'Song';
+    const section = getByRole('button', { name: `Move ${sectionName}` });
+
+    fireEvent.pointerDown(section, { button: 0, clientX: 100 });
+    fireEvent.pointerUp(window);
+    fireEvent.click(section);
+
+    expect(props.onSeek).toHaveBeenCalledWith(0);
+    expect(props.onMoveSection).not.toHaveBeenCalled();
+  });
+
+  it('previews section reordering and commits it once on release', () => {
+    const markers = [
+      { beat: 0, id: 'marker_intro', name: 'Intro' },
+      { beat: 16, id: 'marker_verse', name: 'Verse' },
+      { beat: 32, id: 'marker_hook', name: 'Hook' },
+    ];
+    const { container, getByRole, props } = renderGrid({ songLengthInBeats: 48, songMarkers: markers });
+    const section = getByRole('button', { name: 'Move Intro' });
+    const scroller = container.querySelector('[data-song-timeline-scroll="true"]');
+    if (!(scroller instanceof HTMLElement)) throw new Error('Expected the song timeline scroller');
+    vi.spyOn(scroller, 'getBoundingClientRect').mockReturnValue({
+      bottom: 300,
+      height: 300,
+      left: 0,
+      right: 1000,
+      top: 0,
+      width: 1000,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+
+    fireEvent.pointerDown(section, { button: 0, clientX: 100 });
+    fireEvent.pointerMove(window, { clientX: 650 });
+    expect(container.querySelector('[data-moving="true"]')).not.toBeNull();
+    fireEvent.pointerUp(window);
+
+    expect(props.onMoveSection).toHaveBeenCalledTimes(1);
+    expect(props.onMoveSection).toHaveBeenCalledWith('marker_intro', 0, 16, 32);
   });
 });

@@ -7,6 +7,7 @@ import {
   duplicateSongRange,
   insertBlankSongSection,
   insertSavedSongSection,
+  moveSongSection,
   removeSavedSongSection,
   renameSavedSongSection,
   resizeSongSectionEnd,
@@ -99,6 +100,67 @@ describe('song section editing', () => {
       [12, 'Verse'],
       [28, 'Hook'],
     ]);
+  });
+
+  it('moves a section before another section with its clips and marker intact', () => {
+    const result = moveSongSection(buildSectionProject(), 16, 32, 0);
+
+    expect(songLengthFromProject(result)).toBe(48);
+    expect(result.arrangerClips.map((clip) => [clip.startBeat, clip.patternIndex])).toEqual([
+      [0, 1],
+      [16, 0],
+      [32, 2],
+    ]);
+    expect(result.markers.map((marker) => [marker.beat, marker.name])).toEqual([
+      [0, 'Verse'],
+      [16, 'Intro'],
+      [32, 'Hook'],
+    ]);
+  });
+
+  it('moves an opening section to the end without changing song length', () => {
+    const result = moveSongSection(buildSectionProject(), 0, 16, 48);
+
+    expect(songLengthFromProject(result)).toBe(48);
+    expect(result.arrangerClips.map((clip) => [clip.startBeat, clip.patternIndex])).toEqual([
+      [0, 1],
+      [16, 2],
+      [32, 0],
+    ]);
+    expect(result.markers.map((marker) => [marker.beat, marker.name])).toEqual([
+      [0, 'Verse'],
+      [16, 'Hook'],
+      [32, 'Intro'],
+    ]);
+  });
+
+  it('preserves clip phase when a moved section cuts through a long clip', () => {
+    const base = buildSectionProject();
+    const project: Project = {
+      ...base,
+      arrangementLength: 32,
+      arrangerClips: [{
+        ...base.arrangerClips[0],
+        beatLength: 32,
+        patternOffset: 2,
+      }],
+      markers: [
+        { beat: 0, id: 'marker_a', name: 'A' },
+        { beat: 8, id: 'marker_b', name: 'B' },
+        { beat: 16, id: 'marker_c', name: 'C' },
+        { beat: 24, id: 'marker_d', name: 'D' },
+      ],
+    };
+
+    const result = moveSongSection(project, 8, 16, 24);
+
+    expect(result.arrangerClips.map((clip) => [clip.startBeat, clip.beatLength, clip.patternOffset])).toEqual([
+      [0, 8, 2],
+      [8, 8, 2],
+      [16, 8, 10],
+      [24, 8, 10],
+    ]);
+    expect(result.markers.map((marker) => marker.name)).toEqual(['A', 'C', 'B', 'D']);
   });
 
   it('duplicates by inserting time instead of overlapping later music', () => {

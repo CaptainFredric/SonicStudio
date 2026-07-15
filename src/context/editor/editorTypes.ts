@@ -67,6 +67,7 @@ export type EditorAction =
   | { type: 'REMOVE_ARRANGER_CLIP'; clipId: string }
   | { type: 'REMOVE_SAVED_SONG_SECTION'; savedSectionId: string }
   | { type: 'REMOVE_SONG_MARKER'; markerId: string }
+  | { type: 'MOVE_SONG_SECTION'; endBeat: number; startBeat: number; targetBeat: number }
   | { type: 'RESIZE_SONG_SECTION_END'; currentEndBeat: number; nextEndBeat: number; startBeat: number }
   | { type: 'REMOVE_TRACK'; trackId: string }
   | { type: 'SET_SELECTED_ARRANGER_CLIP'; clipId: string | null }

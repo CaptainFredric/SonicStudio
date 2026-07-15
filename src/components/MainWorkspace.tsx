@@ -679,6 +679,7 @@ export const MainWorkspace = () => {
     loopRangeStartBeat,
     insertBlankSongSection,
     insertSavedSongSection,
+    moveSongSection,
     moveTrack,
     patternCount,
     pinnedTrackIds,
@@ -804,6 +805,7 @@ export const MainWorkspace = () => {
     viewportWidth: number;
   } | null>(null);
   const [mobileInspectorOpen, setMobileInspectorOpen] = useState(false);
+  const [songInspectorOpen, setSongInspectorOpen] = useState(false);
   // Track map (the read-only overview) starts closed everywhere; the grid is
   // the editing surface and the map is one click away behind Show map. The
   // choice is remembered.
@@ -2597,9 +2599,15 @@ export const MainWorkspace = () => {
         <div className="min-w-0 shrink-0">
           <div className="flex items-baseline gap-2">
             <div className="section-label">Sequencer</div>
-            <h2 className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">Pattern grid</h2>
+            <h2 className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">
+              {showSongGrid ? 'Song arrangement' : 'Pattern grid'}
+            </h2>
           </div>
-          <p className="mt-1 hidden text-sm text-[var(--text-secondary)] xl:block">Build the current pattern here before you move it into Song view.</p>
+          <p className="mt-1 hidden text-sm text-[var(--text-secondary)] xl:block">
+            {showSongGrid
+              ? `${Math.max(1, Math.ceil(songLengthInBeats / stepsPerPattern))} bars · ${countLabel(songSectionRanges.length, 'section')} · ${countLabel(visibleTracks.length, 'visible track')}`
+              : 'Build the current pattern here before you move it into Song view.'}
+          </p>
         </div>
         <div className={`surface-panel-muted min-w-0 p-2 ${addLaneOpen ? 'w-full sm:max-w-full md:max-w-[700px] md:flex-1' : 'w-full md:w-auto'}`}>
           <div className="flex items-center justify-between gap-3">
@@ -2748,6 +2756,54 @@ export const MainWorkspace = () => {
       <div className={`sequencer-workspace-body flex flex-col overflow-visible md:min-h-0 md:flex-1 md:overflow-hidden xl:flex-row ${editingMode ? 'gap-0 p-0' : 'gap-3 p-4'}`}>
         <div className="sequencer-main-column flex min-w-0 flex-col overflow-visible md:min-h-0 md:flex-1">
           <div className={`sequencer-compose-summary surface-panel-muted mb-2 px-4 py-2.5 sm:mb-3 sm:py-3 ${editingMode ? 'hidden' : ''}`}>
+            {showSongGrid ? (
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="section-label hidden sm:block">Arrange</div>
+                  <div className="text-sm font-medium text-[var(--text-primary)] sm:mt-1">
+                    {countLabel(songSectionRanges.length, 'section')} across {countLabel(Math.max(1, Math.ceil(songLengthInBeats / stepsPerPattern)), 'bar')}
+                  </div>
+                  <div className="mt-1 hidden text-[11px] text-[var(--text-secondary)] sm:block">
+                    {countLabel(songLengthInBeats, 'step')} · {countLabel(visibleTracks.length, 'visible track')}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    className="control-chip flex h-8 items-center gap-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em]"
+                    onClick={() => {
+                      setManagedSectionId(null);
+                      setSectionManagerOpen(true);
+                    }}
+                    title="Add, rename, save, duplicate, clear, or delete song sections"
+                    type="button"
+                  >
+                    <SlidersHorizontal className="h-3.5 w-3.5" />
+                    Sections
+                    <span className="font-mono text-[9px] text-[var(--accent-strong)]">{songSectionRanges.length}</span>
+                  </button>
+                  <button
+                    className="control-chip flex h-8 items-center gap-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em]"
+                    onClick={() => { writeString(SONG_FLATTEN_KEY, 'false'); setSongFlatten(false); }}
+                    title="Return to the focused pattern editor"
+                    type="button"
+                  >
+                    <MousePointer2 className="h-3.5 w-3.5" />
+                    Pattern editor
+                  </button>
+                  <button
+                    aria-pressed={songInspectorOpen}
+                    className="control-chip flex h-8 items-center gap-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em]"
+                    data-active={songInspectorOpen ? 'true' : undefined}
+                    onClick={() => setSongInspectorOpen((current) => !current)}
+                    title={songInspectorOpen ? 'Give the arrangement the full width' : 'Show controls for the selected lane'}
+                    type="button"
+                  >
+                    <SlidersHorizontal className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Inspector</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <div className="section-label hidden sm:block">Compose</div>
@@ -2958,6 +3014,7 @@ export const MainWorkspace = () => {
               </div>
               )}
             </div>
+            )}
           </div>
 
           {editingMode && (
@@ -3315,6 +3372,9 @@ export const MainWorkspace = () => {
                 onManageSection={(markerId) => {
                   setManagedSectionId(markerId);
                   setSectionManagerOpen(true);
+                }}
+                onMoveSection={(_sectionId, startBeat, endBeat, targetBeat) => {
+                  moveSongSection(startBeat, endBeat, targetBeat);
                 }}
                 onResizeSectionEnd={(_sectionId, startBeat, currentEndBeat, nextEndBeat) => {
                   resizeSongSectionEnd(startBeat, currentEndBeat, nextEndBeat);
@@ -4248,7 +4308,7 @@ export const MainWorkspace = () => {
           )}
         </div>
 
-        {!editingMode && (!isNarrowViewport || mobileInspectorOpen) && (
+        {!editingMode && (showSongGrid ? songInspectorOpen : (!isNarrowViewport || mobileInspectorOpen)) && (
         <aside className="surface-panel-strong sonic-sidebar w-full shrink-0 overflow-auto p-4 xl:min-w-[280px] xl:w-[min(32vw,320px)] 2xl:w-[320px]">
           <div className="flex items-center gap-2">
             <SlidersHorizontal className="h-4 w-4 text-[var(--accent)]" />
