@@ -7,7 +7,7 @@ import { resolvePatternStepForPlayback } from '../audio/playbackResolver';
 import { SUPERSONIC_NOTE_OFFSETS, getTrackAnchorNote, pitchRank, shiftPitch } from '../utils/notePlacement';
 import { snapSectionLength } from '../utils/sectionResizeSnapping';
 import { TrackIcon } from '../utils/trackPersonality';
-import { MAX_ARRANGER_BEAT_POSITION, MIN_ARRANGEMENT_STEPS, type ArrangementClip, type SongMarker, type Track } from '../project/schema';
+import { MAX_ARRANGER_BEAT_POSITION, MAX_STEPS_PER_PATTERN, MIN_ARRANGEMENT_STEPS, type ArrangementClip, type SongMarker, type Track } from '../project/schema';
 
 const SECTION_COLORS = [
   '#22d3ee', '#818cf8', '#f472b6', '#fbbf24', '#34d399', '#fb7185', '#60a5fa', '#a78bfa', '#f59e0b',
@@ -41,6 +41,14 @@ interface ClipMoveGesture {
   sourceTrackId: string;
 }
 
+interface ClipResizeGesture {
+  clipId: string;
+  draftLength: number;
+  maximumLength: number;
+  originalLength: number;
+  startBeat: number;
+}
+
 interface SongTimelineGridProps {
   tracks: Track[];
   arrangerClips: ArrangementClip[];
@@ -67,6 +75,7 @@ interface SongTimelineGridProps {
   onDeleteTrack?: (trackId: string) => void;
   onSelectClip?: (clipId: string) => void;
   onMoveClip?: (clipId: string, trackId: string, startBeat: number) => void;
+  onResizeClip?: (clipId: string, beatLength: number) => void;
   onDuplicateClip?: (clipId: string) => void;
   onDeleteClip?: (clipId: string) => void;
 }
@@ -105,6 +114,7 @@ export const SongTimelineGrid = ({
   onDeleteTrack,
   onSelectClip,
   onMoveClip,
+  onResizeClip,
   onDuplicateClip,
   onDeleteClip,
 }: SongTimelineGridProps) => {
@@ -155,6 +165,8 @@ export const SongTimelineGrid = ({
   const suppressSectionClickRef = useRef(false);
   const [clipMovePreview, setClipMovePreview] = useState<ClipMoveGesture | null>(null);
   const clipMoveGestureRef = useRef<ClipMoveGesture | null>(null);
+  const [clipResizePreview, setClipResizePreview] = useState<ClipResizeGesture | null>(null);
+  const clipResizeGestureRef = useRef<ClipResizeGesture | null>(null);
 
   useEffect(() => {
     resizeCallbackRef.current = onResizeSectionEnd;
@@ -168,6 +180,8 @@ export const SongTimelineGrid = ({
     if (clipEditing) return;
     clipMoveGestureRef.current = null;
     setClipMovePreview(null);
+    clipResizeGestureRef.current = null;
+    setClipResizePreview(null);
   }, [clipEditing]);
 
   // Drag editing, decided by the starting cell: press a filled cell and drag to
@@ -649,6 +663,64 @@ export const SongTimelineGrid = ({
     };
   }, [cellW, laneH, onMoveClip, tracks]);
 
+  useEffect(() => {
+    const finishClipResize = (commit: boolean) => {
+      const gesture = clipResizeGestureRef.current;
+      clipResizeGestureRef.current = null;
+      setClipResizePreview(null);
+      document.documentElement.style.removeProperty('cursor');
+      document.documentElement.style.removeProperty('user-select');
+      if (commit && gesture && gesture.draftLength !== gesture.originalLength) {
+        onResizeClip?.(gesture.clipId, gesture.draftLength);
+      }
+    };
+    const resizeClip = (event: PointerEvent) => {
+      const gesture = clipResizeGestureRef.current;
+      const node = scrollRef.current;
+      if (!gesture || !node) return;
+
+      const rect = node.getBoundingClientRect();
+      if (event.clientX > rect.right - 28) {
+        programmaticScrollRef.current = true;
+        node.scrollLeft += Math.max(10, cellW);
+      } else if (event.clientX < rect.left + 28) {
+        programmaticScrollRef.current = true;
+        node.scrollLeft -= Math.max(10, cellW);
+      }
+      const rawEndBeat = (event.clientX - rect.left + node.scrollLeft) / cellW;
+      const draftLength = Math.min(
+        gesture.maximumLength,
+        snapSectionLength(rawEndBeat - gesture.startBeat, stepsPerPattern, event.shiftKey),
+      );
+      if (draftLength === gesture.draftLength) return;
+      const nextGesture = { ...gesture, draftLength };
+      clipResizeGestureRef.current = nextGesture;
+      setClipResizePreview(nextGesture);
+      followingRef.current = false;
+      setFollowing(false);
+      document.documentElement.style.cursor = 'ew-resize';
+      document.documentElement.style.userSelect = 'none';
+    };
+    const cancelClipResize = () => finishClipResize(false);
+    const commitClipResize = () => finishClipResize(true);
+    const handleClipResizeKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && clipResizeGestureRef.current) {
+        event.preventDefault();
+        cancelClipResize();
+      }
+    };
+    window.addEventListener('pointermove', resizeClip);
+    window.addEventListener('pointerup', commitClipResize);
+    window.addEventListener('pointercancel', cancelClipResize);
+    window.addEventListener('keydown', handleClipResizeKey);
+    return () => {
+      window.removeEventListener('pointermove', resizeClip);
+      window.removeEventListener('pointerup', commitClipResize);
+      window.removeEventListener('pointercancel', cancelClipResize);
+      window.removeEventListener('keydown', handleClipResizeKey);
+    };
+  }, [cellW, onResizeClip, stepsPerPattern]);
+
   const beginClipMove = (event: React.PointerEvent, clip: ArrangementClip) => {
     const node = scrollRef.current;
     if (!clipEditing || !node || event.button !== 0) return;
@@ -697,6 +769,50 @@ export const SongTimelineGrid = ({
         ? clip.startBeat + 4
         : clip.startBeat;
     onMoveClip?.(clip.id, tracks[nextTrackIndex]?.id ?? clip.trackId, nextStartBeat);
+  };
+
+  const beginClipResize = (event: React.PointerEvent, clip: ArrangementClip) => {
+    if (!clipEditing || !onResizeClip || event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const maximumLength = Math.max(
+      MIN_ARRANGEMENT_STEPS,
+      Math.min(MAX_STEPS_PER_PATTERN, MAX_ARRANGER_BEAT_POSITION - clip.startBeat),
+    );
+    const gesture = {
+      clipId: clip.id,
+      draftLength: clip.beatLength,
+      maximumLength,
+      originalLength: clip.beatLength,
+      startBeat: clip.startBeat,
+    };
+    onSelectClip?.(clip.id);
+    onSelectTrack(clip.trackId);
+    followingRef.current = false;
+    setFollowing(false);
+    clipResizeGestureRef.current = gesture;
+    setClipResizePreview(gesture);
+    document.documentElement.style.cursor = 'ew-resize';
+    document.documentElement.style.userSelect = 'none';
+  };
+
+  const resizeClipWithKeyboard = (event: React.KeyboardEvent, clip: ArrangementClip) => {
+    if (!onResizeClip || (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight')) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const amount = event.shiftKey ? stepsPerPattern : 1;
+    const direction = event.key === 'ArrowRight' ? 1 : -1;
+    const maximumLength = Math.max(
+      MIN_ARRANGEMENT_STEPS,
+      Math.min(MAX_STEPS_PER_PATTERN, MAX_ARRANGER_BEAT_POSITION - clip.startBeat),
+    );
+    const nextLength = Math.max(
+      MIN_ARRANGEMENT_STEPS,
+      Math.min(maximumLength, clip.beatLength + (amount * direction)),
+    );
+    if (nextLength !== clip.beatLength) {
+      onResizeClip(clip.id, nextLength);
+    }
   };
 
   const beginSectionResize = (
@@ -1221,27 +1337,37 @@ export const SongTimelineGrid = ({
                 .map((clip) => {
                   const previewing = clipMovePreview?.clipId === clip.id;
                   const startBeat = previewing ? clipMovePreview.previewStartBeat : clip.startBeat;
+                  const resizing = clipResizePreview?.clipId === clip.id;
+                  const beatLength = resizing ? clipResizePreview.draftLength : clip.beatLength;
+                  const clipPixelWidth = Math.max(36, beatLength * cellW);
+                  const compactClip = clipPixelWidth < 128;
                   const selected = selectedClipId === clip.id;
                   return (
                     <div
-                      className="group absolute inset-y-1 overflow-hidden rounded-[3px] border shadow-[0_2px_8px_rgba(0,0,0,0.3)]"
+                      className="group absolute inset-y-1 overflow-hidden rounded-[3px] border"
                       data-arranger-clip={clip.id}
                       data-moving={previewing && clipMovePreview.moved ? 'true' : undefined}
+                      data-resizing={resizing ? 'true' : undefined}
                       data-selected={selected ? 'true' : undefined}
                       key={clip.id}
                       style={{
-                        background: `${track.color}${selected ? '46' : '30'}`,
-                        borderColor: selected ? track.color : `${track.color}88`,
-                        boxShadow: selected ? `inset 0 0 0 1px ${track.color}, 0 3px 12px rgba(0,0,0,0.42)` : undefined,
+                        background: selected ? `${track.color}0A` : 'transparent',
+                        borderColor: selected ? track.color : `${track.color}55`,
+                        boxShadow: selected ? `inset 0 0 0 1px ${track.color}88, 0 2px 8px rgba(0,0,0,0.32)` : undefined,
                         left: startBeat * cellW,
                         opacity: previewing ? 0.82 : 1,
-                        width: Math.max(36, clip.beatLength * cellW),
-                        zIndex: selected || previewing ? 14 : 8,
+                        width: clipPixelWidth,
+                        zIndex: selected || previewing || resizing ? 14 : 8,
                       }}
                     >
+                      <span
+                        aria-hidden
+                        className="pointer-events-none absolute inset-x-0 top-0 z-[1] h-[2px]"
+                        style={{ background: track.color, opacity: selected ? 1 : 0.62 }}
+                      />
                       <button
                         aria-label={`Move Pattern ${String.fromCharCode(65 + clip.patternIndex)} clip on ${track.name}`}
-                        className="absolute inset-0 flex cursor-grab items-center gap-1 overflow-hidden px-2 text-left active:cursor-grabbing"
+                        className="absolute inset-0 flex cursor-grab items-center overflow-hidden px-1.5 text-left active:cursor-grabbing"
                         onClick={() => {
                           onSelectClip?.(clip.id);
                           onSelectTrack(track.id);
@@ -1249,19 +1375,23 @@ export const SongTimelineGrid = ({
                         onDoubleClick={() => onDuplicateClip?.(clip.id)}
                         onKeyDown={(event) => moveClipWithKeyboard(event, clip)}
                         onPointerDown={(event) => beginClipMove(event, clip)}
-                        title={`Pattern ${String.fromCharCode(65 + clip.patternIndex)} · ${clip.beatLength} steps. Drag in time or to another lane.`}
+                        title={`Pattern ${String.fromCharCode(65 + clip.patternIndex)} · ${beatLength} steps. Drag in time or to another lane.`}
                         type="button"
                       >
-                        <GripVertical className="h-3 w-3 shrink-0 opacity-65" />
-                        <span className="truncate font-mono text-[9px] font-semibold uppercase tracking-[0.11em]" style={{ color: track.color }}>
-                          P{String.fromCharCode(65 + clip.patternIndex)} · {clip.beatLength}
+                        <span className="flex min-w-0 items-center gap-0.5 rounded-[2px] bg-[var(--bg-panel-strong)]/90 px-1 py-0.5 shadow-sm">
+                          <GripVertical className="h-3 w-3 shrink-0 opacity-65" />
+                          {!compactClip && (
+                            <span className="truncate font-mono text-[9px] font-semibold uppercase tracking-[0.11em]" style={{ color: track.color }}>
+                              P{String.fromCharCode(65 + clip.patternIndex)} · {beatLength}
+                            </span>
+                          )}
                         </span>
                       </button>
-                      {selected && (
-                        <div className="absolute right-1 top-1/2 z-10 flex -translate-y-1/2 items-center gap-0.5 rounded-[2px] bg-[var(--bg-panel-strong)]/90 p-0.5 shadow-sm">
+                      {selected && !resizing && (
+                        <div className="absolute right-3 top-1/2 z-10 flex -translate-y-1/2 items-center gap-0.5 rounded-[2px] bg-[var(--bg-panel-strong)]/95 p-0.5 shadow-sm">
                           <button
                             aria-label="Duplicate selected clip"
-                            className="flex h-6 w-6 items-center justify-center rounded-[2px] text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.08)] hover:text-[var(--text-primary)]"
+                            className={`flex items-center justify-center rounded-[2px] text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.08)] hover:text-[var(--text-primary)] ${compactClip ? 'h-5 w-5' : 'h-6 w-6'}`}
                             onClick={(event) => { event.stopPropagation(); onDuplicateClip?.(clip.id); }}
                             onPointerDown={(event) => event.stopPropagation()}
                             title="Duplicate clip (Cmd/Ctrl+D)"
@@ -1271,7 +1401,7 @@ export const SongTimelineGrid = ({
                           </button>
                           <button
                             aria-label="Delete selected clip"
-                            className="flex h-6 w-6 items-center justify-center rounded-[2px] text-[var(--text-secondary)] hover:bg-[rgba(244,63,94,0.14)] hover:text-[var(--danger)]"
+                            className={`flex items-center justify-center rounded-[2px] text-[var(--text-secondary)] hover:bg-[rgba(244,63,94,0.14)] hover:text-[var(--danger)] ${compactClip ? 'h-5 w-5' : 'h-6 w-6'}`}
                             onClick={(event) => { event.stopPropagation(); onDeleteClip?.(clip.id); }}
                             onPointerDown={(event) => event.stopPropagation()}
                             title="Delete clip"
@@ -1280,6 +1410,33 @@ export const SongTimelineGrid = ({
                             <Trash2 className="h-3 w-3" />
                           </button>
                         </div>
+                      )}
+                      {resizing && (
+                        <output
+                          aria-live="polite"
+                          className="pointer-events-none absolute right-4 top-1/2 z-20 -translate-y-1/2 rounded-[2px] bg-[var(--bg-panel-strong)] px-1.5 py-0.5 font-mono text-[9px] font-semibold text-[var(--text-primary)] shadow-sm"
+                        >
+                          {beatLength} steps
+                        </output>
+                      )}
+                      {selected && onResizeClip && (
+                        <button
+                          aria-label={`Trim the end of Pattern ${String.fromCharCode(65 + clip.patternIndex)} clip on ${track.name}`}
+                          aria-orientation="horizontal"
+                          aria-valuemax={Math.max(MIN_ARRANGEMENT_STEPS, Math.min(MAX_STEPS_PER_PATTERN, MAX_ARRANGER_BEAT_POSITION - clip.startBeat))}
+                          aria-valuemin={MIN_ARRANGEMENT_STEPS}
+                          aria-valuenow={beatLength}
+                          className="absolute inset-y-0 right-0 z-30 flex w-3 cursor-ew-resize items-center justify-center border-l border-current bg-[var(--bg-panel-strong)]/90 transition-colors hover:bg-[var(--bg-panel-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
+                          onClick={(event) => event.stopPropagation()}
+                          onKeyDown={(event) => resizeClipWithKeyboard(event, clip)}
+                          onPointerDown={(event) => beginClipResize(event, clip)}
+                          role="slider"
+                          style={{ color: track.color }}
+                          title="Drag to trim the clip. It magnetizes near four-step groups; hold Shift for full bars."
+                          type="button"
+                        >
+                          <span aria-hidden className="h-4 w-[2px] rounded-full bg-current shadow-[0_0_5px_currentColor]" />
+                        </button>
                       )}
                     </div>
                   );
@@ -1296,7 +1453,7 @@ export const SongTimelineGrid = ({
           />
         </div>
       </div>
-      {!following && !resizePreview && !movePreview && !clipMovePreview && (
+      {!following && !resizePreview && !movePreview && !clipMovePreview && !clipResizePreview && (
         <button
           aria-label="Follow the playhead"
           className="absolute bottom-2 right-2 z-20 flex items-center gap-1.5 rounded-full border border-[var(--accent-strong)] bg-[var(--bg-panel-strong)] px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--accent-strong)] shadow-[0_2px_10px_rgba(0,0,0,0.45)] transition-colors hover:bg-[var(--accent-muted)]"

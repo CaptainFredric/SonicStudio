@@ -303,6 +303,73 @@ describe('SongTimelineGrid', () => {
     expect(props.onDeleteClip).toHaveBeenCalledWith(clip.id);
   });
 
+  it('keeps clip regions subtle so their notes remain visually dominant', () => {
+    const view = renderGrid({ clipEditing: true });
+    const { container, project, props, rerender } = view;
+    const clip = project.arrangerClips[0];
+    const region = container.querySelector(`[data-arranger-clip="${clip.id}"]`);
+    if (!(region instanceof HTMLElement)) throw new Error('Expected a clip region');
+
+    expect(region.style.background).toBe('transparent');
+    rerender(<SongTimelineGrid {...props} selectedClipId={clip.id} />);
+    expect(region.style.background).toMatch(/rgba\(.+, 0\.04\)/);
+  });
+
+  it('trims a selected clip with magnetic four-step snapping', () => {
+    const view = renderGrid({
+      clipEditing: true,
+      onResizeClip: vi.fn(),
+    });
+    const { container, getByRole, project, props, rerender } = view;
+    const clip = project.arrangerClips[0];
+    const track = project.tracks.find((candidate) => candidate.id === clip.trackId)!;
+    rerender(<SongTimelineGrid {...props} selectedClipId={clip.id} />);
+    const scroller = container.querySelector('[data-song-timeline-scroll="true"]');
+    if (!(scroller instanceof HTMLElement)) throw new Error('Expected the song timeline scroller');
+    vi.spyOn(scroller, 'getBoundingClientRect').mockReturnValue({
+      bottom: 300,
+      height: 300,
+      left: 0,
+      right: 800,
+      top: 0,
+      width: 800,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+    const handle = getByRole('slider', {
+      name: `Trim the end of Pattern ${String.fromCharCode(65 + clip.patternIndex)} clip on ${track.name}`,
+    });
+
+    fireEvent.pointerDown(handle, { button: 0, clientX: 320 });
+    fireEvent.pointerMove(window, { clientX: 150 });
+    expect(container.querySelector('[data-resizing="true"]')).not.toBeNull();
+    fireEvent.pointerUp(window);
+
+    expect(props.onResizeClip).toHaveBeenCalledTimes(1);
+    expect(props.onResizeClip).toHaveBeenCalledWith(clip.id, 8);
+  });
+
+  it('resizes a selected clip from its keyboard handle in steps or full bars', () => {
+    const view = renderGrid({
+      clipEditing: true,
+      onResizeClip: vi.fn(),
+    });
+    const { getByRole, project, props, rerender } = view;
+    const clip = project.arrangerClips[0];
+    const track = project.tracks.find((candidate) => candidate.id === clip.trackId)!;
+    rerender(<SongTimelineGrid {...props} selectedClipId={clip.id} />);
+    const handle = getByRole('slider', {
+      name: `Trim the end of Pattern ${String.fromCharCode(65 + clip.patternIndex)} clip on ${track.name}`,
+    });
+
+    fireEvent.keyDown(handle, { key: 'ArrowLeft' });
+    fireEvent.keyDown(handle, { key: 'ArrowRight', shiftKey: true });
+
+    expect(props.onResizeClip).toHaveBeenNthCalledWith(1, clip.id, 15);
+    expect(props.onResizeClip).toHaveBeenNthCalledWith(2, clip.id, 32);
+  });
+
   it('keeps a plain section click as a seek instead of a move', () => {
     const { getByRole, project, props } = renderGrid();
     const sectionName = project.markers[0]?.name ?? 'Song';
