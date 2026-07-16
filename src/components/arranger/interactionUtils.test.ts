@@ -18,7 +18,9 @@ const createDragState = (overrides: Partial<DragState> = {}): DragState => ({
   previewBeatLength: 16,
   previewStartBeat: 8,
   sourceBeatLength: 16,
+  sourcePatternOffset: 0,
   sourceStartBeat: 8,
+  stepsPerPattern: 16,
   ...overrides,
 });
 
@@ -85,6 +87,19 @@ describe('interactionUtils', () => {
       previewStartBeat: 12,
     }))).toEqual({
       beatLength: 20,
+      startBeat: 12,
+    });
+  });
+
+  it('advances and wraps the pattern phase when the left edge is trimmed', () => {
+    expect(getClipUpdatesFromDragState(createDragState({
+      mode: 'trim-start',
+      previewBeatLength: 12,
+      previewStartBeat: 12,
+      sourcePatternOffset: 14,
+    }))).toEqual({
+      beatLength: 12,
+      patternOffset: 2,
       startBeat: 12,
     });
   });

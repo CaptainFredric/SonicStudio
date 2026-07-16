@@ -11,6 +11,7 @@ interface UseArrangerClipDragOptions {
   onSelectClip: (clipId: string) => void;
   pixelsPerStep: number;
   snapSize: SnapSize;
+  stepsPerPattern: number;
   updateArrangerClip: (clipId: string, updates: Partial<ArrangementClip>) => void;
 }
 
@@ -20,6 +21,7 @@ export const useArrangerClipDrag = ({
   onSelectClip,
   pixelsPerStep,
   snapSize,
+  stepsPerPattern,
   updateArrangerClip,
 }: UseArrangerClipDragOptions) => {
   const [dragState, setDragState] = useState<DragState | null>(null);
@@ -155,7 +157,9 @@ export const useArrangerClipDrag = ({
       previewBeatLength: clip.beatLength,
       previewStartBeat: clip.startBeat,
       sourceBeatLength: clip.beatLength,
+      sourcePatternOffset: clip.patternOffset ?? 0,
       sourceStartBeat: clip.startBeat,
+      stepsPerPattern,
     });
   };
 

@@ -708,6 +708,7 @@ export const MainWorkspace = () => {
     setSelectedArrangerClipId,
     setStepsPerPattern,
     setTransportMode,
+    splitArrangerClip,
     transportMode,
     shiftPattern,
     stepsPerPattern,
@@ -3100,7 +3101,7 @@ export const MainWorkspace = () => {
                         className="editing-tool-button flex h-full items-center gap-1.5 border-l border-[var(--border-soft)] px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-tertiary)]"
                         data-active={songEditLayer === 'clips' ? 'true' : undefined}
                         onClick={() => { setSongEditLayer('clips'); writeString(SONG_EDIT_LAYER_KEY, 'clips'); }}
-                        title="Select, move, trim, duplicate, or delete clips"
+                        title="Select, move, trim either edge, split, duplicate, or delete clips"
                         type="button"
                       >
                         <MousePointer2 className="h-3.5 w-3.5" /> Clips
@@ -3445,14 +3446,17 @@ export const MainWorkspace = () => {
                 onDeleteTrack={removeTrack}
                 onSelectClip={(clipId) => {
                   const clip = arrangerClips.find((candidate) => candidate.id === clipId);
-                  setSelectedArrangerClipId(clipId);
                   if (clip) {
                     setSelectedTrackId(clip.trackId);
                     setCurrentPattern(clip.patternIndex);
                   }
+                  // Keep this last: changing the pattern commits project state,
+                  // which must not restore the previously selected clip.
+                  setSelectedArrangerClipId(clipId);
                 }}
                 onMoveClip={(clipId, trackId, startBeat) => moveArrangerClip(clipId, trackId, startBeat)}
-                onResizeClip={(clipId, beatLength) => updateArrangerClip(clipId, { beatLength })}
+                onResizeClip={(clipId, updates) => updateArrangerClip(clipId, updates)}
+                onSplitClip={(clipId, splitAtBeat) => splitArrangerClip(clipId, splitAtBeat)}
                 onDuplicateClip={duplicateArrangerClip}
                 onDeleteClip={removeArrangerClip}
               />

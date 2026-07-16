@@ -220,12 +220,13 @@ export const Arranger = () => {
         return;
       }
 
-      setSelectedArrangerClipId(clip.id);
       setSelectedTrackId(clip.trackId);
       setCurrentPattern(clip.patternIndex);
+      setSelectedArrangerClipId(clip.id);
     },
     pixelsPerStep,
     snapSize,
+    stepsPerPattern,
     updateArrangerClip,
   });
   const {

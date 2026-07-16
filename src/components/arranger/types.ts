@@ -16,7 +16,9 @@ export interface DragState {
   previewBeatLength: number;
   previewStartBeat: number;
   sourceBeatLength: number;
+  sourcePatternOffset: number;
   sourceStartBeat: number;
+  stepsPerPattern: number;
 }
 
 export interface PaintState {

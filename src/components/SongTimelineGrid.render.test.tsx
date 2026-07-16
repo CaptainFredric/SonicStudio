@@ -247,8 +247,10 @@ describe('SongTimelineGrid', () => {
       name: `Move Pattern ${String.fromCharCode(65 + clip.patternIndex)} clip on ${track.name}`,
     });
 
+    fireEvent.focus(clipButton);
     fireEvent.keyDown(clipButton, { key: 'ArrowRight' });
 
+    expect(props.onSelectClip).toHaveBeenCalledWith(clip.id);
     expect(props.onMoveClip).toHaveBeenCalledWith(clip.id, clip.trackId, clip.startBeat + 4);
   });
 
@@ -286,20 +288,23 @@ describe('SongTimelineGrid', () => {
     expect(props.onMoveClip).toHaveBeenCalledWith(clip.id, targetTrack.id, 4);
   });
 
-  it('offers direct duplicate and delete actions for a selected clip', () => {
+  it('offers direct duplicate, split, and delete actions for a selected clip', () => {
     const view = renderGrid({
       clipEditing: true,
       onDeleteClip: vi.fn(),
       onDuplicateClip: vi.fn(),
+      onSplitClip: vi.fn(),
     });
     const { getByRole, project, props, rerender } = view;
     const clip = project.arrangerClips[0];
     rerender(<SongTimelineGrid {...props} selectedClipId={clip.id} />);
 
     fireEvent.click(getByRole('button', { name: 'Duplicate selected clip' }));
+    fireEvent.click(getByRole('button', { name: 'Split selected clip at the playhead' }));
     fireEvent.click(getByRole('button', { name: 'Delete selected clip' }));
 
     expect(props.onDuplicateClip).toHaveBeenCalledWith(clip.id);
+    expect(props.onSplitClip).toHaveBeenCalledWith(clip.id, clip.startBeat + 8);
     expect(props.onDeleteClip).toHaveBeenCalledWith(clip.id);
   });
 
@@ -347,10 +352,48 @@ describe('SongTimelineGrid', () => {
     fireEvent.pointerUp(window);
 
     expect(props.onResizeClip).toHaveBeenCalledTimes(1);
-    expect(props.onResizeClip).toHaveBeenCalledWith(clip.id, 8);
+    expect(props.onResizeClip).toHaveBeenCalledWith(clip.id, { beatLength: 8 });
   });
 
-  it('resizes a selected clip from its keyboard handle in steps or full bars', () => {
+  it('trims the left edge without changing which notes play at the new start', () => {
+    const view = renderGrid({
+      clipEditing: true,
+      onResizeClip: vi.fn(),
+    });
+    const { container, getByRole, project, props, rerender } = view;
+    const clip = project.arrangerClips[0];
+    const track = project.tracks.find((candidate) => candidate.id === clip.trackId)!;
+    rerender(<SongTimelineGrid {...props} selectedClipId={clip.id} />);
+    const scroller = container.querySelector('[data-song-timeline-scroll="true"]');
+    if (!(scroller instanceof HTMLElement)) throw new Error('Expected the song timeline scroller');
+    vi.spyOn(scroller, 'getBoundingClientRect').mockReturnValue({
+      bottom: 300,
+      height: 300,
+      left: 0,
+      right: 800,
+      top: 0,
+      width: 800,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+    const handle = getByRole('slider', {
+      name: `Trim the start of Pattern ${String.fromCharCode(65 + clip.patternIndex)} clip on ${track.name}`,
+    });
+
+    fireEvent.pointerDown(handle, { button: 0, clientX: 0 });
+    fireEvent.pointerMove(window, { clientX: 150 });
+    expect(container.querySelector('[data-resizing="true"]')).not.toBeNull();
+    fireEvent.pointerUp(window);
+
+    expect(props.onResizeClip).toHaveBeenCalledWith(clip.id, {
+      beatLength: 8,
+      patternOffset: 8,
+      startBeat: 8,
+    });
+  });
+
+  it('resizes either clip edge from the keyboard in steps or full bars', () => {
     const view = renderGrid({
       clipEditing: true,
       onResizeClip: vi.fn(),
@@ -359,15 +402,24 @@ describe('SongTimelineGrid', () => {
     const clip = project.arrangerClips[0];
     const track = project.tracks.find((candidate) => candidate.id === clip.trackId)!;
     rerender(<SongTimelineGrid {...props} selectedClipId={clip.id} />);
-    const handle = getByRole('slider', {
+    const endHandle = getByRole('slider', {
       name: `Trim the end of Pattern ${String.fromCharCode(65 + clip.patternIndex)} clip on ${track.name}`,
     });
+    const startHandle = getByRole('slider', {
+      name: `Trim the start of Pattern ${String.fromCharCode(65 + clip.patternIndex)} clip on ${track.name}`,
+    });
 
-    fireEvent.keyDown(handle, { key: 'ArrowLeft' });
-    fireEvent.keyDown(handle, { key: 'ArrowRight', shiftKey: true });
+    fireEvent.keyDown(endHandle, { key: 'ArrowLeft' });
+    fireEvent.keyDown(endHandle, { key: 'ArrowRight', shiftKey: true });
+    fireEvent.keyDown(startHandle, { key: 'ArrowRight' });
 
-    expect(props.onResizeClip).toHaveBeenNthCalledWith(1, clip.id, 15);
-    expect(props.onResizeClip).toHaveBeenNthCalledWith(2, clip.id, 32);
+    expect(props.onResizeClip).toHaveBeenNthCalledWith(1, clip.id, { beatLength: 15 });
+    expect(props.onResizeClip).toHaveBeenNthCalledWith(2, clip.id, { beatLength: 32 });
+    expect(props.onResizeClip).toHaveBeenNthCalledWith(3, clip.id, {
+      beatLength: 15,
+      patternOffset: 1,
+      startBeat: 1,
+    });
   });
 
   it('keeps a plain section click as a seek instead of a move', () => {

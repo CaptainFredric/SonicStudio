@@ -23,6 +23,16 @@ export const snapStepValue = (value: number, snapSize: SnapSize) => (
   Math.round(value / snapSize) * snapSize
 );
 
+export const getTrimmedPatternOffset = (
+  patternOffset: number,
+  startBeatDelta: number,
+  stepsPerPattern: number,
+) => {
+  const patternSteps = Math.max(1, Math.round(stepsPerPattern));
+  const advancedOffset = Math.round(patternOffset) + Math.round(startBeatDelta);
+  return ((advancedOffset % patternSteps) + patternSteps) % patternSteps;
+};
+
 export const getRenderedClipFrame = (
   clip: ArrangementClip,
   dragState: DragState | null,
@@ -82,6 +92,14 @@ export const getClipUpdatesFromDragState = (dragState: DragState) => {
 
   if (dragState.previewBeatLength !== dragState.sourceBeatLength) {
     updates.beatLength = dragState.previewBeatLength;
+  }
+
+  if (dragState.mode === 'trim-start' && dragState.previewStartBeat !== dragState.sourceStartBeat) {
+    updates.patternOffset = getTrimmedPatternOffset(
+      dragState.sourcePatternOffset,
+      dragState.previewStartBeat - dragState.sourceStartBeat,
+      dragState.stepsPerPattern,
+    );
   }
 
   return updates;
