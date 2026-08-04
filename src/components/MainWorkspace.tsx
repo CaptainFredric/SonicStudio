@@ -3748,7 +3748,38 @@ export const MainWorkspace = () => {
                               <TrackIcon type={track.type} className="h-3.5 w-3.5" />
                             </div>
                             <span className="min-w-0 flex-1 truncate text-sm font-semibold tracking-tight text-[var(--text-primary)]">{track.name}</span>
-                            <span className="flex shrink-0 items-center gap-1">
+                          </div>
+                          <TrackMeterBar
+                            active={isPlaying}
+                            className="mt-1.5"
+                            color={track.color}
+                            intervalMs={meterIntervalForMode(110, audioStabilityMode)}
+                            offKey={(() => {
+                              const fitness = laneFitness(track, getEffectiveKey(tracks));
+                              return fitness.ratio !== null && fitness.ratio < 0.7;
+                            })()}
+                            trackId={track.id}
+                          />
+                          {/* Engine, source, and volume live in the Sound desk and
+                              Mixer for the selected lane, so the per-lane row keeps
+                              only the glanceables: type, key, pin state, and notes. */}
+                          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                            {/* The coloured instrument icon already says what
+                                kind of lane this is, so the type chip stands
+                                down on narrow columns to keep this a one-line
+                                row alongside mute and solo. */}
+                            {!isMobileViewport && (
+                              <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.type}</span>
+                            )}
+                            <LaneKeyChip track={track} />
+                            {pinned && <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--accent-strong)]">Pinned</span>}
+                            <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
+                              {countLabel(patternSteps.reduce((sum, step) => sum + step.length, 0), 'note')}
+                            </span>
+                            {/* Mute and solo ride the meta row rather than the
+                                name row: on a narrow lane column the buttons
+                                would otherwise squeeze the name to an ellipsis. */}
+                            <span className="ml-auto flex shrink-0 items-center gap-1">
                               <StateActionBtn
                                 active={track.muted}
                                 label={track.muted ? 'Unmute lane' : 'Mute lane'}
@@ -3769,28 +3800,6 @@ export const MainWorkspace = () => {
                               >
                                 <Focus className="h-3.5 w-3.5" />
                               </StateActionBtn>
-                            </span>
-                          </div>
-                          <TrackMeterBar
-                            active={isPlaying}
-                            className="mt-1.5"
-                            color={track.color}
-                            intervalMs={meterIntervalForMode(110, audioStabilityMode)}
-                            offKey={(() => {
-                              const fitness = laneFitness(track, getEffectiveKey(tracks));
-                              return fitness.ratio !== null && fitness.ratio < 0.7;
-                            })()}
-                            trackId={track.id}
-                          />
-                          {/* Engine, source, and volume live in the Sound desk and
-                              Mixer for the selected lane, so the per-lane row keeps
-                              only the glanceables: type, key, pin state, and notes. */}
-                          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                            <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">{track.type}</span>
-                            <LaneKeyChip track={track} />
-                            {pinned && <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--accent-strong)]">Pinned</span>}
-                            <span className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-                              {countLabel(patternSteps.reduce((sum, step) => sum + step.length, 0), 'note')}
                             </span>
                           </div>
                           <div className="flex flex-wrap items-center gap-1">
