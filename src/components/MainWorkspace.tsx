@@ -934,8 +934,8 @@ export const MainWorkspace = () => {
     }
   }), [currentPattern, laneScope, pinnedTrackIds, selectedTrackId, tracks]);
   const laneHeaderPaddingClass = isMobileViewport
-    ? (compactLanes ? 'px-3 py-2.5' : 'px-3.5 py-3')
-    : compactLanes ? 'px-4 py-3' : 'px-5 py-4';
+    ? (compactLanes ? 'px-3 py-2' : 'px-3.5 py-2.5')
+    : compactLanes ? 'px-4 py-2' : 'px-4 py-2.5';
   const laneGridPaddingClass = isMobileViewport
     ? (compactLanes ? 'px-1.5 py-1.5' : 'px-2 py-1.5')
     : compactLanes ? 'px-2 py-1.5' : 'px-2 py-2';
@@ -2599,6 +2599,10 @@ export const MainWorkspace = () => {
     applySessionPlayerProfile(request.profileId);
   }, [applySessionPlayerProfile, buildSessionPlayerSong, pendingSessionPlayerRequest, sessionPlayerSegments, tracks]);
 
+  // The workbench scrolls, so flex-1 alone lets this section collapse to its
+  // content and the grid ends up a sliver. A viewport-relative floor keeps the
+  // sequencer the main event; the grid still caps its own height inside it, so
+  // nothing paints past the panel.
   return (
     <section
       className="sequencer-workspace surface-panel flex flex-col overflow-visible md:min-h-0 md:flex-1 md:overflow-hidden"
@@ -3743,7 +3747,29 @@ export const MainWorkspace = () => {
                             >
                               <TrackIcon type={track.type} className="h-3.5 w-3.5" />
                             </div>
-                            <span className="min-w-0 truncate text-sm font-semibold tracking-tight text-[var(--text-primary)]">{track.name}</span>
+                            <span className="min-w-0 flex-1 truncate text-sm font-semibold tracking-tight text-[var(--text-primary)]">{track.name}</span>
+                            <span className="flex shrink-0 items-center gap-1">
+                              <StateActionBtn
+                                active={track.muted}
+                                label={track.muted ? 'Unmute lane' : 'Mute lane'}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  toggleMute(track.id);
+                                }}
+                              >
+                                <VolumeX className="h-3.5 w-3.5" />
+                              </StateActionBtn>
+                              <StateActionBtn
+                                active={track.solo}
+                                label={track.solo ? 'Release solo' : 'Solo lane'}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  toggleSolo(track.id);
+                                }}
+                              >
+                                <Focus className="h-3.5 w-3.5" />
+                              </StateActionBtn>
+                            </span>
                           </div>
                           <TrackMeterBar
                             active={isPlaying}
@@ -3767,33 +3793,13 @@ export const MainWorkspace = () => {
                               {countLabel(patternSteps.reduce((sum, step) => sum + step.length, 0), 'note')}
                             </span>
                           </div>
-                          <div className="mt-2 flex flex-wrap items-center gap-1 pt-1 border-t border-[var(--border-soft)]/60">
-                            <StateActionBtn
-                              active={track.muted}
-                              label={track.muted ? 'Unmute lane' : 'Mute lane'}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                toggleMute(track.id);
-                              }}
-                            >
-                              <VolumeX className="h-3.5 w-3.5" />
-                            </StateActionBtn>
-                            <StateActionBtn
-                              active={track.solo}
-                              label={track.solo ? 'Release solo' : 'Solo lane'}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                toggleSolo(track.id);
-                              }}
-                            >
-                              <Focus className="h-3.5 w-3.5" />
-                            </StateActionBtn>
+                          <div className="flex flex-wrap items-center gap-1">
                             {/* The rarer per-lane actions stay out of the way until
                                 the lane is hovered, keyboard-focused, or selected,
                                 so a full scene is not a wall of buttons. Hidden
                                 buttons also drop pointer events, so an invisible
                                 Delete can't be hit by accident. */}
-                            <span className={`flex flex-wrap items-center gap-1 transition-opacity ${selected ? '' : 'pointer-events-none opacity-0 group-focus-within/lane:pointer-events-auto group-focus-within/lane:opacity-100 group-hover/lane:pointer-events-auto group-hover/lane:opacity-100'}`}>
+                            <span className={`flex flex-wrap items-center gap-1 overflow-hidden transition-all duration-150 ${selected ? 'max-h-24' : 'pointer-events-none max-h-0 opacity-0 group-focus-within/lane:pointer-events-auto group-focus-within/lane:max-h-24 group-focus-within/lane:opacity-100 group-hover/lane:pointer-events-auto group-hover/lane:max-h-24 group-hover/lane:opacity-100'}`}>
                             <StateActionBtn
                               active={pinned}
                               label={pinned ? 'Unpin lane' : 'Pin lane'}

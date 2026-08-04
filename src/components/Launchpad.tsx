@@ -238,7 +238,10 @@ export const Launchpad = ({
         </button>
       </div>
 
-      <div className="grid gap-7 xl:grid-cols-[minmax(0,1.08fr)_360px] xl:items-start">
+      {/* The side column joins at lg rather than xl: below that it fell under
+          the scene list and added another screen of scrolling before the
+          reference material it holds. */}
+      <div className="grid gap-7 lg:grid-cols-[minmax(0,1.08fr)_320px] lg:items-start xl:grid-cols-[minmax(0,1.08fr)_360px]">
         <div className="min-w-0 grid gap-6">
           <div className="border-b border-[var(--border-soft)] pb-4 md:pb-5">
             <div className="section-label text-[var(--accent-strong)]">Browser-based music studio</div>
@@ -391,7 +394,10 @@ export const Launchpad = ({
               ) : null}
             </div> : null}
 
-            {sceneBrowserOpen ? <div className="mt-4 grid gap-2 md:grid-cols-2">
+            {/* Scenes tile into columns as the panel widens, so a full
+                library stays scannable instead of running past a thousand
+                pixels of scrolling. */}
+            {sceneBrowserOpen ? <div className="mt-4 grid gap-2 sm:grid-cols-2 2xl:grid-cols-3">
               {visibleOptions.length > 0 ? visibleOptions.map((option) => (
                 <TemplateCard key={option.id} option={option} onSelect={onSelectTemplate} highlight={option.id === recommended.id} />
               )) : (
