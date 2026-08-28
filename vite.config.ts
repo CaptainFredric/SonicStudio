@@ -22,7 +22,7 @@ export default defineConfig(({ command }) => {
       rollupOptions: {
         output: {
           // The lazy-loaded surfaces (Launchpad, capture, transcribe,
-          // settings, Mixer, Piano Roll) split into their own chunks through
+          // settings, Mixer, the sequencer, Piano Roll) split into their own chunks through
           // dynamic imports; pinning them here would drag them back into the
           // boot path. Only the always-needed groups stay manual.
           manualChunks: {

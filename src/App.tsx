@@ -1,7 +1,8 @@
 import React, { Suspense, useCallback, useEffect, useRef, useState } from 'react';
 import { AudioProvider, useAudio } from './context/AudioContext';
 import { TopBar } from './components/TopBar';
-import { MainWorkspace as Sequencer } from './components/MainWorkspace';
+import { ShowcaseStage } from './components/ShowcaseStage';
+import { MobileStudioNavigation } from './components/StudioNavigation';
 import { setNotesPanelOpen, useNotesPanelOpen } from './components/notesPanelStore';
 import { setEditingMode, useEditingMode } from './components/editingModeStore';
 import { TapToPlay } from './components/TapToPlay';
@@ -37,9 +38,10 @@ const SUPPORT_URL = 'https://buymeacoffee.com/captainarm1';
 
 // Everything a visitor does not need for the first paint loads on demand: the
 // library overlay, the capture and transcribe dialogs, settings, sharing, the
-// onboarding tour, and the Mixer view. This keeps the boot bundle to the
-// sequencer path; each surface fetches its own chunk the first time it opens.
+// onboarding tour, Mixer, and the full sequencer. The Handshake stage stays in
+// the boot path while each production surface fetches its own chunk on demand.
 const Mixer = lazyWithRetry(() => import('./components/Mixer').then((module) => ({ default: module.Mixer })), 'mixer');
+const Sequencer = lazyWithRetry(() => import('./components/MainWorkspace').then((module) => ({ default: module.MainWorkspace })), 'sequencer');
 const Launchpad = lazyWithRetry(() => import('./components/Launchpad').then((module) => ({ default: module.Launchpad })), 'launchpad');
 const SettingsSidebar = lazyWithRetry(() => import('./components/SettingsSidebar').then((module) => ({ default: module.SettingsSidebar })), 'settings');
 const AudioCapture = lazyWithRetry(() => import('./components/AudioCapture').then((module) => ({ default: module.AudioCapture })), 'capture');
@@ -161,7 +163,7 @@ const PanelDock = () => {
   );
 };
 
-const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe, onEnterEditingMode }: { onOpenLaunchpad: () => void; onOpenShare: () => void; onOpenRecord: () => void; onOpenTranscribe: () => void; onEnterEditingMode: () => void }) => {
+const SideNav = ({ isShowcasePreviewActive, onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe, onEnterEditingMode }: { isShowcasePreviewActive: boolean; onOpenLaunchpad: () => void; onOpenShare: () => void; onOpenRecord: () => void; onOpenTranscribe: () => void; onEnterEditingMode: () => void }) => {
   const { activeView, isSettingsOpen, setActiveView, toggleSettings } = useAudio();
   const withSuperFill = (icon: React.ReactNode, fillClass = 'studio-icon-fill-core') => (
     <span className="studio-icon-shell">
@@ -217,7 +219,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe,
   );
 
   return (
-    <aside aria-label="Studio navigation" className="studio-rail w-full shrink-0 px-2 py-2 md:w-[88px] md:py-3 md:min-h-0 md:overflow-y-auto" data-tour-target="views">
+    <aside aria-label="Studio navigation" className="studio-rail hidden w-[88px] shrink-0 flex-col px-2 py-3 md:flex md:min-h-0 md:overflow-y-auto" data-tour-target={isShowcasePreviewActive ? undefined : 'views'}>
       <div className="section-label hidden md:block">Views</div>
       <div className="grid grid-cols-4 gap-1.5 md:mb-2 md:grid-cols-1 md:gap-2">
         <button
@@ -297,7 +299,7 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe,
       <div className="grid grid-cols-3 gap-2 border-t border-[var(--border-soft)] pt-3 md:mt-auto md:grid-cols-1 md:gap-2">
         <button
           className="studio-nav-button w-full"
-          data-tour-target="share"
+          data-tour-target={isShowcasePreviewActive ? undefined : 'share'}
           data-ui-sound="action"
           onClick={onOpenShare}
           title="Share this session"
@@ -344,7 +346,15 @@ const SideNav = ({ onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe,
   );
 };
 
-const ViewRouter = () => {
+const ViewRouter = ({
+  isShowcasePreviewActive,
+  onEnterStudio,
+  onOpenShare,
+}: {
+  isShowcasePreviewActive: boolean;
+  onEnterStudio: () => void;
+  onOpenShare: () => void;
+}) => {
   const { activeView } = useAudio();
   const previousViewRef = useRef(activeView);
   useEffect(() => {
@@ -358,7 +368,14 @@ const ViewRouter = () => {
       {/* Keyed on the view so switching SEQ <-> MIX replays a soft entrance
           instead of the new view popping in. */}
       <div key={activeView} className="view-swap-in flex min-h-0 flex-1 flex-col">
-        {activeView === 'SEQUENCER' && <Sequencer />}
+        {activeView === 'SEQUENCER' && isShowcasePreviewActive ? (
+          <ShowcaseStage onEnterStudio={onEnterStudio} onOpenShare={onOpenShare} />
+        ) : null}
+        {activeView === 'SEQUENCER' && !isShowcasePreviewActive ? (
+          <Suspense fallback={<div className="surface-panel flex min-h-[52vh] flex-1 items-center justify-center text-sm text-[var(--text-secondary)]">Opening the sequencer</div>}>
+            <Sequencer />
+          </Suspense>
+        ) : null}
         {activeView === 'MIXER' && (
           <Suspense fallback={<div className="surface-panel flex flex-1 items-center justify-center text-sm text-[var(--text-secondary)]">Opening the mixer</div>}>
             <Mixer />
@@ -954,20 +971,46 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
         )}
         <div className={`studio-shell-grid flex min-w-0 flex-col md:min-h-0 md:flex-1 md:flex-row ${editingMode ? 'gap-0 px-0 pb-0' : 'gap-2 px-3 pb-3 md:gap-3'}`} data-editing-mode={editingMode ? 'true' : undefined}>
           {!editingMode && (
-            <SideNav
-              onOpenLaunchpad={() => setLaunchpadOpen(true)}
-              onOpenRecord={openCapture}
-              onOpenTranscribe={openTranscribe}
-              onEnterEditingMode={() => setEditingMode(true)}
-              onOpenShare={() => {
-                setGuideOpen(false);
-                setShareOpen(true);
-              }}
-            />
+            <>
+              <SideNav
+                isShowcasePreviewActive={isShowcasePreviewActive}
+                onOpenLaunchpad={() => setLaunchpadOpen(true)}
+                onOpenRecord={openCapture}
+                onOpenTranscribe={openTranscribe}
+                onEnterEditingMode={() => setEditingMode(true)}
+                onOpenShare={() => {
+                  setGuideOpen(false);
+                  setShareOpen(true);
+                }}
+              />
+              {!isShowcasePreviewActive ? (
+                <MobileStudioNavigation
+                  onOpenLaunchpad={() => setLaunchpadOpen(true)}
+                  onOpenRecord={openCapture}
+                  onOpenTranscribe={openTranscribe}
+                  onEnterEditingMode={() => setEditingMode(true)}
+                  onOpenShare={() => {
+                    setGuideOpen(false);
+                    setShareOpen(true);
+                  }}
+                />
+              ) : null}
+            </>
           )}
           <div className={`studio-workbench flex min-w-0 flex-col md:min-h-0 md:flex-1 md:overflow-hidden ${editingMode ? 'gap-0' : 'gap-2 md:gap-3'}`}>
             <div className="studio-editor-row flex flex-col gap-3 md:min-h-[300px] md:flex-row md:flex-1 md:overflow-hidden">
-              <ViewRouter />
+              <ViewRouter
+                isShowcasePreviewActive={isShowcasePreviewActive}
+                onEnterStudio={() => {
+                  autoGuidePendingRef.current = false;
+                  markOnboardingCompleted();
+                  setGuideOpen(false);
+                }}
+                onOpenShare={() => {
+                  setGuideOpen(false);
+                  setShareOpen(true);
+                }}
+              />
             </div>
             {!editingMode && !isShowcasePreviewActive && <PanelDock />}
           </div>

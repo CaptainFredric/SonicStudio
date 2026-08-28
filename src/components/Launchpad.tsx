@@ -23,6 +23,7 @@ import { loadRecordedNotePresets, subscribeRecordedNotePresets, type RecordedNot
 import { type StartOption, START_OPTIONS, FEATURED_IDS, FEATURED_POOL } from './launchpadScenes';
 
 const SUPPORT_URL = 'https://buymeacoffee.com/captainarm1';
+const FEATURED_DAY_INDEX = Math.floor(Date.now() / 86_400_000);
 type LibraryFilterId = 'featured' | 'all' | 'club' | 'hooks' | 'drift' | 'acoustic' | 'clean';
 
 interface LaunchpadProps {
@@ -150,7 +151,7 @@ export const Launchpad = ({
   const [storageFlash, setStorageFlash] = useState<'saved' | null>(null);
   const recommended = useMemo(
     () => {
-      const featuredId = pickDailyFeatured(Math.floor(Date.now() / 86_400_000));
+      const featuredId = pickDailyFeatured(FEATURED_DAY_INDEX);
       return START_OPTIONS.find((option) => option.id === featuredId)
         ?? START_OPTIONS.find((option) => option.id === 'night-transit')
         ?? START_OPTIONS[0];

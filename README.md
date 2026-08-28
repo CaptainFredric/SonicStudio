@@ -61,6 +61,10 @@ The codebase is now split around a few real boundaries:
    Workspace, track, and output controls broken into smaller panels.
 13. `src/components/arranger/*`
    Arranger selector logic, interaction utilities, clip drag and paint hooks, viewport and shortcut hooks, inspector panels, and hero-surface view modules.
+14. `src/components/ShowcaseStage.tsx`
+   Lightweight Handshake entry that proves playback, arrangement depth, portability, and the path into the complete editor before the sequencer chunk loads.
+15. `src/components/StudioNavigation.tsx`
+   Persistent phone navigation for Sequencer, Mixer, Capture, and Share, with secondary studio actions grouped into one accessible command sheet.
 
 The reducer is now split across small, focused action maps (the largest is under
 300 lines), and every provider seam has its own test file: transport, session
@@ -144,8 +148,8 @@ Current test coverage includes reducer invariants, arranger selector and interac
 
 The strongest next milestones are:
 
-1. keep shrinking reducer concentration in note-pattern and clip-pattern step ownership
-2. expand correctness coverage around reducer action-map behavior, checkpoint restore, transport state, render-scope replay, and route-driven entry
-3. keep the device rack moving toward true source, shape, space, slicing, and recall ownership boundaries, with the slice and source-window path next
-4. keep the arranger focused on composition fluency instead of growing every side feature equally
-5. keep the launch surface and route entry logic explicit instead of drifting back into layered shell clutter
+1. split the large sequencer source into canvas, toolbar, inspector, and selection modules while preserving its new lazy loading boundary
+2. reduce the remaining React hooks warning baseline through focused state ownership changes
+3. narrow heavy editor reads to per slice subscriptions as project size grows
+4. keep the device rack moving toward clear source, shape, space, slicing, and recall ownership
+5. keep the arranger focused on composition fluency instead of growing every side feature equally

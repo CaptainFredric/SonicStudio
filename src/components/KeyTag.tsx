@@ -17,7 +17,10 @@ const MODE_OPTIONS = ['major', 'minor'] as const;
 export const KeyTag = ({ className = '' }: { className?: string }) => {
   const { tracks } = useAudio();
   const [override, setOverride] = useManualKeyOverride();
-  const effective = useMemo(() => getEffectiveKey(tracks), [tracks, override]);
+  // The override lives in a tiny external store. Reading the effective key on
+  // render keeps that store and the track analysis in sync without a memo that
+  // pretends the external value is an input to getEffectiveKey.
+  const effective = getEffectiveKey(tracks);
   // Separate analytical reading so the picker can offer a one-tap
   // "Pin to detected" even when the user has already pinned a
   // different key.
