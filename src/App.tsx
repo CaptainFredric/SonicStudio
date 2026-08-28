@@ -166,7 +166,7 @@ const PanelDock = () => {
   );
 };
 
-const SideNav = ({ isShowcasePreviewActive, onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe, onEnterEditingMode }: { isShowcasePreviewActive: boolean; onOpenLaunchpad: () => void; onOpenShare: () => void; onOpenRecord: () => void; onOpenTranscribe: () => void; onEnterEditingMode: () => void }) => {
+const SideNav = ({ isShowcasePreviewActive, onOpenLaunchpad, onOpenShare, onOpenRecord, onOpenTranscribe }: { isShowcasePreviewActive: boolean; onOpenLaunchpad: () => void; onOpenShare: () => void; onOpenRecord: () => void; onOpenTranscribe: () => void }) => {
   const { activeView, isSettingsOpen, setActiveView, toggleSettings } = useAudio();
   const withSuperFill = (icon: React.ReactNode, fillClass = 'studio-icon-fill-core') => (
     <span className="studio-icon-shell">
@@ -189,8 +189,8 @@ const SideNav = ({ isShowcasePreviewActive, onOpenLaunchpad, onOpenShare, onOpen
           </svg>
         </span>
       ),
-      label: 'Sequencer',
-      title: 'Sequencer · lay down the groove, step by step',
+      label: 'Create',
+      title: 'Create patterns and arrange the song',
     },
     { id: 'MIXER', icon: withSuperFill(<Volume2 size={20} />, 'studio-icon-fill-mixer-core'), label: 'Mixer', title: 'Mixer · balance the levels, panning, and tone' },
   ];
@@ -215,7 +215,7 @@ const SideNav = ({ isShowcasePreviewActive, onOpenLaunchpad, onOpenShare, onOpen
       <div className="flex flex-col items-center gap-2">
         {item.icon}
         <span className="font-mono text-[9px] uppercase tracking-[0.18em]">
-          {item.label === 'Sequencer' ? 'Seq' : item.label === 'Mixer' ? 'Mix' : item.label}
+          {item.label === 'Mixer' ? 'Mix' : item.label}
         </span>
       </div>
     </button>
@@ -299,7 +299,7 @@ const SideNav = ({ isShowcasePreviewActive, onOpenLaunchpad, onOpenShare, onOpen
         {orderedNavItems.map(renderViewButton)}
       </div>
 
-      <div className="grid grid-cols-3 gap-2 border-t border-[var(--border-soft)] pt-3 md:mt-auto md:grid-cols-1 md:gap-2">
+      <div className="grid grid-cols-2 gap-2 border-t border-[var(--border-soft)] pt-3 md:mt-auto md:grid-cols-1 md:gap-2">
         <button
           className="studio-nav-button w-full"
           data-tour-target={isShowcasePreviewActive ? undefined : 'share'}
@@ -311,23 +311,6 @@ const SideNav = ({ isShowcasePreviewActive, onOpenLaunchpad, onOpenShare, onOpen
           <div className="flex flex-col items-center justify-center gap-1 md:gap-2">
             {withSuperFill(<Share2 size={20} className="text-[var(--accent)]" />, 'studio-icon-fill-share-core')}
             <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Share</span>
-          </div>
-        </button>
-        <button
-          className="studio-nav-button w-full"
-          data-ui-sound="settings"
-          onClick={() => {
-            setActiveView('SEQUENCER');
-            onEnterEditingMode();
-          }}
-          title="Edit mode · make the track canvas fill the studio"
-          type="button"
-        >
-          <div className="flex flex-col items-center justify-center gap-1 md:gap-2">
-            <span className="studio-icon-shell">
-              <Maximize2 size={20} className="text-[var(--accent)]" />
-            </span>
-            <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Edit</span>
           </div>
         </button>
         <a
@@ -980,7 +963,6 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
                 onOpenLaunchpad={() => setLaunchpadOpen(true)}
                 onOpenRecord={openCapture}
                 onOpenTranscribe={openTranscribe}
-                onEnterEditingMode={() => setEditingMode(true)}
                 onOpenShare={() => {
                   setGuideOpen(false);
                   setShareOpen(true);

@@ -84,7 +84,7 @@ export const MobileStudioNavigation = ({
       ) : null}
 
       <nav aria-label="Mobile studio navigation" className="mobile-studio-dock md:hidden" data-tour-target="views">
-        <button aria-label="Sequencer" className={primaryClass} data-active={activeView === 'SEQUENCER'} onClick={() => setActiveView('SEQUENCER')} type="button"><SequencerIcon /><span>Seq</span></button>
+        <button aria-label="Create" className={primaryClass} data-active={activeView === 'SEQUENCER'} onClick={() => setActiveView('SEQUENCER')} type="button"><SequencerIcon /><span>Create</span></button>
         <button aria-label="Mixer" className={primaryClass} data-active={activeView === 'MIXER'} onClick={() => setActiveView('MIXER')} type="button"><Volume2 className="h-5 w-5" /><span>Mix</span></button>
         <button aria-label="Capture sound" className={`${primaryClass} mobile-studio-capture`} data-tour-target="record" onClick={onOpenRecord} type="button"><CaptureIcon /><span>Capture</span></button>
         <button aria-label="Share this session" className={primaryClass} data-tour-target="share" onClick={onOpenShare} type="button"><Share2 className="h-5 w-5" /><span>Share</span></button>

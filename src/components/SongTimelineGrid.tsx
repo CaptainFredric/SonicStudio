@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronsLeft, ChevronsRight, CopyPlus, GripVertical, MoreHorizontal, Music2, Scissors, Trash2 } from 'lucide-react';
+import { ChevronsLeft, ChevronsRight, CopyPlus, GripVertical, Music2, Scissors, Trash2 } from 'lucide-react';
 import type React from 'react';
 
 import { engine } from '../audio/ToneEngine';
@@ -75,11 +75,9 @@ interface SongTimelineGridProps {
   onEraseStep?: (trackId: string, patternIndex: number, localStep: number) => void;
   onSeek?: (beat: number) => void;
   onRenameSection?: (markerId: string, name: string) => void;
-  onManageSection?: (markerId: string) => void;
   onMoveSection?: (sectionId: string, startBeat: number, endBeat: number, targetBeat: number) => void;
   onResizeSectionEnd?: (sectionId: string, startBeat: number, currentEndBeat: number, nextEndBeat: number) => void;
   onReorderTrack?: (trackId: string, toIndex: number) => void;
-  onDeleteTrack?: (trackId: string) => void;
   onSelectClip?: (clipId: string) => void;
   onMoveClip?: (clipId: string, trackId: string, startBeat: number) => void;
   onResizeClip?: (clipId: string, updates: ClipResizeUpdates) => void;
@@ -115,11 +113,9 @@ export const SongTimelineGrid = ({
   onEraseStep,
   onSeek,
   onRenameSection,
-  onManageSection,
   onMoveSection,
   onResizeSectionEnd,
   onReorderTrack,
-  onDeleteTrack,
   onSelectClip,
   onMoveClip,
   onResizeClip,
@@ -1050,18 +1046,6 @@ export const SongTimelineGrid = ({
                 <TrackIcon type={track.type} className="h-3.5 w-3.5" />
               </span>
               {!gutterCollapsed && <span className="min-w-0 flex-1 truncate text-[12px] font-semibold tracking-tight text-[var(--text-primary)]">{track.name}</span>}
-              {!gutterCollapsed && onDeleteTrack && (
-                <button
-                  aria-label={`Remove the ${track.name} lane`}
-                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[3px] text-[var(--text-tertiary)] opacity-75 transition-colors hover:bg-[rgba(244,63,94,0.14)] hover:text-[var(--danger)] hover:opacity-100"
-                  onClick={(event) => { event.stopPropagation(); onDeleteTrack(track.id); }}
-                  onPointerDown={(event) => event.stopPropagation()}
-                  title={`Remove the ${track.name} lane`}
-                  type="button"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              )}
             </div>
           );
         })}
@@ -1148,17 +1132,6 @@ export const SongTimelineGrid = ({
                         {onMoveSection && <GripVertical className="h-3 w-3 shrink-0 opacity-50 transition-opacity group-hover:opacity-100" />}
                         <span className="truncate">{section.name}</span>
                       </button>
-                      {onManageSection && (
-                        <button
-                          aria-label={`Manage ${section.name}`}
-                          className="mr-0.5 shrink-0 rounded-[2px] p-0.5 text-[var(--text-tertiary)] opacity-0 transition-all hover:bg-[rgba(255,255,255,0.06)] hover:text-[var(--text-primary)] hover:opacity-100 focus:opacity-100 group-hover:opacity-70"
-                          onClick={() => onManageSection(section.id)}
-                          title={`Manage, clear, save, or delete ${section.name}`}
-                          type="button"
-                        >
-                          <MoreHorizontal className="h-3 w-3" />
-                        </button>
-                      )}
                     </div>
                   )}
                   {onResizeSectionEnd && (

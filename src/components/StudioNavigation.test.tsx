@@ -37,9 +37,11 @@ describe('MobileStudioNavigation', () => {
     );
 
     expect(screen.getByRole('navigation', { name: 'Mobile studio navigation' })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Create' }));
     fireEvent.click(screen.getByRole('button', { name: 'Mixer' }));
     fireEvent.click(screen.getByRole('button', { name: 'Capture sound' }));
     fireEvent.click(screen.getByRole('button', { name: 'Share this session' }));
+    expect(setActiveView).toHaveBeenCalledWith('SEQUENCER');
     expect(setActiveView).toHaveBeenCalledWith('MIXER');
     expect(onOpenRecord).toHaveBeenCalledOnce();
     expect(onOpenShare).toHaveBeenCalledOnce();

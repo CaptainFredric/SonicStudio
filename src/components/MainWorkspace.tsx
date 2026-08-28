@@ -19,6 +19,7 @@ import {
   Minus,
   Mic,
   Minimize2,
+  MoreHorizontal,
   Music2,
   MousePointer2,
   Pencil,
@@ -77,7 +78,6 @@ import {
 import { TrackIcon, getTrackPersonality } from '../utils/trackPersonality';
 import { useMediaQuery } from '../utils/useMediaQuery';
 import { readString, writeString } from '../utils/safeStorage';
-import { TrackMinimap } from './TrackMinimap';
 import { PatternColumnMenu } from './PatternColumnMenu';
 import { openNotesPanel } from './notesPanelStore';
 import { setEditingMode, useEditingMode } from './editingModeStore';
@@ -97,7 +97,6 @@ const LANE_COLUMN_COLLAPSED_KEY = 'sonicstudio:lane-column-collapsed';
 const TRACK_MAP_OPEN_KEY = 'sonicstudio:track-map-open';
 const COMPOSE_TOOLS_KEY = 'sonicstudio:compose-tools-open';
 const ADD_LANE_OPEN_KEY = 'sonicstudio:add-lane-open';
-const SONG_FLATTEN_KEY = 'sonicstudio:song-flatten';
 const SONG_EDIT_LAYER_KEY = 'sonicstudio:song-edit-layer';
 const SONG_TIMELINE_ZOOM_KEY = 'sonicstudio:song-timeline-zoom';
 import { MAX_STEPS_PER_PATTERN, MIN_STEPS_PER_PATTERN, type InstrumentType, type NoteEvent, type Track } from '../project/schema';
@@ -134,6 +133,7 @@ const STEP_ZOOM_MIN = 16;
 const STEP_ZOOM_STEP = 2;
 const SONG_TIMELINE_ZOOM_MIN = 12;
 const SONG_TIMELINE_ZOOM_DEFAULT = 24;
+const LEGACY_SEQUENCER_CHROME = false;
 const SESSION_PLAYER_PATTERN_COUNT = 4;
 const LOOP_BROWSER_FILTERS = [
   { label: 'Matching lane', value: 'MATCHING' as const },
@@ -667,7 +667,6 @@ export const MainWorkspace = () => {
   // Below the xl breakpoint the inspector cannot sit beside the grid, so it
   // stacks underneath as a full-width sheet. Treat that whole range like
   // mobile: keep it behind the Show inspector toggle so the grid leads.
-  const isNarrowViewport = useMediaQuery('(max-width: 1279px)');
   const {
     applySongForm,
     applyPatternSegment,
@@ -738,18 +737,12 @@ export const MainWorkspace = () => {
     updateStepEvent,
   } = useAudio();
   const [editorMode, setEditorMode] = useState<ComposeEditorMode>('edit');
-  // In Song mode the sequencer can flatten the whole arrangement into one
-  // scrollable grid so every section's notes are visible, not just the current
-  // pattern. Users can flip back to the classic per-pattern editor.
-  // Default to the single-pattern step grid, which is height-bounded and fits
-  // the screen, rather than the whole-song timeline that grows to the full
-  // arrangement height. The "Whole song" toggle switches over and the choice is
-  // remembered between sessions.
-  const [songFlatten, setSongFlatten] = useState(() => readString(SONG_FLATTEN_KEY) === 'true');
   const [songEditLayer, setSongEditLayer] = useState<'notes' | 'clips'>(() => (
     readString(SONG_EDIT_LAYER_KEY) === 'clips' ? 'clips' : 'notes'
   ));
-  const showSongGrid = transportMode === 'SONG' && songFlatten;
+  // Playback mode and editing surface must agree. Pattern always opens the
+  // loop grid; Song always opens the arrangement timeline.
+  const showSongGrid = transportMode === 'SONG';
   const [sectionManagerOpen, setSectionManagerOpen] = useState(false);
   const [managedSectionId, setManagedSectionId] = useState<string | null>(null);
   const closeSectionManager = useCallback(() => setSectionManagerOpen(false), []);
@@ -821,11 +814,6 @@ export const MainWorkspace = () => {
     laneHeaderWidth: number;
     viewportWidth: number;
   } | null>(null);
-  const [mobileInspectorOpen, setMobileInspectorOpen] = useState(false);
-  const [songInspectorOpen, setSongInspectorOpen] = useState(false);
-  // Track map (the read-only overview) starts closed everywhere; the grid is
-  // the editing surface and the map is one click away behind Show map. The
-  // choice is remembered.
   const [trackMapOpen, setTrackMapOpen] = useState(() => readString(TRACK_MAP_OPEN_KEY) === 'true');
   const [collapsedGroups, setCollapsedGroups] = useState<Record<LaneSectionKey, boolean>>({
     MUSICAL: false,
@@ -960,7 +948,7 @@ export const MainWorkspace = () => {
     && patternFitSnapshot.viewportWidth === gridViewportWidth
   );
   const stepRunwayWidth = Math.max(104, SEQUENCER_RUNWAY_STEPS * stepCellWidth);
-  const stepGridWidth = (stepsPerPattern * stepCellWidth) + stepRunwayWidth;
+  const stepGridWidth = stepsPerPattern * stepCellWidth;
   const maxGridScrollLeft = Math.max(0, (laneHeaderWidth + stepGridWidth) - gridViewportWidth);
   const maxGridScrollTop = Math.max(0, gridScrollHeight - gridViewportHeight);
   const visibleStepStart = Math.min(
@@ -1129,7 +1117,6 @@ export const MainWorkspace = () => {
       return;
     }
 
-    setMobileInspectorOpen(false);
   }, [isMobileViewport]);
 
   useEffect(() => {
@@ -2619,7 +2606,7 @@ export const MainWorkspace = () => {
       <div className={`sequencer-panel-header flex flex-col gap-3 border-b border-[var(--border-soft)] px-5 py-3 md:flex-row md:items-center md:justify-between md:gap-4 ${editingMode ? 'hidden' : ''}`}>
         <div className="min-w-0 shrink-0">
           <div className="flex items-baseline gap-2">
-            <div className="section-label">Sequencer</div>
+            <div className="section-label">Create</div>
             <h2 className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">
               {showSongGrid ? 'Song arrangement' : 'Pattern grid'}
             </h2>
@@ -2634,7 +2621,7 @@ export const MainWorkspace = () => {
           <div className="flex items-center justify-between gap-3">
             <span className="section-label shrink-0">Add lane</span>
             <div className="flex items-center gap-1.5">
-              {tracks.length > 0 && (
+              {LEGACY_SEQUENCER_CHROME && tracks.length > 0 && (
                 <button
                   aria-label={confirmClearLanes ? 'Confirm delete all lanes' : 'Delete all lanes'}
                   className="flex h-8 shrink-0 items-center gap-1.5 rounded-[4px] border px-2.5 transition-colors"
@@ -2659,7 +2646,7 @@ export const MainWorkspace = () => {
                   <span className="text-[10px] font-semibold uppercase tracking-[0.14em]">{confirmClearLanes ? 'Confirm' : 'Delete all'}</span>
                 </button>
               )}
-              {addLaneOpen && (
+              {LEGACY_SEQUENCER_CHROME && addLaneOpen && (
                 <>
                   <button
                     aria-label="Scroll the add-lane palette left"
@@ -2746,7 +2733,7 @@ export const MainWorkspace = () => {
               </button>
             ))}
           </div>
-          <div className="mt-2 flex items-center gap-2">
+          {LEGACY_SEQUENCER_CHROME && <div className="mt-2 flex items-center gap-2">
             <input
               aria-label="Add lane strip scroll"
               className="sonic-scroll-strip flex-1"
@@ -2764,7 +2751,7 @@ export const MainWorkspace = () => {
               value={Math.min(addLaneScrollLeft, Math.max(1, addLaneMaxScrollLeft))}
             />
             <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">{addLaneScrollProgress}</span>
-          </div>
+          </div>}
           </>
           )}
         </div>
@@ -2823,26 +2810,6 @@ export const MainWorkspace = () => {
                     <SlidersHorizontal className="h-3.5 w-3.5" />
                     Sections
                     <span className="font-mono text-[9px] text-[var(--accent-strong)]">{songSectionRanges.length}</span>
-                  </button>
-                  <button
-                    className="control-chip flex h-8 items-center gap-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em]"
-                    onClick={() => { writeString(SONG_FLATTEN_KEY, 'false'); setSongFlatten(false); }}
-                    title="Return to the focused pattern editor"
-                    type="button"
-                  >
-                    <MousePointer2 className="h-3.5 w-3.5" />
-                    Pattern editor
-                  </button>
-                  <button
-                    aria-pressed={songInspectorOpen}
-                    className="control-chip flex h-8 items-center gap-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em]"
-                    data-active={songInspectorOpen ? 'true' : undefined}
-                    onClick={() => setSongInspectorOpen((current) => !current)}
-                    title={songInspectorOpen ? 'Give the arrangement the full width' : 'Show controls for the selected lane'}
-                    type="button"
-                  >
-                    <SlidersHorizontal className="h-3.5 w-3.5" />
-                    <span className="hidden sm:inline">Inspector</span>
                   </button>
                 </div>
               </div>
@@ -3042,16 +3009,6 @@ export const MainWorkspace = () => {
                       <SlidersHorizontal className="h-3.5 w-3.5" />
                       {canDeepEditSelectedTrack ? 'Deep edit' : 'Song tools'}
                     </button>
-                    {isNarrowViewport && (
-                      <button
-                        className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                        onClick={() => setMobileInspectorOpen((current) => !current)}
-                        type="button"
-                      >
-                        <SlidersHorizontal className="h-3.5 w-3.5" />
-                        {mobileInspectorOpen ? 'Hide inspector' : 'Show inspector'}
-                      </button>
-                    )}
                   </>
                 )}
               </div>
@@ -3070,23 +3027,6 @@ export const MainWorkspace = () => {
                     <span className="hidden font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--text-tertiary)] sm:inline">
                       {formatSongSpan(songLengthInBeats, stepsPerPattern)} · {countLabel(songSectionRanges.length, 'section')}
                     </span>
-                    <div aria-label="Song editing view" className="ml-1 flex shrink-0 overflow-hidden rounded-[3px] border border-[var(--border-soft)]" role="group">
-                      <button
-                        aria-pressed="true"
-                        className="editing-tool-button flex h-8 items-center px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em]"
-                        data-active="true"
-                        type="button"
-                      >
-                        Timeline
-                      </button>
-                      <button
-                        className="editing-tool-button flex h-8 items-center border-l border-[var(--border-soft)] px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-tertiary)]"
-                        onClick={() => { writeString(SONG_FLATTEN_KEY, 'false'); setSongFlatten(false); }}
-                        type="button"
-                      >
-                        Pattern
-                      </button>
-                    </div>
                   </div>
                   <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
                     <div aria-label="Song edit layer" className="flex h-8 overflow-hidden rounded-[3px] border border-[var(--border-soft)]" role="group">
@@ -3202,17 +3142,6 @@ export const MainWorkspace = () => {
                     </div>
                   </div>
                   <div className="ml-auto flex items-center gap-1.5">
-                    {transportMode === 'SONG' && (
-                      <button
-                        className="control-chip flex h-8 items-center gap-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em]"
-                        onClick={() => { writeString(SONG_FLATTEN_KEY, 'true'); setSongFlatten(true); }}
-                        title="Edit every section on one continuous timeline"
-                        type="button"
-                      >
-                        <Maximize2 className="h-3.5 w-3.5" />
-                        Song timeline
-                      </button>
-                    )}
                     <button
                       aria-label={patternFitActive ? 'Restore the previous track zoom' : 'Fit pattern to the track editor'}
                       className="control-chip h-8 px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em]"
@@ -3402,7 +3331,6 @@ export const MainWorkspace = () => {
           )}
 
           <div className="sequencer-canvas-stack flex flex-col md:min-h-0 md:flex-1 md:overflow-hidden">
-            <TrackMinimap />
             {showSongGrid && (
               <SongTimelineGrid
                 tracks={visibleTracks}
@@ -3436,10 +3364,6 @@ export const MainWorkspace = () => {
                 }}
                 onSeek={(beat) => engine.seekToBeat(beat)}
                 onRenameSection={(markerId, name) => updateSongMarker(markerId, { name })}
-                onManageSection={(markerId) => {
-                  setManagedSectionId(markerId);
-                  setSectionManagerOpen(true);
-                }}
                 onMoveSection={(_sectionId, startBeat, endBeat, targetBeat) => {
                   moveSongSection(startBeat, endBeat, targetBeat);
                 }}
@@ -3447,7 +3371,6 @@ export const MainWorkspace = () => {
                   resizeSongSectionEnd(startBeat, currentEndBeat, nextEndBeat);
                 }}
                 onReorderTrack={reorderTrack}
-                onDeleteTrack={removeTrack}
                 onSelectClip={(clipId) => {
                   const clip = arrangerClips.find((candidate) => candidate.id === clipId);
                   if (clip) {
@@ -3573,7 +3496,7 @@ export const MainWorkspace = () => {
                         </div>
                       );
                     })}
-                    <button
+                    {LEGACY_SEQUENCER_CHROME && <button
                       aria-label={patternLengthPreview
                         ? `Release to set the pattern to ${patternLengthPreview.steps} steps${patternLengthPreview.fill ? ' and fill the new space' : ''}`
                         : 'Add a bar tap +16 · drag to size · alt fills'}
@@ -3625,7 +3548,7 @@ export const MainWorkspace = () => {
                           ? `${patternLengthPreview.steps - stepsPerPattern >= 0 ? '+' : ''}${patternLengthPreview.steps - stepsPerPattern} on release${patternLengthPreview.fill ? ' · fill on' : ''}`
                           : 'tap +16 · drag to size · alt fills'}
                       </span>
-                    </button>
+                    </button>}
                   </div>
                 </div>
 
@@ -3802,13 +3725,12 @@ export const MainWorkspace = () => {
                               </StateActionBtn>
                             </span>
                           </div>
-                          <div className="flex flex-wrap items-center gap-1">
-                            {/* The rarer per-lane actions stay out of the way until
-                                the lane is hovered, keyboard-focused, or selected,
-                                so a full scene is not a wall of buttons. Hidden
-                                buttons also drop pointer events, so an invisible
-                                Delete can't be hit by accident. */}
-                            <span className={`flex flex-wrap items-center gap-1 overflow-hidden transition-all duration-150 ${selected ? 'max-h-24' : 'pointer-events-none max-h-0 opacity-0 group-focus-within/lane:pointer-events-auto group-focus-within/lane:max-h-24 group-focus-within/lane:opacity-100 group-hover/lane:pointer-events-auto group-hover/lane:max-h-24 group-hover/lane:opacity-100'}`}>
+                          <details className="lane-action-menu relative mt-1" onClick={(event) => event.stopPropagation()}>
+                            <summary className="inline-flex cursor-pointer list-none items-center gap-1 rounded-[3px] px-1.5 py-1 font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--text-tertiary)] hover:bg-white/5 hover:text-[var(--text-primary)]">
+                              <MoreHorizontal className="h-3.5 w-3.5" />
+                              More
+                            </summary>
+                            <div className="mt-1 flex flex-wrap items-center gap-1 rounded-[3px] border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] p-1.5">
                             <StateActionBtn
                               active={pinned}
                               label={pinned ? 'Unpin lane' : 'Pin lane'}
@@ -3865,8 +3787,8 @@ export const MainWorkspace = () => {
                             }}>
                               <Trash2 className="h-3.5 w-3.5" />
                             </RowActionBtn>
-                            </span>
-                          </div>
+                            </div>
+                          </details>
                           </>
                           )}
                         </div>
@@ -4044,7 +3966,7 @@ export const MainWorkspace = () => {
                               </button>
                             );
                           })}
-                          <div
+                          {LEGACY_SEQUENCER_CHROME && <div
                             className="lane-runway flex min-h-[38px] shrink-0 overflow-hidden border border-dashed border-[var(--border-soft)]"
                             data-active={activeRunwayPreview ? 'true' : 'false'}
                             style={{ width: `${stepRunwayWidth - 2}px` }}
@@ -4110,7 +4032,7 @@ export const MainWorkspace = () => {
                               <Plus className="h-3 w-3" strokeWidth={2.5} />
                               16
                             </button>
-                          </div>
+                          </div>}
                         </div>
                       </div>
                     );
@@ -4119,7 +4041,7 @@ export const MainWorkspace = () => {
               ))}
               </div>
             </div>
-            {!showSongGrid && (
+            {LEGACY_SEQUENCER_CHROME && !showSongGrid && (
               <nav
                 aria-label="Pattern viewport navigation"
                 className="sequencer-viewport-dock"
@@ -4222,7 +4144,7 @@ export const MainWorkspace = () => {
             )}
           </div>
 
-          {visibleTracks.length > 0 && composeToolsExpanded && (
+          {LEGACY_SEQUENCER_CHROME && visibleTracks.length > 0 && composeToolsExpanded && (
             <div className="surface-panel-muted mt-3 px-4 py-3">
               <div className={`flex items-center justify-between gap-2 ${trackMapOpen ? 'mb-3 border-b border-[var(--border-soft)] pb-3' : ''}`}>
                 <span className="section-label">Track map</span>
@@ -4401,7 +4323,7 @@ export const MainWorkspace = () => {
           )}
         </div>
 
-        {!editingMode && (showSongGrid ? songInspectorOpen : (!isNarrowViewport || mobileInspectorOpen)) && (
+        {LEGACY_SEQUENCER_CHROME && !editingMode && (
         <aside className="surface-panel-strong sonic-sidebar w-full shrink-0 overflow-auto p-4 xl:min-w-[280px] xl:w-[min(32vw,320px)] 2xl:w-[320px]">
           <div className="flex items-center gap-2">
             <SlidersHorizontal className="h-4 w-4 text-[var(--accent)]" />
