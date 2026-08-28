@@ -131,6 +131,15 @@ npm run build
 
 Current test coverage includes reducer invariants, arranger selector and interaction logic, clip mutation helpers, note edit hydration, MIDI round trips, transport-controller behavior, render workflow behavior, session workflow behavior, explicit route resolution, controller-level render and restore seams, component render smoke tests, the share-link codec and lazy-load retry, and registry integrity checks that build every starter scene and validate every voice preset.
 
+## Documentation map
+
+1. `ARCHITECTURE.md` describes the current system boundaries
+2. `DEVELOPER_GUIDE.md` covers development and contribution workflows
+3. `DEPLOYMENT.md` documents hosting and release behavior
+4. `QUICK_REFERENCE.md` collects common commands and entry points
+5. `docs/engineering/handoffs/` preserves historical refactor handoffs without crowding the project root
+6. `examples/audio/` contains source material used for capture and transcription experiments
+
 ## Project direction
 
 The strongest next milestones are:

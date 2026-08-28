@@ -58,12 +58,12 @@ const TOUR_STEPS: GuideStep[] = [
     title: 'Start by hearing it.',
   },
   {
-    action: 'Use the left rail to switch editing context, not just screens.',
-    body: 'Compose is idea capture, Sequencer is step timing, Roll is pitch detail, Mix is balance, and Arranger is song structure.',
-    eyebrow: 'Views',
-    payoff: 'Knowing each view role makes the workflow feel intentional instead of repetitive.',
+    action: 'Build timing in Sequencer, open Notes or Arrangement in the Inspector, then use Mix for balance.',
+    body: 'Library, Capture, and Transcribe bring material in. Sequencer shapes the pattern, the Inspector handles pitch and song structure, and Mixer finishes the balance.',
+    eyebrow: 'Workflow',
+    payoff: 'Each surface owns one clear stage of the same song instead of duplicating the others.',
     target: 'views',
-    title: 'Each main view has a distinct job.',
+    title: 'Move from idea to song without losing context.',
   },
   {
     action: 'Open Library to start fresh, reopen saved work, or pull captured notes.',
@@ -269,7 +269,10 @@ export const OnboardingGuide = ({
         <div className="tour-highlight" style={highlightStyle} />
       ) : null}
 
-      <section className="tour-panel pointer-events-auto fixed bottom-4 right-4 w-[min(360px,calc(100vw-1.5rem))] max-w-full p-4 sm:p-5">
+      <section
+        aria-label={isShowcase ? 'SonicStudio quick preview' : 'SonicStudio guide'}
+        className="tour-panel pointer-events-auto fixed bottom-4 right-4 w-[min(360px,calc(100vw-1.5rem))] max-w-full p-4 sm:p-5"
+      >
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2 text-[var(--accent)]">
@@ -290,8 +293,10 @@ export const OnboardingGuide = ({
           </button>
         </div>
 
-        <h2 className="mt-3 text-[18px] font-semibold tracking-tight text-[var(--text-primary)]">{step.title}</h2>
-        <p className="mt-3 text-[13px] leading-6 text-[var(--text-secondary)]">{step.body}</p>
+        <div aria-atomic="true" aria-live="polite">
+          <h2 className="mt-3 text-[18px] font-semibold tracking-tight text-[var(--text-primary)]">{step.title}</h2>
+          <p className="mt-3 text-[13px] leading-6 text-[var(--text-secondary)]">{step.body}</p>
+        </div>
 
         {isShowcase && step.target === 'play' ? (
           <button
@@ -335,6 +340,7 @@ export const OnboardingGuide = ({
         <div className="mt-4 flex flex-wrap items-center gap-2">
           {steps.map((guideStep, index) => (
             <button
+              aria-current={index === stepIndex ? 'step' : undefined}
               aria-label={`Jump to guide step ${index + 1}: ${guideStep.eyebrow}`}
               className="control-chip flex h-8 min-w-8 items-center justify-center px-2 text-[10px] font-mono font-semibold uppercase tracking-[0.14em]"
               data-active={index === stepIndex}

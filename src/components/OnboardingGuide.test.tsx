@@ -37,6 +37,7 @@ describe('OnboardingGuide', () => {
 
     expect(screen.getByText('Quick preview')).toBeTruthy();
     expect(screen.getByText('Listen · 1 of 3')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Jump to guide step 1: Listen' }).getAttribute('aria-current')).toBe('step');
     fireEvent.click(screen.getByRole('button', { name: 'Play Night Transit' }));
     expect(onTogglePlayback).toHaveBeenCalledOnce();
 
@@ -61,5 +62,8 @@ describe('OnboardingGuide', () => {
 
     expect(screen.getByText('Start here · 1 of 8')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Play Night Transit' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Jump to guide step 2: Workflow' }));
+    expect(screen.getByText('Move from idea to song without losing context.')).toBeTruthy();
+    expect(screen.queryByText(/Compose is idea capture/i)).toBeNull();
   });
 });

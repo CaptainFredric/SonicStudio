@@ -2,11 +2,8 @@ import React, { Suspense, useCallback, useEffect, useRef, useState } from 'react
 import { AudioProvider, useAudio } from './context/AudioContext';
 import { TopBar } from './components/TopBar';
 import { MainWorkspace as Sequencer } from './components/MainWorkspace';
-import { NotesPanel } from './components/NotesPanel';
 import { setNotesPanelOpen, useNotesPanelOpen } from './components/notesPanelStore';
 import { setEditingMode, useEditingMode } from './components/editingModeStore';
-import { DeviceRack } from './components/DeviceRack';
-import { ArrangementPanel } from './components/ArrangementPanel';
 import { TapToPlay } from './components/TapToPlay';
 import { ShortcutOverlay } from './components/ShortcutOverlay';
 import { SuperSonicAssistBar } from './components/SuperSonicAssistBar';
@@ -49,6 +46,9 @@ const AudioCapture = lazyWithRetry(() => import('./components/AudioCapture').the
 const SongTranscriber = lazyWithRetry(() => import('./components/SongTranscriber').then((module) => ({ default: module.SongTranscriber })), 'transcriber');
 const ShareDialog = lazyWithRetry(() => import('./components/ShareDialog').then((module) => ({ default: module.ShareDialog })), 'share');
 const OnboardingGuide = lazyWithRetry(() => import('./components/OnboardingGuide').then((module) => ({ default: module.OnboardingGuide })), 'guide');
+const DeviceRack = lazyWithRetry(() => import('./components/DeviceRack').then((module) => ({ default: module.DeviceRack })), 'device-rack');
+const NotesPanel = lazyWithRetry(() => import('./components/NotesPanel').then((module) => ({ default: module.NotesPanel })), 'notes-panel');
+const ArrangementPanel = lazyWithRetry(() => import('./components/ArrangementPanel').then((module) => ({ default: module.ArrangementPanel })), 'arrangement-panel');
 
 // The lower inspector is a single-tab dock. Sound, Notes, and Arrangement used
 // to mount independently, which could stack several full editors and leave the
@@ -150,9 +150,11 @@ const PanelDock = () => {
           id={`studio-panel-${activePanel}`}
           role="tabpanel"
         >
-          {activePanel === 'desk' && <DeviceRack />}
-          {activePanel === 'notes' && <NotesPanel />}
-          {activePanel === 'arrangement' && <ArrangementPanel />}
+          <Suspense fallback={<div className="surface-panel flex min-h-40 items-center justify-center text-sm text-[var(--text-secondary)]">Opening inspector</div>}>
+            {activePanel === 'desk' && <DeviceRack />}
+            {activePanel === 'notes' && <NotesPanel />}
+            {activePanel === 'arrangement' && <ArrangementPanel />}
+          </Suspense>
         </div>
       )}
     </>
@@ -638,6 +640,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
   const [isRecordOpen, setRecordOpen] = useState(false);
   const [isTranscribeOpen, setTranscribeOpen] = useState(false);
   const [isQuickCaptureOpen, setQuickCaptureOpen] = useState(false);
+  const isShowcasePreviewActive = isGuideOpen && guideMode === 'showcase';
   useDialogFocus(isLaunchpadOpen, launchpadRef, { trap: true });
   const editingMode = useEditingMode();
   const [toasts, setToasts] = useState<ToastItem[]>([]);
@@ -836,7 +839,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
     <div
       className="app-shell min-h-screen w-full antialiased text-[var(--text-primary)] md:flex md:flex-row md:h-screen md:min-h-0 md:overflow-hidden"
       data-editing-mode={editingMode ? 'true' : undefined}
-      data-showcase-guide={isGuideOpen && guideMode === 'showcase' ? 'true' : undefined}
+      data-showcase-guide={isShowcasePreviewActive ? 'true' : undefined}
     >
       <MidiKeyboardBridge />
       <ToastStack toasts={toasts} onDismiss={dismissToast} />
@@ -966,10 +969,10 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
             <div className="studio-editor-row flex flex-col gap-3 md:min-h-[300px] md:flex-row md:flex-1 md:overflow-hidden">
               <ViewRouter />
             </div>
-            {!editingMode && <PanelDock />}
+            {!editingMode && !isShowcasePreviewActive && <PanelDock />}
           </div>
         </div>
-        {!editingMode && (
+        {!editingMode && !isShowcasePreviewActive && (
           <div className="studio-auxiliary-dock flex min-h-0 shrink-0 flex-col gap-3 overflow-y-auto px-3 pb-3">
             <SuperSonicAssistBar />
             <TapToPlay />
