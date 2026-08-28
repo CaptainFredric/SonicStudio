@@ -1,10 +1,15 @@
-import { ArrowLeft, ArrowRight, Sparkles, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Pause, Play, Sparkles, X } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
+export type GuideMode = 'showcase' | 'tour';
+
 interface OnboardingGuideProps {
+  isPlaying: boolean;
+  mode: GuideMode;
   open: boolean;
   onComplete: () => void;
   onSkip: () => void;
+  onTogglePlayback: () => void | Promise<void>;
 }
 
 interface GuideStep {
@@ -16,7 +21,34 @@ interface GuideStep {
   title: string;
 }
 
-const GUIDE_STEPS: GuideStep[] = [
+const SHOWCASE_STEPS: GuideStep[] = [
+  {
+    action: 'Play Night Transit. The complete six section arrangement is ready now.',
+    body: 'Start with the finished idea instead of an empty grid. The browser wakes the audio engine on your first tap.',
+    eyebrow: 'Listen',
+    payoff: 'You can judge the musical result before learning a single control.',
+    target: 'play',
+    title: 'Hear a complete song first.',
+  },
+  {
+    action: 'Open one workspace and change only the part that interests you.',
+    body: 'The same project moves from step sequencing to pitch editing, arrangement, sound design, and mixing.',
+    eyebrow: 'Shape',
+    payoff: 'This is one connected writing workflow, not a collection of disconnected demos.',
+    target: 'views',
+    title: 'Shape the idea from one studio.',
+  },
+  {
+    action: 'Share the session, export MIDI, or bounce a WAV when the idea is ready.',
+    body: 'Your arrangement stays editable, saves locally, and can leave the browser in practical formats.',
+    eyebrow: 'Finish',
+    payoff: 'The result is portable music and a recoverable project, not a visual mockup.',
+    target: 'share',
+    title: 'Leave with something real.',
+  },
+];
+
+const TOUR_STEPS: GuideStep[] = [
   {
     action: 'Tap Play to hear the whole scene, then keep what works.',
     body: 'Press Play, or hit Space, and the scene you loaded starts right up. Audio wakes on that first tap, so there is nothing to set up first.',
@@ -83,9 +115,18 @@ const GUIDE_STEPS: GuideStep[] = [
   },
 ];
 
-export const OnboardingGuide = ({ open, onComplete, onSkip }: OnboardingGuideProps) => {
+export const OnboardingGuide = ({
+  isPlaying,
+  mode,
+  open,
+  onComplete,
+  onSkip,
+  onTogglePlayback,
+}: OnboardingGuideProps) => {
   const [stepIndex, setStepIndex] = useState(0);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
+  const steps = mode === 'showcase' ? SHOWCASE_STEPS : TOUR_STEPS;
+  const isShowcase = mode === 'showcase';
   const isCompactViewport = useMemo(() => {
     if (typeof window === 'undefined') {
       return false;
@@ -101,9 +142,9 @@ export const OnboardingGuide = ({ open, onComplete, onSkip }: OnboardingGuidePro
     }
 
     setStepIndex(0);
-  }, [open]);
+  }, [mode, open]);
 
-  const step = GUIDE_STEPS[stepIndex] ?? GUIDE_STEPS[0];
+  const step = steps[stepIndex] ?? steps[0];
   const reducedMotion = useMemo(() => {
     if (typeof window === 'undefined') {
       return false;
@@ -167,7 +208,7 @@ export const OnboardingGuide = ({ open, onComplete, onSkip }: OnboardingGuidePro
 
       if (event.key === 'ArrowRight') {
         event.preventDefault();
-        setStepIndex((current) => Math.min(current + 1, GUIDE_STEPS.length - 1));
+        setStepIndex((current) => Math.min(current + 1, steps.length - 1));
       }
 
       if (event.key === 'ArrowLeft') {
@@ -178,13 +219,13 @@ export const OnboardingGuide = ({ open, onComplete, onSkip }: OnboardingGuidePro
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onSkip, open]);
+  }, [onSkip, open, steps.length]);
 
   if (!open) {
     return null;
   }
 
-  const isLastStep = stepIndex === GUIDE_STEPS.length - 1;
+  const isLastStep = stepIndex === steps.length - 1;
   const highlightStyle = targetRect
     ? (() => {
         const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 0;
@@ -233,10 +274,10 @@ export const OnboardingGuide = ({ open, onComplete, onSkip }: OnboardingGuidePro
           <div>
             <div className="flex items-center gap-2 text-[var(--accent)]">
               <Sparkles className="h-4 w-4" />
-              <span className="section-label text-[var(--accent)]">Guide</span>
+              <span className="section-label text-[var(--accent)]">{isShowcase ? 'Quick preview' : 'Guide'}</span>
             </div>
             <div className="mt-2 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
-              {step.eyebrow} · {stepIndex + 1} of {GUIDE_STEPS.length}
+              {step.eyebrow} · {stepIndex + 1} of {steps.length}
             </div>
           </div>
           <button
@@ -252,26 +293,47 @@ export const OnboardingGuide = ({ open, onComplete, onSkip }: OnboardingGuidePro
         <h2 className="mt-3 text-[18px] font-semibold tracking-tight text-[var(--text-primary)]">{step.title}</h2>
         <p className="mt-3 text-[13px] leading-6 text-[var(--text-secondary)]">{step.body}</p>
 
+        {isShowcase && step.target === 'play' ? (
+          <button
+            aria-label={isPlaying ? 'Pause Night Transit' : 'Play Night Transit'}
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-[3px] border border-[var(--accent)] bg-[rgba(72,228,255,0.13)] px-4 py-3 text-[12px] font-semibold uppercase tracking-[0.14em] text-[var(--accent-strong)] transition-colors hover:bg-[rgba(72,228,255,0.21)]"
+            data-active={isPlaying ? 'true' : 'false'}
+            data-ui-sound="transport"
+            onClick={() => void onTogglePlayback()}
+            type="button"
+          >
+            {isPlaying ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
+            {isPlaying ? 'Pause demo' : 'Play Night Transit'}
+          </button>
+        ) : null}
+
         <div className="mt-4 h-[2px] overflow-hidden rounded-[2px] bg-[rgba(255,255,255,0.08)]">
           <div
             className="h-full rounded-[2px] bg-[linear-gradient(90deg,var(--accent),rgba(114,217,255,0.36))]"
-            style={{ width: `${((stepIndex + 1) / GUIDE_STEPS.length) * 100}%` }}
+            style={{ width: `${((stepIndex + 1) / steps.length) * 100}%` }}
           />
         </div>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <div className="rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.025)] px-3 py-3">
-            <div className="section-label">Try this</div>
-            <p className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">{step.action}</p>
-          </div>
-          <div className="rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.025)] px-3 py-3">
-            <div className="section-label">Why it matters</div>
+        {isShowcase ? (
+          <div className="mt-4 rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.025)] px-3 py-3">
+            <div className="section-label">What to notice</div>
             <p className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">{step.payoff}</p>
           </div>
-        </div>
+        ) : (
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.025)] px-3 py-3">
+              <div className="section-label">Try this</div>
+              <p className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">{step.action}</p>
+            </div>
+            <div className="rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.025)] px-3 py-3">
+              <div className="section-label">Why it matters</div>
+              <p className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">{step.payoff}</p>
+            </div>
+          </div>
+        )}
 
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          {GUIDE_STEPS.map((guideStep, index) => (
+          {steps.map((guideStep, index) => (
             <button
               aria-label={`Jump to guide step ${index + 1}: ${guideStep.eyebrow}`}
               className="control-chip flex h-8 min-w-8 items-center justify-center px-2 text-[10px] font-mono font-semibold uppercase tracking-[0.14em]"
@@ -296,9 +358,11 @@ export const OnboardingGuide = ({ open, onComplete, onSkip }: OnboardingGuidePro
           ) : null}
         </div>
 
-        <div className="mt-4 border-t border-[var(--border-soft)] pt-4 text-[11px] leading-5 text-[var(--text-tertiary)]">
-          Use left and right arrows to move through steps. Press Esc to skip. On mobile, Show control recenters the target before you continue.
-        </div>
+        {!isShowcase ? (
+          <div className="mt-4 border-t border-[var(--border-soft)] pt-4 text-[11px] leading-5 text-[var(--text-tertiary)]">
+            Use left and right arrows to move through steps. Press Esc to skip. On mobile, Show control recenters the target before you continue.
+          </div>
+        ) : null}
 
         <div className="mt-4 flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -318,7 +382,7 @@ export const OnboardingGuide = ({ open, onComplete, onSkip }: OnboardingGuidePro
               onClick={onSkip}
               type="button"
             >
-              Skip
+              {isShowcase ? 'Explore studio' : 'Skip'}
             </button>
           </div>
 
@@ -332,11 +396,11 @@ export const OnboardingGuide = ({ open, onComplete, onSkip }: OnboardingGuidePro
                 return;
               }
 
-              setStepIndex((current) => Math.min(current + 1, GUIDE_STEPS.length - 1));
+              setStepIndex((current) => Math.min(current + 1, steps.length - 1));
             }}
             type="button"
           >
-            {isLastStep ? 'Done' : 'Next'}
+            {isLastStep ? (isShowcase ? 'Enter studio' : 'Done') : 'Next'}
             {!isLastStep ? <ArrowRight className="h-3.5 w-3.5" /> : null}
           </button>
         </div>

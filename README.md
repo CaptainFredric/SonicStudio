@@ -1,6 +1,10 @@
 # SonicStudio
 
+**Featured on [Handshake's AI Showcase](https://app.joinhandshake.com/ai-showcase).**
+
 **[Open the studio](https://captainfredric.github.io/SonicStudio/)** and press Play. No install, no account.
+
+**[Start with the guided Night Transit showcase](https://captainfredric.github.io/SonicStudio/?demo=night-transit&view=song&guide=1)** for the fastest product preview.
 
 ![The SonicStudio workspace: step sequencer, track timeline, and transport](public/share/sonicstudio-hero.png)
 

@@ -27,6 +27,7 @@ import { useMediaQuery } from './utils/useMediaQuery';
 import { readString, writeString } from './utils/safeStorage';
 import { lazyWithRetry } from './utils/lazyWithRetry';
 import { decodeSharePayload } from './utils/shareCodec';
+import type { GuideMode } from './components/OnboardingGuide';
 import { TransportSpectrum } from './components/TransportSpectrum';
 import { revealStudioEditor, revealStudioPanel } from './components/studioViewport';
 import { resolveInitialStudioPanel, resolveNextStudioPanel, type StudioPanelId } from './components/studioPanelState';
@@ -614,12 +615,14 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
     importSession,
     initAudio,
     isInitialized,
+    isPlaying,
     isSettingsOpen,
     latestNotice,
     loadSessionTemplate,
     requestDemoPlayback,
     setActiveView,
     setSettingsOpen,
+    togglePlay,
   } = useAudio();
   const isFirstImpression = useFirstImpression();
   const settingsPanelRef = useRef<HTMLDivElement>(null);
@@ -630,6 +633,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
     return routeState.showLaunchpad;
   });
   const [isGuideOpen, setGuideOpen] = useState<boolean>(() => routeState.showGuide);
+  const [guideMode, setGuideMode] = useState<GuideMode>(() => routeState.showGuide ? 'showcase' : 'tour');
   const [isShareOpen, setShareOpen] = useState(false);
   const [isRecordOpen, setRecordOpen] = useState(false);
   const [isTranscribeOpen, setTranscribeOpen] = useState(false);
@@ -744,6 +748,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
       // surface it again. Completing it later upgrades the status.
       markOnboardingSkipped();
     }
+    setGuideMode('tour');
     setGuideOpen(willAutoOpenGuide);
     void initAudio();
   };
@@ -760,6 +765,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
     loadSessionTemplate('night-transit');
     setActiveView('SEQUENCER');
     setLaunchpadOpen(false);
+    setGuideMode('tour');
     setGuideOpen(true);
     void initAudio();
   };
@@ -830,12 +836,15 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
     <div
       className="app-shell min-h-screen w-full antialiased text-[var(--text-primary)] md:flex md:flex-row md:h-screen md:min-h-0 md:overflow-hidden"
       data-editing-mode={editingMode ? 'true' : undefined}
+      data-showcase-guide={isGuideOpen && guideMode === 'showcase' ? 'true' : undefined}
     >
       <MidiKeyboardBridge />
       <ToastStack toasts={toasts} onDismiss={dismissToast} />
       {isGuideOpen && !isLaunchpadOpen && !isShareOpen && !isRecordOpen && !isTranscribeOpen && (
         <Suspense fallback={null}>
           <OnboardingGuide
+            isPlaying={isPlaying}
+            mode={guideMode}
             onComplete={() => {
               autoGuidePendingRef.current = false;
               markOnboardingCompleted();
@@ -846,6 +855,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
               markOnboardingSkipped();
               setGuideOpen(false);
             }}
+            onTogglePlayback={togglePlay}
             open
           />
         </Suspense>

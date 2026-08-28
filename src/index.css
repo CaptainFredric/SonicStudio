@@ -467,6 +467,18 @@ html[data-supersonic="true"] .launchpad-step-index {
   box-shadow: 0 22px 42px rgba(0, 0, 0, 0.32), inset 0 1px 0 rgba(255,255,255,0.04);
 }
 
+/* Showcase links should reveal the product in layers. The compact preview
+   keeps the sequencer and transport visible while the deeper editor docks
+   return as soon as the visitor enters the full studio. */
+.app-shell[data-showcase-guide="true"] .studio-panel-dock,
+.app-shell[data-showcase-guide="true"] .studio-auxiliary-dock {
+  display: none;
+}
+
+.app-shell[data-showcase-guide="true"] .tour-panel {
+  width: min(340px, calc(100vw - 1.5rem));
+}
+
 html[data-supersonic="true"] .tour-panel {
   background:
     radial-gradient(circle at top right, rgba(12, 109, 112, 0.1), transparent 28%),
