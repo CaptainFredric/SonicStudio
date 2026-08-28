@@ -4136,42 +4136,163 @@ html[data-note-string-queued="true"] [data-seq-cell="true"]:focus-visible {
     padding-inline: 0;
   }
 
-  .studio-rail {
-    display: flex;
-    align-items: stretch;
-    gap: 0.4rem;
-    overflow-x: auto;
-    overflow-y: hidden;
-    padding-block: 0.45rem;
-    overscroll-behavior-x: contain;
-    scrollbar-width: none;
-  }
-
-  .studio-rail::-webkit-scrollbar {
+  .studio-rail.hidden {
     display: none;
-  }
-
-  .studio-rail > div:not(.hidden) {
-    display: contents;
-  }
-
-  .studio-rail > div.hidden {
-    display: none;
-  }
-
-  .studio-rail .studio-nav-button {
-    width: 70px;
-    min-width: 70px;
-    min-height: 62px;
-    flex: 0 0 70px;
-    padding: 0.45rem 0.25rem;
-  }
-
-  .studio-rail .studio-nav-button > div {
-    gap: 0.25rem;
   }
 
   .studio-panel-dock {
-    top: 4rem;
+    top: 0;
+  }
+}
+
+.notes-panel {
+  height: clamp(420px, 64vh, 720px);
+}
+
+/* The note editor becomes a focused workspace before its grid and inspector
+   would have to stack. This keeps both editing modes spacious on tablets and
+   gives phones a dependable canvas above the command dock. */
+@media (max-width: 1279px) {
+  .studio-shell-grid:has(.studio-inspector-stack[data-active-panel="notes"]) {
+    animation: none;
+    transform: none;
+  }
+
+  .studio-inspector-stack[data-active-panel="notes"] {
+    position: fixed;
+    z-index: 55;
+    inset: 0;
+    display: flex;
+    min-height: 0;
+    flex-direction: column;
+    padding: 0.6rem;
+    background: var(--bg-app);
+  }
+
+  .studio-inspector-stack[data-active-panel="notes"] .studio-panel-dock {
+    position: relative;
+    top: auto;
+    flex: 0 0 auto;
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.28);
+  }
+
+  .studio-inspector-stack[data-active-panel="notes"] .studio-panel-body,
+  .studio-inspector-stack[data-active-panel="notes"] .notes-panel,
+  .studio-inspector-stack[data-active-panel="notes"] .notes-panel > div,
+  .studio-inspector-stack[data-active-panel="notes"] .piano-roll-shell {
+    height: auto;
+    min-height: 0;
+    flex: 1 1 auto;
+  }
+
+  .studio-inspector-stack[data-active-panel="notes"] .studio-panel-body,
+  .studio-inspector-stack[data-active-panel="notes"] .notes-panel {
+    overflow: hidden;
+  }
+
+  .piano-roll-shell {
+    overflow: hidden;
+  }
+
+  .piano-roll-header {
+    flex: 0 0 auto;
+    gap: 0.5rem;
+    padding: 0.55rem 0.65rem;
+  }
+
+  .piano-roll-track-summary {
+    flex: 1 1 auto;
+    flex-wrap: nowrap;
+    gap: 0.5rem;
+    overflow: hidden;
+  }
+
+  .piano-roll-track-summary > h2 {
+    min-width: 0;
+  }
+
+  .piano-roll-mobile-switch {
+    order: 3;
+  }
+
+  .piano-roll-tools-toggle {
+    order: 2;
+    min-height: 40px;
+  }
+
+  .piano-roll-editor-layout {
+    min-height: 0;
+    flex: 1 1 auto;
+    padding: 0.6rem;
+  }
+
+  .piano-roll-grid-pane {
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow: hidden;
+  }
+
+  .piano-roll-grid-pane > .sequencer-grid-scroll {
+    min-height: 0;
+    flex: 1 1 auto;
+  }
+
+  .piano-roll-overview {
+    display: none;
+  }
+
+  .piano-roll-inspector {
+    min-height: 0;
+    max-height: none;
+    flex: 1 1 auto;
+    overflow-y: auto;
+  }
+
+  .piano-roll-shell[data-mobile-view="inspector"] .piano-roll-grid-pane {
+    display: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .studio-inspector-stack[data-active-panel="notes"] {
+    bottom: calc(68px + env(safe-area-inset-bottom));
+    padding: 0;
+  }
+
+  .studio-inspector-stack[data-active-panel="notes"] .studio-panel-dock,
+  .studio-inspector-stack[data-active-panel="notes"] .piano-roll-shell {
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+  }
+
+  .piano-roll-header .section-label,
+  .piano-roll-track-summary > span,
+  .piano-roll-track-summary > div:last-child {
+    display: none;
+  }
+
+  .piano-roll-header {
+    padding-inline: 0.5rem;
+  }
+
+  .piano-roll-editor-layout {
+    gap: 0.5rem;
+    padding: 0.45rem;
+  }
+
+  .piano-roll-inspector {
+    padding: 0.75rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .studio-inspector-stack[data-active-panel="notes"] .studio-panel-dock [role="tab"]:not([aria-selected="true"]) {
+    display: none;
+  }
+
+  .studio-inspector-stack[data-active-panel="notes"] .studio-panel-dock [role="tab"][aria-selected="true"] {
+    min-height: 40px;
+    flex: 1 1 auto;
   }
 }

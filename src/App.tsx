@@ -107,7 +107,10 @@ const PanelDock = () => {
   const dockChipClass = 'control-chip whitespace-nowrap px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]';
 
   return (
-    <>
+    <section
+      className="studio-inspector-stack min-w-0"
+      data-active-panel={activePanel ?? undefined}
+    >
       <div
         className="studio-panel-dock surface-panel flex min-w-0 items-center gap-2 px-3 py-2"
         data-studio-panel-dock="true"
@@ -159,7 +162,7 @@ const PanelDock = () => {
           </Suspense>
         </div>
       )}
-    </>
+    </section>
   );
 };
 

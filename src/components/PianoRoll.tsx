@@ -208,7 +208,7 @@ const OverviewPlayhead = ({ stepsPerPattern }: { stepsPerPattern: number }) => {
 };
 
 const PianoRollEditor = ({ track }: { track: Track }) => {
-  const isMobileViewport = useMediaQuery('(max-width: 767px)');
+  const isMobileViewport = useMediaQuery('(max-width: 1279px)');
   const {
     applyTrackVoicePreset,
     arrangerClips,
@@ -255,12 +255,12 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
   const [selectedStepIndex, setSelectedStepIndex] = useState<number | null>(null);
   const [selectedNoteIndex, setSelectedNoteIndex] = useState<number | null>(null);
   const [stepZoom, setStepZoom] = useState(() => (
-    typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches ? 46 : STEP_ZOOM_PRESETS.DETAIL
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 1279px)').matches ? 46 : STEP_ZOOM_PRESETS.DETAIL
   ));
   const [rowZoom, setRowZoom] = useState<RowZoomKey>('DETAIL');
   const [autoFitActiveNotes, setAutoFitActiveNotes] = useState(true);
   const [focusSelectedNote, setFocusSelectedNote] = useState(() => (
-    typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 1279px)').matches
   ));
   const [mobileInspectorOpen, setMobileInspectorOpen] = useState(false);
   const [supersonicHoverCell, setSupersonicHoverCell] = useState<{ note: string; stepIndex: number } | null>(null);
@@ -301,12 +301,9 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
     && !liveDetected.uncertain
     && (liveDetected.rootName !== chordKey || liveDetected.mode !== chordMode);
   const [chordPaletteOpen, setChordPaletteOpen] = useState(false);
-  // The control rack collapses by default so the note grid leads the view.
-  // It opens automatically on roomy desktops where the space is there.
-  const [controlsExpanded, setControlsExpanded] = useState(() => (
-    typeof window !== 'undefined'
-    && window.matchMedia('(min-width: 1280px) and (min-height: 900px)').matches
-  ));
+  // The note grid always leads. Advanced sizing, zoom, and pattern operations
+  // remain one click away without displacing the work on a common laptop.
+  const [controlsExpanded, setControlsExpanded] = useState(false);
   const gridViewportRef = useRef<HTMLDivElement | null>(null);
   const gridOverviewRef = useRef<HTMLDivElement | null>(null);
   const gridOverviewDragRef = useRef(false);
@@ -618,7 +615,8 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
     handleGridToggle(stepIndex, targetNote);
   };
 
-  // --- Note gesture system (drag-to-pitch, velocity drag, click-to-erase, drag-to-erase) ---
+  // Note gestures cover pitch, time, velocity, duplication, and an explicit
+  // modifier based erase sweep. A plain tap only selects the note.
   const noteGestureRef = useRef<{
     kind: 'pending' | 'pitch' | 'velocity' | 'erase' | 'time';
     stepIndex: number;
@@ -761,8 +759,13 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
     const onUp = () => {
       const g = noteGestureRef.current;
       if (g && g.kind === 'pending' && !g.duplicate) {
-        // No movement — single click on existing note → delete it
-        handleGridToggle(g.stepIndex, g.note);
+        // A tap selects and auditions. Removal stays explicit through the
+        // inspector, keyboard, or context menu so a precision edit cannot
+        // destroy a note by accident.
+        void previewTrack(track.id, g.note);
+        if (isMobileViewport) {
+          setMobileInspectorOpen(true);
+        }
       }
       noteGestureRef.current = null;
     };
@@ -968,10 +971,17 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
           target.tagName === 'INPUT'
           || target.tagName === 'SELECT'
           || target.tagName === 'TEXTAREA'
-          || target.tagName === 'BUTTON'
+          || (target.tagName === 'BUTTON' && target.dataset.noteCell !== 'true')
           || target.isContentEditable
         )
       ) {
+        return;
+      }
+
+      if (event.key === 'Delete' || event.key === 'Backspace') {
+        event.preventDefault();
+        setSelectedNoteIndex(normalizedSelectedNoteIndex > 0 ? normalizedSelectedNoteIndex - 1 : null);
+        toggleStep(track.id, selectedStepIndex, selectedNote.note);
         return;
       }
 
@@ -993,7 +1003,7 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [normalizedSelectedNoteIndex, selectedNote, selectedStepIndex, updateSelectedGate]);
+  }, [normalizedSelectedNoteIndex, selectedNote, selectedStepIndex, toggleStep, track.id, updateSelectedGate]);
 
   const closeContextMenu = () => setContextMenuState(null);
 
@@ -1035,9 +1045,9 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
   };
 
   return (
-    <section className="surface-panel flex flex-col overflow-x-hidden md:min-h-0 md:flex-1 md:overflow-y-auto">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-soft)] px-4 py-2.5">
-        <div className="flex min-w-0 flex-wrap items-center gap-3">
+    <section className="piano-roll-shell surface-panel flex flex-col overflow-x-hidden md:min-h-0 md:flex-1 md:overflow-y-auto" data-mobile-view={mobileInspectorOpen ? 'inspector' : 'grid'}>
+      <div className="piano-roll-header flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-soft)] px-4 py-2.5">
+        <div className="piano-roll-track-summary flex min-w-0 flex-wrap items-center gap-3">
           <div className="section-label whitespace-nowrap">Piano roll</div>
           <div
             className="flex h-7 w-7 items-center justify-center"
@@ -1072,9 +1082,34 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
           </div>
         </div>
 
+        <div aria-label="Note editor view" className="piano-roll-mobile-switch grid w-full grid-cols-2 gap-1 rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-1 xl:hidden" role="tablist">
+          <button
+            aria-selected={!mobileInspectorOpen}
+            className="control-chip flex min-h-10 items-center justify-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.12em]"
+            data-active={!mobileInspectorOpen}
+            onClick={() => setMobileInspectorOpen(false)}
+            role="tab"
+            type="button"
+          >
+            <LayoutGrid className="h-3.5 w-3.5" />
+            Note grid
+          </button>
+          <button
+            aria-selected={mobileInspectorOpen}
+            className="control-chip flex min-h-10 items-center justify-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.12em]"
+            data-active={mobileInspectorOpen}
+            onClick={() => setMobileInspectorOpen(true)}
+            role="tab"
+            type="button"
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5" />
+            Edit step {selectedStepIndex !== null ? selectedStepIndex + 1 : ''}
+          </button>
+        </div>
+
         <button
           aria-expanded={controlsExpanded}
-          className="control-chip flex h-8 shrink-0 items-center gap-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
+          className="piano-roll-tools-toggle control-chip flex h-8 shrink-0 items-center gap-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
           data-ui-sound="tab"
           onClick={() => setControlsExpanded((current) => !current)}
           title={controlsExpanded ? 'Hide step, zoom, and edit tools' : 'Step length, zoom, and edit tools'}
@@ -1371,8 +1406,8 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
         </div>
       )}
 
-      <div className="flex flex-col gap-4 p-4 md:min-h-0 md:flex-1 xl:flex-row xl:items-stretch">
-        <div className="flex min-w-0 flex-col md:min-h-[min(80vh,680px)] md:flex-1 md:overflow-hidden">
+      <div className="piano-roll-editor-layout flex flex-col gap-4 p-4 md:min-h-0 md:flex-1 xl:flex-row xl:items-stretch">
+        <div className="piano-roll-grid-pane flex min-w-0 flex-col md:min-h-[min(80vh,680px)] md:flex-1 md:overflow-hidden">
           {songSections.length > 0 && (
             <div className="mb-2 flex shrink-0 items-center gap-1.5 overflow-x-auto pb-1">
               <span className="shrink-0 font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">Jump to</span>
@@ -1473,6 +1508,7 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
                         aria-label={`${note} step ${stepIndex + 1}`}
                         aria-pressed={!!activeEvent}
                         className={`group relative border-r border-[var(--border-soft)] transition-colors touch-none ${stepIndex % 4 === 0 ? 'bg-[rgba(255,255,255,0.02)]' : ''} ${isSelected ? 'ring-1 ring-inset ring-[rgba(124,211,252,0.22)]' : ''} hover:bg-[rgba(255,255,255,0.04)]`}
+                        data-note-cell="true"
                         key={`${note}-${stepIndex}`}
                         onPointerDown={(event) => handleCellPointerDown(stepIndex, note, !!activeEvent, event)}
                         onPointerEnter={() => {
@@ -1664,7 +1700,7 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
             <StepPlayhead noteLabelWidth={noteLabelWidth} stepCellWidth={stepCellWidth} stepsPerPattern={stepsPerPattern} />
           </div>
           </div>
-          <div className="mt-3 shrink-0 rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)] px-4 py-3">
+          <div className="piano-roll-overview mt-3 shrink-0 rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.03)] px-4 py-3">
             <div>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                 <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
@@ -1786,10 +1822,18 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
         </div>
 
         {(!isMobileViewport || mobileInspectorOpen) && (
-        <aside className="surface-panel-strong sonic-sidebar w-full shrink-0 overflow-auto p-4 xl:w-[320px]">
+        <aside className="piano-roll-inspector surface-panel-strong sonic-sidebar w-full shrink-0 overflow-auto p-4 xl:w-[320px]">
           <div className="flex items-center gap-2">
             <SlidersHorizontal className="h-4 w-4 text-[var(--accent)]" />
             <span className="section-label">Step inspector</span>
+            <button
+              className="control-chip ml-auto flex min-h-9 items-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.12em] xl:hidden"
+              onClick={() => setMobileInspectorOpen(false)}
+              type="button"
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              Grid
+            </button>
           </div>
 
           {selectedStepIndex !== null ? (
@@ -1954,9 +1998,14 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
               )}
 
               {!isDrum && selectedNote && (
-                <div>
-                  <div className="section-label">Fine edit</div>
-                  <div className="mt-3 grid gap-3">
+                <details className="note-fine-controls rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.015)]">
+                  <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-3 py-2">
+                    <span className="section-label">Fine controls</span>
+                    <span className="font-mono text-[9px] uppercase tracking-[0.12em] text-[var(--text-tertiary)]">
+                      {selectedNote.note} · V{Math.round(selectedNote.velocity * 100)} · {selectedNote.gate.toFixed(2)}x
+                    </span>
+                  </summary>
+                  <div className="grid gap-3 border-t border-[var(--border-soft)] p-3">
                     <div className="rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-3 py-3">
                       <div className="flex items-center justify-between">
                         <span className="section-label">Semitone nudges</span>
@@ -2017,7 +2066,7 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
                       </div>
                     </div>
                   </div>
-                </div>
+                </details>
               )}
 
               <div>
