@@ -2378,18 +2378,6 @@ html[data-supersonic="true"] .studio-nav-button[data-active="true"] .studio-arra
   }
 }
 
-.studio-nav-button[data-capture="true"] {
-  color: #ffd6cf;
-  border-color: rgba(255, 116, 96, 0.22);
-  background: linear-gradient(180deg, rgba(255, 116, 96, 0.12), rgba(255, 116, 96, 0.04));
-  box-shadow: inset 2px 0 0 rgba(255, 116, 96, 0.68);
-}
-
-.studio-nav-button[data-capture="true"]:hover {
-  border-color: rgba(255, 156, 138, 0.42);
-  background: linear-gradient(180deg, rgba(255, 116, 96, 0.18), rgba(255, 116, 96, 0.08));
-}
-
 html[data-supersonic="true"] .studio-nav-button[data-active="true"] {
   border-color: rgba(176, 31, 55, 0.18);
   color: #8b1427;
@@ -2404,21 +2392,6 @@ html[data-supersonic="true"] .studio-nav-button[data-active="true"] {
 html[data-supersonic="true"] .studio-nav-button[data-active="true"] svg {
   color: #9a1026;
   opacity: 1;
-}
-
-html[data-supersonic="true"] .studio-nav-button[data-capture="true"] {
-  color: #ffffff;
-  border-color: rgba(176, 31, 55, 0.24);
-  background: linear-gradient(180deg, rgba(176, 31, 55, 0.9), rgba(132, 24, 42, 0.96));
-  box-shadow:
-    inset 2px 0 0 rgba(255, 227, 231, 0.68),
-    0 8px 18px rgba(41, 10, 17, 0.12);
-}
-
-html[data-supersonic="true"] .studio-nav-button[data-capture="true"]:hover {
-  border-color: rgba(176, 31, 55, 0.38);
-  color: #8b1427;
-  background: linear-gradient(180deg, rgba(255, 246, 244, 0.98), rgba(255, 229, 224, 0.9));
 }
 
 html[data-supersonic="true"] .studio-nav-button:hover svg {

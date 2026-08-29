@@ -1069,10 +1069,10 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
           <div className="flex items-center gap-3 text-[var(--text-secondary)]">
             <div className="flex items-center gap-1.5">
               <LayoutGrid className="h-3.5 w-3.5 text-[var(--accent)]" />
-              <span className="font-mono text-[11px]">{String.fromCharCode(65 + currentPattern)}</span>
+              <span className="font-mono text-[11px]">Pattern {String.fromCharCode(65 + currentPattern)}</span>
             </div>
             <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
-              {activeStepCount} {activeStepCount === 1 ? 'step' : 'steps'} · {totalNoteCount} {totalNoteCount === 1 ? 'note' : 'notes'}{!isDrum && stackedStepCount > 0 ? ` · ${stackedStepCount} stacked` : ''}
+              {activeStepCount} active {activeStepCount === 1 ? 'step' : 'steps'} · {totalNoteCount} {totalNoteCount === 1 ? 'note' : 'notes'}{!isDrum && stackedStepCount > 0 ? ` · ${stackedStepCount} ${stackedStepCount === 1 ? 'chord' : 'chords'}` : ''}
             </span>
             <span
               className="hidden lg:inline font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]"

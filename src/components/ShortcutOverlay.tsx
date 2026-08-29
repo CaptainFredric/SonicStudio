@@ -29,7 +29,7 @@ const GROUPS: Array<{ title: string; entries: ShortcutEntry[] }> = [
     entries: [
       { keys: '⌥ C', label: 'Quick capture a note string from anywhere' },
       { keys: '⌥ 1-5', label: 'Recall a recent capture (inside Quick capture)' },
-      { keys: '⇧ paint', label: 'Snap painted notes to the session key (Notes panel)' },
+      { keys: '⇧ paint', label: 'Snap painted notes to the session key (Piano roll)' },
     ],
   },
   {

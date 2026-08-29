@@ -58,8 +58,8 @@ const TOUR_STEPS: GuideStep[] = [
     title: 'Start by hearing it.',
   },
   {
-    action: 'Build timing in Sequencer, open Notes or Arrangement in the Inspector, then use Mix for balance.',
-    body: 'Library, Capture, and Transcribe bring material in. Sequencer shapes the pattern, the Inspector handles pitch and song structure, and Mixer finishes the balance.',
+    action: 'Build timing in Pattern, arrange clips in Song, open Piano roll for pitch, then use Mix for balance.',
+    body: 'Library, Capture, and Transcribe bring material in. Pattern writes loops, Song arranges them, Piano roll shapes notes, and Mix finishes the balance.',
     eyebrow: 'Workflow',
     payoff: 'Each surface owns one clear stage of the same song instead of duplicating the others.',
     target: 'views',
@@ -83,7 +83,7 @@ const TOUR_STEPS: GuideStep[] = [
   },
   {
     action: 'Capture a clean note, review the suggested lane and pitch, then apply or save it.',
-    body: 'Capture listens for pitch and suggests lane matches. You can tune behavior in Options (commit timing, match count, auto-preview).',
+    body: 'Capture listens for pitch and suggests lane matches. You can tune behavior in Settings (commit timing, match count, auto-preview).',
     eyebrow: 'Capture',
     payoff: 'Great for fast note detection and building your own reusable note shelf.',
     target: 'record',
@@ -106,12 +106,12 @@ const TOUR_STEPS: GuideStep[] = [
     title: 'Share sessions without bouncing audio first.',
   },
   {
-    action: 'Use Options for defaults and behavior tuning. Keep creative material in Library.',
-    body: 'Options includes MIDI import, exports, checkpoints, workspace defaults, SuperSonic behavior, and capture controls.',
-    eyebrow: 'Options',
+    action: 'Use Settings for defaults and behavior tuning. Keep creative material in Library.',
+    body: 'Settings includes MIDI import, exports, checkpoints, workspace defaults, SuperSonic behavior, and capture controls.',
+    eyebrow: 'Settings',
     payoff: 'Settings stay organized, and your creative material stays easy to find.',
     target: 'options',
-    title: 'Options handles setup and workflow tuning.',
+    title: 'Settings handles setup and workflow tuning.',
   },
 ];
 

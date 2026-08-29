@@ -76,7 +76,7 @@ export const MobileStudioNavigation = ({
           <div className="grid grid-cols-2 gap-2 p-3">
             <button className="mobile-command-action" data-tour-target="sessions" onClick={() => runAndClose(onOpenLaunchpad)} type="button"><Sparkles className="h-4 w-4" /><span>Library</span></button>
             <button className="mobile-command-action" onClick={() => runAndClose(onOpenTranscribe)} type="button"><AudioWaveform className="h-4 w-4" /><span>Transcribe</span></button>
-            <button className="mobile-command-action" data-active={isSettingsOpen} data-tour-target="options" onClick={() => runAndClose(toggleSettings)} type="button"><Settings className="h-4 w-4" /><span>Options</span></button>
+            <button className="mobile-command-action" data-active={isSettingsOpen} data-tour-target="options" onClick={() => runAndClose(toggleSettings)} type="button"><Settings className="h-4 w-4" /><span>Settings</span></button>
             <button className="mobile-command-action" onClick={() => runAndClose(() => { setActiveView('SEQUENCER'); onEnterEditingMode(); })} type="button"><Maximize2 className="h-4 w-4" /><span>Focus editor</span></button>
             <a className="mobile-command-action col-span-2" href={SUPPORT_URL} rel="noreferrer noopener" target="_blank"><Coffee className="h-4 w-4" /><span>Support SonicStudio</span></a>
           </div>

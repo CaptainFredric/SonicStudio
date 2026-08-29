@@ -1076,18 +1076,35 @@ export const SongTimelineGrid = ({
           {/* Continuous bar ruler. Song regions remain data, but they do not
               split the editing canvas into competing named blocks. */}
           <div className="sticky top-0 z-20 border-b border-[var(--border-soft)] bg-[var(--bg-panel-strong)]" style={{ height: RULER_HEIGHT, width: totalWidth }}>
-            {windowSteps.filter((songStep) => songStep % stepsPerPattern === 0).map((songStep) => (
-              <button
-                aria-label={`Jump to bar ${Math.floor(songStep / stepsPerPattern) + 1}`}
-                className="absolute inset-y-0 flex items-center border-l border-[var(--chrome-line)] px-2 font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--text-secondary)] hover:bg-white/5 hover:text-[var(--text-primary)]"
-                key={`song-ruler-${songStep}`}
-                onClick={() => onSeek?.(songStep)}
-                style={{ left: songStep * cellW, width: stepsPerPattern * cellW }}
-                type="button"
-              >
-                Bar {Math.floor(songStep / stepsPerPattern) + 1}
-              </button>
-            ))}
+            {windowSteps.filter((songStep) => songStep % stepsPerPattern === 0).map((songStep) => {
+              const barNumber = Math.floor(songStep / stepsPerPattern) + 1;
+              const isExtensionBar = songStep >= songSteps;
+              const rulerStyle = { left: songStep * cellW, width: stepsPerPattern * cellW };
+              if (isExtensionBar) {
+                return (
+                  <div
+                    aria-label={`Add bar ${barNumber}`}
+                    className="absolute inset-y-0 flex items-center border-l border-dashed border-[var(--chrome-line)] bg-[rgba(114,217,255,0.025)] px-2 font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]"
+                    key={`song-ruler-${songStep}`}
+                    style={rulerStyle}
+                  >
+                    Add bar {barNumber}
+                  </div>
+                );
+              }
+              return (
+                <button
+                  aria-label={`Jump to bar ${barNumber}`}
+                  className="absolute inset-y-0 flex items-center border-l border-[var(--chrome-line)] px-2 font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--text-secondary)] hover:bg-white/5 hover:text-[var(--text-primary)]"
+                  key={`song-ruler-${songStep}`}
+                  onClick={() => onSeek?.(songStep)}
+                  style={rulerStyle}
+                  type="button"
+                >
+                  Bar {barNumber}
+                </button>
+              );
+            })}
             {EDITABLE_SECTION_RULER && sections.map((section, sectionIndex) => {
               const originalSection = baseSections.find((candidate) => candidate.id === section.id) ?? section;
               const isResizing = resizePreview?.sectionId === section.id;
@@ -1217,6 +1234,7 @@ export const SongTimelineGrid = ({
                   : null;
                 return (
                   <button
+                    aria-hidden={clipEditing ? true : undefined}
                     key={songStep}
                     className="group absolute top-0 h-full transition-colors hover:bg-[rgba(255,255,255,0.05)]"
                     data-song-cell="true"

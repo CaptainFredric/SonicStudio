@@ -762,7 +762,7 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
     const saved = updated[0];
     const noteCount = saved.tokens.filter((token) => token !== null).length;
     setShelfSaved(true);
-    onNotify?.('success', 'Saved to capture shelf', `${noteCount} notes are ready in the Notes panel.`);
+    onNotify?.('success', 'Saved to capture shelf', `${noteCount} notes are ready in Piano roll.`);
   }, [laneName, onNotify, result, sourceLabel]);
 
   const draftAnalysisKey = analysisKey(bpmOverride, sensitivity, minNoteSteps);

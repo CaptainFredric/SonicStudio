@@ -431,7 +431,7 @@ export const Launchpad = ({
               title="Hit play"
             />
             <LaunchPathStep
-              body="Open Notes, Arrangement, or Mix when you are ready to shape one part more deeply."
+              body="Use Pattern for loops, Song for structure, Piano roll for pitch, or Mix for balance."
               step="03"
               title="Change one part"
             />

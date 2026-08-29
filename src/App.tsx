@@ -213,7 +213,7 @@ const SideNav = ({ isShowcasePreviewActive, onOpenLaunchpad, onOpenShare, onOpen
 
   return (
     <aside aria-label="Studio navigation" className="studio-rail hidden w-[88px] shrink-0 flex-col px-2 py-3 md:flex md:min-h-0 md:overflow-y-auto" data-tour-target={isShowcasePreviewActive ? undefined : 'views'}>
-      <div className="section-label hidden md:block">Views</div>
+      <div className="section-label hidden md:block">Studio</div>
       <div className="grid grid-cols-4 gap-1.5 md:mb-2 md:grid-cols-1 md:gap-2">
         <button
           className="studio-nav-button w-full"
@@ -229,8 +229,7 @@ const SideNav = ({ isShowcasePreviewActive, onOpenLaunchpad, onOpenShare, onOpen
           </div>
         </button>
         <button
-          className="studio-nav-button studio-nav-button-capture w-full"
-          data-capture="true"
+          className="studio-nav-button w-full"
           data-tour-target="record"
           data-ui-sound="record"
           onClick={onOpenRecord}
@@ -276,7 +275,7 @@ const SideNav = ({ isShowcasePreviewActive, onOpenLaunchpad, onOpenShare, onOpen
               <Settings size={20} />
               <span className="studio-icon-fill studio-icon-fill-gear-core" />
             </span>
-            <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Options</span>
+            <span className="font-mono text-[9px] uppercase tracking-[0.18em]">Settings</span>
           </div>
         </button>
       </div>

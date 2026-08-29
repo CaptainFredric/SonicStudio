@@ -164,6 +164,13 @@ describe('SongTimelineGrid', () => {
     expect(getByRole('button', { name: 'Jump to bar 3' })).toBeTruthy();
   });
 
+  it('labels the empty runway as an extension instead of another finished bar', () => {
+    const { getByLabelText, queryByRole } = renderGrid();
+
+    expect(getByLabelText('Add bar 2').textContent).toBe('Add bar 2');
+    expect(queryByRole('button', { name: 'Jump to bar 2' })).toBeNull();
+  });
+
   it('keeps legacy named section controls out of the song canvas', () => {
     const markers = [
       { beat: 0, id: 'marker_intro', name: 'Intro' },
@@ -174,6 +181,12 @@ describe('SongTimelineGrid', () => {
 
     expect(queryByRole('button', { name: 'Move Intro' })).toBeNull();
     expect(queryByRole('slider', { name: 'Resize the end of Intro' })).toBeNull();
+  });
+
+  it('hides inactive note cells from assistive output while clips are being edited', () => {
+    const { cell, project } = renderGrid({ clipEditing: true });
+
+    expect(cell(project.tracks[0].id, 0).getAttribute('aria-hidden')).toBe('true');
   });
 
   it('moves a selected clip on the four-step grid from the keyboard', () => {

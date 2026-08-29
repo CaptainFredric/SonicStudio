@@ -601,7 +601,7 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
 
     setRecordedNoteLibrary(nextLibrary);
     setSessionRecordedNotes((current) => [nextPreset, ...current.filter((entry) => entry.id !== nextPreset.id)]);
-    setCaptureNotice(`${nextPreset.name} saved to the Notes library.`);
+    setCaptureNotice(`${nextPreset.name} saved to captured notes.`);
     setPendingRecordedNote(null);
     setCaptureNameDraft('');
   }, [captureNameDraft, pendingRecordedNote]);
@@ -624,7 +624,7 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
 
     setRecordedNoteLibrary(nextLibrary);
     setSessionRecordedNotes((current) => [nextPreset, ...current.filter((entry) => entry.id !== nextPreset.id)]);
-    setCaptureNotice(`${nextPreset.name} saved to the Notes library.`);
+    setCaptureNotice(`${nextPreset.name} saved to captured notes.`);
   }, [activeNoteCandidate, captureNameDraft, liveFrame, pendingRecordedNote, result, selectedDetectedNote]);
 
   const createSuggestedTrack = useCallback((suggestion: CaptureSuggestion) => {
@@ -1241,7 +1241,7 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
                     <div className="border-t border-[var(--border-soft)] pt-4">
                       <div className="section-label">Recorded note shelf</div>
                       <p className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
-                        Notes saved during this pass stay here after you stop. They also land in your saved note library for quick recall from the Notes panel.
+                        Notes saved during this pass stay here after you stop. They also land in captured notes for recall from Piano roll.
                       </p>
                       {pendingRecordedNote && (
                         <PendingRecordedNoteCard
@@ -1281,7 +1281,7 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
                         <div>
                           <div className="section-label">Store this capture</div>
                           <div className="mt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
-                            Name the detected note once, then save any option below with its own voice settings. Saved notes show up later in the Notes panel.
+                            Name the detected note once, then save any option below with its own voice settings. Saved notes show up later in Piano roll.
                           </div>
                         </div>
                         <span className="font-mono text-[11px] uppercase tracking-[0.16em] text-[var(--accent-strong)]">
@@ -1358,7 +1358,7 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
               <section className="rounded-[3px] border border-[var(--border-soft)] bg-[rgba(6,9,13,0.28)] p-3">
                 <div className="flex items-center justify-between gap-3">
                   <div className="section-label">Recent notes</div>
-                  <span className="font-mono text-[9px] text-[var(--text-tertiary)]">Notes panel</span>
+                  <span className="font-mono text-[9px] text-[var(--text-tertiary)]">Piano roll</span>
                 </div>
                 {recentRecordedLibrary.length > 0 ? (
                   <div className="mt-3 grid gap-2">

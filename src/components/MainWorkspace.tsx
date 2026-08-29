@@ -863,7 +863,6 @@ export const MainWorkspace = () => {
     ? Math.max(0, selectedStep.findIndex((event) => event === selectedStepNote))
     : null;
   const isSelectedTrackDrum = selectedTrack ? isRhythmTrackType(selectedTrack.type) : false;
-  const canDeepEditSelectedTrack = Boolean(selectedTrack) && (!isSelectedTrackDrum || superSonicMode);
   const selectedTrackPatternSpan = useMemo(() => (
     getPatternActivitySpan(selectedTrackPattern, stepsPerPattern)
   ), [selectedTrackPattern, stepsPerPattern]);
@@ -2554,7 +2553,7 @@ export const MainWorkspace = () => {
     setCurrentPattern(0);
     applySongForm(formId);
     setActiveView('SEQUENCER');
-    setSessionPlayerNotice(`${profile.label} built as ${getSongFormDefinition(formId).label}. Open the Arrangement panel to shape it.`);
+    setSessionPlayerNotice(`${profile.label} built as ${getSongFormDefinition(formId).label}. Switch to Song to shape the arrangement.`);
   }, [applyPatternSegment, applySongForm, clearPatternAt, createTrack, patternCount, sessionPlayerPatternDecks, setActiveView, setCurrentPattern, setPatternCount, setStepsPerPattern, stepsPerPattern, tracks]);
 
   useEffect(() => {
@@ -2768,11 +2767,8 @@ export const MainWorkspace = () => {
                     Continuous song across {formatSongSpan(songLengthInBeats, stepsPerPattern)}
                   </div>
                   <div className="mt-1 hidden text-[11px] text-[var(--text-secondary)] sm:block">
-                    {countLabel(songLengthInBeats, 'step')} · {countLabel(visibleTracks.length, 'visible track')}
+                    {countLabel(songLengthInBeats, 'step')} · {countLabel(visibleTracks.length, 'visible track')} · Clips here · Pitches in Piano roll
                   </div>
-                </div>
-                <div className="text-right text-[11px] text-[var(--text-secondary)]">
-                  Arrange clips here. Edit pitches in Piano roll.
                 </div>
               </div>
             ) : (
@@ -2965,11 +2961,11 @@ export const MainWorkspace = () => {
                     </button>
                     <button
                       className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                      onClick={() => { setActiveView('SEQUENCER'); if (canDeepEditSelectedTrack) openNotesPanel(); }}
+                      onClick={() => { setActiveView('SEQUENCER'); openNotesPanel(); }}
                       type="button"
                     >
                       <SlidersHorizontal className="h-3.5 w-3.5" />
-                      {canDeepEditSelectedTrack ? 'Deep edit' : 'Song tools'}
+                      Piano roll
                     </button>
                   </>
                 )}
@@ -4270,10 +4266,10 @@ export const MainWorkspace = () => {
                   </div>
                   <button
                     className="control-chip flex items-center gap-2 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em]"
-                    onClick={() => setActiveView(canDeepEditSelectedTrack ? 'PIANO_ROLL' : 'SEQUENCER')}
+                    onClick={() => { setActiveView('SEQUENCER'); openNotesPanel(); }}
                   >
                     <SlidersHorizontal className="h-3.5 w-3.5" />
-                    {canDeepEditSelectedTrack ? 'Deep edit' : 'Song tools'}
+                    Piano roll
                   </button>
                 </div>
                 <div className="mt-3 flex items-center gap-2">
@@ -4316,8 +4312,8 @@ export const MainWorkspace = () => {
                   <div className="mt-3 flex items-center justify-between gap-2">
                     <span className="section-label">Jump to</span>
                     <div className="flex gap-2">
-                      <button className="control-chip h-8 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => setActiveView('SEQUENCER')} type="button">Seq</button>
-                      <button className="control-chip h-8 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => { setActiveView('SEQUENCER'); openNotesPanel(); }} type="button">Roll</button>
+                      <button className="control-chip h-8 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => setActiveView('SEQUENCER')} type="button">Create</button>
+                      <button className="control-chip h-8 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => { setActiveView('SEQUENCER'); openNotesPanel(); }} type="button">Piano</button>
                       <button className="control-chip h-8 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]" onClick={() => setActiveView('MIXER')} type="button">Mix</button>
                     </div>
                   </div>

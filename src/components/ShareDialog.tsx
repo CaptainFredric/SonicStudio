@@ -223,7 +223,7 @@ export const ShareDialog = ({ open, onClose, onNotify }: ShareDialogProps) => {
           {tab === 'clipboard' && (
             <ModeCard
               title="Copy the session JSON"
-              description="Paste the JSON into a message or note. The other person can save it as a .sonicstudio.json file and load it from Options -> Workspace -> Load JSON."
+              description="Paste the JSON into a message or note. The other person can save it as a .sonicstudio.json file and load it from Settings > Workspace > Load JSON."
               meta={`${formatBytes(payloadBytes)} payload`}
             >
               <textarea
@@ -248,7 +248,7 @@ export const ShareDialog = ({ open, onClose, onNotify }: ShareDialogProps) => {
           {tab === 'file' && (
             <ModeCard
               title="Download the session file"
-              description="Download a .sonicstudio.json file you can email, store in the cloud, or commit to a repo. Open it later from Options -> Workspace -> Load JSON."
+              description="Download a .sonicstudio.json file you can email, store in the cloud, or commit to a repo. Open it later from Settings > Workspace > Load JSON."
               meta={`${formatBytes(payloadBytes)} .sonicstudio.json`}
             >
               <button
