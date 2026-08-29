@@ -155,83 +155,25 @@ describe('SongTimelineGrid', () => {
     expect(props.onEraseStep).toHaveBeenCalledTimes(2);
   });
 
-  it('resizes a section edge with the keyboard in steps or full bars', () => {
-    const { getByRole, project, props } = renderGrid();
-    const sectionName = project.markers[0]?.name ?? 'Song';
-    const handle = getByRole('slider', { name: `Resize the end of ${sectionName}` });
+  it('uses a continuous bar ruler for navigation', () => {
+    const { getByRole, props } = renderGrid({ songLengthInBeats: 48 });
 
-    fireEvent.keyDown(handle, { key: 'ArrowRight' });
-    fireEvent.keyDown(handle, { key: 'ArrowRight', shiftKey: true });
+    fireEvent.click(getByRole('button', { name: 'Jump to bar 2' }));
 
-    expect(props.onResizeSectionEnd).toHaveBeenNthCalledWith(1, project.markers[0].id, 0, 16, 17);
-    expect(props.onResizeSectionEnd).toHaveBeenNthCalledWith(2, project.markers[0].id, 0, 16, 32);
+    expect(props.onSeek).toHaveBeenCalledWith(16);
+    expect(getByRole('button', { name: 'Jump to bar 3' })).toBeTruthy();
   });
 
-  it('previews a dragged section edge and commits one resize on release', () => {
-    const { container, getByRole, project, props } = renderGrid();
-    const sectionName = project.markers[0]?.name ?? 'Song';
-    const handle = getByRole('slider', { name: `Resize the end of ${sectionName}` });
-    const scroller = container.querySelector('[data-song-timeline-scroll="true"]');
-    if (!(scroller instanceof HTMLElement)) throw new Error('Expected the song timeline scroller');
-    vi.spyOn(scroller, 'getBoundingClientRect').mockReturnValue({
-      bottom: 300,
-      height: 300,
-      left: 0,
-      right: 800,
-      top: 0,
-      width: 800,
-      x: 0,
-      y: 0,
-      toJSON: () => ({}),
-    });
-
-    fireEvent.pointerDown(handle, { button: 0, clientX: 320 });
-    fireEvent.pointerMove(window, { clientX: 400 });
-    expect(container.querySelector('[data-resizing="true"]')).not.toBeNull();
-    fireEvent.pointerUp(window);
-
-    expect(props.onResizeSectionEnd).toHaveBeenCalledTimes(1);
-    expect(props.onResizeSectionEnd).toHaveBeenCalledWith(project.markers[0].id, 0, 16, 20);
-  });
-
-  it('lets the last section shrink below one bar to four steps', () => {
-    const { container, getByRole, project, props } = renderGrid();
-    const sectionName = project.markers[0]?.name ?? 'Song';
-    const handle = getByRole('slider', { name: `Resize the end of ${sectionName}` });
-    const scroller = container.querySelector('[data-song-timeline-scroll="true"]');
-    if (!(scroller instanceof HTMLElement)) throw new Error('Expected the song timeline scroller');
-    vi.spyOn(scroller, 'getBoundingClientRect').mockReturnValue({
-      bottom: 300,
-      height: 300,
-      left: 0,
-      right: 800,
-      top: 0,
-      width: 800,
-      x: 0,
-      y: 0,
-      toJSON: () => ({}),
-    });
-
-    expect(handle.getAttribute('aria-valuemin')).toBe('4');
-    fireEvent.pointerDown(handle, { button: 0, clientX: 320 });
-    fireEvent.pointerMove(window, { clientX: 80 });
-    fireEvent.pointerUp(window);
-
-    expect(props.onResizeSectionEnd).toHaveBeenCalledWith(project.markers[0].id, 0, 16, 4);
-  });
-
-  it('moves a section one position with Alt and an arrow key', () => {
+  it('keeps legacy named section controls out of the song canvas', () => {
     const markers = [
       { beat: 0, id: 'marker_intro', name: 'Intro' },
       { beat: 16, id: 'marker_verse', name: 'Verse' },
       { beat: 32, id: 'marker_hook', name: 'Hook' },
     ];
-    const { getByRole, props } = renderGrid({ songLengthInBeats: 48, songMarkers: markers });
-    const section = getByRole('button', { name: 'Move Intro' });
+    const { queryByRole } = renderGrid({ songLengthInBeats: 48, songMarkers: markers });
 
-    fireEvent.keyDown(section, { altKey: true, key: 'ArrowRight' });
-
-    expect(props.onMoveSection).toHaveBeenCalledWith('marker_intro', 0, 16, 32);
+    expect(queryByRole('button', { name: 'Move Intro' })).toBeNull();
+    expect(queryByRole('slider', { name: 'Resize the end of Intro' })).toBeNull();
   });
 
   it('moves a selected clip on the four-step grid from the keyboard', () => {
@@ -422,47 +364,4 @@ describe('SongTimelineGrid', () => {
     });
   });
 
-  it('keeps a plain section click as a seek instead of a move', () => {
-    const { getByRole, project, props } = renderGrid();
-    const sectionName = project.markers[0]?.name ?? 'Song';
-    const section = getByRole('button', { name: `Move ${sectionName}` });
-
-    fireEvent.pointerDown(section, { button: 0, clientX: 100 });
-    fireEvent.pointerUp(window);
-    fireEvent.click(section);
-
-    expect(props.onSeek).toHaveBeenCalledWith(0);
-    expect(props.onMoveSection).not.toHaveBeenCalled();
-  });
-
-  it('previews section reordering and commits it once on release', () => {
-    const markers = [
-      { beat: 0, id: 'marker_intro', name: 'Intro' },
-      { beat: 16, id: 'marker_verse', name: 'Verse' },
-      { beat: 32, id: 'marker_hook', name: 'Hook' },
-    ];
-    const { container, getByRole, props } = renderGrid({ songLengthInBeats: 48, songMarkers: markers });
-    const section = getByRole('button', { name: 'Move Intro' });
-    const scroller = container.querySelector('[data-song-timeline-scroll="true"]');
-    if (!(scroller instanceof HTMLElement)) throw new Error('Expected the song timeline scroller');
-    vi.spyOn(scroller, 'getBoundingClientRect').mockReturnValue({
-      bottom: 300,
-      height: 300,
-      left: 0,
-      right: 1000,
-      top: 0,
-      width: 1000,
-      x: 0,
-      y: 0,
-      toJSON: () => ({}),
-    });
-
-    fireEvent.pointerDown(section, { button: 0, clientX: 100 });
-    fireEvent.pointerMove(window, { clientX: 650 });
-    expect(container.querySelector('[data-moving="true"]')).not.toBeNull();
-    fireEvent.pointerUp(window);
-
-    expect(props.onMoveSection).toHaveBeenCalledTimes(1);
-    expect(props.onMoveSection).toHaveBeenCalledWith('marker_intro', 0, 16, 32);
-  });
 });

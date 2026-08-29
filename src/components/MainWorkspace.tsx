@@ -97,7 +97,6 @@ const LANE_COLUMN_COLLAPSED_KEY = 'sonicstudio:lane-column-collapsed';
 const TRACK_MAP_OPEN_KEY = 'sonicstudio:track-map-open';
 const COMPOSE_TOOLS_KEY = 'sonicstudio:compose-tools-open';
 const ADD_LANE_OPEN_KEY = 'sonicstudio:add-lane-open';
-const SONG_EDIT_LAYER_KEY = 'sonicstudio:song-edit-layer';
 const SONG_TIMELINE_ZOOM_KEY = 'sonicstudio:song-timeline-zoom';
 import { MAX_STEPS_PER_PATTERN, MIN_STEPS_PER_PATTERN, type InstrumentType, type NoteEvent, type Track } from '../project/schema';
 
@@ -737,9 +736,6 @@ export const MainWorkspace = () => {
     updateStepEvent,
   } = useAudio();
   const [editorMode, setEditorMode] = useState<ComposeEditorMode>('edit');
-  const [songEditLayer, setSongEditLayer] = useState<'notes' | 'clips'>(() => (
-    readString(SONG_EDIT_LAYER_KEY) === 'clips' ? 'clips' : 'notes'
-  ));
   // Playback mode and editing surface must agree. Pattern always opens the
   // loop grid; Song always opens the arrangement timeline.
   const showSongGrid = transportMode === 'SONG';
@@ -2613,7 +2609,7 @@ export const MainWorkspace = () => {
           </div>
           <p className="mt-1 hidden text-sm text-[var(--text-secondary)] xl:block">
             {showSongGrid
-              ? `${formatSongSpan(songLengthInBeats, stepsPerPattern)} · ${countLabel(songSectionRanges.length, 'section')} · ${countLabel(visibleTracks.length, 'visible track')}`
+              ? `${formatSongSpan(songLengthInBeats, stepsPerPattern)} · continuous timeline · ${countLabel(visibleTracks.length, 'visible track')}`
               : 'Build the current pattern here before you move it into Song view.'}
           </p>
         </div>
@@ -2769,48 +2765,14 @@ export const MainWorkspace = () => {
                 <div>
                   <div className="section-label hidden sm:block">Arrange</div>
                   <div className="text-sm font-medium text-[var(--text-primary)] sm:mt-1">
-                    {countLabel(songSectionRanges.length, 'section')} across {formatSongSpan(songLengthInBeats, stepsPerPattern)}
+                    Continuous song across {formatSongSpan(songLengthInBeats, stepsPerPattern)}
                   </div>
                   <div className="mt-1 hidden text-[11px] text-[var(--text-secondary)] sm:block">
                     {countLabel(songLengthInBeats, 'step')} · {countLabel(visibleTracks.length, 'visible track')}
                   </div>
                 </div>
-                <div className="flex flex-wrap items-center justify-end gap-1.5">
-                  <div aria-label="Song edit layer" className="flex h-8 overflow-hidden rounded-[3px] border border-[var(--border-soft)]" role="group">
-                    <button
-                      aria-pressed={songEditLayer === 'notes'}
-                      className="editing-tool-button flex h-full items-center gap-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-tertiary)]"
-                      data-active={songEditLayer === 'notes' ? 'true' : undefined}
-                      onClick={() => { setSongEditLayer('notes'); writeString(SONG_EDIT_LAYER_KEY, 'notes'); }}
-                      title="Draw and erase notes"
-                      type="button"
-                    >
-                      <Pencil className="h-3.5 w-3.5" /> Notes
-                    </button>
-                    <button
-                      aria-pressed={songEditLayer === 'clips'}
-                      className="editing-tool-button flex h-full items-center gap-1.5 border-l border-[var(--border-soft)] px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-tertiary)]"
-                      data-active={songEditLayer === 'clips' ? 'true' : undefined}
-                      onClick={() => { setSongEditLayer('clips'); writeString(SONG_EDIT_LAYER_KEY, 'clips'); }}
-                      title="Select, move, duplicate, or delete clips"
-                      type="button"
-                    >
-                      <MousePointer2 className="h-3.5 w-3.5" /> Clips
-                    </button>
-                  </div>
-                  <button
-                    className="control-chip flex h-8 items-center gap-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em]"
-                    onClick={() => {
-                      setManagedSectionId(null);
-                      setSectionManagerOpen(true);
-                    }}
-                    title="Add, rename, save, duplicate, clear, or delete song sections"
-                    type="button"
-                  >
-                    <SlidersHorizontal className="h-3.5 w-3.5" />
-                    Sections
-                    <span className="font-mono text-[9px] text-[var(--accent-strong)]">{songSectionRanges.length}</span>
-                  </button>
+                <div className="text-right text-[11px] text-[var(--text-secondary)]">
+                  Arrange clips here. Edit pitches in Piano roll.
                 </div>
               </div>
             ) : (
@@ -3025,45 +2987,10 @@ export const MainWorkspace = () => {
                     <Music2 className="h-3.5 w-3.5 shrink-0 text-[var(--accent)]" />
                     <span className="section-label shrink-0">Song timeline</span>
                     <span className="hidden font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--text-tertiary)] sm:inline">
-                      {formatSongSpan(songLengthInBeats, stepsPerPattern)} · {countLabel(songSectionRanges.length, 'section')}
+                      {formatSongSpan(songLengthInBeats, stepsPerPattern)} · continuous
                     </span>
                   </div>
                   <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
-                    <div aria-label="Song edit layer" className="flex h-8 overflow-hidden rounded-[3px] border border-[var(--border-soft)]" role="group">
-                      <button
-                        aria-pressed={songEditLayer === 'notes'}
-                        className="editing-tool-button flex h-full items-center gap-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-tertiary)]"
-                        data-active={songEditLayer === 'notes' ? 'true' : undefined}
-                        onClick={() => { setSongEditLayer('notes'); writeString(SONG_EDIT_LAYER_KEY, 'notes'); }}
-                        title="Draw and erase notes"
-                        type="button"
-                      >
-                        <Pencil className="h-3.5 w-3.5" /> Notes
-                      </button>
-                      <button
-                        aria-pressed={songEditLayer === 'clips'}
-                        className="editing-tool-button flex h-full items-center gap-1.5 border-l border-[var(--border-soft)] px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--text-tertiary)]"
-                        data-active={songEditLayer === 'clips' ? 'true' : undefined}
-                        onClick={() => { setSongEditLayer('clips'); writeString(SONG_EDIT_LAYER_KEY, 'clips'); }}
-                        title="Select, move, trim either edge, split, duplicate, or delete clips"
-                        type="button"
-                      >
-                        <MousePointer2 className="h-3.5 w-3.5" /> Clips
-                      </button>
-                    </div>
-                    <button
-                      className="control-chip flex h-8 items-center gap-1.5 px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em]"
-                      onClick={() => {
-                        setManagedSectionId(null);
-                        setSectionManagerOpen(true);
-                      }}
-                      title="Add, rename, save, duplicate, clear, or delete song sections"
-                      type="button"
-                    >
-                      <SlidersHorizontal className="h-3.5 w-3.5" />
-                      Sections
-                      <span className="font-mono text-[9px] text-[var(--accent-strong)]">{songSectionRanges.length}</span>
-                    </button>
                     <div aria-label="Song timeline zoom" className="flex h-8 items-center overflow-hidden rounded-[3px] border border-[var(--border-soft)]" role="group">
                       <button
                         aria-label="Zoom the song timeline out"
@@ -3337,7 +3264,7 @@ export const MainWorkspace = () => {
                 arrangerClips={arrangerClips}
                 cellWidth={songTimelineCellWidth}
                 compactLanes={compactLanes}
-                clipEditing={songEditLayer === 'clips'}
+                clipEditing
                 selectedClipId={selectedArrangerClipId}
                 stepsPerPattern={stepsPerPattern}
                 songLengthInBeats={songLengthInBeats}
@@ -5023,7 +4950,7 @@ export const MainWorkspace = () => {
         </aside>
         )}
       </div>
-      {sectionManagerOpen && (
+      {LEGACY_SEQUENCER_CHROME && sectionManagerOpen && (
         <SongSectionManagerDialog
           currentPatternCount={patternCount}
           currentStep={engine.currentStep}

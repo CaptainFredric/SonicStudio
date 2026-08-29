@@ -50,6 +50,7 @@ import {
   NOTE_GATE_MEDIUM_STEP,
   NOTE_GATE_MIN,
   NOTE_GATE_PRESETS,
+  buildMidiWindow,
   clampNoteGate,
   snapNoteGate,
 } from '../utils/noteEditing';
@@ -1048,7 +1049,7 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
     <section className="piano-roll-shell surface-panel flex flex-col overflow-x-hidden md:min-h-0 md:flex-1 md:overflow-y-auto" data-mobile-view={mobileInspectorOpen ? 'inspector' : 'grid'}>
       <div className="piano-roll-header flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-soft)] px-4 py-2.5">
         <div className="piano-roll-track-summary flex min-w-0 flex-wrap items-center gap-3">
-          <div className="section-label whitespace-nowrap">Piano roll</div>
+          <div className="section-label whitespace-nowrap">Selected lane</div>
           <div
             className="flex h-7 w-7 items-center justify-center"
             style={{ borderRadius: '2px', border: `1px solid ${track.color}55`, background: `${track.color}1a`, color: track.color }}
@@ -2300,14 +2301,7 @@ function buildFocusedNoteRange(centerNote: string, radius: number) {
     return NOTE_WINDOWS.MID;
   }
 
-  const notes: string[] = [];
-  for (let offset = radius; offset >= -radius; offset -= 1) {
-    const nextNote = midiToNote(centerMidi + offset);
-    if (nextNote) {
-      notes.push(nextNote);
-    }
-  }
-  return notes;
+  return buildMidiWindow(centerMidi, radius).map(midiToNote);
 }
 
 function buildAdaptiveNoteRange(minMidi: number, maxMidi: number, padding: number) {

@@ -8,10 +8,6 @@ import { NOTE_NAMES } from '../utils/notePlacement';
 import { TrackIcon } from '../utils/trackPersonality';
 import { MIN_ARRANGEMENT_STEPS, type ArrangementClip, type StepValue, type Track } from '../project/schema';
 
-const SECTION_COLORS = [
-  '#22d3ee', '#818cf8', '#f472b6', '#fbbf24', '#34d399', '#fb7185', '#60a5fa', '#a78bfa', '#f59e0b',
-];
-
 const RULER_HEIGHT = 28;
 const GUTTER_WIDTH = 58;
 const ROW_HEIGHT = 16;
@@ -50,10 +46,8 @@ export const WholeSongPianoRoll = () => {
     selectedTrackId,
     setSelectedTrackId,
     arrangerClips,
-    songMarkers,
     songLengthInBeats,
     stepsPerPattern,
-    transportMode,
     togglePatternStep,
   } = useAudio();
 
@@ -98,17 +92,6 @@ export const WholeSongPianoRoll = () => {
     }
     return map;
   }, [arrangerClips]);
-
-  const sections = useMemo(() => {
-    const sorted = [...songMarkers].sort((a, b) => a.beat - b.beat);
-    return sorted.map((marker, index) => ({
-      id: marker.id,
-      name: marker.name,
-      start: marker.beat,
-      end: index < sorted.length - 1 ? sorted[index + 1].beat : totalSteps,
-      color: SECTION_COLORS[index % SECTION_COLORS.length],
-    }));
-  }, [songMarkers, totalSteps]);
 
   // Follow the playhead only when it moves, so a manual scroll is never yanked
   // back (same approach as the whole-song step grid).
@@ -203,6 +186,7 @@ export const WholeSongPianoRoll = () => {
             const isSelected = candidate.id === track.id;
             return (
               <button
+                aria-pressed={isSelected}
                 key={candidate.id}
                 className="flex h-7 shrink-0 items-center gap-1.5 rounded-[3px] border px-2 text-[11px] font-semibold tracking-tight transition-colors"
                 onClick={() => setSelectedTrackId(candidate.id)}
@@ -223,9 +207,7 @@ export const WholeSongPianoRoll = () => {
           })}
         </div>
         <span className="shrink-0 text-[11px] text-[var(--text-tertiary)]">
-          {transportMode === 'SONG'
-            ? 'Click a cell to add or remove that pitch across the song'
-            : 'Switch the transport to Song to arrange across patterns'}
+          Editing {track.name} across the full song
         </span>
       </div>
 
@@ -235,7 +217,7 @@ export const WholeSongPianoRoll = () => {
         onScroll={(event) => setScrollLeft(event.currentTarget.scrollLeft)}
       >
         <div className="relative" style={{ width: GUTTER_WIDTH + totalWidth, height: gridHeight }}>
-          {/* Section ruler: pinned to the top, click a label to jump there. */}
+          {/* Continuous bar ruler: pinned to the top and shared with Song view. */}
           <div className="sticky top-0 z-20 flex" style={{ height: RULER_HEIGHT }}>
             <div
               className="sticky left-0 z-30 flex shrink-0 items-center gap-1 border-b border-r border-[var(--border-soft)] bg-[var(--bg-panel-strong)] px-2"
@@ -244,26 +226,20 @@ export const WholeSongPianoRoll = () => {
               <Music2 className="h-3 w-3 text-[var(--accent)]" />
             </div>
             <div className="relative shrink-0 border-b border-[var(--border-soft)] bg-[var(--bg-panel-strong)]" style={{ width: totalWidth }}>
-              {sections.length === 0 && (
-                <div className="flex h-full items-center px-2 text-[10px] text-[var(--text-tertiary)]">
-                  No sections yet. Mark sections in the Sequencer to label parts of the song.
-                </div>
-              )}
-              {sections.map((section) => (
+              {windowSteps.filter((songStep) => songStep % stepsPerPattern === 0).map((songStep) => (
                 <button
-                  key={section.id}
-                  className="absolute top-0 flex h-full items-center overflow-hidden border-l border-[var(--chrome-line)] px-1.5 text-left text-[9px] font-semibold uppercase tracking-[0.12em]"
-                  onClick={() => engine.seekToBeat(section.start)}
+                  aria-label={`Jump to bar ${Math.floor(songStep / stepsPerPattern) + 1}`}
+                  key={`piano-roll-ruler-${songStep}`}
+                  className="absolute top-0 flex h-full items-center overflow-hidden border-l border-[var(--chrome-line)] px-2 text-left font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--text-secondary)] hover:bg-white/5 hover:text-[var(--text-primary)]"
+                  onClick={() => engine.seekToBeat(songStep)}
                   style={{
-                    left: section.start * CELL_WIDTH,
-                    width: (section.end - section.start) * CELL_WIDTH,
-                    background: `${section.color}14`,
-                    color: section.color,
+                    left: songStep * CELL_WIDTH,
+                    width: stepsPerPattern * CELL_WIDTH,
                   }}
-                  title={`Jump to ${section.name}`}
+                  title={`Jump to bar ${Math.floor(songStep / stepsPerPattern) + 1}`}
                   type="button"
                 >
-                  <span className="truncate">{section.name}</span>
+                  Bar {Math.floor(songStep / stepsPerPattern) + 1}
                 </button>
               ))}
             </div>
@@ -299,6 +275,8 @@ export const WholeSongPianoRoll = () => {
                   const isBeat = songStep % 4 === 0;
                   return (
                     <button
+                      aria-label={`${row.note} at bar ${Math.floor(songStep / stepsPerPattern) + 1}, step ${(songStep % stepsPerPattern) + 1}`}
+                      aria-pressed={Boolean(event)}
                       key={songStep}
                       className={`absolute top-0 h-full ${arranged ? 'hover:bg-[rgba(255,255,255,0.06)]' : 'cursor-default'}`}
                       disabled={!arranged}

@@ -50,22 +50,15 @@ const ShareDialog = lazyWithRetry(() => import('./components/ShareDialog').then(
 const OnboardingGuide = lazyWithRetry(() => import('./components/OnboardingGuide').then((module) => ({ default: module.OnboardingGuide })), 'guide');
 const DeviceRack = lazyWithRetry(() => import('./components/DeviceRack').then((module) => ({ default: module.DeviceRack })), 'device-rack');
 const NotesPanel = lazyWithRetry(() => import('./components/NotesPanel').then((module) => ({ default: module.NotesPanel })), 'notes-panel');
-const ArrangementPanel = lazyWithRetry(() => import('./components/ArrangementPanel').then((module) => ({ default: module.ArrangementPanel })), 'arrangement-panel');
 
-// The lower inspector is a single-tab dock. Sound, Notes, and Arrangement used
-// to mount independently, which could stack several full editors and leave the
-// active canvas thousands of pixels away. Keeping exactly one panel active
-// matches a desktop DAW inspector and gives the editor a predictable scroll
-// model. Notes still rides the shared store so every "Deep edit" action can
-// open this dock without prop drilling.
+// The lower editor keeps only the two lane-specific jobs: sound design and
+// precise pitch editing. Song arrangement lives in the main Create canvas.
 const DESK_VISIBLE_KEY = 'sonicstudio:panel-desk-visible';
-const ARRANGEMENT_VISIBLE_KEY = 'sonicstudio:panel-arrangement-visible';
 
 const PanelDock = () => {
   const { activeView } = useAudio();
   const notesOpen = useNotesPanelOpen();
   const [selectedPanel, setSelectedPanel] = useState<StudioPanelId | null>(() => resolveInitialStudioPanel({
-    arrangementVisible: readString(ARRANGEMENT_VISIBLE_KEY) === 'true',
     deskVisible: readString(DESK_VISIBLE_KEY) === 'true',
     notesOpen,
   }));
@@ -76,7 +69,6 @@ const PanelDock = () => {
 
   useEffect(() => {
     void writeString(DESK_VISIBLE_KEY, activePanel === 'desk' ? 'true' : 'false');
-    void writeString(ARRANGEMENT_VISIBLE_KEY, activePanel === 'arrangement' ? 'true' : 'false');
   }, [activePanel]);
 
   const togglePanel = (requested: StudioPanelId) => {
@@ -100,8 +92,7 @@ const PanelDock = () => {
 
   const panels: Array<{ id: StudioPanelId; label: string }> = [
     { id: 'desk', label: 'Sound desk' },
-    { id: 'notes', label: 'Notes' },
-    { id: 'arrangement', label: 'Arrangement' },
+    { id: 'notes', label: 'Piano roll' },
   ];
   const activeLabel = panels.find((panel) => panel.id === activePanel)?.label;
   const dockChipClass = 'control-chip whitespace-nowrap px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]';
@@ -117,7 +108,7 @@ const PanelDock = () => {
       >
         <span className="hidden shrink-0 items-center gap-2.5 sm:flex">
           <Layers className="h-4 w-4 shrink-0 text-[var(--accent)]" />
-          <span className="section-label">Inspector</span>
+          <span className="section-label">Edit lane</span>
         </span>
         <div aria-label="Studio inspector" className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto" role="tablist">
           {panels.map((panel) => (
@@ -158,7 +149,6 @@ const PanelDock = () => {
           <Suspense fallback={<div className="surface-panel flex min-h-40 items-center justify-center text-sm text-[var(--text-secondary)]">Opening inspector</div>}>
             {activePanel === 'desk' && <DeviceRack />}
             {activePanel === 'notes' && <NotesPanel />}
-            {activePanel === 'arrangement' && <ArrangementPanel />}
           </Suspense>
         </div>
       )}

@@ -17,6 +17,7 @@ const SECTION_COLORS = [
 const RULER_HEIGHT = 36;
 const GUTTER_WIDTH = 156;
 const MIN_SECTION_STEPS = 4;
+const EDITABLE_SECTION_RULER = false;
 
 const OVERSCAN = 8;
 
@@ -1072,9 +1073,22 @@ export const SongTimelineGrid = ({
         }}
       >
         <div className="relative" style={{ width: totalWidth }}>
-          {/* Editable section ruler. */}
+          {/* Continuous bar ruler. Song regions remain data, but they do not
+              split the editing canvas into competing named blocks. */}
           <div className="sticky top-0 z-20 border-b border-[var(--border-soft)] bg-[var(--bg-panel-strong)]" style={{ height: RULER_HEIGHT, width: totalWidth }}>
-            {sections.map((section, sectionIndex) => {
+            {windowSteps.filter((songStep) => songStep % stepsPerPattern === 0).map((songStep) => (
+              <button
+                aria-label={`Jump to bar ${Math.floor(songStep / stepsPerPattern) + 1}`}
+                className="absolute inset-y-0 flex items-center border-l border-[var(--chrome-line)] px-2 font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--text-secondary)] hover:bg-white/5 hover:text-[var(--text-primary)]"
+                key={`song-ruler-${songStep}`}
+                onClick={() => onSeek?.(songStep)}
+                style={{ left: songStep * cellW, width: stepsPerPattern * cellW }}
+                type="button"
+              >
+                Bar {Math.floor(songStep / stepsPerPattern) + 1}
+              </button>
+            ))}
+            {EDITABLE_SECTION_RULER && sections.map((section, sectionIndex) => {
               const originalSection = baseSections.find((candidate) => candidate.id === section.id) ?? section;
               const isResizing = resizePreview?.sectionId === section.id;
               const isMoving = movePreview?.sectionId === section.id;

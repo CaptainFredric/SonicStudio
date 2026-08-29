@@ -14,3 +14,20 @@ export const clampNoteGate = (value: number) => (
 export const snapNoteGate = (value: number, step: number) => (
   clampNoteGate(Math.round(value / step) * step)
 );
+
+// Build a stable, unique pitch window even when its center sits against the
+// supported MIDI limits. Shifting the window prevents repeated top or bottom
+// rows such as several C7 cells that all edit the same note.
+export const buildMidiWindow = (
+  center: number,
+  radius: number,
+  min = 24,
+  max = 96,
+): number[] => {
+  const safeRadius = Math.max(0, Math.floor(radius));
+  const span = Math.min(max - min, safeRadius * 2);
+  const clampedCenter = Math.max(min, Math.min(max, Math.round(center)));
+  const low = Math.max(min, Math.min(clampedCenter - safeRadius, max - span));
+  const high = Math.min(max, low + span);
+  return Array.from({ length: high - low + 1 }, (_, index) => high - index);
+};

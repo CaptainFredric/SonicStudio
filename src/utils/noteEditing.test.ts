@@ -4,6 +4,7 @@ import {
   NOTE_GATE_GRID_STEP,
   NOTE_GATE_MAX,
   NOTE_GATE_MIN,
+  buildMidiWindow,
   clampNoteGate,
   snapNoteGate,
 } from './noteEditing';
@@ -23,5 +24,13 @@ describe('noteEditing', () => {
   it('keeps snap results inside the canonical bounds', () => {
     expect(snapNoteGate(0.01, NOTE_GATE_GRID_STEP)).toBe(NOTE_GATE_MIN);
     expect(snapNoteGate(12, NOTE_GATE_GRID_STEP)).toBe(NOTE_GATE_MAX);
+  });
+
+  it('shifts pitch windows at the MIDI limits without repeating rows', () => {
+    expect(buildMidiWindow(96, 7)).toEqual([
+      96, 95, 94, 93, 92, 91, 90, 89, 88, 87, 86, 85, 84, 83, 82,
+    ]);
+    expect(buildMidiWindow(24, 2)).toEqual([28, 27, 26, 25, 24]);
+    expect(new Set(buildMidiWindow(96, 7)).size).toBe(15);
   });
 });
