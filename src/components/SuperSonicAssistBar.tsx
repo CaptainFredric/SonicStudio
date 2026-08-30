@@ -106,7 +106,7 @@ export const SuperSonicAssistBar = () => {
 
   return (
     <section
-      className="surface-panel md:shrink-0 grid gap-2 px-3 py-2"
+      className="surface-panel md:shrink-0 px-3 py-2"
       data-supersonic-assist
       style={{ borderTop: '2px solid var(--accent)' }}
     >
@@ -194,16 +194,15 @@ export const SuperSonicAssistBar = () => {
             {flash}
           </span>
         )}
-      </div>
-
-      {insight && (
-        <div className="supersonic-assist-insight flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-[var(--border-soft)] pt-2 text-[11px] leading-5 text-[var(--text-secondary)]">
-          <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--accent-strong)]">
-            {insight.noteCount} {insight.noteCount === 1 ? 'note' : 'notes'} · {insight.activeSteps}/{insight.stepCount} steps
+        {insight && !flash && (
+          <span className="supersonic-assist-insight ml-auto hidden min-w-0 max-w-[520px] items-center gap-2 text-[11px] text-[var(--text-secondary)] xl:flex">
+            <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--accent-strong)]">
+              {insight.noteCount} {insight.noteCount === 1 ? 'note' : 'notes'} · {insight.activeSteps}/{insight.stepCount} steps
+            </span>
+            <span className="min-w-0 truncate">{insight.tip}</span>
           </span>
-          <span className="min-w-0 flex-1">{insight.tip}</span>
-        </div>
-      )}
+        )}
+      </div>
     </section>
   );
 };

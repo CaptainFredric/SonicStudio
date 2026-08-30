@@ -1628,10 +1628,10 @@ html[data-supersonic-transition="out"] .app-shell::after {
   }
 
   .studio-shell-grid:not([data-editing-mode="true"]) .studio-workbench:has(.sequencer-workspace) .studio-editor-row {
-    height: clamp(300px, calc(100dvh - 280px), 520px);
-    min-height: clamp(300px, calc(100dvh - 280px), 520px);
-    max-height: clamp(300px, calc(100dvh - 280px), 520px);
-    flex: 0 0 clamp(300px, calc(100dvh - 280px), 520px);
+    height: auto;
+    min-height: 300px;
+    max-height: none;
+    flex: 1 1 0;
   }
 
 }

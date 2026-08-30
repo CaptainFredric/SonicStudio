@@ -619,6 +619,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
     requestDemoPlayback,
     setActiveView,
     setSettingsOpen,
+    superSonicMode,
     togglePlay,
   } = useAudio();
   const isFirstImpression = useFirstImpression();
@@ -997,9 +998,14 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
           </div>
         </div>
         {!editingMode && !isShowcasePreviewActive && !focusedNotesEditor && (
-          <div className="studio-auxiliary-dock flex min-h-0 shrink-0 flex-col gap-3 overflow-y-auto px-3 pb-3">
+          <div
+            className={`studio-auxiliary-dock flex min-h-0 shrink-0 flex-col overflow-y-auto px-3 pb-3 ${superSonicMode ? 'gap-2' : 'gap-3'}`}
+            data-supersonic={superSonicMode ? 'true' : undefined}
+          >
             <SuperSonicAssistBar />
-            <TapToPlay />
+            <React.Fragment key={superSonicMode ? 'tap-super' : 'tap-normal'}>
+              <TapToPlay startCollapsed={superSonicMode} />
+            </React.Fragment>
           </div>
         )}
       </div>

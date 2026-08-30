@@ -142,7 +142,7 @@ const buildRecordedPresetPreviewTrack = (preset: RecordedNotePreset) => {
   });
 };
 
-export const TapToPlay = () => {
+export const TapToPlay = ({ startCollapsed = false }: { startCollapsed?: boolean }) => {
   const {
     applyTrackVoicePreset,
     initAudio,
@@ -159,7 +159,7 @@ export const TapToPlay = () => {
   } = useAudio();
   const playbackStep = usePlaybackStep();
   const track = tracks.find((candidate) => candidate.id === selectedTrackId) ?? null;
-  const [open, setOpen] = useState<boolean>(readInitialOpen);
+  const [open, setOpen] = useState<boolean>(() => startCollapsed ? false : readInitialOpen());
   const [activeKey, setActiveKey] = useState<string | null>(null);
   // Recent-note ghost trail: each entry holds the note name + the
   // wall-clock millisecond it was played, so the keyboard can fade
