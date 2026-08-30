@@ -183,10 +183,14 @@ describe('SongTimelineGrid', () => {
     expect(queryByRole('slider', { name: 'Resize the end of Intro' })).toBeNull();
   });
 
-  it('hides inactive note cells from assistive output while clips are being edited', () => {
-    const { cell, project } = renderGrid({ clipEditing: true });
+  it('keeps note cells editable while clip handles are available', () => {
+    const { cell, project, props } = renderGrid({ clipEditing: true });
+    const emptyStep = cell(project.tracks[0].id, 1);
 
-    expect(cell(project.tracks[0].id, 0).getAttribute('aria-hidden')).toBe('true');
+    expect((emptyStep as HTMLButtonElement).disabled).toBe(false);
+    expect(emptyStep.getAttribute('aria-hidden')).toBeNull();
+    fireEvent.pointerDown(emptyStep, { button: 0 });
+    expect(props.onToggleStep).toHaveBeenCalledWith(project.tracks[0].id, 0, 1);
   });
 
   it('moves a selected clip on the four-step grid from the keyboard', () => {
@@ -243,21 +247,40 @@ describe('SongTimelineGrid', () => {
     expect(props.onMoveClip).toHaveBeenCalledWith(clip.id, targetTrack.id, 4);
   });
 
-  it('offers direct duplicate, split, and delete actions for a selected clip', () => {
+  it('opens note editing when the clip handle is double-clicked', () => {
+    const view = renderGrid({
+      clipEditing: true,
+      onEditClipNotes: vi.fn(),
+    });
+    const { getByRole, project, props } = view;
+    const clip = project.arrangerClips[0];
+    const track = project.tracks.find((candidate) => candidate.id === clip.trackId)!;
+
+    fireEvent.doubleClick(getByRole('button', {
+      name: `Move Pattern ${String.fromCharCode(65 + clip.patternIndex)} clip on ${track.name}`,
+    }));
+
+    expect(props.onEditClipNotes).toHaveBeenCalledWith(clip.id);
+  });
+
+  it('offers direct note editing, duplicate, split, and delete actions for a selected clip', () => {
     const view = renderGrid({
       clipEditing: true,
       onDeleteClip: vi.fn(),
       onDuplicateClip: vi.fn(),
+      onEditClipNotes: vi.fn(),
       onSplitClip: vi.fn(),
     });
     const { getByRole, project, props, rerender } = view;
     const clip = project.arrangerClips[0];
     rerender(<SongTimelineGrid {...props} selectedClipId={clip.id} />);
 
+    fireEvent.click(getByRole('button', { name: 'Edit notes in selected clip' }));
     fireEvent.click(getByRole('button', { name: 'Duplicate selected clip' }));
     fireEvent.click(getByRole('button', { name: 'Split selected clip at the playhead' }));
     fireEvent.click(getByRole('button', { name: 'Delete selected clip' }));
 
+    expect(props.onEditClipNotes).toHaveBeenCalledWith(clip.id);
     expect(props.onDuplicateClip).toHaveBeenCalledWith(clip.id);
     expect(props.onSplitClip).toHaveBeenCalledWith(clip.id, clip.startBeat + 8);
     expect(props.onDeleteClip).toHaveBeenCalledWith(clip.id);

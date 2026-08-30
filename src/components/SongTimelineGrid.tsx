@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronsLeft, ChevronsRight, CopyPlus, GripVertical, Music2, Scissors, Trash2 } from 'lucide-react';
+import { ChevronsLeft, ChevronsRight, CopyPlus, GripVertical, Music2, PencilLine, Scissors, Trash2 } from 'lucide-react';
 import type React from 'react';
 
 import { engine } from '../audio/ToneEngine';
@@ -85,6 +85,7 @@ interface SongTimelineGridProps {
   onSplitClip?: (clipId: string, splitAtBeat: number) => void;
   onDuplicateClip?: (clipId: string) => void;
   onDeleteClip?: (clipId: string) => void;
+  onEditClipNotes?: (clipId: string) => void;
 }
 
 // A flattened, scrollable view of the whole arrangement: one lane per track with
@@ -123,6 +124,7 @@ export const SongTimelineGrid = ({
   onSplitClip,
   onDuplicateClip,
   onDeleteClip,
+  onEditClipNotes,
 }: SongTimelineGridProps) => {
   const rootRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -1234,13 +1236,14 @@ export const SongTimelineGrid = ({
                   : null;
                 return (
                   <button
-                    aria-hidden={clipEditing ? true : undefined}
+                    aria-label={`${track.name} ${active ? 'note' : 'empty step'} at bar ${bar}, step ${(songStep % barLineEvery) + 1}`}
+                    aria-pressed={active}
                     key={songStep}
                     className="group absolute top-0 h-full transition-colors hover:bg-[rgba(255,255,255,0.05)]"
                     data-song-cell="true"
                     data-track-id={track.id}
                     data-song-step={songStep}
-                    disabled={clipEditing || Boolean(resizePreview || movePreview)}
+                    disabled={Boolean(resizePreview || movePreview || clipMovePreview || clipResizePreview)}
                     onPointerDown={(event) => {
                       // Reset first: a prior drag that ended on another cell (or
                       // off-grid) fires no click to self-clear the flag, so without
@@ -1424,11 +1427,11 @@ export const SongTimelineGrid = ({
                   const beatLength = resizing ? clipResizePreview.draftLength : clip.beatLength;
                   const clipPixelWidth = Math.max(36, beatLength * cellW);
                   const compactClip = clipPixelWidth < 128;
-                  const showInlineClipActions = clipPixelWidth >= 84;
+                  const showInlineClipActions = clipPixelWidth >= 128;
                   const selected = selectedClipId === clip.id;
                   return (
                     <div
-                      className="group absolute inset-y-1 overflow-hidden rounded-[3px] border"
+                      className="pointer-events-none group absolute inset-y-1 overflow-hidden rounded-[3px] border"
                       data-arranger-clip={clip.id}
                       data-moving={previewing && clipMovePreview.moved ? 'true' : undefined}
                       data-resizing={resizing ? 'true' : undefined}
@@ -1451,19 +1454,19 @@ export const SongTimelineGrid = ({
                       />
                       <button
                         aria-label={`Move Pattern ${String.fromCharCode(65 + clip.patternIndex)} clip on ${track.name}`}
-                        className={`absolute inset-0 flex cursor-grab items-center overflow-hidden text-left active:cursor-grabbing ${selected ? 'px-3.5' : 'px-1.5'}`}
+                        className="pointer-events-auto absolute left-1 top-1 z-[9] flex max-w-[76px] cursor-grab items-center overflow-hidden rounded-[2px] text-left active:cursor-grabbing"
                         onClick={() => {
                           onSelectClip?.(clip.id);
                           onSelectTrack(track.id);
                         }}
-                        onDoubleClick={() => onDuplicateClip?.(clip.id)}
+                        onDoubleClick={() => onEditClipNotes?.(clip.id)}
                         onFocus={() => {
                           onSelectClip?.(clip.id);
                           onSelectTrack(track.id);
                         }}
                         onKeyDown={(event) => moveClipWithKeyboard(event, clip)}
                         onPointerDown={(event) => beginClipMove(event, clip)}
-                        title={`Pattern ${String.fromCharCode(65 + clip.patternIndex)} · ${beatLength} steps. Drag to move${beatLength >= 8 ? '; press S to split at the playhead' : ''}.`}
+                        title={`Pattern ${String.fromCharCode(65 + clip.patternIndex)} · ${beatLength} steps. Drag this handle to move; double-click to edit notes.`}
                         type="button"
                       >
                         <span className="flex min-w-0 items-center gap-0.5 rounded-[2px] bg-[var(--bg-panel-strong)]/90 px-1 py-0.5 shadow-sm">
@@ -1476,7 +1479,19 @@ export const SongTimelineGrid = ({
                         </span>
                       </button>
                       {selected && !resizing && showInlineClipActions && (
-                        <div className={`absolute top-1/2 z-10 flex -translate-y-1/2 items-center gap-0.5 rounded-[2px] bg-[var(--bg-panel-strong)]/95 p-0.5 shadow-sm md:left-auto md:right-3 ${compactClip ? 'left-5' : 'left-16'}`}>
+                        <div className="pointer-events-auto absolute right-3 top-1 z-10 flex items-center gap-0.5 rounded-[2px] bg-[var(--bg-panel-strong)]/95 p-0.5 shadow-sm">
+                          {onEditClipNotes && (
+                            <button
+                              aria-label="Edit notes in selected clip"
+                              className={`flex items-center justify-center rounded-[2px] text-[var(--accent-strong)] hover:bg-[rgba(255,255,255,0.08)] hover:text-[var(--text-primary)] ${compactClip ? 'h-5 w-5' : 'h-6 w-6'}`}
+                              onClick={(event) => { event.stopPropagation(); onEditClipNotes(clip.id); }}
+                              onPointerDown={(event) => event.stopPropagation()}
+                              title={`Edit ${track.type === 'kick' || track.type === 'snare' || track.type === 'hihat' ? 'hits' : 'notes'} in this clip`}
+                              type="button"
+                            >
+                              <PencilLine className="h-3 w-3" />
+                            </button>
+                          )}
                           <button
                             aria-label="Duplicate selected clip"
                             className={`flex items-center justify-center rounded-[2px] text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.08)] hover:text-[var(--text-primary)] ${compactClip ? 'h-5 w-5' : 'h-6 w-6'}`}
@@ -1534,7 +1549,7 @@ export const SongTimelineGrid = ({
                             aria-valuemin={Math.max(0, clip.startBeat + clip.beatLength - MAX_STEPS_PER_PATTERN)}
                             aria-valuenow={startBeat}
                             aria-valuetext={`Starts at step ${startBeat}; ${beatLength} steps long`}
-                            className="absolute inset-y-0 left-0 z-30 flex w-3 cursor-ew-resize items-center justify-center border-r border-current bg-[var(--bg-panel-strong)]/90 transition-colors hover:bg-[var(--bg-panel-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
+                            className="pointer-events-auto absolute left-0 top-0 z-30 flex h-7 w-3 cursor-ew-resize items-center justify-center border-r border-current bg-[var(--bg-panel-strong)]/90 transition-colors hover:bg-[var(--bg-panel-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
                             onClick={(event) => event.stopPropagation()}
                             onKeyDown={(event) => resizeClipWithKeyboard(event, clip, 'start')}
                             onPointerDown={(event) => beginClipResize(event, clip, 'start')}
@@ -1552,7 +1567,7 @@ export const SongTimelineGrid = ({
                             aria-valuemin={MIN_ARRANGEMENT_STEPS}
                             aria-valuenow={beatLength}
                             aria-valuetext={`${beatLength} steps long`}
-                            className="absolute inset-y-0 right-0 z-30 flex w-3 cursor-ew-resize items-center justify-center border-l border-current bg-[var(--bg-panel-strong)]/90 transition-colors hover:bg-[var(--bg-panel-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
+                            className="pointer-events-auto absolute right-0 top-0 z-30 flex h-7 w-3 cursor-ew-resize items-center justify-center border-l border-current bg-[var(--bg-panel-strong)]/90 transition-colors hover:bg-[var(--bg-panel-strong)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px]"
                             onClick={(event) => event.stopPropagation()}
                             onKeyDown={(event) => resizeClipWithKeyboard(event, clip, 'end')}
                             onPointerDown={(event) => beginClipResize(event, clip, 'end')}

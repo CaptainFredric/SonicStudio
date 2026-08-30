@@ -2767,7 +2767,7 @@ export const MainWorkspace = () => {
                     Continuous song across {formatSongSpan(songLengthInBeats, stepsPerPattern)}
                   </div>
                   <div className="mt-1 hidden text-[11px] text-[var(--text-secondary)] sm:block">
-                    {countLabel(songLengthInBeats, 'step')} · {countLabel(visibleTracks.length, 'visible track')} · Clips here · Pitches in Piano roll
+                    {countLabel(songLengthInBeats, 'step')} · {countLabel(visibleTracks.length, 'visible track')} · Click notes · Drag pattern handles · Pitches in Piano roll
                   </div>
                 </div>
               </div>
@@ -3309,6 +3309,14 @@ export const MainWorkspace = () => {
                 onSplitClip={(clipId, splitAtBeat) => splitArrangerClip(clipId, splitAtBeat)}
                 onDuplicateClip={duplicateArrangerClip}
                 onDeleteClip={removeArrangerClip}
+                onEditClipNotes={(clipId) => {
+                  const clip = arrangerClips.find((candidate) => candidate.id === clipId);
+                  if (!clip) return;
+                  setSelectedTrackId(clip.trackId);
+                  setCurrentPattern(clip.patternIndex);
+                  setSelectedArrangerClipId(clip.id);
+                  openNotesPanel();
+                }}
               />
             )}
             <div
