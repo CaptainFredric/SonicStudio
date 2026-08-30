@@ -17,6 +17,14 @@ const OVERSCAN = 8;
 // when a track only uses a couple of pitches.
 const MIN_SPAN = 23;
 
+const isRhythmTrackType = (type: Track['type']) => type === 'kick' || type === 'snare' || type === 'hihat';
+
+const getRhythmFallbackNote = (type: Track['type']): string => {
+  if (type === 'snare') return 'D1';
+  if (type === 'hihat') return 'F#1';
+  return 'C1';
+};
+
 // A sortable pitch value (octave * 12 + pitch class). NOTE_NAMES is chromatic,
 // so this is monotonic across the keyboard.
 const pitchRank = (note: string): number => {
@@ -57,6 +65,7 @@ export const WholeSongPianoRoll = () => {
   const [playBeat, setPlayBeat] = useState(0);
 
   const track = tracks.find((candidate) => candidate.id === selectedTrackId) ?? tracks[0] ?? null;
+  const isRhythmTrack = Boolean(track && isRhythmTrackType(track.type));
 
   const totalSteps = Math.max(MIN_ARRANGEMENT_STEPS, Math.round(songLengthInBeats));
   const totalWidth = totalSteps * CELL_WIDTH;
@@ -65,12 +74,20 @@ export const WholeSongPianoRoll = () => {
   // its melody instead of a generic full keyboard.
   const rows = useMemo(() => {
     const ranks: number[] = [];
+    let firstNote: string | null = null;
     if (track) {
       for (const steps of Object.values(track.patterns) as StepValue[][]) {
         for (const step of steps) {
-          for (const event of step) ranks.push(pitchRank(event.note));
+          for (const event of step) {
+            firstNote ??= event.note;
+            ranks.push(pitchRank(event.note));
+          }
         }
       }
+    }
+    if (track && isRhythmTrack) {
+      const note = firstNote ?? getRhythmFallbackNote(track.type);
+      return [{ rank: pitchRank(note), note, label: 'Hit', black: false }];
     }
     let low = ranks.length > 0 ? Math.min(...ranks) - 1 : 36;
     let high = ranks.length > 0 ? Math.max(...ranks) + 1 : 60;
@@ -78,12 +95,13 @@ export const WholeSongPianoRoll = () => {
       high += 1;
       if (high - low < MIN_SPAN) low -= 1;
     }
-    const out: Array<{ rank: number; note: string; black: boolean }> = [];
+    const out: Array<{ rank: number; note: string; label: string; black: boolean }> = [];
     for (let rank = high; rank >= low; rank -= 1) {
-      out.push({ rank, note: rankToNote(rank), black: isBlackKey(rank) });
+      const note = rankToNote(rank);
+      out.push({ rank, note, label: note, black: isBlackKey(rank) });
     }
     return out;
-  }, [track]);
+  }, [isRhythmTrack, track]);
 
   const arrangerClipsByTrack = useMemo(() => {
     const map: Record<string, ArrangementClip[]> = {};
@@ -175,7 +193,8 @@ export const WholeSongPianoRoll = () => {
   for (const step of windowSteps) resolvedByStep.set(step, resolveAt(step));
 
   const playheadLeft = GUTTER_WIDTH + playBeat * CELL_WIDTH;
-  const gridHeight = RULER_HEIGHT + rows.length * ROW_HEIGHT;
+  const rowHeight = isRhythmTrack ? 44 : ROW_HEIGHT;
+  const gridHeight = RULER_HEIGHT + rows.length * rowHeight;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2">
@@ -213,8 +232,9 @@ export const WholeSongPianoRoll = () => {
 
       <div
         ref={scrollRef}
-        className="relative min-h-0 flex-1 overflow-auto rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]"
+        className={`relative overflow-auto rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] ${isRhythmTrack ? 'shrink-0' : 'min-h-0 flex-1'}`}
         onScroll={(event) => setScrollLeft(event.currentTarget.scrollLeft)}
+        style={isRhythmTrack ? { height: gridHeight } : undefined}
       >
         <div className="relative" style={{ width: GUTTER_WIDTH + totalWidth, height: gridHeight }}>
           {/* Continuous bar ruler: pinned to the top and shared with Song view. */}
@@ -247,41 +267,43 @@ export const WholeSongPianoRoll = () => {
 
           {/* Pitch rows, highest at the top. */}
           {rows.map((row) => (
-            <div key={row.rank} className="flex" style={{ height: ROW_HEIGHT }}>
+            <div key={row.rank} className="flex" style={{ height: rowHeight }}>
               <div
                 className="sticky left-0 z-10 flex shrink-0 items-center justify-end border-b border-r border-[var(--border-soft)] pr-1.5 font-mono text-[9px]"
                 style={{
                   width: GUTTER_WIDTH,
-                  height: ROW_HEIGHT,
+                  height: rowHeight,
                   background: row.black ? 'rgba(0,0,0,0.32)' : 'var(--bg-panel-strong)',
                   color: row.note.startsWith('C') && !row.black ? 'var(--text-secondary)' : 'var(--text-tertiary)',
                 }}
               >
-                {row.note}
+                {row.label}
               </div>
               <div
                 className="relative shrink-0 border-b border-[var(--border-soft)]"
                 style={{
                   width: totalWidth,
-                  height: ROW_HEIGHT,
+                  height: rowHeight,
                   background: row.black ? 'rgba(0,0,0,0.16)' : undefined,
                 }}
               >
                 {windowSteps.map((songStep) => {
                   const resolved = resolvedByStep.get(songStep) ?? null;
                   const arranged = Boolean(resolved);
-                  const event = resolved?.note.find((candidate) => candidate.note === row.note) ?? null;
+                  const event = isRhythmTrack
+                    ? resolved?.note[0] ?? null
+                    : resolved?.note.find((candidate) => candidate.note === row.note) ?? null;
                   const isBar = songStep % stepsPerPattern === 0;
                   const isBeat = songStep % 4 === 0;
                   return (
                     <button
-                      aria-label={`${row.note} at bar ${Math.floor(songStep / stepsPerPattern) + 1}, step ${(songStep % stepsPerPattern) + 1}`}
+                      aria-label={`${isRhythmTrack ? `${track.name} hit` : row.note} at bar ${Math.floor(songStep / stepsPerPattern) + 1}, step ${(songStep % stepsPerPattern) + 1}`}
                       aria-pressed={Boolean(event)}
                       key={songStep}
                       className={`absolute top-0 h-full ${arranged ? 'hover:bg-[rgba(255,255,255,0.06)]' : 'cursor-default'}`}
                       disabled={!arranged}
                       onClick={() => {
-                        if (resolved) togglePatternStep(track.id, resolved.patternIndex, resolved.stepIndex, row.note);
+                        if (resolved) togglePatternStep(track.id, resolved.patternIndex, resolved.stepIndex, event?.note ?? row.note);
                       }}
                       style={{
                         left: songStep * CELL_WIDTH,
@@ -293,7 +315,7 @@ export const WholeSongPianoRoll = () => {
                             : '1px solid rgba(255,255,255,0.02)',
                         background: !arranged ? 'rgba(0,0,0,0.18)' : isBeat && !isBar ? 'rgba(255,255,255,0.02)' : undefined,
                       }}
-                      title={arranged ? `${row.note} · bar ${Math.floor(songStep / stepsPerPattern) + 1}` : 'No clip here'}
+                      title={arranged ? `${isRhythmTrack ? 'Hit' : row.note} · bar ${Math.floor(songStep / stepsPerPattern) + 1}` : 'No clip here'}
                       type="button"
                     >
                       {event && (
@@ -316,6 +338,11 @@ export const WholeSongPianoRoll = () => {
           />
         </div>
       </div>
+      {isRhythmTrack && (
+        <p className="surface-panel-muted flex min-h-24 flex-1 items-center justify-center px-4 py-4 text-center text-[11px] text-[var(--text-secondary)]">
+          Rhythm tracks use one hit lane. Choose Bass, Lead, Pad, or another melodic track above to edit pitches.
+        </p>
+      )}
     </div>
   );
 };

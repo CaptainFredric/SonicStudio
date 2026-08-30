@@ -1628,10 +1628,10 @@ html[data-supersonic-transition="out"] .app-shell::after {
   }
 
   .studio-shell-grid:not([data-editing-mode="true"]) .studio-workbench:has(.sequencer-workspace) .studio-editor-row {
-    height: clamp(520px, 74dvh, 640px);
-    min-height: clamp(520px, 74dvh, 640px);
-    max-height: clamp(520px, 74dvh, 640px);
-    flex: 0 0 clamp(520px, 74dvh, 640px);
+    height: clamp(300px, calc(100dvh - 280px), 520px);
+    min-height: clamp(300px, calc(100dvh - 280px), 520px);
+    max-height: clamp(300px, calc(100dvh - 280px), 520px);
+    flex: 0 0 clamp(300px, calc(100dvh - 280px), 520px);
   }
 
 }
@@ -4120,6 +4120,10 @@ html[data-note-string-queued="true"] [data-seq-cell="true"]:focus-visible {
 
 .notes-panel {
   height: clamp(420px, 64vh, 720px);
+}
+
+.studio-inspector-stack[data-active-panel="notes"] .notes-panel {
+  height: auto;
 }
 
 /* The note editor becomes a focused workspace before its grid and inspector

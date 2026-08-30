@@ -20,7 +20,7 @@ export const NotesPanel = () => {
   }
 
   return (
-    <div className="notes-panel flex min-h-0 flex-col" data-studio-panel-body="notes">
+    <div className="notes-panel flex min-h-0 flex-1 flex-col overflow-hidden" data-studio-panel-body="notes">
       <Suspense fallback={<div className="surface-panel flex flex-1 items-center justify-center text-sm text-[var(--text-secondary)]">Opening the Piano roll</div>}>
         <PianoRollView />
       </Suspense>

@@ -56,7 +56,7 @@ const NotesPanel = lazyWithRetry(() => import('./components/NotesPanel').then((m
 const DESK_VISIBLE_KEY = 'sonicstudio:panel-desk-visible';
 
 const PanelDock = () => {
-  const { activeView } = useAudio();
+  const { activeView, selectedTrackId, tracks } = useAudio();
   const notesOpen = useNotesPanelOpen();
   const [selectedPanel, setSelectedPanel] = useState<StudioPanelId | null>(() => resolveInitialStudioPanel({
     deskVisible: readString(DESK_VISIBLE_KEY) === 'true',
@@ -90,16 +90,18 @@ const PanelDock = () => {
     return null;
   }
 
+  const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? tracks[0] ?? null;
+  const isRhythmTrack = selectedTrack?.type === 'kick' || selectedTrack?.type === 'snare' || selectedTrack?.type === 'hihat';
   const panels: Array<{ id: StudioPanelId; label: string }> = [
     { id: 'desk', label: 'Sound desk' },
-    { id: 'notes', label: 'Piano roll' },
+    { id: 'notes', label: isRhythmTrack ? 'Hit lane' : 'Piano roll' },
   ];
   const activeLabel = panels.find((panel) => panel.id === activePanel)?.label;
   const dockChipClass = 'control-chip whitespace-nowrap px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em]';
 
   return (
     <section
-      className="studio-inspector-stack min-w-0"
+      className={`studio-inspector-stack min-w-0 ${activePanel === 'notes' ? 'flex min-h-0 flex-1 flex-col overflow-hidden' : ''}`}
       data-active-panel={activePanel ?? undefined}
     >
       <div
@@ -142,7 +144,7 @@ const PanelDock = () => {
       {activePanel && (
         <div
           aria-labelledby={`studio-panel-tab-${activePanel}`}
-          className="studio-panel-body min-h-0"
+          className={`studio-panel-body min-h-0 ${activePanel === 'notes' ? 'flex flex-1 flex-col overflow-hidden' : ''}`}
           id={`studio-panel-${activePanel}`}
           role="tabpanel"
         >
@@ -605,6 +607,7 @@ type ToastTone = ToastItem['tone'];
 
 const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
   const {
+    activeView,
     importMidiSession,
     importSession,
     initAudio,
@@ -635,6 +638,8 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
   const isShowcasePreviewActive = isGuideOpen && guideMode === 'showcase';
   useDialogFocus(isLaunchpadOpen, launchpadRef, { trap: true });
   const editingMode = useEditingMode();
+  const notesPanelOpen = useNotesPanelOpen();
+  const focusedNotesEditor = notesPanelOpen && activeView === 'SEQUENCER' && !editingMode;
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const autoGuidePendingRef = useRef(!routeState.showGuide && shouldAutoOpenOnboarding());
@@ -972,24 +977,26 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
             </>
           )}
           <div className={`studio-workbench flex min-w-0 flex-col md:min-h-0 md:flex-1 md:overflow-hidden ${editingMode ? 'gap-0' : 'gap-2 md:gap-3'}`}>
-            <div className="studio-editor-row flex flex-col gap-3 md:min-h-[300px] md:flex-row md:flex-1 md:overflow-hidden">
-              <ViewRouter
-                isShowcasePreviewActive={isShowcasePreviewActive}
-                onEnterStudio={() => {
-                  autoGuidePendingRef.current = false;
-                  markOnboardingCompleted();
-                  setGuideOpen(false);
-                }}
-                onOpenShare={() => {
-                  setGuideOpen(false);
-                  setShareOpen(true);
-                }}
-              />
-            </div>
+            {!focusedNotesEditor && (
+              <div className="studio-editor-row flex flex-col gap-3 md:min-h-[300px] md:flex-row md:flex-1 md:overflow-hidden">
+                <ViewRouter
+                  isShowcasePreviewActive={isShowcasePreviewActive}
+                  onEnterStudio={() => {
+                    autoGuidePendingRef.current = false;
+                    markOnboardingCompleted();
+                    setGuideOpen(false);
+                  }}
+                  onOpenShare={() => {
+                    setGuideOpen(false);
+                    setShareOpen(true);
+                  }}
+                />
+              </div>
+            )}
             {!editingMode && !isShowcasePreviewActive && <PanelDock />}
           </div>
         </div>
-        {!editingMode && !isShowcasePreviewActive && (
+        {!editingMode && !isShowcasePreviewActive && !focusedNotesEditor && (
           <div className="studio-auxiliary-dock flex min-h-0 shrink-0 flex-col gap-3 overflow-y-auto px-3 pb-3">
             <SuperSonicAssistBar />
             <TapToPlay />
