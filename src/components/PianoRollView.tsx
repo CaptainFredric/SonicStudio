@@ -15,7 +15,7 @@ export const PianoRollView = () => {
   const helper = isRhythmTrack
     ? `Click steps to add or remove ${selectedTrack?.type === 'hihat' ? 'hi-hat' : selectedTrack?.type ?? 'drum'} hits.`
     : transportMode === 'SONG'
-      ? 'Click cells to add or remove notes across the arrangement.'
+      ? 'Drag notes to change pitch or timing. Click cells to add or remove. Reused patterns update together.'
       : 'Click empty space to add. Drag a note to change pitch or timing. Select it for precise controls.';
 
   return (

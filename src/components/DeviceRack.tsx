@@ -30,6 +30,12 @@ const RACK_MAX_HEIGHT = 660;
 // scrolls internally and stays drag-resizable up to RACK_MAX_HEIGHT.
 const RACK_DEFAULT_HEIGHT = 210;
 
+const getRackMaxHeight = () => (
+  typeof window === 'undefined'
+    ? RACK_MAX_HEIGHT
+    : Math.min(RACK_MAX_HEIGHT, Math.max(RACK_MIN_HEIGHT, window.innerHeight - 360))
+);
+
 const isRackView = (value: unknown): value is RackView => (
   value === 'SOURCE' || value === 'SHAPE' || value === 'SPACE'
 );
@@ -44,7 +50,7 @@ const readInitialHeight = () => {
   if (!raw) return RACK_DEFAULT_HEIGHT;
   const parsed = Number(raw);
   if (!Number.isFinite(parsed)) return RACK_DEFAULT_HEIGHT;
-  return Math.min(RACK_MAX_HEIGHT, Math.max(RACK_MIN_HEIGHT, Math.round(parsed)));
+  return Math.min(getRackMaxHeight(), Math.max(RACK_MIN_HEIGHT, Math.round(parsed)));
 };
 
 const readRackView = (): RackView => {
@@ -118,6 +124,14 @@ export const DeviceRack = () => {
   }, [rackHeight]);
 
   useEffect(() => {
+    const clampRackToViewport = () => {
+      setRackHeight((current) => Math.min(getRackMaxHeight(), current));
+    };
+    window.addEventListener('resize', clampRackToViewport);
+    return () => window.removeEventListener('resize', clampRackToViewport);
+  }, []);
+
+  useEffect(() => {
     writeString(RACK_VIEW_KEY, activeRackView);
     writeString(RACK_SOURCE_VIEW_KEY, activeSourceSubView);
   }, [activeRackView, activeSourceSubView]);
@@ -135,7 +149,7 @@ export const DeviceRack = () => {
           ? moveEvent.touches[0]?.clientY ?? state.startY
           : (moveEvent as MouseEvent).clientY;
         const delta = state.startY - moveClientY;
-        const next = Math.min(RACK_MAX_HEIGHT, Math.max(RACK_MIN_HEIGHT, state.startHeight + delta));
+        const next = Math.min(getRackMaxHeight(), Math.max(RACK_MIN_HEIGHT, state.startHeight + delta));
         setRackHeight(next);
       };
       const onEnd = () => {
@@ -161,7 +175,7 @@ export const DeviceRack = () => {
   const handleResizeKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
     if (event.key === 'ArrowUp') {
       event.preventDefault();
-      setRackHeight((current) => Math.min(RACK_MAX_HEIGHT, current + (event.shiftKey ? 32 : 12)));
+      setRackHeight((current) => Math.min(getRackMaxHeight(), current + (event.shiftKey ? 32 : 12)));
     } else if (event.key === 'ArrowDown') {
       event.preventDefault();
       setRackHeight((current) => Math.max(RACK_MIN_HEIGHT, current - (event.shiftKey ? 32 : 12)));
@@ -301,25 +315,28 @@ export const DeviceRack = () => {
 
   return (
     <section
-      className="surface-panel device-rack-panel relative p-3 md:h-[var(--rack-height)] md:shrink-0 md:overflow-auto"
+      className="surface-panel device-rack-panel relative px-3 pb-3 pt-8 md:h-[var(--rack-height)] md:shrink-0 md:overflow-auto"
       data-expanded="true"
       style={{ '--rack-height': `${rackHeight}px` } as React.CSSProperties}
     >
       <div
         aria-label="Resize sound desk"
         aria-orientation="horizontal"
-        aria-valuemax={RACK_MAX_HEIGHT}
+        aria-valuemax={getRackMaxHeight()}
         aria-valuemin={RACK_MIN_HEIGHT}
         aria-valuenow={rackHeight}
-        className="group absolute inset-x-0 top-0 z-20 hidden h-3 cursor-ns-resize items-center justify-center md:flex"
+        aria-valuetext={`${Math.round(rackHeight)} pixels high`}
+        className="group absolute inset-x-2 top-1 z-20 hidden h-6 cursor-ns-resize items-center justify-center gap-2 rounded-[3px] border border-[var(--border-soft)] bg-[var(--bg-control)] text-[var(--text-tertiary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--accent-strong)] md:flex"
+        onDoubleClick={() => setRackHeight(RACK_DEFAULT_HEIGHT)}
         onKeyDown={handleResizeKeyDown}
         onMouseDown={handleResizeStart}
         onTouchStart={handleResizeStart}
         role="separator"
         tabIndex={0}
-        title="Resize sound desk"
+        title="Drag up for a larger Sound Desk. Double-click to reset."
       >
-        <GripHorizontal className="h-3 w-3 text-[var(--text-tertiary)] opacity-50 transition-opacity group-hover:opacity-100" />
+        <GripHorizontal className="h-3 w-3" />
+        <span className="font-mono text-[9px] font-semibold uppercase tracking-[0.14em]">Drag to resize Sound Desk</span>
       </div>
 
       <button

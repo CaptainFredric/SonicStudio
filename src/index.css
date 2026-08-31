@@ -3503,10 +3503,74 @@ html[data-supersonic="true"] .session-player-deck-chip[data-role="intro"] {
   max-width: 560px;
 }
 
-.compact-transport-spectrum {
+.compact-transport-position {
   flex: 1 1 120px;
   min-width: 96px;
   max-width: 720px;
+  display: flex;
+  min-height: 2.6rem;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0 0.7rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 3px;
+  background: var(--bg-panel-strong);
+}
+
+.compact-transport-position-label {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+}
+
+.compact-transport-position-range {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  cursor: ew-resize;
+  background: transparent;
+  touch-action: none;
+}
+
+.compact-transport-position-track {
+  position: absolute;
+  inset: 7px 0;
+  overflow: visible;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border-soft);
+}
+
+.compact-transport-position-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--transport-progress);
+  border-radius: inherit;
+  background: var(--accent);
+}
+
+.compact-transport-position-thumb {
+  position: absolute;
+  top: 50%;
+  left: var(--transport-progress);
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--bg-panel-strong);
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background: var(--accent-strong);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.compact-transport-position-range:focus-visible .compact-transport-position-thumb {
+  box-shadow: 0 0 0 2px var(--bg-panel-strong), 0 0 0 4px var(--focus-ring);
 }
 
 .compact-transport-btn {
@@ -3619,9 +3683,13 @@ html[data-supersonic="true"] .session-player-deck-chip[data-role="intro"] {
     padding-inline: 0.35rem;
   }
 
-  .compact-transport-bar[data-editing-mode="true"] .compact-transport-spectrum {
+  .compact-transport-bar[data-editing-mode="true"] .compact-transport-position {
     min-width: 48px;
     padding-inline: 0.25rem;
+  }
+
+  .compact-transport-bar[data-editing-mode="true"] .compact-transport-position-label {
+    display: none;
   }
 
   .compact-transport-bar[data-editing-mode="true"] .compact-tempo-step {
@@ -3677,7 +3745,7 @@ html[data-supersonic="true"] .session-player-deck-chip[data-role="intro"] {
   }
 
   .compact-transport-bar[data-editing-mode="true"] .compact-first-play-hint,
-  .compact-transport-bar[data-editing-mode="true"] .compact-transport-spectrum,
+  .compact-transport-bar[data-editing-mode="true"] .compact-transport-position,
   .compact-transport-bar[data-editing-mode="true"] .compact-super-label {
     display: none;
   }
@@ -4024,9 +4092,13 @@ html[data-note-string-queued="true"] [data-seq-cell="true"]:focus-visible {
     padding-inline: 0.35rem;
   }
 
-  .compact-transport-bar:not([data-editing-mode="true"]) .compact-transport-spectrum {
+  .compact-transport-bar:not([data-editing-mode="true"]) .compact-transport-position {
     min-width: 48px;
     padding-inline: 0.25rem;
+  }
+
+  .compact-transport-bar:not([data-editing-mode="true"]) .compact-transport-position-label {
+    display: none;
   }
 
   .compact-transport-bar:not([data-editing-mode="true"]) .compact-tempo-step {
@@ -4042,6 +4114,12 @@ html[data-note-string-queued="true"] [data-seq-cell="true"]:focus-visible {
     min-width: 2.6rem;
     flex: 0 0 2.6rem;
     padding-inline: 0;
+  }
+}
+
+@media (min-width: 768px) {
+  .studio-workbench:has(.studio-inspector-stack[data-active-panel="desk"]) .studio-editor-row {
+    min-height: 180px;
   }
 }
 
@@ -4065,7 +4143,7 @@ html[data-note-string-queued="true"] [data-seq-cell="true"]:focus-visible {
   }
 
   .compact-transport-bar:not([data-editing-mode="true"]) .compact-first-play-hint,
-  .compact-transport-bar:not([data-editing-mode="true"]) .compact-transport-spectrum,
+  .compact-transport-bar:not([data-editing-mode="true"]) .compact-transport-position,
   .compact-transport-bar:not([data-editing-mode="true"]) .compact-super-label {
     display: none;
   }

@@ -366,6 +366,56 @@ const moveNoteToStep = (
   )));
 };
 
+const movePatternNote = (
+  state: EditorState,
+  trackId: string,
+  fromPatternIndex: number,
+  fromStepIndex: number,
+  fromNoteIndex: number,
+  toPatternIndex: number,
+  toStepIndex: number,
+  note: string,
+) => {
+  const { present } = state.history;
+  const stepsPerPattern = present.transport.stepsPerPattern;
+  if (fromStepIndex < 0 || fromStepIndex >= stepsPerPattern || toStepIndex < 0 || toStepIndex >= stepsPerPattern) {
+    return state;
+  }
+
+  return commitProject(state, updateTrack(present, trackId, (track) => {
+    const sourcePattern = normalizeSegmentSteps(track.patterns[fromPatternIndex] ?? [], stepsPerPattern);
+    const sourceEvent = sourcePattern[fromStepIndex]?.[fromNoteIndex];
+    if (!sourceEvent) return track;
+    if (
+      fromPatternIndex === toPatternIndex
+      && fromStepIndex === toStepIndex
+      && sourceEvent.note === note
+    ) {
+      return track;
+    }
+
+    const nextPatterns = { ...track.patterns };
+    const nextSource = sourcePattern.map(cloneStepEvents);
+    nextSource[fromStepIndex] = nextSource[fromStepIndex].filter((_, index) => index !== fromNoteIndex);
+
+    if (fromPatternIndex === toPatternIndex) {
+      const destination = nextSource[toStepIndex].filter((event) => event.note !== note);
+      destination.push({ ...sourceEvent, note });
+      nextSource[toStepIndex] = destination;
+      nextPatterns[fromPatternIndex] = nextSource;
+    } else {
+      const nextTarget = normalizeSegmentSteps(track.patterns[toPatternIndex] ?? [], stepsPerPattern);
+      const destination = nextTarget[toStepIndex].filter((event) => event.note !== note);
+      destination.push({ ...sourceEvent, note });
+      nextTarget[toStepIndex] = destination;
+      nextPatterns[fromPatternIndex] = nextSource;
+      nextPatterns[toPatternIndex] = nextTarget;
+    }
+
+    return { ...track, patterns: nextPatterns };
+  }));
+};
+
 export const handleTrackNotePatternAction = (state: EditorState, action: EditorAction): EditorState | null => {
   const { present } = state.history;
 
@@ -412,6 +462,18 @@ export const handleTrackNotePatternAction = (state: EditorState, action: EditorA
         action.fromNoteIndex,
         action.toStepIndex,
         action.newGate,
+      );
+
+    case 'MOVE_PATTERN_NOTE':
+      return movePatternNote(
+        state,
+        action.trackId,
+        action.fromPatternIndex,
+        action.fromStepIndex,
+        action.fromNoteIndex,
+        action.toPatternIndex,
+        action.toStepIndex,
+        action.note,
       );
 
     case 'STAMP_CHORD':

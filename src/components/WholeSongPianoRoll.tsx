@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { Music2 } from 'lucide-react';
 
 import { engine } from '../audio/ToneEngine';
@@ -16,6 +16,19 @@ const OVERSCAN = 8;
 // Keep the grid at least two octaves tall so it never collapses to a sliver
 // when a track only uses a couple of pitches.
 const MIN_SPAN = 23;
+
+interface SongNoteDragGesture {
+  fromNoteIndex: number;
+  fromPatternIndex: number;
+  fromStepIndex: number;
+  moved: boolean;
+  note: string;
+  originX: number;
+  originY: number;
+  sourceSongStep: number;
+  targetNote: string;
+  targetSongStep: number;
+}
 
 const isRhythmTrackType = (type: Track['type']) => type === 'kick' || type === 'snare' || type === 'hihat';
 
@@ -57,12 +70,16 @@ export const WholeSongPianoRoll = () => {
     songLengthInBeats,
     stepsPerPattern,
     togglePatternStep,
+    movePatternNote,
   } = useAudio();
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollLeft, setScrollLeft] = useState(0);
   const [viewportWidth, setViewportWidth] = useState(800);
   const [playBeat, setPlayBeat] = useState(0);
+  const noteDragRef = useRef<SongNoteDragGesture | null>(null);
+  const suppressClickRef = useRef(false);
+  const [noteDragPreview, setNoteDragPreview] = useState<SongNoteDragGesture | null>(null);
 
   const track = tracks.find((candidate) => candidate.id === selectedTrackId) ?? tracks[0] ?? null;
   const isRhythmTrack = Boolean(track && isRhythmTrackType(track.type));
@@ -192,6 +209,72 @@ export const WholeSongPianoRoll = () => {
   const resolvedByStep = new Map<number, ReturnType<typeof resolveAt>>();
   for (const step of windowSteps) resolvedByStep.set(step, resolveAt(step));
 
+  const beginNoteDrag = (
+    pointerEvent: ReactPointerEvent<HTMLButtonElement>,
+    resolved: NonNullable<ReturnType<typeof resolveAt>>,
+    eventNote: string,
+    noteIndex: number,
+    songStep: number,
+  ) => {
+    if (pointerEvent.button !== 0) return;
+    noteDragRef.current = {
+      fromNoteIndex: noteIndex,
+      fromPatternIndex: resolved.patternIndex,
+      fromStepIndex: resolved.stepIndex,
+      moved: false,
+      note: eventNote,
+      originX: pointerEvent.clientX,
+      originY: pointerEvent.clientY,
+      sourceSongStep: songStep,
+      targetNote: eventNote,
+      targetSongStep: songStep,
+    };
+    pointerEvent.currentTarget.setPointerCapture?.(pointerEvent.pointerId);
+  };
+
+  const updateNoteDrag = (pointerEvent: ReactPointerEvent<HTMLButtonElement>) => {
+    const gesture = noteDragRef.current;
+    if (!gesture) return;
+    const moved = gesture.moved
+      || Math.hypot(pointerEvent.clientX - gesture.originX, pointerEvent.clientY - gesture.originY) >= 4;
+    if (!moved) return;
+    const underPointer = document.elementFromPoint(pointerEvent.clientX, pointerEvent.clientY);
+    const cell = underPointer instanceof Element
+      ? underPointer.closest<HTMLElement>('[data-whole-song-note-cell="true"]')
+      : null;
+    const targetSongStep = Number(cell?.dataset.songStep);
+    const targetNote = cell?.dataset.note;
+    if (!cell || !targetNote || !Number.isFinite(targetSongStep) || !resolveAt(targetSongStep)) return;
+    const next = { ...gesture, moved: true, targetNote, targetSongStep };
+    noteDragRef.current = next;
+    setNoteDragPreview(next);
+  };
+
+  const finishNoteDrag = () => {
+    const gesture = noteDragRef.current;
+    noteDragRef.current = null;
+    setNoteDragPreview(null);
+    if (!gesture?.moved) return;
+    const target = resolveAt(gesture.targetSongStep);
+    if (!target) return;
+    suppressClickRef.current = true;
+    window.setTimeout(() => { suppressClickRef.current = false; }, 0);
+    movePatternNote(
+      track.id,
+      gesture.fromPatternIndex,
+      gesture.fromStepIndex,
+      gesture.fromNoteIndex,
+      target.patternIndex,
+      target.stepIndex,
+      isRhythmTrack ? gesture.note : gesture.targetNote,
+    );
+  };
+
+  const cancelNoteDrag = () => {
+    noteDragRef.current = null;
+    setNoteDragPreview(null);
+  };
+
   const playheadLeft = GUTTER_WIDTH + playBeat * CELL_WIDTH;
   const rowHeight = isRhythmTrack ? 44 : ROW_HEIGHT;
   const gridHeight = RULER_HEIGHT + rows.length * rowHeight;
@@ -293,6 +376,16 @@ export const WholeSongPianoRoll = () => {
                   const event = isRhythmTrack
                     ? resolved?.note[0] ?? null
                     : resolved?.note.find((candidate) => candidate.note === row.note) ?? null;
+                  const noteIndex = event && resolved ? resolved.note.indexOf(event) : -1;
+                  const draggingSource = Boolean(
+                    event
+                    && noteDragPreview?.sourceSongStep === songStep
+                    && noteDragPreview.note === event.note,
+                  );
+                  const draggingTarget = Boolean(
+                    noteDragPreview?.targetSongStep === songStep
+                    && (isRhythmTrack || noteDragPreview.targetNote === row.note),
+                  );
                   const isBar = songStep % stepsPerPattern === 0;
                   const isBeat = songStep % 4 === 0;
                   return (
@@ -300,11 +393,26 @@ export const WholeSongPianoRoll = () => {
                       aria-label={`${isRhythmTrack ? `${track.name} hit` : row.note} at bar ${Math.floor(songStep / stepsPerPattern) + 1}, step ${(songStep % stepsPerPattern) + 1}`}
                       aria-pressed={Boolean(event)}
                       key={songStep}
-                      className={`absolute top-0 h-full ${arranged ? 'hover:bg-[rgba(255,255,255,0.06)]' : 'cursor-default'}`}
+                      className={`absolute top-0 h-full ${event ? 'cursor-grab active:cursor-grabbing' : arranged ? 'hover:bg-[rgba(255,255,255,0.06)]' : 'cursor-default'}`}
+                      data-note={row.note}
+                      data-song-step={songStep}
+                      data-whole-song-note-cell="true"
                       disabled={!arranged}
                       onClick={() => {
+                        if (suppressClickRef.current) {
+                          suppressClickRef.current = false;
+                          return;
+                        }
                         if (resolved) togglePatternStep(track.id, resolved.patternIndex, resolved.stepIndex, event?.note ?? row.note);
                       }}
+                      onPointerCancel={cancelNoteDrag}
+                      onPointerDown={(pointerEvent) => {
+                        if (event && resolved && noteIndex >= 0) {
+                          beginNoteDrag(pointerEvent, resolved, event.note, noteIndex, songStep);
+                        }
+                      }}
+                      onPointerMove={updateNoteDrag}
+                      onPointerUp={finishNoteDrag}
                       style={{
                         left: songStep * CELL_WIDTH,
                         width: CELL_WIDTH,
@@ -314,6 +422,7 @@ export const WholeSongPianoRoll = () => {
                             ? '1px solid rgba(255,255,255,0.06)'
                             : '1px solid rgba(255,255,255,0.02)',
                         background: !arranged ? 'rgba(0,0,0,0.18)' : isBeat && !isBar ? 'rgba(255,255,255,0.02)' : undefined,
+                        touchAction: event ? 'none' : undefined,
                       }}
                       title={arranged ? `${isRhythmTrack ? 'Hit' : row.note} · bar ${Math.floor(songStep / stepsPerPattern) + 1}` : 'No clip here'}
                       type="button"
@@ -321,7 +430,14 @@ export const WholeSongPianoRoll = () => {
                       {event && (
                         <span
                           className="absolute inset-x-[1px] inset-y-[1.5px] rounded-[2px]"
-                          style={{ background: track.color, opacity: Math.max(0.45, Math.min(1, event.velocity || 0.9)) }}
+                          style={{ background: track.color, opacity: draggingSource ? 0.3 : Math.max(0.45, Math.min(1, event.velocity || 0.9)) }}
+                        />
+                      )}
+                      {draggingTarget && !event && (
+                        <span
+                          aria-hidden
+                          className="pointer-events-none absolute inset-x-[1px] inset-y-[1.5px] rounded-[2px] border border-dashed"
+                          style={{ background: `${track.color}33`, borderColor: track.color }}
                         />
                       )}
                     </button>

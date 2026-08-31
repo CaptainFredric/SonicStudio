@@ -241,6 +241,35 @@ describe('editorReducer', () => {
     expect(targetTrack?.automation?.[0]?.tone[1]).toBe(0.22);
   });
 
+  it('moves a song piano roll note across pattern banks while preserving its expression', () => {
+    const state = createEditorState('night-transit');
+    const track = state.history.present.tracks.find((candidate) => candidate.type === 'pad');
+    if (!track) throw new Error('Expected a pad track');
+    const sourcePatternIndex = Number(Object.keys(track.patterns).find((key) => track.patterns[Number(key)]?.some((step) => step.length > 0)) ?? 0);
+    const sourceStepIndex = track.patterns[sourcePatternIndex].findIndex((step) => step.length > 0);
+    const sourceEvent = track.patterns[sourcePatternIndex][sourceStepIndex][0];
+    const targetPatternIndex = sourcePatternIndex === 0 ? 1 : 0;
+
+    const nextState = editorReducer(state, {
+      type: 'MOVE_PATTERN_NOTE',
+      fromNoteIndex: 0,
+      fromPatternIndex: sourcePatternIndex,
+      fromStepIndex: sourceStepIndex,
+      note: 'C5',
+      toPatternIndex: targetPatternIndex,
+      toStepIndex: 5,
+      trackId: track.id,
+    });
+    const nextTrack = nextState.history.present.tracks.find((candidate) => candidate.id === track.id);
+
+    expect(nextTrack?.patterns[sourcePatternIndex]?.[sourceStepIndex]).toHaveLength(
+      track.patterns[sourcePatternIndex][sourceStepIndex].length - 1,
+    );
+    expect(nextTrack?.patterns[sourcePatternIndex]?.[sourceStepIndex]).not.toContainEqual(sourceEvent);
+    expect(nextTrack?.patterns[targetPatternIndex]?.[5]).toContainEqual({ ...sourceEvent, note: 'C5' });
+    expect(nextState.history.past).toHaveLength(1);
+  });
+
   it('preserves existing automation when a segment only replaces notes', () => {
     const state = createEditorState('blank-grid');
     const leadTrack = state.history.present.tracks.find((track) => track.type === 'lead');

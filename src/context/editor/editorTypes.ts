@@ -111,6 +111,7 @@ export type EditorAction =
   | { type: 'HUMANIZE_PATTERN'; trackId: string; patternIndex?: number; amount?: number }
   | { type: 'STAMP_CHORD'; trackId: string; patternIndex?: number; stepIndex: number; notes: string[]; gate?: number; velocity?: number }
   | { type: 'MOVE_NOTE_TO_STEP'; trackId: string; patternIndex?: number; fromStepIndex: number; fromNoteIndex: number; toStepIndex: number; newGate?: number }
+  | { type: 'MOVE_PATTERN_NOTE'; trackId: string; fromPatternIndex: number; fromStepIndex: number; fromNoteIndex: number; toPatternIndex: number; toStepIndex: number; note: string }
   | { type: 'UNDO' }
   | { type: 'UPDATE_ARRANGER_CLIP'; clipId: string; updates: Partial<ArrangementClip> }
   | { type: 'UPDATE_CLIP_PATTERN_AUTOMATION_STEP'; clipId: string; stepIndex: number; lane: 'level' | 'tone'; value: number }

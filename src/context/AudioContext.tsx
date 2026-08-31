@@ -260,6 +260,7 @@ interface AudioContextType {
   humanizePattern: (trackId: string, amount?: number) => void;
   stampChord: (trackId: string, stepIndex: number, notes: string[], options?: { gate?: number; velocity?: number }) => void;
   moveNoteToStep: (trackId: string, fromStepIndex: number, fromNoteIndex: number, toStepIndex: number, newGate?: number) => void;
+  movePatternNote: (trackId: string, fromPatternIndex: number, fromStepIndex: number, fromNoteIndex: number, toPatternIndex: number, toStepIndex: number, note: string) => void;
   transportMode: TransportMode;
   undo: () => void;
   updateArrangerClip: (clipId: string, updates: Partial<ArrangementClip>) => void;

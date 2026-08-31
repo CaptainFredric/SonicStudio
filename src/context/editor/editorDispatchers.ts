@@ -95,6 +95,7 @@ export const createEditorDispatchers = (dispatch: Dispatch<EditorAction>) => ({
   humanizePattern: (trackId: string, amount: number = 0.18) => dispatch({ type: 'HUMANIZE_PATTERN', trackId, amount }),
   stampChord: (trackId: string, stepIndex: number, notes: string[], options?: { gate?: number; velocity?: number }) => dispatch({ type: 'STAMP_CHORD', trackId, stepIndex, notes, gate: options?.gate, velocity: options?.velocity }),
   moveNoteToStep: (trackId: string, fromStepIndex: number, fromNoteIndex: number, toStepIndex: number, newGate?: number) => dispatch({ type: 'MOVE_NOTE_TO_STEP', trackId, fromStepIndex, fromNoteIndex, toStepIndex, newGate }),
+  movePatternNote: (trackId: string, fromPatternIndex: number, fromStepIndex: number, fromNoteIndex: number, toPatternIndex: number, toStepIndex: number, note: string) => dispatch({ type: 'MOVE_PATTERN_NOTE', trackId, fromPatternIndex, fromStepIndex, fromNoteIndex, toPatternIndex, toStepIndex, note }),
   undo: () => dispatch({ type: 'UNDO' }),
   updateArrangerClip: (clipId: string, updates: Partial<ArrangementClip>) => dispatch({ type: 'UPDATE_ARRANGER_CLIP', clipId, updates }),
   updateClipPatternAutomationStep: (clipId: string, stepIndex: number, lane: 'level' | 'tone', value: number) => dispatch({ type: 'UPDATE_CLIP_PATTERN_AUTOMATION_STEP', clipId, stepIndex, lane, value }),

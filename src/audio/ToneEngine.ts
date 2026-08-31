@@ -615,11 +615,10 @@ export class ToneEngine {
 
     if (!this.offlineMode) {
       Tone.Draw.schedule(() => {
-        const visualStep = this.transportMode === 'SONG'
-          ? songStep % this.stepsPerPattern
-          : songStep;
-
-        this.stepCallbacks.forEach((callback) => callback(visualStep, displayedPattern));
+        // Publish the absolute song step. Pattern-only consumers fold this
+        // value with stepsPerPattern, while the arranger and transport need
+        // the real playhead position after bar one.
+        this.stepCallbacks.forEach((callback) => callback(songStep, displayedPattern));
       }, time);
     }
 
@@ -678,7 +677,7 @@ export class ToneEngine {
     Tone.getTransport().stop();
     Tone.getTransport().position = loopBounds.startBeat * Tone.Time('16n').toSeconds();
     this.currentStep = loopBounds.startBeat;
-    this.stepCallbacks.forEach((callback) => callback(loopBounds.startBeat % this.stepsPerPattern, this.currentPattern));
+    this.stepCallbacks.forEach((callback) => callback(loopBounds.startBeat, this.currentPattern));
   }
 
   // Jump the playhead (and the running transport) to an absolute song beat.
@@ -693,8 +692,7 @@ export class ToneEngine {
     } catch {
       // Transport may not be running yet; currentStep still applies on play.
     }
-    const visualStep = this.transportMode === 'SONG' ? clamped % this.stepsPerPattern : clamped;
-    this.stepCallbacks.forEach((callback) => callback(visualStep, this.currentPattern));
+    this.stepCallbacks.forEach((callback) => callback(clamped, this.currentPattern));
   }
 
   // Start playback at an exact beat for offline chunked rendering. Unlike

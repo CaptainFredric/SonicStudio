@@ -1,5 +1,5 @@
 import React, { Suspense, useCallback, useEffect, useRef, useState } from 'react';
-import { AudioProvider, useAudio } from './context/AudioContext';
+import { AudioProvider, useAudio, usePlaybackStep } from './context/AudioContext';
 import { TopBar } from './components/TopBar';
 import { ShowcaseStage } from './components/ShowcaseStage';
 import { MobileStudioNavigation } from './components/StudioNavigation';
@@ -26,7 +26,7 @@ import { readString, writeString } from './utils/safeStorage';
 import { lazyWithRetry } from './utils/lazyWithRetry';
 import { decodeSharePayload } from './utils/shareCodec';
 import type { GuideMode } from './components/OnboardingGuide';
-import { TransportSpectrum } from './components/TransportSpectrum';
+import { engine } from './audio/ToneEngine';
 import { revealStudioEditor, revealStudioPanel } from './components/studioViewport';
 import { resolveInitialStudioPanel, resolveNextStudioPanel, type StudioPanelId } from './components/studioPanelState';
 import { playSupersonicToggleSound } from './audio/uiSounds';
@@ -382,12 +382,18 @@ const CompactTransportBar = () => {
     stickyMobileTransport,
     transportMode,
     setTransportMode,
+    songLengthInBeats,
+    stepsPerPattern,
   } = useAudio();
+  const playbackStep = usePlaybackStep();
+  const [transportSeekStep, setTransportSeekStep] = useState<number | null>(null);
   const isMobile = useMediaQuery('(max-width: 767px)');
   const editingMode = useEditingMode();
   const isFirstImpression = useFirstImpression();
   const playTogglePendingRef = useRef(false);
   const recordingTogglePendingRef = useRef(false);
+  const transportSeekRef = useRef<HTMLButtonElement>(null);
+  const transportSeekDraggingRef = useRef(false);
 
   const handleTogglePlay = async () => {
     if (playTogglePendingRef.current) {
@@ -396,6 +402,9 @@ const CompactTransportBar = () => {
 
     playTogglePendingRef.current = true;
     try {
+      if (!isPlaying) {
+        setTransportSeekStep(null);
+      }
       await togglePlay();
     } finally {
       playTogglePendingRef.current = false;
@@ -417,6 +426,29 @@ const CompactTransportBar = () => {
 
   const nudgeBpm = (delta: number) => {
     setBpm(Math.max(40, Math.min(220, Math.round(bpm + delta))));
+  };
+  const transportLength = Math.max(1, transportMode === 'SONG' ? Math.round(songLengthInBeats) : stepsPerPattern);
+  const roundedPlaybackStep = Math.round(playbackStep);
+  const transportStep = Math.max(0, Math.min(
+    transportLength - 1,
+    transportSeekStep !== null && transportSeekStep === roundedPlaybackStep
+      ? transportSeekStep
+      : roundedPlaybackStep,
+  ));
+  const transportProgress = transportLength <= 1 ? 0 : transportStep / (transportLength - 1);
+
+  const seekTransportTo = (nextValue: number) => {
+    const nextStep = Math.max(0, Math.min(transportLength - 1, Math.round(nextValue)));
+    setTransportSeekStep(nextStep);
+    engine.seekToBeat(nextStep);
+  };
+
+  const seekTransportFromPointer = (clientX: number) => {
+    const bounds = transportSeekRef.current?.getBoundingClientRect();
+    if (!bounds || bounds.width <= 0) {
+      return;
+    }
+    seekTransportTo(((clientX - bounds.left) / bounds.width) * (transportLength - 1));
   };
 
   const handleToggleSupersonic = (event: React.MouseEvent<HTMLButtonElement>) => {
@@ -455,7 +487,10 @@ const CompactTransportBar = () => {
           aria-pressed={transportMode === 'PATTERN'}
           className="compact-mode-btn"
           data-active={transportMode === 'PATTERN' ? 'true' : undefined}
-          onClick={() => setTransportMode('PATTERN')}
+          onClick={() => {
+            setTransportSeekStep(null);
+            setTransportMode('PATTERN');
+          }}
           title="Play and edit the current pattern"
           type="button"
         >
@@ -465,7 +500,10 @@ const CompactTransportBar = () => {
           aria-pressed={transportMode === 'SONG'}
           className="compact-mode-btn"
           data-active={transportMode === 'SONG' ? 'true' : undefined}
-          onClick={() => setTransportMode('SONG')}
+          onClick={() => {
+            setTransportSeekStep(null);
+            setTransportMode('SONG');
+          }}
           title="Play and edit the full arrangement"
           type="button"
         >
@@ -489,7 +527,10 @@ const CompactTransportBar = () => {
           aria-label="Stop"
           className="control-chip compact-transport-btn"
           data-ui-sound="transport"
-          onClick={stop}
+          onClick={() => {
+            setTransportSeekStep(null);
+            stop();
+          }}
           type="button"
         >
           <Square className="h-4 w-4 fill-current" />
@@ -508,10 +549,61 @@ const CompactTransportBar = () => {
           {isRecording ? 'Rec' : 'Record'}
         </button>
       </div>
-      <div
-        className="compact-transport-spectrum overflow-hidden rounded-[3px] border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] px-1.5"
-      >
-        <TransportSpectrum active={isPlaying} />
+      <div className="compact-transport-position" role="group" aria-label="Playback position">
+        <span className="compact-transport-position-label">
+          {transportMode === 'SONG' ? 'Song' : 'Pattern'} {transportStep + 1}/{transportLength}
+        </span>
+        <button
+          aria-label="Seek playback position"
+          aria-valuemax={transportLength - 1}
+          aria-valuemin={0}
+          aria-valuenow={transportStep}
+          aria-valuetext={`Step ${transportStep + 1} of ${transportLength}`}
+          className="compact-transport-position-range"
+          onKeyDown={(event) => {
+            if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
+              event.preventDefault();
+              seekTransportTo(transportStep - 1);
+            } else if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
+              event.preventDefault();
+              seekTransportTo(transportStep + 1);
+            } else if (event.key === 'Home') {
+              event.preventDefault();
+              seekTransportTo(0);
+            } else if (event.key === 'End') {
+              event.preventDefault();
+              seekTransportTo(transportLength - 1);
+            }
+          }}
+          onPointerCancel={(event) => {
+            transportSeekDraggingRef.current = false;
+            try { event.currentTarget.releasePointerCapture(event.pointerId); } catch { /* pointer already released */ }
+          }}
+          onPointerDown={(event) => {
+            transportSeekDraggingRef.current = true;
+            seekTransportFromPointer(event.clientX);
+            try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* pointer capture unavailable */ }
+          }}
+          onPointerMove={(event) => {
+            if (transportSeekDraggingRef.current) {
+              seekTransportFromPointer(event.clientX);
+            }
+          }}
+          onPointerUp={(event) => {
+            seekTransportFromPointer(event.clientX);
+            transportSeekDraggingRef.current = false;
+            try { event.currentTarget.releasePointerCapture(event.pointerId); } catch { /* pointer already released */ }
+          }}
+          ref={transportSeekRef}
+          role="slider"
+          style={{ '--transport-progress': `${transportProgress * 100}%` } as React.CSSProperties}
+          type="button"
+        >
+          <span className="compact-transport-position-track" aria-hidden="true">
+            <span className="compact-transport-position-fill" />
+            <span className="compact-transport-position-thumb" />
+          </span>
+        </button>
       </div>
       {/* Tempo stays off the phone bar to keep it light, but the SuperSonic
           toggle shows at every size so the mode is always one tap away. */}

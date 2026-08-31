@@ -17,6 +17,7 @@ export const MidiKeyboardBridge = () => {
     previewTrack,
     recordStepNote,
     selectedTrackId,
+    stepsPerPattern,
     tracks,
   } = useAudio();
   const currentStep = usePlaybackStep();
@@ -32,7 +33,7 @@ export const MidiKeyboardBridge = () => {
     const note = midiToNote(message.note);
     void previewTrack(targetTrackId, note, undefined, message.velocity ?? 0.8);
     if (shouldRecordMidiNote({ recordEnabled: midiRecordEnabled, isPlaying, message })) {
-      recordStepNote(targetTrackId, currentStep, note);
+      recordStepNote(targetTrackId, currentStep % stepsPerPattern, note);
     }
   });
 
