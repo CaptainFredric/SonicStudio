@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { createProjectFromTemplate, type Project } from '../../project/schema';
+import { createProjectFromTemplate, MAX_PATTERN_COUNT, type Project } from '../../project/schema';
 import {
   duplicateArrangerClipProject,
   makeClipPatternUniqueProject,
@@ -167,9 +167,27 @@ describe('projectMutations', () => {
     expect(makeClipPatternUniqueProject(project, uniqueClip.id)).toBeNull();
   });
 
-  it('does nothing when no free pattern slot exists for uniqueness', () => {
+  it('adds a pattern slot when every current slot is occupied', () => {
     const { clipId, project } = createLinkedClipProject(1);
+    const mutation = makeClipPatternUniqueProject(project, clipId);
 
-    expect(makeClipPatternUniqueProject(project, clipId)).toBeNull();
+    expect(mutation?.project.transport.patternCount).toBe(2);
+    expect(mutation?.project.arrangerClips.find((clip) => clip.id === clipId)?.patternIndex).toBe(1);
+  });
+
+  it('stops at the project pattern ceiling when every slot is occupied', () => {
+    const { clipId, project } = createLinkedClipProject(MAX_PATTERN_COUNT);
+    const sourceClip = project.arrangerClips.find((clip) => clip.id === clipId)!;
+    const occupiedClips = Array.from({ length: MAX_PATTERN_COUNT - 1 }, (_, offset) => ({
+      ...sourceClip,
+      id: `${clipId}_occupied_${offset + 1}`,
+      patternIndex: offset + 1,
+      startBeat: sourceClip.startBeat + ((offset + 2) * sourceClip.beatLength),
+    }));
+
+    expect(makeClipPatternUniqueProject({
+      ...project,
+      arrangerClips: [...project.arrangerClips, ...occupiedClips],
+    }, clipId)).toBeNull();
   });
 });

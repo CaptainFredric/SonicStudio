@@ -678,6 +678,7 @@ export const MainWorkspace = () => {
     currentPattern,
     duplicateTrack,
     duplicateArrangerClip,
+    makeClipPatternUnique,
     duplicateSongRange,
     deleteSongRange,
     editPatternColumn,
@@ -3258,6 +3259,7 @@ export const MainWorkspace = () => {
               <SongTimelineGrid
                 tracks={visibleTracks}
                 arrangerClips={arrangerClips}
+                patternCount={patternCount}
                 cellWidth={songTimelineCellWidth}
                 compactLanes={compactLanes}
                 clipEditing
@@ -3308,6 +3310,7 @@ export const MainWorkspace = () => {
                 onResizeClip={(clipId, updates) => updateArrangerClip(clipId, updates)}
                 onSplitClip={(clipId, splitAtBeat) => splitArrangerClip(clipId, splitAtBeat)}
                 onDuplicateClip={duplicateArrangerClip}
+                onMakeClipUnique={makeClipPatternUnique}
                 onDeleteClip={removeArrangerClip}
                 onEditClipNotes={(clipId) => {
                   const clip = arrangerClips.find((candidate) => candidate.id === clipId);

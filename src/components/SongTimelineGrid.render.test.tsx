@@ -37,6 +37,7 @@ const renderGrid = (overrides: Partial<Parameters<typeof SongTimelineGrid>[0]> =
   const props = {
     tracks: project.tracks,
     arrangerClips: project.arrangerClips,
+    patternCount: project.transport.patternCount,
     stepsPerPattern: project.transport.stepsPerPattern,
     songLengthInBeats: 16,
     songMarkers: project.markers,
@@ -263,24 +264,40 @@ describe('SongTimelineGrid', () => {
     expect(props.onEditClipNotes).toHaveBeenCalledWith(clip.id);
   });
 
-  it('offers direct note editing, duplicate, split, and delete actions for a selected clip', () => {
+  it('offers direct note editing, independence, duplicate, split, and delete actions for a selected clip', () => {
+    const onMakeClipUnique = vi.fn();
     const view = renderGrid({
       clipEditing: true,
       onDeleteClip: vi.fn(),
       onDuplicateClip: vi.fn(),
       onEditClipNotes: vi.fn(),
+      onMakeClipUnique,
       onSplitClip: vi.fn(),
     });
     const { getByRole, project, props, rerender } = view;
     const clip = project.arrangerClips[0];
-    rerender(<SongTimelineGrid {...props} selectedClipId={clip.id} />);
+    const linkedClip = {
+      ...clip,
+      id: `${clip.id}_linked`,
+      startBeat: clip.startBeat + clip.beatLength,
+    };
+    rerender(
+      <SongTimelineGrid
+        {...props}
+        arrangerClips={[...project.arrangerClips, linkedClip]}
+        selectedClipId={clip.id}
+      />,
+    );
 
     fireEvent.click(getByRole('button', { name: 'Edit notes in selected clip' }));
+    fireEvent.click(getByRole('button', { name: 'Make selected clip independent' }));
     fireEvent.click(getByRole('button', { name: 'Duplicate selected clip' }));
     fireEvent.click(getByRole('button', { name: 'Split selected clip at the playhead' }));
     fireEvent.click(getByRole('button', { name: 'Delete selected clip' }));
 
     expect(props.onEditClipNotes).toHaveBeenCalledWith(clip.id);
+    expect(onMakeClipUnique).toHaveBeenCalledWith(clip.id);
+    expect(getByRole('status').textContent).toContain('clip is now independent');
     expect(props.onDuplicateClip).toHaveBeenCalledWith(clip.id);
     expect(props.onSplitClip).toHaveBeenCalledWith(clip.id, clip.startBeat + 8);
     expect(props.onDeleteClip).toHaveBeenCalledWith(clip.id);

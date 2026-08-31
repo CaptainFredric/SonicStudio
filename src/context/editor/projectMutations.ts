@@ -112,16 +112,30 @@ export const getUniqueClipPatternProject = (
       .filter((candidate) => candidate.trackId === track.id && candidate.id !== clip.id)
       .map((candidate) => candidate.patternIndex),
   );
-  const nextPatternIndex = Array.from(
+  let nextPatternIndex = Array.from(
     { length: project.transport.patternCount },
     (_, patternIndex) => patternIndex,
   ).find((patternIndex) => !occupiedPatternIndices.has(patternIndex) && patternIndex !== clip.patternIndex);
 
   if (nextPatternIndex === undefined) {
-    return null;
+    if (project.transport.patternCount >= MAX_PATTERN_COUNT) {
+      return null;
+    }
+    nextPatternIndex = project.transport.patternCount;
   }
 
-  const nextProject = updateTrack(project, track.id, (candidate) => {
+  const nextPatternCount = Math.max(project.transport.patternCount, nextPatternIndex + 1);
+  const projectWithPatternSlot = nextPatternCount === project.transport.patternCount
+    ? project
+    : {
+        ...project,
+        tracks: project.tracks.map((candidate) => (
+          resizeTrackPatterns(candidate, nextPatternCount, project.transport.stepsPerPattern)
+        )),
+        transport: { ...project.transport, patternCount: nextPatternCount },
+      };
+
+  const nextProject = updateTrack(projectWithPatternSlot, track.id, (candidate) => {
     const sourcePattern = candidate.patterns[clip.patternIndex] ?? createEmptyPattern(project.transport.stepsPerPattern);
     const sourceAutomation = candidate.automation?.[clip.patternIndex] ?? {
       level: Array.from({ length: project.transport.stepsPerPattern }, () => 0.5),
@@ -306,16 +320,30 @@ export const makeClipPatternUniqueProject = (
       .filter((clip) => clip.trackId === sourceTrack.id && clip.id !== sourceClip.id)
       .map((clip) => clip.patternIndex),
   );
-  const nextPatternIndex = Array.from(
+  let nextPatternIndex = Array.from(
     { length: project.transport.patternCount },
     (_, patternIndex) => patternIndex,
   ).find((patternIndex) => !occupiedPatternIndices.has(patternIndex) && patternIndex !== sourceClip.patternIndex);
 
   if (nextPatternIndex === undefined) {
-    return null;
+    if (project.transport.patternCount >= MAX_PATTERN_COUNT) {
+      return null;
+    }
+    nextPatternIndex = project.transport.patternCount;
   }
 
-  const nextProject = updateTrack(project, sourceTrack.id, (track) => {
+  const nextPatternCount = Math.max(project.transport.patternCount, nextPatternIndex + 1);
+  const projectWithPatternSlot = nextPatternCount === project.transport.patternCount
+    ? project
+    : {
+        ...project,
+        tracks: project.tracks.map((track) => (
+          resizeTrackPatterns(track, nextPatternCount, project.transport.stepsPerPattern)
+        )),
+        transport: { ...project.transport, patternCount: nextPatternCount },
+      };
+
+  const nextProject = updateTrack(projectWithPatternSlot, sourceTrack.id, (track) => {
     const sourcePattern = track.patterns[sourceClip.patternIndex] ?? createEmptyPattern(project.transport.stepsPerPattern);
     const sourceAutomation = track.automation?.[sourceClip.patternIndex] ?? {
       level: Array.from({ length: project.transport.stepsPerPattern }, () => 0.5),

@@ -113,6 +113,42 @@ describe('editorReducer', () => {
     expect(nextState.ui.selectedArrangerClipId).toBe(nextState.history.present.arrangerClips[0]?.id ?? null);
   });
 
+  it('makes a linked clip independent in one undoable edit', () => {
+    const state = createEditorState();
+    const sourceClip = state.history.present.arrangerClips[0];
+    if (!sourceClip) {
+      throw new Error('Expected a clip');
+    }
+    const sourceTrack = state.history.present.tracks.find((track) => track.id === sourceClip.trackId);
+    if (!sourceTrack) {
+      throw new Error('Expected the clip track');
+    }
+    const linkedClip = state.history.present.arrangerClips.find((clip) => (
+      clip.id !== sourceClip.id
+      && clip.trackId === sourceClip.trackId
+      && clip.patternIndex === sourceClip.patternIndex
+    ));
+    if (!linkedClip) {
+      throw new Error('Expected a linked clip');
+    }
+    const originalNotes = sourceTrack.patterns[sourceClip.patternIndex];
+
+    const edited = editorReducer(state, {
+      type: 'MAKE_CLIP_PATTERN_UNIQUE',
+      clipId: sourceClip.id,
+    });
+    const detachedClip = edited.history.present.arrangerClips.find((clip) => clip.id === sourceClip.id);
+    const detachedTrack = edited.history.present.tracks.find((track) => track.id === sourceClip.trackId);
+
+    const detachedPatternIndex = detachedClip?.patternIndex;
+    expect(detachedPatternIndex).not.toBeUndefined();
+    expect(detachedPatternIndex).not.toBe(sourceClip.patternIndex);
+    expect(edited.history.present.arrangerClips.find((clip) => clip.id === linkedClip.id)?.patternIndex).toBe(sourceClip.patternIndex);
+    expect(detachedTrack?.patterns[detachedPatternIndex!]).toEqual(originalNotes);
+    expect(edited.history.past).toHaveLength(1);
+    expect(editorReducer(edited, { type: 'UNDO' }).history.present).toEqual(state.history.present);
+  });
+
   it('keeps song markers sorted when updating marker position', () => {
     const state = createEditorState();
     const markerId = 'marker-b';

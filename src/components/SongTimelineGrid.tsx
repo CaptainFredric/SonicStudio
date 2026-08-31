@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronsLeft, ChevronsRight, CopyPlus, GripVertical, Music2, PencilLine, Scissors, Trash2 } from 'lucide-react';
+import { ChevronsLeft, ChevronsRight, CopyPlus, GripVertical, Link2, Music2, PencilLine, Scissors, Trash2, Unlink } from 'lucide-react';
 import type React from 'react';
 
 import { engine } from '../audio/ToneEngine';
@@ -7,7 +7,7 @@ import { resolvePatternStepForPlayback } from '../audio/playbackResolver';
 import { SUPERSONIC_NOTE_OFFSETS, getTrackAnchorNote, pitchRank, shiftPitch } from '../utils/notePlacement';
 import { snapSectionLength } from '../utils/sectionResizeSnapping';
 import { TrackIcon } from '../utils/trackPersonality';
-import { MAX_ARRANGER_BEAT_POSITION, MAX_STEPS_PER_PATTERN, MIN_ARRANGEMENT_STEPS, type ArrangementClip, type SongMarker, type Track } from '../project/schema';
+import { MAX_ARRANGER_BEAT_POSITION, MAX_PATTERN_COUNT, MAX_STEPS_PER_PATTERN, MIN_ARRANGEMENT_STEPS, type ArrangementClip, type SongMarker, type Track } from '../project/schema';
 import { getSplitBeat, getTrimmedPatternOffset } from './arranger/interactionUtils';
 
 const SECTION_COLORS = [
@@ -60,6 +60,7 @@ type ClipResizeUpdates = Pick<ArrangementClip, 'beatLength'>
 interface SongTimelineGridProps {
   tracks: Track[];
   arrangerClips: ArrangementClip[];
+  patternCount: number;
   stepsPerPattern: number;
   songLengthInBeats: number;
   songMarkers: SongMarker[];
@@ -84,6 +85,7 @@ interface SongTimelineGridProps {
   onResizeClip?: (clipId: string, updates: ClipResizeUpdates) => void;
   onSplitClip?: (clipId: string, splitAtBeat: number) => void;
   onDuplicateClip?: (clipId: string) => void;
+  onMakeClipUnique?: (clipId: string) => void;
   onDeleteClip?: (clipId: string) => void;
   onEditClipNotes?: (clipId: string) => void;
 }
@@ -99,6 +101,7 @@ interface SongTimelineGridProps {
 export const SongTimelineGrid = ({
   tracks,
   arrangerClips,
+  patternCount,
   stepsPerPattern,
   songLengthInBeats,
   songMarkers,
@@ -123,6 +126,7 @@ export const SongTimelineGrid = ({
   onResizeClip,
   onSplitClip,
   onDuplicateClip,
+  onMakeClipUnique,
   onDeleteClip,
   onEditClipNotes,
 }: SongTimelineGridProps) => {
@@ -144,6 +148,7 @@ export const SongTimelineGrid = ({
   const programmaticScrollRef = useRef(false);
   const [editingMarkerId, setEditingMarkerId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState('');
+  const [clipActionStatus, setClipActionStatus] = useState('');
   const [dragTrackId, setDragTrackId] = useState<string | null>(null);
   const [dropIndex, setDropIndex] = useState<number | null>(null);
   // The track gutter slides shut to a thin icon strip so a long song gets the
@@ -322,6 +327,15 @@ export const SongTimelineGrid = ({
       (map[clip.trackId] ??= []).push(clip);
     }
     return map;
+  }, [arrangerClips]);
+
+  const linkedClipCountByPattern = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const clip of arrangerClips) {
+      const key = `${clip.trackId}:${clip.patternIndex}`;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    return counts;
   }, [arrangerClips]);
 
   const baseSections = useMemo(() => {
@@ -986,8 +1000,116 @@ export const SongTimelineGrid = ({
     }
   };
 
+  const selectedClipForActions = arrangerClips.find((clip) => clip.id === selectedClipId);
+  const selectedTrackForActions = selectedClipForActions
+    ? tracks.find((track) => track.id === selectedClipForActions.trackId)
+    : undefined;
+  const selectedLinkedClipCount = selectedClipForActions
+    ? linkedClipCountByPattern.get(`${selectedClipForActions.trackId}:${selectedClipForActions.patternIndex}`) ?? 1
+    : 1;
+  const selectedClipIsLinked = selectedLinkedClipCount > 1;
+  const selectedTrackOccupiedPatterns = new Set(
+    selectedClipForActions
+      ? arrangerClips
+          .filter((clip) => clip.trackId === selectedClipForActions.trackId && clip.id !== selectedClipForActions.id)
+          .map((clip) => clip.patternIndex)
+      : [],
+  );
+  const selectedClipHasFreePattern = selectedClipForActions
+    ? Array.from({ length: patternCount }, (_, patternIndex) => patternIndex)
+        .some((patternIndex) => (
+          patternIndex !== selectedClipForActions.patternIndex
+          && !selectedTrackOccupiedPatterns.has(patternIndex)
+        ))
+    : false;
+  const selectedClipCanDetach = selectedClipHasFreePattern || patternCount < MAX_PATTERN_COUNT;
+
   return (
     <div ref={rootRef} className="relative flex min-h-[240px] flex-1 overflow-hidden rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)]">
+      <span aria-live="polite" className="sr-only" role="status">{clipActionStatus}</span>
+      {clipEditing && selectedClipForActions && selectedTrackForActions && (
+        <div
+          aria-label="Selected clip actions"
+          className="absolute right-1 top-1 z-30 flex h-7 items-center gap-0.5 rounded-[3px] border border-[var(--border-soft)] bg-[var(--bg-panel-strong)]/95 p-0.5 shadow-md backdrop-blur"
+          data-clip-action-bar="true"
+          role="toolbar"
+        >
+          <span
+            className="hidden max-w-24 items-center gap-1 truncate px-1 font-mono text-[9px] font-semibold uppercase tracking-[0.1em] sm:flex"
+            style={{ color: selectedTrackForActions.color }}
+            title={`${selectedTrackForActions.name}, Pattern ${String.fromCharCode(65 + selectedClipForActions.patternIndex)}`}
+          >
+            P{String.fromCharCode(65 + selectedClipForActions.patternIndex)}
+            {selectedClipIsLinked && <Link2 className="h-2.5 w-2.5 shrink-0" />}
+          </span>
+          {onEditClipNotes && (
+            <button
+              aria-label="Edit notes in selected clip"
+              className="flex h-6 w-6 items-center justify-center rounded-[2px] text-[var(--accent-strong)] hover:bg-[rgba(255,255,255,0.08)] hover:text-[var(--text-primary)]"
+              onClick={() => onEditClipNotes(selectedClipForActions.id)}
+              title={selectedClipIsLinked
+                ? `Edit shared ${selectedTrackForActions.type === 'kick' || selectedTrackForActions.type === 'snare' || selectedTrackForActions.type === 'hihat' ? 'hits' : 'notes'} in ${selectedLinkedClipCount} clips. Detach first to change only this clip.`
+                : `Edit ${selectedTrackForActions.type === 'kick' || selectedTrackForActions.type === 'snare' || selectedTrackForActions.type === 'hihat' ? 'hits' : 'notes'} in this clip`}
+              type="button"
+            >
+              <PencilLine className="h-3 w-3" />
+            </button>
+          )}
+          {selectedClipIsLinked && onMakeClipUnique && (
+            <button
+              aria-label="Make selected clip independent"
+              className="flex h-6 w-6 items-center justify-center rounded-[2px] text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.08)] hover:text-[var(--accent-strong)] disabled:cursor-not-allowed disabled:opacity-35"
+              disabled={!selectedClipCanDetach}
+              onClick={() => {
+                onMakeClipUnique(selectedClipForActions.id);
+                setClipActionStatus(`${selectedTrackForActions.name} clip is now independent. Later note edits stay in this clip.`);
+              }}
+              title={selectedClipCanDetach
+                ? `Detach this clip from ${selectedLinkedClipCount - 1} linked ${selectedLinkedClipCount === 2 ? 'copy' : 'copies'}`
+                : `All ${MAX_PATTERN_COUNT} pattern slots are occupied on this lane`}
+              type="button"
+            >
+              <Unlink className="h-3 w-3" />
+            </button>
+          )}
+          {onDuplicateClip && (
+            <button
+              aria-label="Duplicate selected clip"
+              className="flex h-6 w-6 items-center justify-center rounded-[2px] text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.08)] hover:text-[var(--text-primary)]"
+              onClick={() => onDuplicateClip(selectedClipForActions.id)}
+              title="Duplicate clip (Cmd/Ctrl+D)"
+              type="button"
+            >
+              <CopyPlus className="h-3 w-3" />
+            </button>
+          )}
+          {onSplitClip && selectedClipForActions.beatLength >= 8 && (
+            <button
+              aria-label="Split selected clip at the playhead"
+              className="flex h-6 w-6 items-center justify-center rounded-[2px] text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.08)] hover:text-[var(--accent-strong)]"
+              onClick={() => onSplitClip(
+                selectedClipForActions.id,
+                getSplitBeat(selectedClipForActions, engine.currentStep, 4, 'SONG', MIN_ARRANGEMENT_STEPS),
+              )}
+              title="Split at the playhead (S); falls back to the clip midpoint"
+              type="button"
+            >
+              <Scissors className="h-3 w-3" />
+            </button>
+          )}
+          {onDeleteClip && (
+            <button
+              aria-label="Delete selected clip"
+              className="flex h-6 w-6 items-center justify-center rounded-[2px] text-[var(--text-secondary)] hover:bg-[rgba(244,63,94,0.14)] hover:text-[var(--danger)]"
+              onClick={() => onDeleteClip(selectedClipForActions.id)}
+              title="Delete clip"
+              type="button"
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+      )}
       {/* Track-name gutter, aligned row-for-row with the lanes. Slides shut to a
           thin icon strip; drag a lane to reorder. */}
       <div className="shrink-0 overflow-hidden border-r border-[var(--border-soft)] bg-[var(--bg-panel-strong)] transition-[width] duration-200" style={{ width: gutterCollapsed ? 36 : GUTTER_WIDTH }}>
@@ -1427,8 +1549,9 @@ export const SongTimelineGrid = ({
                   const beatLength = resizing ? clipResizePreview.draftLength : clip.beatLength;
                   const clipPixelWidth = Math.max(36, beatLength * cellW);
                   const compactClip = clipPixelWidth < 128;
-                  const showInlineClipActions = clipPixelWidth >= 128;
                   const selected = selectedClipId === clip.id;
+                  const linkedClipCount = linkedClipCountByPattern.get(`${clip.trackId}:${clip.patternIndex}`) ?? 1;
+                  const linked = linkedClipCount > 1;
                   return (
                     <div
                       className="pointer-events-none group absolute inset-y-1 overflow-hidden rounded-[3px] border"
@@ -1466,7 +1589,7 @@ export const SongTimelineGrid = ({
                         }}
                         onKeyDown={(event) => moveClipWithKeyboard(event, clip)}
                         onPointerDown={(event) => beginClipMove(event, clip)}
-                        title={`Pattern ${String.fromCharCode(65 + clip.patternIndex)} · ${beatLength} steps. Drag this handle to move; double-click to edit notes.`}
+                        title={`Pattern ${String.fromCharCode(65 + clip.patternIndex)} · ${beatLength} steps · ${linked ? `${linkedClipCount} linked clips` : 'independent clip'}. Drag to move; double-click to edit notes.`}
                         type="button"
                       >
                         <span className="flex min-w-0 items-center gap-0.5 rounded-[2px] bg-[var(--bg-panel-strong)]/90 px-1 py-0.5 shadow-sm">
@@ -1476,62 +1599,9 @@ export const SongTimelineGrid = ({
                               P{String.fromCharCode(65 + clip.patternIndex)} · {beatLength}
                             </span>
                           )}
+                          {linked && <Link2 className="h-2.5 w-2.5 shrink-0" style={{ color: track.color }} />}
                         </span>
                       </button>
-                      {selected && !resizing && showInlineClipActions && (
-                        <div className="pointer-events-auto absolute right-3 top-1 z-10 flex items-center gap-0.5 rounded-[2px] bg-[var(--bg-panel-strong)]/95 p-0.5 shadow-sm">
-                          {onEditClipNotes && (
-                            <button
-                              aria-label="Edit notes in selected clip"
-                              className={`flex items-center justify-center rounded-[2px] text-[var(--accent-strong)] hover:bg-[rgba(255,255,255,0.08)] hover:text-[var(--text-primary)] ${compactClip ? 'h-5 w-5' : 'h-6 w-6'}`}
-                              onClick={(event) => { event.stopPropagation(); onEditClipNotes(clip.id); }}
-                              onPointerDown={(event) => event.stopPropagation()}
-                              title={`Edit ${track.type === 'kick' || track.type === 'snare' || track.type === 'hihat' ? 'hits' : 'notes'} in this clip`}
-                              type="button"
-                            >
-                              <PencilLine className="h-3 w-3" />
-                            </button>
-                          )}
-                          <button
-                            aria-label="Duplicate selected clip"
-                            className={`flex items-center justify-center rounded-[2px] text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.08)] hover:text-[var(--text-primary)] ${compactClip ? 'h-5 w-5' : 'h-6 w-6'}`}
-                            onClick={(event) => { event.stopPropagation(); onDuplicateClip?.(clip.id); }}
-                            onPointerDown={(event) => event.stopPropagation()}
-                            title="Duplicate clip (Cmd/Ctrl+D)"
-                            type="button"
-                          >
-                            <CopyPlus className="h-3 w-3" />
-                          </button>
-                          {onSplitClip && beatLength >= 8 && (
-                            <button
-                              aria-label="Split selected clip at the playhead"
-                              className={`flex items-center justify-center rounded-[2px] text-[var(--text-secondary)] hover:bg-[rgba(255,255,255,0.08)] hover:text-[var(--accent-strong)] ${compactClip ? 'h-5 w-5' : 'h-6 w-6'}`}
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                onSplitClip(
-                                  clip.id,
-                                  getSplitBeat(clip, engine.currentStep, 4, 'SONG', MIN_ARRANGEMENT_STEPS),
-                                );
-                              }}
-                              onPointerDown={(event) => event.stopPropagation()}
-                              title="Split at the playhead (S); falls back to the clip midpoint"
-                              type="button"
-                            >
-                              <Scissors className="h-3 w-3" />
-                            </button>
-                          )}
-                          <button
-                            aria-label="Delete selected clip"
-                            className={`flex items-center justify-center rounded-[2px] text-[var(--text-secondary)] hover:bg-[rgba(244,63,94,0.14)] hover:text-[var(--danger)] ${compactClip ? 'h-5 w-5' : 'h-6 w-6'}`}
-                            onClick={(event) => { event.stopPropagation(); onDeleteClip?.(clip.id); }}
-                            onPointerDown={(event) => event.stopPropagation()}
-                            title="Delete clip"
-                            type="button"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </button>
-                        </div>
-                      )}
                       {resizing && (
                         <output
                           aria-live="polite"
