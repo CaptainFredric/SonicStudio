@@ -142,7 +142,13 @@ const buildRecordedPresetPreviewTrack = (preset: RecordedNotePreset) => {
   });
 };
 
-export const TapToPlay = ({ startCollapsed = false }: { startCollapsed?: boolean }) => {
+export const TapToPlay = ({
+  compactCollapsed = false,
+  startCollapsed = false,
+}: {
+  compactCollapsed?: boolean;
+  startCollapsed?: boolean;
+}) => {
   const {
     applyTrackVoicePreset,
     initAudio,
@@ -438,8 +444,12 @@ export const TapToPlay = ({ startCollapsed = false }: { startCollapsed?: boolean
         </button>
         <Hand className="h-3.5 w-3.5 text-[var(--accent)]" />
         <span className="section-label">Tap to play</span>
-        <span className="rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.025)] px-2 py-1 text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--text-secondary)]">{track.name}</span>
-        <span className="hidden sm:inline text-[11px] text-[var(--text-secondary)]">Click a key or press A through L to play the selected track.</span>
+        {!compactCollapsed && (
+          <>
+            <span className="rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.025)] px-2 py-1 text-[10px] font-medium uppercase tracking-[0.14em] text-[var(--text-secondary)]">{track.name}</span>
+            <span className="hidden text-[11px] text-[var(--text-secondary)] sm:inline">Click a key or press A through L to play the selected track.</span>
+          </>
+        )}
       </section>
     );
   }

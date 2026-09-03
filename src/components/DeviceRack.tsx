@@ -375,18 +375,10 @@ export const DeviceRack = () => {
         />
 
         <div className="flex min-h-0 flex-col gap-3">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-soft)] pb-3 pr-10">
-            <div>
-              <div className="section-label">Sound workbench</div>
-              <div className="mt-1 text-sm text-[var(--text-secondary)]">
-                Source, tone, and space for the selected lane.
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <RackModeButton active={activeRackView === 'SOURCE'} icon={<Waves className="h-3.5 w-3.5" />} label="Source" onClick={() => setActiveRackView('SOURCE')} />
-              <RackModeButton active={activeRackView === 'SHAPE'} icon={<SlidersHorizontal className="h-3.5 w-3.5" />} label="Shape" onClick={() => setActiveRackView('SHAPE')} />
-              <RackModeButton active={activeRackView === 'SPACE'} icon={<Layers3 className="h-3.5 w-3.5" />} label="Space" onClick={() => setActiveRackView('SPACE')} />
-            </div>
+          <div className="flex flex-wrap items-center gap-2 border-b border-[var(--border-soft)] pb-3 pr-10">
+            <RackModeButton active={activeRackView === 'SOURCE'} icon={<Waves className="h-3.5 w-3.5" />} label="Source" onClick={() => setActiveRackView('SOURCE')} />
+            <RackModeButton active={activeRackView === 'SHAPE'} icon={<SlidersHorizontal className="h-3.5 w-3.5" />} label="Shape" onClick={() => setActiveRackView('SHAPE')} />
+            <RackModeButton active={activeRackView === 'SPACE'} icon={<Layers3 className="h-3.5 w-3.5" />} label="Space" onClick={() => setActiveRackView('SPACE')} />
           </div>
 
           <div className="min-h-0 flex-1 overflow-visible 2xl:overflow-auto">

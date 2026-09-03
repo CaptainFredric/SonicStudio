@@ -2607,9 +2607,9 @@ export const MainWorkspace = () => {
               {showSongGrid ? 'Song arrangement' : 'Pattern grid'}
             </h2>
           </div>
-          <p className="mt-1 hidden text-sm text-[var(--text-secondary)] xl:block">
+          <p className={`mt-1 hidden text-[11px] text-[var(--text-secondary)] ${showSongGrid ? 'sm:block' : 'xl:block'}`}>
             {showSongGrid
-              ? `${formatSongSpan(songLengthInBeats, stepsPerPattern)} · continuous timeline · ${countLabel(visibleTracks.length, 'visible track')}`
+              ? `${formatSongSpan(songLengthInBeats, stepsPerPattern)} · ${countLabel(visibleTracks.length, 'track')} · continuous timeline`
               : 'Build the current pattern here before you move it into Song view.'}
           </p>
         </div>
@@ -2759,33 +2759,21 @@ export const MainWorkspace = () => {
           panel background, the black-void-on-scroll bug. */}
       <div className={`sequencer-workspace-body flex flex-col overflow-visible md:min-h-0 md:flex-1 md:overflow-hidden xl:flex-row ${editingMode ? 'gap-0 p-0' : 'gap-3 p-4'}`}>
         <div className="sequencer-main-column flex min-w-0 flex-col overflow-visible md:min-h-0 md:flex-1">
-          <div className={`sequencer-compose-summary surface-panel-muted mb-2 px-4 py-2.5 sm:mb-3 sm:py-3 ${editingMode ? 'hidden' : ''}`}>
-            {showSongGrid ? (
+          {!showSongGrid && (
+            <div className={`sequencer-compose-summary surface-panel-muted mb-2 px-4 py-2.5 sm:mb-3 sm:py-3 ${editingMode ? 'hidden' : ''}`}>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <div className="section-label hidden sm:block">Arrange</div>
+                  <div className="section-label hidden sm:block">Compose</div>
                   <div className="text-sm font-medium text-[var(--text-primary)] sm:mt-1">
-                    Continuous song across {formatSongSpan(songLengthInBeats, stepsPerPattern)}
+                    {selectedTrack ? `${selectedTrack.name} in Pattern ${String.fromCharCode(65 + currentPattern)}` : 'Pick a lane to start writing'}
                   </div>
                   <div className="mt-1 hidden text-[11px] text-[var(--text-secondary)] sm:block">
-                    {countLabel(songLengthInBeats, 'step')} · {countLabel(visibleTracks.length, 'visible track')} · Click notes · Drag pattern handles · Pitches in Piano roll
+                    {selectedTrack
+                      ? `${countLabel(selectedTrackPattern.filter((step) => step.length > 0).length, 'active step')} · ${countLabel(selectedTrackPattern.reduce((sum, step) => sum + step.length, 0), 'note')} · ${isSelectedTrackDrum ? 'drum lane' : 'melodic lane'}`
+                      : `${countLabel(tracks.length, 'track')} · ${countLabel(melodicTrackCount, 'melodic lane')}`}
                   </div>
                 </div>
-              </div>
-            ) : (
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <div className="section-label hidden sm:block">Compose</div>
-                <div className="text-sm font-medium text-[var(--text-primary)] sm:mt-1">
-                  {selectedTrack ? `${selectedTrack.name} in Pattern ${String.fromCharCode(65 + currentPattern)}` : 'Pick a lane to start writing'}
-                </div>
-                <div className="mt-1 hidden text-[11px] text-[var(--text-secondary)] sm:block">
-                  {selectedTrack
-                    ? `${countLabel(selectedTrackPattern.filter((step) => step.length > 0).length, 'active step')} · ${countLabel(selectedTrackPattern.reduce((sum, step) => sum + step.length, 0), 'note')} · ${isSelectedTrackDrum ? 'drum lane' : 'melodic lane'}`
-                    : `${countLabel(tracks.length, 'track')} · ${countLabel(melodicTrackCount, 'melodic lane')}`}
-                </div>
-              </div>
-              <button
+                <button
                 aria-expanded={composeToolsExpanded}
                 className="control-chip flex h-8 shrink-0 items-center gap-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.14em]"
                 data-ui-sound="tab"
@@ -2800,9 +2788,9 @@ export const MainWorkspace = () => {
                 <SlidersHorizontal className="h-3.5 w-3.5" />
                 <span>{composeToolsExpanded ? 'Hide tools' : 'Tools'}</span>
                 {composeToolsExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-              </button>
-              {composeToolsExpanded && (
-              <div className="flex flex-wrap items-center gap-2">
+                </button>
+                {composeToolsExpanded && (
+                <div className="flex flex-wrap items-center gap-2">
                 <div className="surface-panel-strong flex flex-wrap items-center gap-1 p-1">
                   <span className="px-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Steps</span>
                   {QUICK_STEP_OPTIONS.map((option) => (
@@ -2970,11 +2958,11 @@ export const MainWorkspace = () => {
                     </button>
                   </>
                 )}
+                </div>
+                )}
               </div>
-              )}
             </div>
-            )}
-          </div>
+          )}
 
           {editingMode && (
             <div className="editing-canvas-toolbar flex min-h-11 shrink-0 flex-wrap items-center gap-2 border-b border-[var(--border-soft)] bg-[var(--bg-panel-strong)] px-3 py-1.5">

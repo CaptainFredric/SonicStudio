@@ -77,8 +77,8 @@ const isLikelyMobile = (): boolean => {
 
 // Cap the audio graph at a sane sample rate. A Web Audio context otherwise
 // inherits the output device's rate, and external USB DACs commonly run at 96k
-// or 192k. Our graph (many effects per track, reverb, polyphonic synths, FFT
-// analysers) then has to render 2-4x the samples per second, which overloads
+// or 192k. Our graph (many effects per track, reverb, and polyphonic synths)
+// then has to render 2-4x the samples per second, which overloads
 // the audio thread and comes out as static and crushed, downsampled-sounding
 // audio. Rendering at 48k and letting the browser resample up to the device is
 // far cheaper and sounds correct. 192k and 96k are exact multiples of 48k.
@@ -128,8 +128,6 @@ export class ToneEngine {
   private transportLoopEnabled = true;
   private transportMode: TransportMode = 'PATTERN';
 
-  public analyzer: Tone.Analyser | null = null;
-  public spectrum: Tone.Analyser | null = null;
   public currentPattern = 0;
   public currentStep = 0;
   public recorder: Tone.Recorder | null = null;
@@ -223,11 +221,6 @@ export class ToneEngine {
         oscillator: { type: 'square' },
         volume: -12,
       });
-      this.analyzer = this.offlineMode ? null : new Tone.Analyser('fft', 256);
-      // A second, smaller FFT dedicated to the transport spectrum strip. It has
-      // its own node so the device-rack visualizer can flip the main analyzer
-      // between fft and waveform without changing what the strip reads.
-      this.spectrum = this.offlineMode ? null : new Tone.Analyser('fft', 64);
       this.recorder = this.offlineMode ? null : new Tone.Recorder();
       this.masterLimiter.connect(this.masterHighpass);
       this.masterHighpass.connect(this.masterLowpass);
@@ -237,12 +230,6 @@ export class ToneEngine {
       this.masterGain.connect(this.masterCompressor);
       this.masterGain.connect(this.masterMeter);
       this.metronomeSynth.connect(this.masterLimiter);
-      if (this.analyzer) {
-        this.masterCompressor.connect(this.analyzer);
-      }
-      if (this.spectrum) {
-        this.masterCompressor.connect(this.spectrum);
-      }
       if (this.recorder) {
         this.masterCompressor.connect(this.recorder);
       }

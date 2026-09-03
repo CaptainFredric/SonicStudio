@@ -4,7 +4,6 @@ import { ChevronDown, ChevronUp, Gauge, Play, Save, Trash2 } from 'lucide-react'
 import { TrackIcon } from '../../utils/trackPersonality';
 
 import { defaultNoteForTrack, type Track, type TrackSnapshot } from '../../project/schema';
-import { Visualizer } from '../Visualizer';
 import { InlineSlider, StatusCell } from './rackPrimitives';
 
 interface DeviceRackSidebarProps {
@@ -48,17 +47,7 @@ export const DeviceRackSidebar = ({
 }: DeviceRackSidebarProps) => (
   <div className="flex min-h-[280px] flex-col justify-between border-b border-[var(--border-soft)] p-4 2xl:border-b-0 2xl:border-r 2xl:pr-4">
     <div>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="section-label">Selected track</div>
-          <div className="mt-1 text-sm text-[var(--text-secondary)]">Lane sound and output.</div>
-        </div>
-        <span className="rounded-[3px] border border-[var(--border-soft)] px-2 py-1 font-mono text-[9px] uppercase tracking-[0.14em] text-[var(--text-secondary)]">
-          {track.type}
-        </span>
-      </div>
-
-      <div className="mt-4 flex items-center gap-3">
+      <div className="flex items-center gap-3">
         <div
           className="flex h-11 w-11 items-center justify-center border"
           style={{ background: `${track.color}12`, borderColor: `${track.color}44`, borderRadius: '2px', color: track.color }}
@@ -77,10 +66,6 @@ export const DeviceRackSidebar = ({
           </div>
         </div>
       </div>
-    </div>
-
-    <div className="mt-4 border-t border-[var(--border-soft)] pt-4">
-      <Visualizer />
     </div>
 
     <div className="mt-4 border-t border-[var(--border-soft)] pt-4">
@@ -209,7 +194,6 @@ export const DeviceRackSidebar = ({
       </div>
 
       <div className="grid gap-2 sm:grid-cols-2">
-        <StatusCell label="Voice" value={voiceLabel} />
         <StatusCell label="Filter" value={filterValue} />
         <StatusCell label="Pattern notes" value={`${patternNoteCount}`} />
         <StatusCell label={track.source.engine === 'sample' ? 'Sample mode' : 'Motion'} value={motionSummary} />

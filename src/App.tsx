@@ -469,10 +469,10 @@ const CompactTransportBar = () => {
       aria-label="Transport controls"
     >
       <AudioHealthDot className="ml-1" />
-      <TransportPositionTag />
-      <TransportElapsedTag />
-      <KeyTag />
-      <MidiRecordTag />
+      <TransportPositionTag className="compact-live-position-tag" />
+      <TransportElapsedTag className="compact-live-elapsed-tag" />
+      <KeyTag className="compact-key-tag" />
+      <MidiRecordTag className="compact-midi-record-tag" />
       {isFirstImpression && !isPlaying && (
         <span
           aria-live="polite"
@@ -1096,7 +1096,7 @@ const StudioShell = ({ routeState }: { routeState: StudioRouteState }) => {
           >
             <SuperSonicAssistBar />
             <React.Fragment key={superSonicMode ? 'tap-super' : 'tap-normal'}>
-              <TapToPlay startCollapsed={superSonicMode} />
+              <TapToPlay compactCollapsed={superSonicMode} startCollapsed={superSonicMode} />
             </React.Fragment>
           </div>
         )}
