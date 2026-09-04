@@ -25,7 +25,6 @@ interface CreateSessionControllerOptions {
   currentProject: Project;
   currentUi: StudioUIState;
   dispatchHydrateSession: (session: StudioSession) => void;
-  persistCurrentSession: () => void;
   resetTransportState: () => void;
   setLastSavedAt: Dispatch<SetStateAction<string | null>>;
   setProjectCheckpoints: Dispatch<SetStateAction<PersistedCheckpoint[]>>;
@@ -67,7 +66,6 @@ export const createSessionController = ({
   currentProject,
   currentUi,
   dispatchHydrateSession,
-  persistCurrentSession,
   resetTransportState,
   setLastSavedAt,
   setProjectCheckpoints,
@@ -76,11 +74,6 @@ export const createSessionController = ({
   const currentSession: StudioSession = {
     project: currentProject,
     ui: currentUi,
-  };
-
-  const saveProject = () => {
-    setSaveStatus('saving');
-    persistCurrentSession();
   };
 
   const saveCheckpoint = (label?: string) => {
@@ -182,6 +175,5 @@ export const createSessionController = ({
     newSession,
     restoreCheckpoint,
     saveCheckpoint,
-    saveProject,
   };
 };

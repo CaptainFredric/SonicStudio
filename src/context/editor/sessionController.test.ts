@@ -38,7 +38,6 @@ describe('sessionController', () => {
       currentProject: restoredSession.project,
       currentUi: restoredSession.ui,
       dispatchHydrateSession,
-      persistCurrentSession: vi.fn(),
       resetTransportState,
       setLastSavedAt,
       setProjectCheckpoints: vi.fn(),
@@ -86,7 +85,6 @@ describe('sessionController', () => {
       dispatchHydrateSession: (session) => {
         state = editorReducer(state, { type: 'HYDRATE_SESSION', session });
       },
-      persistCurrentSession: vi.fn(),
       resetTransportState: vi.fn(),
       setLastSavedAt: vi.fn(),
       setProjectCheckpoints: vi.fn(),
@@ -109,7 +107,6 @@ describe('sessionController', () => {
       currentProject: session.project,
       currentUi: session.ui,
       dispatchHydrateSession: vi.fn(),
-      persistCurrentSession: vi.fn(),
       resetTransportState: vi.fn(),
       setLastSavedAt: vi.fn(),
       setProjectCheckpoints: vi.fn(),

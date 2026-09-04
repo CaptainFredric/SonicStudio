@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createProjectFromTemplate, defaultNoteForTrack } from '../../project/schema';
-import { createTransportController } from './transportController';
+import { createCountInTokenController, createTransportController } from './transportController';
 
 describe('transportController', () => {
   beforeEach(() => {
@@ -40,7 +40,7 @@ describe('transportController', () => {
 
     const controller = createTransportController({
       countInActive: false,
-      countInTokenRef: { current: 0 },
+      countInToken: createCountInTokenController(),
       currentProject: project,
       engine,
       initAudio: vi.fn(),
@@ -90,7 +90,7 @@ describe('transportController', () => {
 
     const controller = createTransportController({
       countInActive: false,
-      countInTokenRef: { current: 0 },
+      countInToken: createCountInTokenController(),
       currentProject: project,
       engine,
       initAudio: vi.fn(),
@@ -136,7 +136,7 @@ describe('transportController', () => {
 
     const controller = createTransportController({
       countInActive: false,
-      countInTokenRef: { current: 0 },
+      countInToken: createCountInTokenController(),
       currentProject: project,
       engine,
       initAudio,
@@ -183,7 +183,7 @@ describe('transportController', () => {
 
     const controller = createTransportController({
       countInActive: false,
-      countInTokenRef: { current: 0 },
+      countInToken: createCountInTokenController(),
       currentProject: project,
       engine,
       initAudio,
@@ -228,7 +228,7 @@ describe('transportController', () => {
 
     const controller = createTransportController({
       countInActive: false,
-      countInTokenRef: { current: 0 },
+      countInToken: createCountInTokenController(),
       currentProject: project,
       engine,
       initAudio,
@@ -281,7 +281,7 @@ describe('transportController', () => {
 
     const controller = createTransportController({
       countInActive: false,
-      countInTokenRef: { current: 0 },
+      countInToken: createCountInTokenController(),
       currentProject: project,
       engine,
       initAudio,
@@ -326,11 +326,11 @@ describe('transportController', () => {
     const setCountInActive = vi.fn();
     const setCountInBeatsRemaining = vi.fn();
     const setIsPlaying = vi.fn();
-    const countInTokenRef = { current: 3 };
+    const countInToken = createCountInTokenController(3);
 
     const controller = createTransportController({
       countInActive: true,
-      countInTokenRef,
+      countInToken,
       currentProject: project,
       engine,
       initAudio: vi.fn(),
@@ -351,7 +351,7 @@ describe('transportController', () => {
     expect(setCountInBeatsRemaining).toHaveBeenCalledWith(0);
     expect(engine.togglePlayback).not.toHaveBeenCalled();
     expect(setIsPlaying).not.toHaveBeenCalled();
-    expect(countInTokenRef.current).toBe(4);
+    expect(countInToken.isCurrent(4)).toBe(true);
   });
 
   it('toggles playback off immediately when already playing', async () => {
@@ -373,11 +373,11 @@ describe('transportController', () => {
     const setCountInActive = vi.fn();
     const setCountInBeatsRemaining = vi.fn();
     const setIsPlaying = vi.fn();
-    const countInTokenRef = { current: 8 };
+    const countInToken = createCountInTokenController(8);
 
     const controller = createTransportController({
       countInActive: false,
-      countInTokenRef,
+      countInToken,
       currentProject: project,
       engine,
       initAudio: vi.fn(),
@@ -398,6 +398,6 @@ describe('transportController', () => {
     expect(setCountInBeatsRemaining).toHaveBeenCalledWith(0);
     expect(engine.togglePlayback).toHaveBeenCalledTimes(1);
     expect(setIsPlaying).toHaveBeenCalledWith(false);
-    expect(countInTokenRef.current).toBe(9);
+    expect(countInToken.isCurrent(9)).toBe(true);
   });
 });

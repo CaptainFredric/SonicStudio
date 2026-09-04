@@ -84,12 +84,11 @@ import { createKeyboardShortcutHandler } from './editor/keyboardShortcuts';
 import { createRenderController } from './editor/renderController';
 import { editorReducer } from './editor/reducer/editorReducer';
 import {
-  clampCurrentStepToLoopBounds,
   createInitialEditorState,
   songLengthFromProject,
 } from './editor/reducer/reducerUtils';
 import { createSessionController } from './editor/sessionController';
-import { createTransportController } from './editor/transportController';
+import { createCountInTokenController, createTransportController } from './editor/transportController';
 
 export type { BounceNormalizationMode, BounceTailMode, ExportScope } from '../services/workflowTypes';
 
@@ -350,15 +349,13 @@ export const AudioProvider = ({
   const [renderState, setRenderState] = useState<RenderState>(IDLE_RENDER_STATE);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
   const [latestNotice, setLatestNotice] = useState<StudioNotice | null>(null);
-  const countInTokenRef = useRef(0);
+  const [countInToken] = useState(createCountInTokenController);
   const manualSavePendingRef = useRef(false);
-  const noticeIdRef = useRef(0);
   const saveErrorNoticeActiveRef = useRef(false);
   // One-shot flag: when a demo is requested, the next project sync starts
   // playback so a single click both loads and plays the scene. Held in a ref
   // so it survives the load re-render without being a dependency.
   const demoAutoplayRef = useRef(false);
-  const togglePlayRef = useRef<(() => Promise<void>) | null>(null);
 
   const project = editorState.history.present;
   const {
@@ -369,8 +366,8 @@ export const AudioProvider = ({
     selectedArrangerClipId,
     selectedTrackId,
   } = editorState.ui;
-  const arrangerClips = project.arrangerClips ?? [];
-  const songMarkers = project.markers ?? [];
+  const arrangerClips = project.arrangerClips;
+  const songMarkers = project.markers;
   const songLengthInBeats = songLengthFromProject(project);
   const dispatchers = useMemo(() => createEditorDispatchers(dispatch), [dispatch]);
   const currentSession = useMemo<StudioSession>(() => ({
@@ -379,8 +376,12 @@ export const AudioProvider = ({
   }), [project, editorState.ui]);
 
   const publishNotice = useCallback((tone: StudioNotice['tone'], title: string, detail?: string) => {
-    noticeIdRef.current += 1;
-    setLatestNotice({ detail, id: noticeIdRef.current, title, tone });
+    setLatestNotice((current) => ({
+      detail,
+      id: (current?.id ?? 0) + 1,
+      title,
+      tone,
+    }));
   }, []);
 
   useEffect(() => {
@@ -512,19 +513,7 @@ export const AudioProvider = ({
     return () => {
       document.removeEventListener('click', handleClick, true);
     };
-  }, [playInterfaceSound]);
-
-  useEffect(() => {
-    engine.syncProject(project);
-    setCurrentStep((current) => clampCurrentStepToLoopBounds(project, current, loopRangeStartBeat, loopRangeEndBeat));
-    // A demo was requested: the engine now holds the freshly loaded scene, so
-    // start playback on this same project. This runs after syncProject so the
-    // transport never starts on the previous scene.
-    if (demoAutoplayRef.current) {
-      demoAutoplayRef.current = false;
-      void togglePlayRef.current?.();
-    }
-  }, [project]);
+  }, []);
 
   useEffect(() => {
     engine.setLoopRange(
@@ -532,7 +521,6 @@ export const AudioProvider = ({
         ? { endBeat: loopRangeEndBeat, startBeat: loopRangeStartBeat }
         : null,
     );
-    setCurrentStep((current) => clampCurrentStepToLoopBounds(project, current, loopRangeStartBeat, loopRangeEndBeat));
   }, [loopRangeEndBeat, loopRangeStartBeat]);
 
   useEffect(() => engine.onStep((step) => {
@@ -548,7 +536,7 @@ export const AudioProvider = ({
   }, [routeState?.requestedView, routeState?.shouldOpenSettings]);
 
   const hasPersistedOnceRef = useRef(false);
-  const persistCurrentSession = useEffectEvent(() => {
+  const persistCurrentSession = useCallback(() => {
     const { envelope, reason } = persistSessionWithResult(currentSession);
 
     if (envelope) {
@@ -574,7 +562,7 @@ export const AudioProvider = ({
       saveErrorNoticeActiveRef.current = true;
     }
     manualSavePendingRef.current = false;
-  });
+  }, [currentSession, publishNotice]);
 
   useEffect(() => {
     if (hasPersistedOnceRef.current) {
@@ -588,10 +576,9 @@ export const AudioProvider = ({
     return () => {
       window.clearTimeout(timeoutId);
     };
-    // persistCurrentSession is a useEffectEvent and is intentionally omitted —
-    // including it caused the effect to re-fire after each save, leaving the
-    // status indicator stuck in 'saving'.
-  }, [editorState.history.present, editorState.ui]);
+    // The persistence callback only changes when the current session changes,
+    // so save-status updates do not restart this debounce.
+  }, [persistCurrentSession]);
 
   const initAudio = useCallback(async () => {
     await engine.init();
@@ -603,11 +590,12 @@ export const AudioProvider = ({
   // to start AudioContext. Rather than waiting for the user to find the Wake
   // audio button or press play, we silently arm the engine on the first
   // pointer/touch/keydown anywhere on the page. The handler is one-shot.
-  const initAudioRef = useRef(initAudio);
-  initAudioRef.current = initAudio;
+  const initializeAudioFromGesture = useEffectEvent(() => {
+    void initAudio();
+  });
   useEffect(() => {
     if (isInitialized) return;
-    const wake = () => { void initAudioRef.current(); };
+    const wake = () => initializeAudioFromGesture();
     const opts: AddEventListenerOptions = { once: true, passive: true };
     document.addEventListener('pointerdown', wake, opts);
     document.addEventListener('keydown', wake, opts);
@@ -644,7 +632,7 @@ export const AudioProvider = ({
     toggleRecording,
   } = useMemo(() => createTransportController({
     countInActive,
-    countInTokenRef,
+    countInToken,
     currentProject: project,
     engine,
     initAudio,
@@ -657,11 +645,22 @@ export const AudioProvider = ({
     setIsPlaying,
     setIsRecording,
     tracks: project.tracks,
-  }), [countInActive, initAudio, isInitialized, isPlaying, isRecording, project]);
+  }), [countInActive, countInToken, initAudio, isInitialized, isPlaying, isRecording, project]);
 
-  // Keep the latest togglePlay reachable from the project-sync effect without
-  // making it a dependency (matches the initAudioRef pattern above).
-  togglePlayRef.current = togglePlay;
+  const startRequestedDemoPlayback = useEffectEvent(() => {
+    void togglePlay();
+  });
+
+  useEffect(() => {
+    engine.syncProject(project);
+    // A demo was requested: the engine now holds the freshly loaded scene, so
+    // start playback on this same project. This runs after syncProject so the
+    // transport never starts on the previous scene.
+    if (demoAutoplayRef.current) {
+      demoAutoplayRef.current = false;
+      startRequestedDemoPlayback();
+    }
+  }, [project]);
 
   // Load-and-play: arm the one-shot flag, then the next project sync (from
   // loading a scene) starts playback. Distinct from opening a scene and then
@@ -680,19 +679,20 @@ export const AudioProvider = ({
     newSession,
     restoreCheckpoint,
     saveCheckpoint,
-    saveProject: persistSessionNow,
   } = useMemo(() => createSessionController({
     currentProject: project,
     currentUi: editorState.ui,
     dispatchHydrateSession: (session) => dispatch({ type: 'HYDRATE_SESSION', session }),
-    // eslint-disable-next-line react-hooks/rules-of-hooks -- persistCurrentSession is event-style (stable identity, reads latest state); the session controller calls it from save and restore actions, which is the deployed, tested behavior.
-    persistCurrentSession,
     resetTransportState,
     setLastSavedAt,
     setProjectCheckpoints,
     setSaveStatus,
-  // eslint-disable-next-line react-hooks/rules-of-hooks -- listing the event-style persistCurrentSession as a dep is intentional: its identity is stable, so it never retriggers the memo.
-  }), [editorState.ui, persistCurrentSession, project, resetTransportState]);
+  }), [editorState.ui, project, resetTransportState]);
+
+  const persistSessionNow = useCallback(() => {
+    setSaveStatus('saving');
+    persistCurrentSession();
+  }, [persistCurrentSession]);
 
   const saveProject = useCallback(() => {
     manualSavePendingRef.current = true;
@@ -707,7 +707,7 @@ export const AudioProvider = ({
       'Training corpus saved',
       `${summary.trackCount} ${summary.trackCount === 1 ? 'track' : 'tracks'}, ${summary.noteCount} ${summary.noteCount === 1 ? 'note' : 'notes'}, ${summary.patternCount} ${summary.patternCount === 1 ? 'pattern' : 'patterns'}. README.md follows.`,
     );
-  }, [project]);
+  }, [project, publishNotice]);
 
   // The corpus summary walks every track, pattern, and step, but it only feeds
   // the passive readout in Studio Settings, not playback or editing. Recomputing
@@ -743,7 +743,7 @@ export const AudioProvider = ({
       );
     }
     return outcome.ok;
-  }, [importSessionFromController]);
+  }, [importSessionFromController, publishNotice]);
 
   const importMidiSession = useCallback(async (file: File) => {
     const ok = await importMidiSessionFromController(file);
@@ -753,18 +753,20 @@ export const AudioProvider = ({
       ok ? `Loaded ${file.name}.` : 'Try a standard .mid file and import it again.',
     );
     return ok;
-  }, [importMidiSessionFromController]);
+  }, [importMidiSessionFromController, publishNotice]);
 
-  const keyboardShortcutHandler = useEffectEvent(createKeyboardShortcutHandler({
-    dispatch,
-    isSettingsOpen: editorState.ui.isSettingsOpen,
-    project,
-    saveProject,
-    setSuperSonicMode: (superSonicMode) => setPreferences((current) => ({ ...current, superSonicMode })),
-    superSonicMode: preferences.superSonicMode,
-    togglePlay,
-    toggleRecording,
-  }));
+  const keyboardShortcutHandler = useEffectEvent((event: KeyboardEvent) => {
+    createKeyboardShortcutHandler({
+      dispatch,
+      isSettingsOpen: editorState.ui.isSettingsOpen,
+      project,
+      saveProject,
+      setSuperSonicMode: (superSonicMode) => setPreferences((current) => ({ ...current, superSonicMode })),
+      superSonicMode: preferences.superSonicMode,
+      togglePlay,
+      toggleRecording,
+    })(event);
+  });
 
   useEffect(() => {
     window.addEventListener('keydown', keyboardShortcutHandler);
@@ -772,7 +774,7 @@ export const AudioProvider = ({
     return () => {
       window.removeEventListener('keydown', keyboardShortcutHandler);
     };
-  }, [keyboardShortcutHandler]);
+  }, []);
 
   const handleSaveScoresheet = useCallback((name: string, options?: { replaceId?: string }) => {
     const next = saveScoresheetService(name, { project, ui: editorState.ui }, options ?? {});

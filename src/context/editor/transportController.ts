@@ -1,4 +1,4 @@
-import type { MutableRefObject, Dispatch, SetStateAction } from 'react';
+import type { Dispatch, SetStateAction } from 'react';
 
 import { createTrack, defaultNoteForTrack, getTrackVoicePresetDefinitions, type InstrumentType, type Project, type Track } from '../../project/schema';
 
@@ -17,7 +17,7 @@ interface TransportEngine {
 
 interface CreateTransportControllerOptions {
   countInActive: boolean;
-  countInTokenRef: MutableRefObject<number>;
+  countInToken: CountInTokenController;
   currentProject: Project;
   engine: TransportEngine;
   initAudio: () => Promise<void>;
@@ -32,9 +32,34 @@ interface CreateTransportControllerOptions {
   tracks: Track[];
 }
 
+export interface CountInTokenController {
+  cancel: () => void;
+  isCurrent: (token: number) => boolean;
+  start: () => number;
+}
+
+// Count-ins span asynchronous timer ticks, so they need a cancellation token
+// whose current value is available without waiting for a React render. Keeping
+// that mutable detail inside this tiny controller avoids passing React refs
+// through render-time factories and makes the lifecycle independently testable.
+export const createCountInTokenController = (initialValue = 0): CountInTokenController => {
+  let value = initialValue;
+
+  return {
+    cancel: () => {
+      value += 1;
+    },
+    isCurrent: (token) => value === token,
+    start: () => {
+      value += 1;
+      return value;
+    },
+  };
+};
+
 export const createTransportController = ({
   countInActive,
-  countInTokenRef,
+  countInToken,
   currentProject,
   engine,
   initAudio,
@@ -67,7 +92,7 @@ export const createTransportController = ({
   };
 
   const cancelCountIn = () => {
-    countInTokenRef.current += 1;
+    countInToken.cancel();
     setCountInActive(false);
     setCountInBeatsRemaining(0);
   };
@@ -89,13 +114,12 @@ export const createTransportController = ({
 
     const beatDurationMs = (60 / currentProject.transport.bpm) * 1000;
     const totalBeats = bars * 4;
-    const token = countInTokenRef.current + 1;
-    countInTokenRef.current = token;
+    const token = countInToken.start();
     setCountInActive(true);
     setCountInBeatsRemaining(totalBeats);
 
     for (let beatIndex = 0; beatIndex < totalBeats; beatIndex += 1) {
-      if (countInTokenRef.current !== token) {
+      if (!countInToken.isCurrent(token)) {
         return false;
       }
 
@@ -107,7 +131,7 @@ export const createTransportController = ({
       });
     }
 
-    if (countInTokenRef.current !== token) {
+    if (!countInToken.isCurrent(token)) {
       return false;
     }
 

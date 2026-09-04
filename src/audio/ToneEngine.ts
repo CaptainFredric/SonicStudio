@@ -363,6 +363,7 @@ export class ToneEngine {
     const loopBounds = this.getLoopBounds();
     if (this.currentStep < loopBounds.startBeat || this.currentStep >= loopBounds.endBeat) {
       this.currentStep = loopBounds.startBeat;
+      this.stepCallbacks.forEach((callback) => callback(this.currentStep, this.currentPattern));
     }
 
     this.syncTrackGraphs();
@@ -376,6 +377,7 @@ export class ToneEngine {
     const loopBounds = this.getLoopBounds();
     if (this.currentStep < loopBounds.startBeat || this.currentStep >= loopBounds.endBeat) {
       this.currentStep = loopBounds.startBeat;
+      this.stepCallbacks.forEach((callback) => callback(this.currentStep, this.currentPattern));
     }
   }
 
