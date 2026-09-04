@@ -30,7 +30,7 @@ interface QuickCaptureBarProps {
 // anywhere in the studio. Opens on Alt+C (handled by the keyboard
 // shortcut layer) so power users do not have to dig into Studio
 // Settings every time they want to drop a quick idea.
-export const QuickCaptureBar = ({ open, onClose, onNotify }: QuickCaptureBarProps) => {
+const QuickCaptureBarContent = ({ onClose, onNotify }: Omit<QuickCaptureBarProps, 'open'>) => {
   const inputRef = useRef<HTMLInputElement>(null);
   const [draftName, setDraftName] = useState('');
   const [draftRaw, setDraftRaw] = useState('');
@@ -38,16 +38,12 @@ export const QuickCaptureBar = ({ open, onClose, onNotify }: QuickCaptureBarProp
   const [history, setHistory] = useState<string[]>(() => readHistory());
 
   useEffect(() => {
-    if (!open) return;
-    setError(null);
-    setHistory(readHistory());
     // Defer focus so the dialog has actually painted before we focus.
     const id = window.setTimeout(() => inputRef.current?.focus(), 40);
     return () => window.clearTimeout(id);
-  }, [open]);
+  }, []);
 
   useEffect(() => {
-    if (!open) return;
     const handler = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
@@ -69,9 +65,7 @@ export const QuickCaptureBar = ({ open, onClose, onNotify }: QuickCaptureBarProp
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [open, onClose, history]);
-
-  if (!open) return null;
+  }, [onClose, history]);
 
   const handleSubmit = () => {
     const updated = captureNoteString({ name: draftName, raw: draftRaw, source: 'typed' });
@@ -219,3 +213,7 @@ export const QuickCaptureBar = ({ open, onClose, onNotify }: QuickCaptureBarProp
     </div>
   );
 };
+
+export const QuickCaptureBar = ({ open, onClose, onNotify }: QuickCaptureBarProps) => (
+  open ? <QuickCaptureBarContent onClose={onClose} onNotify={onNotify} /> : null
+);

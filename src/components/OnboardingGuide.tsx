@@ -115,14 +115,13 @@ const TOUR_STEPS: GuideStep[] = [
   },
 ];
 
-export const OnboardingGuide = ({
+const OnboardingGuideContent = ({
   isPlaying,
   mode,
-  open,
   onComplete,
   onSkip,
   onTogglePlayback,
-}: OnboardingGuideProps) => {
+}: Omit<OnboardingGuideProps, 'open'>) => {
   const [stepIndex, setStepIndex] = useState(0);
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null);
   const steps = mode === 'showcase' ? SHOWCASE_STEPS : TOUR_STEPS;
@@ -135,15 +134,6 @@ export const OnboardingGuide = ({
     return window.matchMedia('(max-width: 767px)').matches;
   }, []);
 
-  useEffect(() => {
-    if (!open) {
-      setTargetRect(null);
-      return;
-    }
-
-    setStepIndex(0);
-  }, [mode, open]);
-
   const step = steps[stepIndex] ?? steps[0];
   const reducedMotion = useMemo(() => {
     if (typeof window === 'undefined') {
@@ -154,14 +144,10 @@ export const OnboardingGuide = ({
   }, []);
 
   useEffect(() => {
-    if (!open) {
-      return undefined;
-    }
-
     const element = document.querySelector<HTMLElement>(`[data-tour-target="${step.target}"]`);
     if (!element) {
-      setTargetRect(null);
-      return undefined;
+      const clearFrameId = window.requestAnimationFrame(() => setTargetRect(null));
+      return () => window.cancelAnimationFrame(clearFrameId);
     }
 
     element.scrollIntoView({
@@ -174,7 +160,6 @@ export const OnboardingGuide = ({
       setTargetRect(element.getBoundingClientRect());
     };
 
-    updateRect();
     const frameId = window.requestAnimationFrame(updateRect);
     const settleId = window.setTimeout(updateRect, reducedMotion ? 0 : 120);
     const resizeObserver = typeof ResizeObserver !== 'undefined'
@@ -192,13 +177,9 @@ export const OnboardingGuide = ({
       window.removeEventListener('resize', updateRect);
       window.removeEventListener('scroll', updateRect, true);
     };
-  }, [isCompactViewport, open, reducedMotion, step.target]);
+  }, [isCompactViewport, reducedMotion, step.target]);
 
   useEffect(() => {
-    if (!open) {
-      return undefined;
-    }
-
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         event.preventDefault();
@@ -219,11 +200,7 @@ export const OnboardingGuide = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onSkip, open, steps.length]);
-
-  if (!open) {
-    return null;
-  }
+  }, [onSkip, steps.length]);
 
   const isLastStep = stepIndex === steps.length - 1;
   const highlightStyle = targetRect
@@ -414,3 +391,7 @@ export const OnboardingGuide = ({
     </div>
   );
 };
+
+export const OnboardingGuide = ({ open, ...props }: OnboardingGuideProps) => (
+  open ? <OnboardingGuideContent {...props} /> : null
+);

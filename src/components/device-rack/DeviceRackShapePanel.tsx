@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Activity, Gauge, Mic2, Sparkles } from 'lucide-react';
 
 import type { SynthParams, Track, TrackSource } from '../../project/schema';
@@ -24,20 +24,22 @@ export const DeviceRackShapePanel = ({
   onSetTrackSource,
   track,
 }: DeviceRackShapePanelProps) => {
-  const [macroPoint, setMacroPoint] = useState(() => deriveMacroPointFromTrack(track));
+  const [macroSelection, setMacroSelection] = useState(() => ({
+    point: deriveMacroPointFromTrack(track),
+    trackId: track.id,
+  }));
+  const macroPoint = macroSelection.trackId === track.id
+    ? macroSelection.point
+    : deriveMacroPointFromTrack(track);
   const inputStrips = useMemo(() => getInputChannelStripDefinitions(track.type), [track.type]);
   const macroPreview = useMemo(() => buildPerformanceMacroParams(macroPoint.x, macroPoint.y), [macroPoint.x, macroPoint.y]);
-
-  useEffect(() => {
-    setMacroPoint(deriveMacroPointFromTrack(track));
-  }, [track.id]);
 
   const applyMacroPoint = (x: number, y: number) => {
     const nextPoint = {
       x: clampUnit(x),
       y: clampUnit(y),
     };
-    setMacroPoint(nextPoint);
+    setMacroSelection({ point: nextPoint, trackId: track.id });
     onSetTrackParams(buildPerformanceMacroParams(nextPoint.x, nextPoint.y));
   };
 

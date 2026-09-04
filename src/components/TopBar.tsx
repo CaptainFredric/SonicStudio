@@ -120,11 +120,11 @@ export const TopBar = ({
     undo,
   } = useAudio();
   const { canInstall, promptInstall } = usePwaInstall();
-  const [draftProjectName, setDraftProjectName] = useState(projectName);
+  const [projectNameDraft, setProjectNameDraft] = useState(() => ({ projectName, value: projectName }));
   const [isSupersonicHovered, setIsSupersonicHovered] = useState(false);
   const [isRestartArmed, setIsRestartArmed] = useState(false);
   const [isRestartDisarming, setIsRestartDisarming] = useState(false);
-  const [showSupersonicOffPreview, setShowSupersonicOffPreview] = useState(false);
+  const [supersonicOffPreviewReady, setSupersonicOffPreviewReady] = useState(false);
   const [showAudioNerdStats, setShowAudioNerdStats] = useState(false);
   // Setup quick-actions dropdown (compact header).
   const [setupMenuOpen, setSetupMenuOpen] = useState(false);
@@ -175,19 +175,16 @@ export const TopBar = ({
   const activeMasterPreset = MASTER_PRESET_DEFINITIONS.find((preset) => (
     isMasterPresetMatch(master, preset.settings)
   )) ?? null;
-
-  useEffect(() => {
-    setDraftProjectName(projectName);
-  }, [projectName]);
+  const draftProjectName = projectNameDraft.projectName === projectName ? projectNameDraft.value : projectName;
+  const showSupersonicOffPreview = superSonicMode && isSupersonicHovered && supersonicOffPreviewReady;
 
   useEffect(() => {
     if (!superSonicMode || !isSupersonicHovered) {
-      setShowSupersonicOffPreview(false);
       return undefined;
     }
 
     const timeoutId = window.setTimeout(() => {
-      setShowSupersonicOffPreview(true);
+      setSupersonicOffPreviewReady(true);
     }, SUPERSONIC_OFF_PREVIEW_DELAY_MS);
 
     return () => {
@@ -232,11 +229,6 @@ export const TopBar = ({
 
   useEffect(() => {
     if (!isInitialized) {
-      setAudioRuntime({
-        baseLatencyMs: null,
-        contextState: 'suspended',
-        masterDb: -100,
-      });
       return undefined;
     }
 
@@ -255,6 +247,10 @@ export const TopBar = ({
       window.clearInterval(intervalId);
     };
   }, [isInitialized]);
+
+  const displayedAudioRuntime = isInitialized
+    ? audioRuntime
+    : { baseLatencyMs: null, contextState: 'suspended' as const, masterDb: -100 };
 
   const commitProjectName = () => {
     renameProject(draftProjectName);
@@ -304,35 +300,35 @@ export const TopBar = ({
     && isPlaying
     && !masterMuted
     && !allTracksMuted
-    && Number.isFinite(audioRuntime.masterDb)
-    && audioRuntime.masterDb <= -95;
+    && Number.isFinite(displayedAudioRuntime.masterDb)
+    && displayedAudioRuntime.masterDb <= -95;
   const isLoopWindowActive = loopRangeStartBeat !== null && loopRangeEndBeat !== null;
   const audioHealth = getAudioHealthSummary({
     activeTrackCount,
     allTracksMuted,
-    audioContextState: audioRuntime.contextState,
-    baseLatencyMs: audioRuntime.baseLatencyMs,
+    audioContextState: displayedAudioRuntime.contextState,
+    baseLatencyMs: displayedAudioRuntime.baseLatencyMs,
     isInitialized,
     isPlaying,
     likelyDeviceMuted,
-    masterDb: audioRuntime.masterDb,
+    masterDb: displayedAudioRuntime.masterDb,
     masterMuted,
   });
   const audioNerdStats: AudioNerdStat[] = [
     {
       label: 'Context',
-      tone: audioRuntime.contextState === 'running' ? 'ready' : 'error',
-      value: audioRuntime.contextState,
+      tone: displayedAudioRuntime.contextState === 'running' ? 'ready' : 'error',
+      value: displayedAudioRuntime.contextState,
     },
     {
       label: 'Base latency',
-      tone: audioRuntime.baseLatencyMs !== null && audioRuntime.baseLatencyMs >= 120 ? 'attention' : 'ready',
-      value: audioRuntime.baseLatencyMs === null ? 'Unknown' : `${Math.round(audioRuntime.baseLatencyMs)} ms`,
+      tone: displayedAudioRuntime.baseLatencyMs !== null && displayedAudioRuntime.baseLatencyMs >= 120 ? 'attention' : 'ready',
+      value: displayedAudioRuntime.baseLatencyMs === null ? 'Unknown' : `${Math.round(displayedAudioRuntime.baseLatencyMs)} ms`,
     },
     {
       label: 'Master level',
-      tone: isPlaying && audioRuntime.masterDb > -1.2 ? 'attention' : 'ready',
-      value: Number.isFinite(audioRuntime.masterDb) ? `${audioRuntime.masterDb.toFixed(1)} dB` : 'Unknown',
+      tone: isPlaying && displayedAudioRuntime.masterDb > -1.2 ? 'attention' : 'ready',
+      value: Number.isFinite(displayedAudioRuntime.masterDb) ? `${displayedAudioRuntime.masterDb.toFixed(1)} dB` : 'Unknown',
     },
     {
       label: 'Active lanes',
@@ -367,7 +363,7 @@ export const TopBar = ({
   const toggleSupersonicMode = (button: HTMLButtonElement) => {
     const enabled = !superSonicMode;
     setIsSupersonicHovered(false);
-    setShowSupersonicOffPreview(false);
+    setSupersonicOffPreviewReady(false);
     if (uiSoundsEnabled) {
       playSupersonicToggleSound(enabled);
     }
@@ -523,7 +519,7 @@ export const TopBar = ({
                 aria-label="Project name"
                 className="control-field h-11 w-full max-w-full px-4 text-sm font-medium tracking-tight lg:max-w-md"
                 onBlur={commitProjectName}
-                onChange={(event) => setDraftProjectName(event.target.value)}
+                onChange={(event) => setProjectNameDraft({ projectName, value: event.target.value })}
                 onKeyDown={(event) => {
                   if (event.key === 'Enter') {
                     commitProjectName();
@@ -531,7 +527,7 @@ export const TopBar = ({
                   }
 
                   if (event.key === 'Escape') {
-                    setDraftProjectName(projectName);
+                    setProjectNameDraft({ projectName, value: projectName });
                     event.currentTarget.blur();
                   }
                 }}
@@ -641,7 +637,7 @@ export const TopBar = ({
                     onPointerEnter={() => setIsSupersonicHovered(true)}
                     onPointerLeave={() => {
                       setIsSupersonicHovered(false);
-                      setShowSupersonicOffPreview(false);
+                      setSupersonicOffPreviewReady(false);
                     }}
                     type="button"
                   >
@@ -817,7 +813,7 @@ export const TopBar = ({
                   onPointerEnter={() => setIsSupersonicHovered(true)}
                   onPointerLeave={() => {
                     setIsSupersonicHovered(false);
-                    setShowSupersonicOffPreview(false);
+                    setSupersonicOffPreviewReady(false);
                   }}
                   type="button"
                 >

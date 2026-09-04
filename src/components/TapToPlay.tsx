@@ -171,14 +171,13 @@ export const TapToPlay = ({
   const [octaveShift, setOctaveShift] = useState<number>(readInitialOctaveShift);
   const [writeMode, setWriteMode] = useState<boolean>(readInitialWriteMode);
   const [writeStep, setWriteStep] = useState(0);
-  const [recordedNoteLibrary, setRecordedNoteLibrary] = useState<RecordedNotePreset[]>([]);
+  const [recordedNoteLibrary, setRecordedNoteLibrary] = useState<RecordedNotePreset[]>(loadRecordedNotePresets);
   const [selectedRecordedPresetId, setSelectedRecordedPresetId] = useState<string | null>(null);
   const lastFlashRef = useRef<number | null>(null);
   const resizeStateRef = useRef<{ startY: number; startHeight: number } | null>(null);
   const appliedPresetKeyRef = useRef<string | null>(null);
 
   useEffect(() => {
-    setRecordedNoteLibrary(loadRecordedNotePresets());
     return subscribeRecordedNotePresets(setRecordedNoteLibrary);
   }, []);
 
@@ -224,21 +223,6 @@ export const TapToPlay = ({
     const remaining = recordedNoteLibrary.filter((preset) => preset.trackType !== track.type);
     return [...matchingType, ...remaining].slice(0, 6);
   }, [recordedNoteLibrary, track]);
-
-  useEffect(() => {
-    if (!selectedRecordedPresetId) {
-      return;
-    }
-
-    if (!recordedNoteLibrary.some((preset) => preset.id === selectedRecordedPresetId)) {
-      setSelectedRecordedPresetId(null);
-    }
-  }, [recordedNoteLibrary, selectedRecordedPresetId]);
-
-  useEffect(() => {
-    setWriteStep(normalizedPlaybackStep);
-    appliedPresetKeyRef.current = null;
-  }, [normalizedPlaybackStep, track?.id]);
 
   const applyRecordedPresetToTrack = useCallback((preset: RecordedNotePreset) => {
     if (!track) {

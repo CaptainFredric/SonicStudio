@@ -79,12 +79,12 @@ export const ScoresheetsPanel = () => {
     }
     startPreview(sheetId, sheet);
   };
-  const [draftName, setDraftName] = useState(projectName);
+  const [nameDraft, setNameDraft] = useState(() => ({ projectName, value: projectName }));
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState('');
   const [flash, setFlash] = useState<string | null>(null);
 
-  useEffect(() => { setDraftName(projectName); }, [projectName]);
+  const draftName = nameDraft.projectName === projectName ? nameDraft.value : projectName;
   useEffect(() => {
     if (!flash) return undefined;
     const id = window.setTimeout(() => setFlash(null), 1600);
@@ -112,7 +112,7 @@ export const ScoresheetsPanel = () => {
         <input
           aria-label="Scoresheet name"
           className="control-field h-9 flex-1 px-3 text-sm"
-          onChange={(event) => setDraftName(event.target.value)}
+          onChange={(event) => setNameDraft({ projectName, value: event.target.value })}
           onKeyDown={(event) => {
             if (event.key === 'Enter') handleSave();
           }}

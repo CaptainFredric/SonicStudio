@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { BookOpen, Settings2, Sliders, Speaker, X } from 'lucide-react';
 
 import { MidiInputManager } from '../audio/midiInput';
@@ -70,11 +70,13 @@ export const SettingsSidebar = ({
     midiInputEnabled,
     midiRecordEnabled,
   } = useAudio();
-  const [settingsTab, setSettingsTab] = useState<StudioTab>(requestedTab);
-
-  useEffect(() => {
-    setSettingsTab(requestedTab);
-  }, [requestedTab]);
+  const [tabSelection, setTabSelection] = useState<{ requestedTab: SettingsTab; selectedTab: StudioTab }>(() => ({
+    requestedTab,
+    selectedTab: requestedTab,
+  }));
+  const settingsTab = tabSelection.requestedTab === requestedTab
+    ? tabSelection.selectedTab
+    : requestedTab;
 
   if (!isSettingsOpen) {
     return null;
@@ -111,7 +113,7 @@ export const SettingsSidebar = ({
                 className="control-chip flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap px-3 text-[10px] font-semibold uppercase tracking-[0.14em] transition-colors"
                 data-active={isActive}
                 data-ui-sound="tab"
-                onClick={() => setSettingsTab(tab.id)}
+                onClick={() => setTabSelection({ requestedTab, selectedTab: tab.id })}
                 type="button"
               >
                 <span className="text-[var(--accent)]">{tab.icon}</span>

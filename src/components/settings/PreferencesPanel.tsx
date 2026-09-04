@@ -247,11 +247,10 @@ const PanelCard = ({
 );
 
 const StorageMeterCard = () => {
-  const [usage, setUsage] = useState<StorageUsage | null>(null);
+  const [usage] = useState<StorageUsage>(measureLocalStorageUsage);
   const [estimate, setEstimate] = useState<{ usageBytes: number; quotaBytes: number } | null>(null);
 
   useEffect(() => {
-    setUsage(measureLocalStorageUsage());
     let active = true;
     void estimateOriginStorage().then((result) => {
       if (active) setEstimate(result);
@@ -260,10 +259,6 @@ const StorageMeterCard = () => {
       active = false;
     };
   }, []);
-
-  if (!usage) {
-    return null;
-  }
 
   const largest = usage.categories[0]?.bytes ?? 1;
   const quotaPercent = estimate

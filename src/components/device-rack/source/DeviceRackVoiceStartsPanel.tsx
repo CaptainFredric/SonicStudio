@@ -96,10 +96,9 @@ export const DeviceRackVoiceStartsPanel = ({
   trackType,
   trackVoicePresets,
 }: DeviceRackVoiceStartsPanelProps) => {
-  const [recordedNotePresets, setRecordedNotePresets] = useState<RecordedNotePreset[]>([]);
+  const [recordedNotePresets, setRecordedNotePresets] = useState<RecordedNotePreset[]>(loadRecordedNotePresets);
 
   useEffect(() => {
-    setRecordedNotePresets(loadRecordedNotePresets());
     return subscribeRecordedNotePresets(setRecordedNotePresets);
   }, []);
 

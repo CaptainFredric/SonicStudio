@@ -316,10 +316,7 @@ export const SongTimelineGrid = ({
     return () => node.removeEventListener('wheel', onWheel);
   }, []);
 
-  // Drop the hovered cell when SuperSonic placement turns off.
-  useEffect(() => {
-    if (!placementEnabled) setHoverCell(null);
-  }, [placementEnabled]);
+  const activeHoverCell = placementEnabled ? hoverCell : null;
 
   const arrangerClipsByTrack = useMemo(() => {
     const map: Record<string, ArrangementClip[]> = {};
@@ -1352,7 +1349,7 @@ export const SongTimelineGrid = ({
                 const placeable = placementEnabled && !active && Boolean(resolved);
                 const bar = Math.floor(songStep / barLineEvery) + 1;
                 const inTrailing = songStep >= songSteps;
-                const showLadder = placeable && hoverCell?.trackId === track.id && hoverCell.step === songStep;
+                const showLadder = placeable && activeHoverCell?.trackId === track.id && activeHoverCell.step === songStep;
                 const anchorNote = showLadder && resolved
                   ? getTrackAnchorNote(track, track.patterns[resolved.patternIndex] ?? [], resolved.stepIndex)
                   : null;

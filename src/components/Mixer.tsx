@@ -35,10 +35,7 @@ const VUChannel: React.FC<{ anySolo: boolean; isPlaying: boolean; selected: bool
   const [level, setLevel] = useState(-100);
 
   useEffect(() => {
-    if (!isPlaying) {
-      setLevel(-100);
-      return;
-    }
+    if (!isPlaying) return undefined;
     const interval = window.setInterval(() => {
       setLevel(engine.getMeterValue(track.id));
     }, meterIntervalForMode(50, audioStabilityMode));
@@ -48,7 +45,8 @@ const VUChannel: React.FC<{ anySolo: boolean; isPlaying: boolean; selected: bool
     };
   }, [audioStabilityMode, isPlaying, track.id]);
 
-  const levelHeight = Math.max(0, Math.min(100, ((level + 60) / 60) * 100));
+  const displayedLevel = isPlaying ? level : -100;
+  const levelHeight = Math.max(0, Math.min(100, ((displayedLevel + 60) / 60) * 100));
   const silenced = isSilencedBySolo(track, anySolo);
 
   return (
@@ -151,10 +149,7 @@ export const Mixer = () => {
   const [mixerScrollWidth, setMixerScrollWidth] = useState(0);
 
   useEffect(() => {
-    if (!isPlaying) {
-      setMasterLevel(-100);
-      return;
-    }
+    if (!isPlaying) return undefined;
     const interval = window.setInterval(() => {
       setMasterLevel(engine.getMasterMeterValue());
     }, meterIntervalForMode(50, audioStabilityMode));
@@ -164,7 +159,8 @@ export const Mixer = () => {
     };
   }, [audioStabilityMode, isPlaying]);
 
-  const masterLevelHeight = Math.max(0, Math.min(100, ((masterLevel + 60) / 60) * 100));
+  const displayedMasterLevel = isPlaying ? masterLevel : -100;
+  const masterLevelHeight = Math.max(0, Math.min(100, ((displayedMasterLevel + 60) / 60) * 100));
   const visibleTracks = useMemo(() => tracks.filter((track) => {
     switch (mixerScope) {
       case 'PINNED':

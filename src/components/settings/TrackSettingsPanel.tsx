@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ArrowDown, ArrowUp, SlidersHorizontal } from 'lucide-react';
 
 import { useAudio } from '../../context/AudioContext';
@@ -17,11 +17,13 @@ export const TrackSettingsPanel = () => {
   } = useAudio();
 
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
-  const [draftTrackName, setDraftTrackName] = useState(selectedTrack?.name ?? '');
-
-  useEffect(() => {
-    setDraftTrackName(selectedTrack?.name ?? '');
-  }, [selectedTrack?.id, selectedTrack?.name]);
+  const [trackNameDraft, setTrackNameDraft] = useState(() => ({
+    trackId: selectedTrack?.id ?? null,
+    value: selectedTrack?.name ?? '',
+  }));
+  const draftTrackName = trackNameDraft.trackId === selectedTrack?.id
+    ? trackNameDraft.value
+    : selectedTrack?.name ?? '';
 
   return (
     <section className="surface-panel-strong p-4">
@@ -37,7 +39,7 @@ export const TrackSettingsPanel = () => {
             <input
               className="control-field mt-2 h-11 w-full px-3 text-sm"
               onBlur={() => renameTrack(selectedTrack.id, draftTrackName)}
-              onChange={(event) => setDraftTrackName(event.target.value)}
+              onChange={(event) => setTrackNameDraft({ trackId: selectedTrack.id, value: event.target.value })}
               onKeyDown={(event) => {
                 if (event.key === 'Enter') {
                   renameTrack(selectedTrack.id, draftTrackName);

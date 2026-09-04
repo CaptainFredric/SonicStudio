@@ -18,7 +18,12 @@ interface PwaInstallState {
 // Quietly does nothing on browsers that never fire the event (Safari, Firefox).
 export const usePwaInstall = (): PwaInstallState => {
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
-  const [installed, setInstalled] = useState(false);
+  const [installed, setInstalled] = useState(() => (
+    typeof window !== 'undefined' && (
+      window.matchMedia?.('(display-mode: standalone)')?.matches
+        || (navigator as unknown as { standalone?: boolean }).standalone === true
+    )
+  ));
 
   useEffect(() => {
     const handlePrompt = (event: Event) => {
@@ -33,14 +38,6 @@ export const usePwaInstall = (): PwaInstallState => {
 
     window.addEventListener('beforeinstallprompt', handlePrompt);
     window.addEventListener('appinstalled', handleInstalled);
-
-    // Already running as the installed app: the display-mode media query covers
-    // most browsers; navigator.standalone is the iOS Safari equivalent.
-    const runningStandalone = window.matchMedia?.('(display-mode: standalone)')?.matches
-      || (navigator as unknown as { standalone?: boolean }).standalone === true;
-    if (runningStandalone) {
-      setInstalled(true);
-    }
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handlePrompt);

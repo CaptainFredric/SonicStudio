@@ -69,15 +69,13 @@ export const WorkspaceOptionsPanel = ({
   superSonicWaveIntensity,
   uiSoundsEnabled,
 }: WorkspaceOptionsPanelProps) => {
-  const [compactCopy, setCompactCopy] = useState(() => hasSeenUiReminder('workspace-options-copy'));
+  const [compactCopy] = useState(() => hasSeenUiReminder('workspace-options-copy'));
 
   useEffect(() => {
-    const seen = hasSeenUiReminder('workspace-options-copy');
-    setCompactCopy(seen);
-    if (!seen) {
+    if (!compactCopy) {
       markUiReminderSeen('workspace-options-copy');
     }
-  }, []);
+  }, [compactCopy]);
 
   return (
     <section className="surface-panel-strong p-4">

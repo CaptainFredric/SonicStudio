@@ -60,6 +60,9 @@ import { loadRecordedNotePresets, subscribeRecordedNotePresets, type RecordedNot
 import { captureSuggestionControlsToTrackParams, captureSuggestionControlsToTrackSource } from '../services/audioRecording';
 
 const NOTE_NAMES = NOTE_NAMES_SHARP;
+const defaultNoteWindowForTrack = (track: Track): NoteWindowKey => (
+  track.type === 'bass' ? 'LOW' : track.type === 'fx' ? 'HIGH' : 'MID'
+);
 
 // Snap a note name to the nearest pitch class in the detected key.
 // Preserves the octave when the snap is within 1 semitone. Used by
@@ -252,8 +255,15 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
         return { id: marker.id, name: marker.name, beat: marker.beat, pattern: clip ? clip.patternIndex : null };
       });
   }, [track, transportMode, arrangerClips, songMarkers]);
-  const [noteWindow, setNoteWindow] = useState<NoteWindowKey>('MID');
-  const [selectedStepIndex, setSelectedStepIndex] = useState<number | null>(null);
+  const [noteWindowSelection, setNoteWindowSelection] = useState(() => ({
+    trackId: track.id,
+    value: defaultNoteWindowForTrack(track),
+  }));
+  const noteWindow = noteWindowSelection.trackId === track.id
+    ? noteWindowSelection.value
+    : defaultNoteWindowForTrack(track);
+  const setNoteWindow = (value: NoteWindowKey) => setNoteWindowSelection({ trackId: track.id, value });
+  const [requestedSelectedStepIndex, setSelectedStepIndex] = useState(0);
   const [selectedNoteIndex, setSelectedNoteIndex] = useState<number | null>(null);
   const [stepZoom, setStepZoom] = useState(() => (
     typeof window !== 'undefined' && window.matchMedia('(max-width: 1279px)').matches ? 46 : STEP_ZOOM_PRESETS.DETAIL
@@ -270,7 +280,7 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
   // 1/8 and 1/4 land clicks on broader beats, Free lets lengths resize
   // continuously. Logic's snap value, sized down for a step grid.
   const [gridSnap, setGridSnap] = useState<'16' | '8' | '4' | 'off'>('16');
-  const [recordedNoteLibrary, setRecordedNoteLibrary] = useState<RecordedNotePreset[]>([]);
+  const [recordedNoteLibrary, setRecordedNoteLibrary] = useState<RecordedNotePreset[]>(loadRecordedNotePresets);
   const [loopChipState, setLoopChipState] = useState<{ x: number; y: number; startStep: number; endStep: number } | null>(null);
   // Seed the chord palette with the session's detected key on mount.
   // The user can still override via the Key dropdown / Major-Minor
@@ -293,12 +303,12 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
     initialDetected.uncertain ? 'major' : initialDetected.mode
   ));
   const liveDetected = useMemo(() => getEffectiveKey(tracks), [tracks]);
-  // While locked, follow the live detected key on every render.
-  useEffect(() => {
-    if (!scaleLocked || liveDetected.uncertain) return;
-    if (chordKey !== liveDetected.rootName) setChordKey(liveDetected.rootName as KeyName);
-    if (chordMode !== liveDetected.mode) setChordMode(liveDetected.mode);
-  }, [scaleLocked, liveDetected, chordKey, chordMode]);
+  const paletteChordKey = scaleLocked && !liveDetected.uncertain
+    ? liveDetected.rootName as KeyName
+    : chordKey;
+  const paletteChordMode = scaleLocked && !liveDetected.uncertain
+    ? liveDetected.mode
+    : chordMode;
   const canMatchSession = !scaleLocked
     && !liveDetected.uncertain
     && (liveDetected.rootName !== chordKey || liveDetected.mode !== chordMode);
@@ -318,45 +328,12 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
   const [gridViewportWidth, setGridViewportWidth] = useState(0);
 
   useEffect(() => {
-    setRecordedNoteLibrary(loadRecordedNotePresets());
     return subscribeRecordedNotePresets(setRecordedNoteLibrary);
   }, []);
 
-  useEffect(() => {
-    if (!track) {
-      return;
-    }
-
-    if (track.type === 'bass') {
-      setNoteWindow('LOW');
-      return;
-    }
-
-    if (track.type === 'fx') {
-      setNoteWindow('HIGH');
-      return;
-    }
-
-    setNoteWindow('MID');
-  }, [track]);
-
-  useEffect(() => {
-    if (!track) {
-      setSelectedStepIndex(null);
-      setSelectedNoteIndex(null);
-      return;
-    }
-
-    const steps = track.patterns[currentPattern] ?? [];
-    const firstActiveStep = steps.findIndex((step) => step.length > 0);
-    const nextStepIndex = firstActiveStep >= 0 ? firstActiveStep : 0;
-
-    setSelectedStepIndex(nextStepIndex);
-    setSelectedNoteIndex(steps[nextStepIndex]?.length ? 0 : null);
-  }, [currentPattern, stepsPerPattern, track]);
-
   const isDrum = track.type === 'kick' || track.type === 'snare' || track.type === 'hihat';
   const patternSteps = track.patterns[currentPattern] ?? Array.from({ length: stepsPerPattern }, () => []);
+  const selectedStepIndex = Math.min(requestedSelectedStepIndex, Math.max(0, stepsPerPattern - 1));
   useEffect(() => {
     patternStepsRef.current = patternSteps;
   });
@@ -434,15 +411,7 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
     });
   }, [noteLabelWidth, stepsPerPattern]);
 
-  useEffect(() => {
-    if (!isMobileViewport) {
-      setMobileInspectorOpen(false);
-      return;
-    }
-
-    setFocusSelectedNote(true);
-    setStepZoom((current) => (current >= STEP_ZOOM_PRESETS.DETAIL ? 46 : current));
-  }, [isMobileViewport]);
+  const mobileInspectorVisible = isMobileViewport && mobileInspectorOpen;
   const hasNotesOutsideWindow = useMemo(() => {
     if (isDrum || !activeNoteBounds) {
       return false;
@@ -1046,7 +1015,7 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
   };
 
   return (
-    <section className="piano-roll-shell surface-panel flex flex-col overflow-x-hidden md:min-h-0 md:flex-1 md:overflow-y-auto" data-mobile-view={mobileInspectorOpen ? 'inspector' : 'grid'}>
+    <section className="piano-roll-shell surface-panel flex flex-col overflow-x-hidden md:min-h-0 md:flex-1 md:overflow-y-auto" data-mobile-view={mobileInspectorVisible ? 'inspector' : 'grid'}>
       <div className="piano-roll-header flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border-soft)] px-4 py-2.5">
         <div className="piano-roll-track-summary flex min-w-0 flex-wrap items-center gap-3">
           <div className="section-label whitespace-nowrap">Selected lane</div>
@@ -1085,9 +1054,9 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
 
         <div aria-label="Note editor view" className="piano-roll-mobile-switch grid w-full grid-cols-2 gap-1 rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] p-1 xl:hidden" role="tablist">
           <button
-            aria-selected={!mobileInspectorOpen}
+            aria-selected={!mobileInspectorVisible}
             className="control-chip flex min-h-10 items-center justify-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.12em]"
-            data-active={!mobileInspectorOpen}
+            data-active={!mobileInspectorVisible}
             onClick={() => setMobileInspectorOpen(false)}
             role="tab"
             type="button"
@@ -1096,9 +1065,9 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
             Note grid
           </button>
           <button
-            aria-selected={mobileInspectorOpen}
+            aria-selected={mobileInspectorVisible}
             className="control-chip flex min-h-10 items-center justify-center gap-2 px-3 text-[10px] font-semibold uppercase tracking-[0.12em]"
-            data-active={mobileInspectorOpen}
+            data-active={mobileInspectorVisible}
             onClick={() => setMobileInspectorOpen(true)}
             role="tab"
             type="button"
@@ -1201,8 +1170,8 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
                   />
                   {isMobileViewport && (
                     <WindowButton
-                      active={mobileInspectorOpen}
-                      label={mobileInspectorOpen ? 'Hide inspector' : 'Show inspector'}
+                      active={mobileInspectorVisible}
+                      label={mobileInspectorVisible ? 'Hide inspector' : 'Show inspector'}
                       onClick={() => setMobileInspectorOpen((current) => !current)}
                     />
                   )}
@@ -1320,7 +1289,7 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
                 className="control-field h-7 px-2 text-xs"
                 disabled={scaleLocked}
                 onChange={(event) => setChordKey(event.target.value as KeyName)}
-                value={chordKey}
+                value={paletteChordKey}
               >
                 {KEY_OPTIONS.map((k) => (
                   <option key={k} value={k}>{k}</option>
@@ -1328,8 +1297,8 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
               </select>
             </label>
             <div className="surface-panel-muted flex items-center gap-1 p-1">
-              <WindowButton active={chordMode === 'major'} label="Major" disabled={scaleLocked} onClick={() => setChordMode('major')} />
-              <WindowButton active={chordMode === 'minor'} label="Minor" disabled={scaleLocked} onClick={() => setChordMode('minor')} />
+              <WindowButton active={paletteChordMode === 'major'} label="Major" disabled={scaleLocked} onClick={() => setChordMode('major')} />
+              <WindowButton active={paletteChordMode === 'minor'} label="Minor" disabled={scaleLocked} onClick={() => setChordMode('minor')} />
             </div>
             {!liveDetected.uncertain && (
               <button
@@ -1370,14 +1339,14 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
             )}
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
-            {(chordMode === 'major' ? MAJOR_KEY_TRIADS : MINOR_KEY_TRIADS).map((triad) => (
+            {(paletteChordMode === 'major' ? MAJOR_KEY_TRIADS : MINOR_KEY_TRIADS).map((triad) => (
               <button
                 key={triad.numeral}
                 className="control-chip flex flex-col items-center gap-0.5 px-3 py-2 text-xs"
                 onClick={() => {
                   const targetStep = selectedStepIndex ?? 0;
                   const baseOctave = guessKeyAndOctaveFromTrack(track.type, track.source.octaveShift).octave;
-                  const notes = buildChordNotes(chordKey, triad.degree, triad.quality, baseOctave);
+                  const notes = buildChordNotes(paletteChordKey, triad.degree, triad.quality, baseOctave);
                   stampChord(track.id, targetStep, notes, { gate: 2, velocity: 0.7 });
                   setSelectedStepIndex(targetStep);
                 }}
@@ -1822,7 +1791,7 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
           </div>
         </div>
 
-        {(!isMobileViewport || mobileInspectorOpen) && (
+        {(!isMobileViewport || mobileInspectorVisible) && (
         <aside className="piano-roll-inspector surface-panel-strong sonic-sidebar w-full shrink-0 overflow-auto p-4 xl:w-[320px]">
           <div className="flex items-center gap-2">
             <SlidersHorizontal className="h-4 w-4 text-[var(--accent)]" />

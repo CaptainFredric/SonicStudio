@@ -20,16 +20,15 @@ const formatBytes = (bytes: number): string => {
   return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
 };
 
-export const ShareDialog = ({ open, onClose, onNotify }: ShareDialogProps) => {
+const ShareDialogContent = ({ onClose, onNotify }: Omit<ShareDialogProps, 'open'>) => {
   const { currentSession, exportSession } = useAudio();
   const [override] = useManualKeyOverride();
   const [tab, setTab] = useState<Tab>('link');
   const [copied, setCopied] = useState<Tab | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
-  useDialogFocus(open, dialogRef, { trap: true });
+  useDialogFocus(true, dialogRef, { trap: true });
 
   const sessionJson = useMemo(() => {
-    if (!open) return '';
     try {
       // Wrap the session so a manual key pin can travel alongside it.
       // Older share links carried just the session; the receiver still
@@ -43,15 +42,14 @@ export const ShareDialog = ({ open, onClose, onNotify }: ShareDialogProps) => {
     } catch {
       return '';
     }
-  }, [currentSession, open, override]);
+  }, [currentSession, override]);
 
   // Compressing the payload is async (CompressionStream), so the link is built
   // in an effect rather than a memo.
   const [shareLink, setShareLink] = useState('');
   useEffect(() => {
     if (!sessionJson || typeof window === 'undefined') {
-      setShareLink('');
-      return;
+      return undefined;
     }
     let cancelled = false;
     void encodeSharePayload(sessionJson).then((encoded) => {
@@ -67,7 +65,6 @@ export const ShareDialog = ({ open, onClose, onNotify }: ShareDialogProps) => {
   const linkLength = shareLink.length;
 
   useEffect(() => {
-    if (!open) return undefined;
     const handler = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         onClose();
@@ -75,15 +72,13 @@ export const ShareDialog = ({ open, onClose, onNotify }: ShareDialogProps) => {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [open, onClose]);
+  }, [onClose]);
 
   useEffect(() => {
     if (!copied) return undefined;
     const id = window.setTimeout(() => setCopied(null), 1600);
     return () => window.clearTimeout(id);
   }, [copied]);
-
-  if (!open) return null;
 
   const notifyCopied = (source: Tab) => {
     if (!onNotify) {
@@ -271,6 +266,10 @@ export const ShareDialog = ({ open, onClose, onNotify }: ShareDialogProps) => {
     </div>
   );
 };
+
+export const ShareDialog = ({ open, onClose, onNotify }: ShareDialogProps) => (
+  open ? <ShareDialogContent onClose={onClose} onNotify={onNotify} /> : null
+);
 
 const TabButton = ({
   active,

@@ -146,8 +146,8 @@ export const Launchpad = ({
   const [libraryFilter, setLibraryFilter] = useState<LibraryFilterId>('featured');
   const [libraryQuery, setLibraryQuery] = useState('');
   const [sceneBrowserOpen, setSceneBrowserOpen] = useState(false);
-  const [recordedNotes, setRecordedNotes] = useState<RecordedNotePreset[]>([]);
-  const [scoresheetDraft, setScoresheetDraft] = useState(projectName);
+  const [recordedNotes, setRecordedNotes] = useState<RecordedNotePreset[]>(loadRecordedNotePresets);
+  const [scoresheetName, setScoresheetName] = useState(() => ({ projectName, value: projectName }));
   const [storageFlash, setStorageFlash] = useState<'saved' | null>(null);
   const recommended = useMemo(
     () => {
@@ -174,16 +174,13 @@ export const Launchpad = ({
       ? 'Save attention'
       : 'Autosave ready';
 
-  useEffect(() => {
-    setScoresheetDraft(projectName);
-  }, [projectName]);
+  const scoresheetDraft = scoresheetName.projectName === projectName ? scoresheetName.value : projectName;
 
   useEffect(() => {
     if (!isOpen) {
       return undefined;
     }
 
-    setRecordedNotes(loadRecordedNotePresets());
     return subscribeRecordedNotePresets(setRecordedNotes);
   }, [isOpen]);
 
@@ -465,7 +462,7 @@ export const Launchpad = ({
                 <input
                   aria-label="Scoresheet name"
                   className="control-field h-10 px-3 text-sm"
-                  onChange={(event) => setScoresheetDraft(event.target.value)}
+                  onChange={(event) => setScoresheetName({ projectName, value: event.target.value })}
                   onKeyDown={(event) => {
                     if (event.key === 'Enter') {
                       saveCurrentSnapshot();

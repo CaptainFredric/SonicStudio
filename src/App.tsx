@@ -31,17 +31,18 @@ import { revealStudioEditor, revealStudioPanel } from './components/studioViewpo
 import { resolveInitialStudioPanel, resolveNextStudioPanel, type StudioPanelId } from './components/studioPanelState';
 import { playSupersonicToggleSound } from './audio/uiSounds';
 import { getSupersonicTransitionOrigin, runSupersonicTransition } from './utils/supersonicTransition';
+import { NotesPanel } from './components/NotesPanel';
+import { MainWorkspace as Sequencer } from './components/MainWorkspace';
 import { AudioWaveform, Volume2, Settings, Sparkles, Share2, Coffee } from 'lucide-react';
 import { Circle, Layers, Maximize2, Minimize2, Minus, Pause, Play, Plus, Square, X, Zap } from 'lucide-react';
 
 const SUPPORT_URL = 'https://buymeacoffee.com/captainarm1';
 
-// Everything a visitor does not need for the first paint loads on demand: the
-// library overlay, the capture and transcribe dialogs, settings, sharing, the
-// onboarding tour, Mixer, and the full sequencer. The Handshake stage stays in
-// the boot path while each production surface fetches its own chunk on demand.
+// Secondary surfaces load on demand: the library, capture, transcription,
+// settings, sharing, onboarding, Mixer, and sound desk. The sequencer and note
+// editor stay in the stable shell because they are the core studio workflow and
+// must open reliably on the first interaction in both local and deployed builds.
 const Mixer = lazyWithRetry(() => import('./components/Mixer').then((module) => ({ default: module.Mixer })), 'mixer');
-const Sequencer = lazyWithRetry(() => import('./components/MainWorkspace').then((module) => ({ default: module.MainWorkspace })), 'sequencer');
 const Launchpad = lazyWithRetry(() => import('./components/Launchpad').then((module) => ({ default: module.Launchpad })), 'launchpad');
 const SettingsSidebar = lazyWithRetry(() => import('./components/SettingsSidebar').then((module) => ({ default: module.SettingsSidebar })), 'settings');
 const AudioCapture = lazyWithRetry(() => import('./components/AudioCapture').then((module) => ({ default: module.AudioCapture })), 'capture');
@@ -49,8 +50,6 @@ const SongTranscriber = lazyWithRetry(() => import('./components/SongTranscriber
 const ShareDialog = lazyWithRetry(() => import('./components/ShareDialog').then((module) => ({ default: module.ShareDialog })), 'share');
 const OnboardingGuide = lazyWithRetry(() => import('./components/OnboardingGuide').then((module) => ({ default: module.OnboardingGuide })), 'guide');
 const DeviceRack = lazyWithRetry(() => import('./components/DeviceRack').then((module) => ({ default: module.DeviceRack })), 'device-rack');
-const NotesPanel = lazyWithRetry(() => import('./components/NotesPanel').then((module) => ({ default: module.NotesPanel })), 'notes-panel');
-
 // The lower editor keeps only the two lane-specific jobs: sound design and
 // precise pitch editing. Song arrangement lives in the main Create canvas.
 const DESK_VISIBLE_KEY = 'sonicstudio:panel-desk-visible';
@@ -148,10 +147,12 @@ const PanelDock = () => {
           id={`studio-panel-${activePanel}`}
           role="tabpanel"
         >
-          <Suspense fallback={<div className="surface-panel flex min-h-40 items-center justify-center text-sm text-[var(--text-secondary)]">Opening inspector</div>}>
-            {activePanel === 'desk' && <DeviceRack />}
-            {activePanel === 'notes' && <NotesPanel />}
-          </Suspense>
+          {activePanel === 'desk' && (
+            <Suspense fallback={<div className="surface-panel flex min-h-40 items-center justify-center text-sm text-[var(--text-secondary)]">Opening sound desk</div>}>
+              <DeviceRack />
+            </Suspense>
+          )}
+          {activePanel === 'notes' && <NotesPanel />}
         </div>
       )}
     </section>
@@ -349,9 +350,7 @@ const ViewRouter = ({
           <ShowcaseStage onEnterStudio={onEnterStudio} onOpenShare={onOpenShare} />
         ) : null}
         {activeView === 'SEQUENCER' && !isShowcasePreviewActive ? (
-          <Suspense fallback={<div className="surface-panel flex min-h-[52vh] flex-1 items-center justify-center text-sm text-[var(--text-secondary)]">Opening the sequencer</div>}>
-            <Sequencer />
-          </Suspense>
+          <Sequencer />
         ) : null}
         {activeView === 'MIXER' && (
           <Suspense fallback={<div className="surface-panel flex flex-1 items-center justify-center text-sm text-[var(--text-secondary)]">Opening the mixer</div>}>

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 
 import { useAudio, type BounceNormalizationMode, type BounceTailMode } from '../../context/AudioContext';
 import { type ExportScope } from '../../services/workflowTypes';
@@ -113,13 +113,24 @@ export const WorkspaceSettingsPanel = () => {
   const [queuedNoteStringId, setQueuedNoteStringId] = useQueuedNoteStringId();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const midiFileInputRef = useRef<HTMLInputElement>(null);
-  const [bounceScope, setBounceScope] = useState<ExportScope>(transportMode === 'SONG' ? 'song' : 'pattern');
+  const [bounceSelection, setBounceSelection] = useState<{ transportMode: typeof transportMode; value: ExportScope }>(() => ({
+    transportMode,
+    value: transportMode === 'SONG' ? 'song' : 'pattern',
+  }));
   const [bounceNormalization, setBounceNormalization] = useState<BounceNormalizationMode>('peak');
   const [bounceTailMode, setBounceTailMode] = useState<BounceTailMode>('standard');
   const [targetProfileId, setTargetProfileId] = useState<RenderTargetProfileId>('streaming');
   const [trackQuery, setTrackQuery] = useState('');
   const [workspaceSection, setWorkspaceSection] = useState<WorkspaceSection>('PROJECT');
   const hasLoopWindow = loopRangeStartBeat !== null && loopRangeEndBeat !== null;
+  const defaultBounceScope = transportMode === 'SONG' ? 'song' : 'pattern';
+  const selectedBounceScope = bounceSelection.transportMode === transportMode
+    ? bounceSelection.value
+    : defaultBounceScope;
+  const activeBounceScope = selectedBounceScope === 'loop-window' && !hasLoopWindow
+    ? defaultBounceScope
+    : selectedBounceScope;
+  const setBounceScope = (value: ExportScope) => setBounceSelection({ transportMode, value });
   const filteredTracks = tracks.filter((track) => {
     const normalizedQuery = trackQuery.trim().toLowerCase();
     if (!normalizedQuery) {
@@ -128,14 +139,6 @@ export const WorkspaceSettingsPanel = () => {
 
     return track.name.toLowerCase().includes(normalizedQuery) || track.type.toLowerCase().includes(normalizedQuery);
   }).slice(0, 8);
-
-  useEffect(() => {
-    setBounceScope((current) => (
-      current === 'clip-window' || (current === 'loop-window' && hasLoopWindow)
-        ? current
-        : transportMode === 'SONG' ? 'song' : 'pattern'
-    ));
-  }, [hasLoopWindow, transportMode]);
 
   return (
     <>
@@ -286,18 +289,18 @@ export const WorkspaceSettingsPanel = () => {
       {workspaceSection === 'EXPORT' ? <WorkspaceBouncePanel
         bounceHistory={bounceHistory}
         bounceNormalization={bounceNormalization}
-        bounceScope={bounceScope}
+        bounceScope={activeBounceScope}
         bounceTailMode={bounceTailMode}
         canUseClipWindow={selectedArrangerClipId !== null}
         canUseLoopWindow={hasLoopWindow}
-        exportAudioMix={() => void exportAudioMix(bounceScope, {
+        exportAudioMix={() => void exportAudioMix(activeBounceScope, {
           normalization: bounceNormalization,
           tailMode: bounceTailMode,
           targetProfileId,
         })}
-        exportMidi={() => void exportMidi(bounceScope)}
+        exportMidi={() => void exportMidi(activeBounceScope)}
         exportSession={exportSession}
-        exportTrackStems={() => void exportTrackStems(bounceScope, {
+        exportTrackStems={() => void exportTrackStems(activeBounceScope, {
           normalization: bounceNormalization,
           tailMode: bounceTailMode,
           targetProfileId,
