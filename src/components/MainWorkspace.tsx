@@ -847,7 +847,9 @@ export const MainWorkspace = () => {
   const [gridViewportHeight, setGridViewportHeight] = useState(0);
   const [gridScrollHeight, setGridScrollHeight] = useState(0);
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
-  const selectedTrackPattern = selectedTrack?.patterns[currentPattern] ?? Array.from({ length: stepsPerPattern }, () => []);
+  const selectedTrackPattern = useMemo(() => (
+    selectedTrack?.patterns[currentPattern] ?? Array.from({ length: stepsPerPattern }, () => [])
+  ), [currentPattern, selectedTrack, stepsPerPattern]);
   const currentPatternLabel = `Pattern ${String.fromCharCode(65 + currentPattern)}`;
   const selectedStep = selectedTrackPattern[selectedStepIndex] ?? [];
   const activeStepIndices = useMemo(() => (
@@ -1072,7 +1074,7 @@ export const MainWorkspace = () => {
     ...patternSegments,
   ], [patternSegments]);
   const loopSearchQuery = loopSearchDraft.trim().toLowerCase();
-  const filteredFactoryLoops = useMemo(() => FACTORY_LOOP_LIBRARY.filter((loop) => {
+  const filteredFactoryLoops = FACTORY_LOOP_LIBRARY.filter((loop) => {
     const matchesScope = loopBrowserFilter === 'ALL'
       ? true
       : loopBrowserFilter === 'MATCHING'
@@ -1099,7 +1101,7 @@ export const MainWorkspace = () => {
     ].join(' ').toLowerCase();
 
     return haystack.includes(loopSearchQuery);
-  }), [loopBrowserFilter, loopSearchQuery, selectedTrack]);
+  });
   const displayedFactoryLoops = filteredFactoryLoops.slice(0, 6);
   const showMoreFactoryLoops = filteredFactoryLoops.length > displayedFactoryLoops.length;
   const queuedSegment = queuedSegmentId
@@ -1140,7 +1142,7 @@ export const MainWorkspace = () => {
     const firstActiveStep = pattern.findIndex((step) => step.length > 0);
     setSelectedStepIndex(firstActiveStep >= 0 ? firstActiveStep : 0);
     setSelectedStepNoteIndex(0);
-  }, [currentPattern, selectedTrack?.id]);
+  }, [currentPattern, selectedTrack]);
 
   useEffect(() => {
     setSelectedStepIndex((current) => Math.min(current, Math.max(0, stepsPerPattern - 1)));
@@ -1232,39 +1234,6 @@ export const MainWorkspace = () => {
     };
   }, [compactLanes, laneScope, laneHeaderWidth, stepCellWidth, stepsPerPattern, visibleTrackSections.length]);
 
-  // Mouse wheel scrolls the step grid sideways: with Shift, when the wheel is
-  // already horizontal, or when the lanes fit (so a plain vertical wheel has
-  // nothing to scroll down). Lane scrolling still wins when lanes overflow.
-  useEffect(() => {
-    const node = gridViewportRef.current;
-    if (!node) return undefined;
-    const onWheel = (event: WheelEvent) => {
-      if (event.ctrlKey || event.altKey) {
-        event.preventDefault();
-        const dominantDelta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
-        updateStepZoom(stepCellWidth + (dominantDelta < 0 ? 6 : -6), event.clientX);
-        return;
-      }
-
-      const delta = getSequencerWheelPanDelta({
-        clientHeight: node.clientHeight,
-        clientWidth: node.clientWidth,
-        deltaX: event.deltaX,
-        deltaY: event.deltaY,
-        scrollHeight: node.scrollHeight,
-        scrollLeft: node.scrollLeft,
-        scrollTop: node.scrollTop,
-        scrollWidth: node.scrollWidth,
-        shiftKey: event.shiftKey,
-      });
-      if (delta === null) return;
-      event.preventDefault();
-      node.scrollLeft += delta;
-    };
-    node.addEventListener('wheel', onWheel, { passive: false });
-    return () => node.removeEventListener('wheel', onWheel);
-  }, [stepCellWidth, stepZoomMax]);
-
   // These layout choices persist from their toggle handlers, not from mount
   // effects: writing on mount would freeze a mere default into a stored
   // "choice" the user never made, and defaults could then never improve.
@@ -1293,7 +1262,7 @@ export const MainWorkspace = () => {
     };
   }, [isMobileViewport]);
 
-  const updateStepZoom = (
+  const updateStepZoom = useCallback((
     nextWidth: number,
     anchorClientX?: number,
     options?: { preserveFitToggle?: boolean },
@@ -1340,7 +1309,40 @@ export const MainWorkspace = () => {
 
       return clampedWidth;
     });
-  };
+  }, [laneHeaderWidth, stepZoomMax]);
+
+  // Mouse wheel scrolls the step grid sideways: with Shift, when the wheel is
+  // already horizontal, or when the lanes fit (so a plain vertical wheel has
+  // nothing to scroll down). Lane scrolling still wins when lanes overflow.
+  useEffect(() => {
+    const node = gridViewportRef.current;
+    if (!node) return undefined;
+    const onWheel = (event: WheelEvent) => {
+      if (event.ctrlKey || event.altKey) {
+        event.preventDefault();
+        const dominantDelta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+        updateStepZoom(stepCellWidth + (dominantDelta < 0 ? 6 : -6), event.clientX);
+        return;
+      }
+
+      const delta = getSequencerWheelPanDelta({
+        clientHeight: node.clientHeight,
+        clientWidth: node.clientWidth,
+        deltaX: event.deltaX,
+        deltaY: event.deltaY,
+        scrollHeight: node.scrollHeight,
+        scrollLeft: node.scrollLeft,
+        scrollTop: node.scrollTop,
+        scrollWidth: node.scrollWidth,
+        shiftKey: event.shiftKey,
+      });
+      if (delta === null) return;
+      event.preventDefault();
+      node.scrollLeft += delta;
+    };
+    node.addEventListener('wheel', onWheel, { passive: false });
+    return () => node.removeEventListener('wheel', onWheel);
+  }, [stepCellWidth, updateStepZoom]);
 
   const updateSongTimelineZoom = (nextWidth: number) => {
     const clampedWidth = clampNumber(

@@ -271,6 +271,7 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
   // continuously. Logic's snap value, sized down for a step grid.
   const [gridSnap, setGridSnap] = useState<'16' | '8' | '4' | 'off'>('16');
   const [recordedNoteLibrary, setRecordedNoteLibrary] = useState<RecordedNotePreset[]>([]);
+  const [loopChipState, setLoopChipState] = useState<{ x: number; y: number; startStep: number; endStep: number } | null>(null);
   // Seed the chord palette with the session's detected key on mount.
   // The user can still override via the Key dropdown / Major-Minor
   // toggle, and re-sync at any time with the "Match session" button.
@@ -337,7 +338,7 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
     }
 
     setNoteWindow('MID');
-  }, [track?.id, track?.type]);
+  }, [track]);
 
   useEffect(() => {
     if (!track) {
@@ -352,7 +353,7 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
 
     setSelectedStepIndex(nextStepIndex);
     setSelectedNoteIndex(steps[nextStepIndex]?.length ? 0 : null);
-  }, [currentPattern, stepsPerPattern, track?.id]);
+  }, [currentPattern, stepsPerPattern, track]);
 
   const isDrum = track.type === 'kick' || track.type === 'snare' || track.type === 'hihat';
   const patternSteps = track.patterns[currentPattern] ?? Array.from({ length: stepsPerPattern }, () => []);
@@ -634,7 +635,6 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
     materialized: boolean;
     ctrlKey: boolean;
   } | null>(null);
-  const [loopChipState, setLoopChipState] = useState<{ x: number; y: number; startStep: number; endStep: number } | null>(null);
   const [contextMenuState, setContextMenuState] = useState<{ stepIndex: number; noteIndex: number; note: string; x: number; y: number } | null>(null);
 
   const handleNotePointerDown = (
@@ -898,7 +898,7 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
     updateStepEvent(track.id, selectedStepIndex, normalizedSelectedNoteIndex, updates);
   };
 
-  const updateSelectedGate = (nextGate: number) => {
+  const updateSelectedGate = useCallback((nextGate: number) => {
     if (!selectedNote || normalizedSelectedNoteIndex === null || selectedStepIndex === null) {
       return;
     }
@@ -906,7 +906,7 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
     updateStepEvent(track.id, selectedStepIndex, normalizedSelectedNoteIndex, {
       gate: clampNoteGate(nextGate),
     });
-  };
+  }, [normalizedSelectedNoteIndex, selectedNote, selectedStepIndex, track.id, updateStepEvent]);
 
   useEffect(() => {
     if (!noteResizeState) {

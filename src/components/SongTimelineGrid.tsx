@@ -1548,7 +1548,6 @@ export const SongTimelineGrid = ({
                       : clip.startBeat;
                   const beatLength = resizing ? clipResizePreview.draftLength : clip.beatLength;
                   const clipPixelWidth = Math.max(36, beatLength * cellW);
-                  const compactClip = clipPixelWidth < 128;
                   const selected = selectedClipId === clip.id;
                   const linkedClipCount = linkedClipCountByPattern.get(`${clip.trackId}:${clip.patternIndex}`) ?? 1;
                   const linked = linkedClipCount > 1;
@@ -1577,7 +1576,7 @@ export const SongTimelineGrid = ({
                       />
                       <button
                         aria-label={`Move Pattern ${String.fromCharCode(65 + clip.patternIndex)} clip on ${track.name}`}
-                        className="pointer-events-auto absolute left-1 top-1 z-[9] flex max-w-[76px] cursor-grab items-center overflow-hidden rounded-[2px] text-left active:cursor-grabbing"
+                        className="pointer-events-auto absolute left-1 top-1 z-[9] flex h-4 w-5 cursor-grab items-center justify-center overflow-hidden rounded-[2px] text-left active:cursor-grabbing"
                         onClick={() => {
                           onSelectClip?.(clip.id);
                           onSelectTrack(track.id);
@@ -1592,14 +1591,8 @@ export const SongTimelineGrid = ({
                         title={`Pattern ${String.fromCharCode(65 + clip.patternIndex)} · ${beatLength} steps · ${linked ? `${linkedClipCount} linked clips` : 'independent clip'}. Drag to move; double-click to edit notes.`}
                         type="button"
                       >
-                        <span className="flex min-w-0 items-center gap-0.5 rounded-[2px] bg-[var(--bg-panel-strong)]/90 px-1 py-0.5 shadow-sm">
-                          <GripVertical className="h-3 w-3 shrink-0 opacity-65" />
-                          {!compactClip && (
-                            <span className="truncate font-mono text-[9px] font-semibold uppercase tracking-[0.11em]" style={{ color: track.color }}>
-                              P{String.fromCharCode(65 + clip.patternIndex)} · {beatLength}
-                            </span>
-                          )}
-                          {linked && <Link2 className="h-2.5 w-2.5 shrink-0" style={{ color: track.color }} />}
+                        <span className="flex h-4 w-5 items-center justify-center rounded-[2px] bg-[var(--bg-panel-strong)]/90 shadow-sm">
+                          <GripVertical className="h-3 w-3 shrink-0" style={{ color: track.color }} />
                         </span>
                       </button>
                       {resizing && (

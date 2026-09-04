@@ -198,11 +198,9 @@ export const Arranger = () => {
     : null;
   const composerStepCount = getComposerStepCount(selectedClip, stepsPerPattern);
   const composerSteps = selectedClipPattern.slice(0, composerStepCount);
-  const phraseRows = useMemo(() => (
-    selectedClipTrack && !isDrumTrack(selectedClipTrack)
-      ? buildComposerRows(selectedClipTrack, selectedPhraseNote?.note ?? selectedPhraseStep[0]?.note ?? null)
-      : []
-  ), [selectedClipTrack, selectedPhraseNote?.note, selectedPhraseStep]);
+  const phraseRows = selectedClipTrack && !isDrumTrack(selectedClipTrack)
+    ? buildComposerRows(selectedClipTrack, selectedPhraseNote?.note ?? selectedPhraseStep[0]?.note ?? null)
+    : [];
   const isStepMappedSampleTrack = Boolean(
     selectedClipTrack
     && selectedClipTrack.source.engine === 'sample'
@@ -391,7 +389,7 @@ export const Arranger = () => {
     if (selectedClip && selectedClip.id !== previousClipId && inspectorTab === 'SHAPE') {
       setInspectorTab('COMPOSE');
     }
-  }, [inspectorTab, selectedClip?.id]);
+  }, [inspectorTab, selectedClip]);
 
   useEffect(() => {
     if (!openLaneMenuTrackId) {

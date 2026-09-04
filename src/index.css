@@ -2240,8 +2240,21 @@ html[data-supersonic="true"] .studio-nav-button[data-active="true"] .studio-arra
 }
 
 @media (max-width: 767px) {
+  html {
+    scroll-padding-bottom: calc(80px + env(safe-area-inset-bottom));
+  }
+
+  .studio-shell-grid {
+    animation: none;
+    transform: none;
+  }
+
   .app-shell:not([data-editing-mode="true"]):not([data-showcase-guide="true"]) .studio-app-frame {
     padding-bottom: calc(72px + env(safe-area-inset-bottom));
+  }
+
+  .studio-panel-dock {
+    scroll-margin-bottom: calc(80px + env(safe-area-inset-bottom));
   }
 
   .app-shell:not([data-showcase-guide="true"]) .tour-panel {
