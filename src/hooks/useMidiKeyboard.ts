@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useEffectEvent, useState } from 'react';
 
 import { MidiInputManager, type MidiNoteMessage } from '../audio/midiInput';
 
@@ -16,17 +16,18 @@ export const useMidiKeyboard = (
   onNote: (message: MidiNoteMessage) => void,
 ): MidiKeyboardState => {
   const [devices, setDevices] = useState<string[]>([]);
-  const onNoteRef = useRef(onNote);
-  onNoteRef.current = onNote;
+  const supported = MidiInputManager.isSupported();
+  const handleNote = useEffectEvent((message: MidiNoteMessage) => {
+    onNote(message);
+  });
 
   useEffect(() => {
-    if (!enabled || !MidiInputManager.isSupported()) {
-      setDevices([]);
+    if (!enabled || !supported) {
       return undefined;
     }
 
     const manager = new MidiInputManager();
-    manager.onNote((message) => onNoteRef.current(message));
+    manager.onNote(handleNote);
     manager.onDevices(setDevices);
     void manager.enable();
 
@@ -35,7 +36,7 @@ export const useMidiKeyboard = (
       manager.onDevices(null);
       manager.disable();
     };
-  }, [enabled]);
+  }, [enabled, supported]);
 
-  return { devices, supported: MidiInputManager.isSupported() };
+  return { devices: enabled && supported ? devices : [], supported };
 };

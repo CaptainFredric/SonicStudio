@@ -587,18 +587,14 @@ const LoadWatchReadout = ({
   useEffect(() => {
     const interval = window.setInterval(() => {
       setMasterLevel(engine.getMasterMeterValue());
+      const latencySeconds = engine.getBaseLatencySeconds();
+      setAudioBaseLatencyMs(latencySeconds === null ? null : Number((latencySeconds * 1000).toFixed(1)));
     }, 120);
     return () => window.clearInterval(interval);
   }, []);
 
   useEffect(() => {
-    const latencySeconds = engine.getBaseLatencySeconds();
-    setAudioBaseLatencyMs(latencySeconds === null ? null : Number((latencySeconds * 1000).toFixed(1)));
-  }, [isPlaying, tracks.length, stepsPerPattern, superSonicMode]);
-
-  useEffect(() => {
     if (!isPlaying) {
-      setUiFrameDriftMs((current) => (current === 0 ? current : 0));
       return undefined;
     }
     let frameId = 0;
@@ -635,7 +631,7 @@ const LoadWatchReadout = ({
       superSonicMode,
       masterLevel,
       audioBaseLatencyMs,
-      uiFrameDriftMs,
+      isPlaying ? uiFrameDriftMs : 0,
       isPlaying,
     )
   ), [audioBaseLatencyMs, currentPattern, isPlaying, masterLevel, stepsPerPattern, superSonicMode, tracks, uiFrameDriftMs]);
@@ -851,7 +847,8 @@ export const MainWorkspace = () => {
     selectedTrack?.patterns[currentPattern] ?? Array.from({ length: stepsPerPattern }, () => [])
   ), [currentPattern, selectedTrack, stepsPerPattern]);
   const currentPatternLabel = `Pattern ${String.fromCharCode(65 + currentPattern)}`;
-  const selectedStep = selectedTrackPattern[selectedStepIndex] ?? [];
+  const activeSelectedStepIndex = Math.min(selectedStepIndex, Math.max(0, stepsPerPattern - 1));
+  const selectedStep = selectedTrackPattern[activeSelectedStepIndex] ?? [];
   const activeStepIndices = useMemo(() => (
     selectedTrackPattern.reduce<number[]>((indices, step, stepIndex) => {
       if (step.length > 0) {
@@ -1110,14 +1107,6 @@ export const MainWorkspace = () => {
   const queuedSegmentSpan = queuedSegment ? segmentSpanSteps(queuedSegment) : 0;
 
   useEffect(() => {
-    if (isMobileViewport) {
-      setCompactLanes(true);
-      return;
-    }
-
-  }, [isMobileViewport]);
-
-  useEffect(() => {
     if (!sessionPlayerNotice || typeof window === 'undefined') {
       return undefined;
     }
@@ -1125,28 +1114,6 @@ export const MainWorkspace = () => {
     const timeoutId = window.setTimeout(() => setSessionPlayerNotice(null), 2400);
     return () => window.clearTimeout(timeoutId);
   }, [sessionPlayerNotice]);
-
-  useEffect(() => {
-    setStepZoom((current) => clampNumber(current, STEP_ZOOM_MIN, stepZoomMax));
-  }, [stepZoomMax]);
-
-
-  useEffect(() => {
-    if (!selectedTrack) {
-      setSelectedStepIndex(0);
-      setSelectedStepNoteIndex(0);
-      return;
-    }
-
-    const pattern = selectedTrack.patterns[currentPattern] ?? [];
-    const firstActiveStep = pattern.findIndex((step) => step.length > 0);
-    setSelectedStepIndex(firstActiveStep >= 0 ? firstActiveStep : 0);
-    setSelectedStepNoteIndex(0);
-  }, [currentPattern, selectedTrack]);
-
-  useEffect(() => {
-    setSelectedStepIndex((current) => Math.min(current, Math.max(0, stepsPerPattern - 1)));
-  }, [stepsPerPattern]);
 
   useEffect(() => {
     if (stepColumnMenuIndex === null) {
@@ -1173,15 +1140,6 @@ export const MainWorkspace = () => {
       window.removeEventListener('keydown', closeOnEscape);
     };
   }, [stepColumnMenuIndex]);
-
-  useEffect(() => {
-    if (selectedStep.length === 0) {
-      setSelectedStepNoteIndex(0);
-      return;
-    }
-
-    setSelectedStepNoteIndex((current) => Math.min(current, selectedStep.length - 1));
-  }, [selectedStep.length, selectedStepIndex]);
 
   useEffect(() => {
     const node = gridViewportRef.current;
@@ -1674,7 +1632,7 @@ export const MainWorkspace = () => {
     if (!clipboard || !anchorTrackId) return false;
     const anchorLane = visibleLaneOrder.indexOf(anchorTrackId);
     if (anchorLane < 0) return false;
-    const targetStart = stepRange?.start ?? selectedStepIndex;
+    const targetStart = stepRange?.start ?? activeSelectedStepIndex;
     const needed = targetStart + clipboard.length;
     const total = Math.max(needed, stepsPerPattern);
     const pastedLaneIds: string[] = [];
@@ -1701,7 +1659,7 @@ export const MainWorkspace = () => {
   // copy selected makes repeated presses tile a motif across the pattern.
   const duplicateStepRange = (range: StepRangeSelection | null = stepRange) => {
     const sourceRange = range
-      ?? (selectedTrack ? { trackIds: [selectedTrack.id], start: selectedStepIndex, end: selectedStepIndex } : null);
+      ?? (selectedTrack ? { trackIds: [selectedTrack.id], start: activeSelectedStepIndex, end: activeSelectedStepIndex } : null);
     if (!sourceRange) return false;
     const laneIds = sourceRange.trackIds.filter((id) => tracks.some((entry) => entry.id === id));
     if (laneIds.length === 0) return false;
@@ -1850,8 +1808,8 @@ export const MainWorkspace = () => {
     }
 
     const nextStep = direction === 'next'
-      ? activeStepIndices.find((stepIndex) => stepIndex > selectedStepIndex) ?? activeStepIndices[0]
-      : [...activeStepIndices].reverse().find((stepIndex) => stepIndex < selectedStepIndex) ?? activeStepIndices[activeStepIndices.length - 1];
+      ? activeStepIndices.find((stepIndex) => stepIndex > activeSelectedStepIndex) ?? activeStepIndices[0]
+      : [...activeStepIndices].reverse().find((stepIndex) => stepIndex < activeSelectedStepIndex) ?? activeStepIndices[activeStepIndices.length - 1];
 
     jumpToStep(nextStep, selectedTrack.id);
   };
@@ -2260,7 +2218,7 @@ export const MainWorkspace = () => {
       return;
     }
 
-    updateStepEvent(selectedTrack.id, selectedStepIndex, noteIndex, updates);
+    updateStepEvent(selectedTrack.id, activeSelectedStepIndex, noteIndex, updates);
     setSelectedStepNoteIndex(noteIndex);
   };
 
@@ -2281,7 +2239,7 @@ export const MainWorkspace = () => {
       return;
     }
 
-    toggleStep(selectedTrack.id, selectedStepIndex, nextNote);
+    toggleStep(selectedTrack.id, activeSelectedStepIndex, nextNote);
     setSelectedStepNoteIndex(selectedStep.length);
   };
 
@@ -3069,8 +3027,8 @@ export const MainWorkspace = () => {
                     <button
                       aria-label="Center the selected step in the track editor"
                       className="control-chip flex h-8 shrink-0 items-center gap-1.5 px-2"
-                      onClick={() => jumpToStep(selectedStepIndex, selectedTrack?.id)}
-                      title={`Center selected step ${selectedStepIndex + 1}`}
+                      onClick={() => jumpToStep(activeSelectedStepIndex, selectedTrack?.id)}
+                      title={`Center selected step ${activeSelectedStepIndex + 1}`}
                       type="button"
                     >
                       <LocateFixed className="h-3.5 w-3.5" />
@@ -3376,7 +3334,7 @@ export const MainWorkspace = () => {
                   <div className="flex" style={{ width: `${stepGridWidth}px` }}>
                     {Array.from({ length: stepsPerPattern }, (_, stepIndex) => stepIndex).map((stepIndex) => {
                       const menuOpen = stepColumnMenuIndex === stepIndex;
-                      const selected = selectedStepIndex === stepIndex;
+                      const selected = activeSelectedStepIndex === stepIndex;
                       return (
                         <div
                           className={`step-ruler-cell relative shrink-0 border-r border-[var(--border-soft)] ${stepIndex % 4 === 0 ? 'bg-[rgba(255,255,255,0.035)]' : ''}`}
@@ -3720,7 +3678,7 @@ export const MainWorkspace = () => {
                         <div className={`flex gap-[2px] ${laneGridPaddingClass}`} style={{ width: `${stepGridWidth}px` }}>
                           {patternSteps.map((value, stepIndex) => {
                             const isActive = value.length > 0;
-                            const isSelectedStep = selectedStepIndex === stepIndex;
+                            const isSelectedStep = activeSelectedStepIndex === stepIndex;
                             const inRange = displayedStepRange !== null && displayedStepRange.trackIds.includes(track.id) && stepIndex >= displayedStepRange.start && stepIndex <= displayedStepRange.end;
                             const inMoveSource = movingStepRange && stepRange !== null && stepRange.trackIds.includes(track.id) && stepIndex >= stepRange.start && stepIndex <= stepRange.end;
                             const inMoveTarget = movingStepRange && stepRangeMovePreview !== null && stepRangeMovePreview.trackIds.includes(track.id) && stepIndex >= stepRangeMovePreview.start && stepIndex <= stepRangeMovePreview.end;
@@ -4180,7 +4138,7 @@ export const MainWorkspace = () => {
                               {!hasCurrentActivity && hasOtherPatternActivity && (
                                 <span className="pointer-events-none absolute inset-x-[16%] top-1/2 h-[1px] -translate-y-1/2 bg-black/35" />
                               )}
-                              {selectedTrackId === track.id && selectedStepIndex === stepIndex && (
+                              {selectedTrackId === track.id && activeSelectedStepIndex === stepIndex && (
                                 <span className="absolute inset-y-0 left-0 w-[2px] bg-white/75" />
                               )}
                             </button>
@@ -4262,7 +4220,7 @@ export const MainWorkspace = () => {
                   <div>
                     <div className="text-sm font-medium text-[var(--text-primary)]">{selectedTrack.name}</div>
                     <div className="mt-1 text-[11px] text-[var(--text-secondary)]">
-                      {selectedTrack.type} · {selectedTrack.source.engine} · step {selectedStepIndex + 1}
+                      {selectedTrack.type} · {selectedTrack.source.engine} · step {activeSelectedStepIndex + 1}
                     </div>
                   </div>
                   <button
@@ -4757,7 +4715,7 @@ export const MainWorkspace = () => {
                 >
                   <div>
                     <div className="section-label">Step editor</div>
-                    <div className="mt-2 text-sm font-medium text-[var(--text-primary)]">Step {selectedStepIndex + 1}</div>
+                    <div className="mt-2 text-sm font-medium text-[var(--text-primary)]">Step {activeSelectedStepIndex + 1}</div>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="font-mono text-[10px] uppercase tracking-[0.16em] text-[var(--text-tertiary)]">
@@ -4926,7 +4884,7 @@ export const MainWorkspace = () => {
                           <button
                             className="font-mono text-[10px] uppercase tracking-[0.12em] text-[var(--text-secondary)] transition-colors hover:text-[var(--danger)]"
                             onClick={() => {
-                              toggleStep(selectedTrack.id, selectedStepIndex, event.note);
+                              toggleStep(selectedTrack.id, activeSelectedStepIndex, event.note);
                               setSelectedStepNoteIndex(Math.max(0, noteIndex - 1));
                             }}
                             type="button"
