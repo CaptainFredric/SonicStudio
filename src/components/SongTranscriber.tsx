@@ -1146,6 +1146,9 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
                   <div className="mt-4">
                     <TranscriptionTimeline
                       notes={result.notes}
+                      onEdit={(index, pitch, start, duration) => commitEdit(result.notes.map((note, candidate) => candidate === index
+                        ? { ...transposeNote(note, pitch), startStep: Math.max(0, note.startStep + start), durationSteps: Math.max(1, Math.min(32, note.durationSteps + duration)) }
+                        : note), index)}
                       onSelect={(index) => {
                         setSelectedNoteIndex(index);
                         const note = result.notes[index];
@@ -1393,10 +1396,12 @@ const WaveformStrip = ({ peaks, strength = 1 }: { peaks: number[]; strength?: nu
 
 const TranscriptionTimeline = ({
   notes,
+  onEdit,
   onSelect,
   selectedIndex,
 }: {
   notes: TranscriptionNote[];
+  onEdit: (index: number, pitch: number, start: number, duration: number) => void;
   onSelect: (index: number) => void;
   selectedIndex: number | null;
 }) => {
@@ -1432,8 +1437,19 @@ const TranscriptionTimeline = ({
               aria-label={`${note.note}, step ${note.startStep + 1}, length ${note.durationSteps}`}
               aria-pressed={selected}
               className="absolute flex h-7 items-center overflow-hidden rounded-[2px] border px-2 text-left font-mono text-[9px] font-semibold transition-colors"
-              key={`${index}-${note.startStep}-${note.midi}`}
+              key={index}
               onClick={() => onSelect(index)}
+              onKeyDown={(event) => {
+                if (event.altKey || event.ctrlKey || event.metaKey) return;
+                const direction = event.key === 'ArrowUp' || event.key === 'ArrowRight' ? 1 : -1;
+                if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) return;
+                event.preventDefault();
+                event.stopPropagation();
+                const vertical = event.key === 'ArrowUp' || event.key === 'ArrowDown';
+                onEdit(index, vertical ? direction * (event.shiftKey ? 12 : 1) : 0,
+                  !vertical && !event.shiftKey ? direction : 0,
+                  !vertical && event.shiftKey ? direction : 0);
+              }}
               style={{
                 background: selected ? 'rgba(114,217,255,0.3)' : 'rgba(114,217,255,0.13)',
                 borderColor: selected ? 'rgba(181,238,255,0.95)' : 'rgba(114,217,255,0.35)',
@@ -1442,7 +1458,7 @@ const TranscriptionTimeline = ({
                 top: `${top}px`,
                 width: `${width}px`,
               }}
-              title={`${note.note} · step ${note.startStep + 1} · ${note.durationSteps} step${note.durationSteps === 1 ? '' : 's'}`}
+              title={`${note.note}. Arrow keys change pitch and timing. Shift with arrows changes octave or length.`}
               type="button"
             >
               {width >= 34 ? note.note : ''}
@@ -1481,7 +1497,7 @@ const NoteInspector = ({
         <div className="mt-1 font-mono text-lg font-semibold text-[var(--text-primary)]">{note.note}</div>
       </div>
     </div>
-    <div className="grid grid-cols-3 gap-2">
+    <div className="grid gap-2 sm:grid-cols-3">
       <Stepper label="Pitch" onDecrease={() => onPitchChange(-1)} onIncrease={() => onPitchChange(1)} value="1 semi" />
       <Stepper label="Start" onDecrease={() => onStartChange(-1)} onIncrease={() => onStartChange(1)} value={`Step ${note.startStep + 1}`} />
       <Stepper label="Length" onDecrease={() => onDurationChange(-1)} onIncrease={() => onDurationChange(1)} value={`${note.durationSteps} step${note.durationSteps === 1 ? '' : 's'}`} />
