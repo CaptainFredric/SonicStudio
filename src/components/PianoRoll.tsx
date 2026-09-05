@@ -1094,15 +1094,20 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
         <div className="flex w-full flex-col gap-2 xl:flex-row xl:flex-wrap xl:items-center">
           <div className="flex max-w-full flex-wrap items-center gap-2">
             <div className="surface-panel-muted flex max-w-full flex-wrap items-center gap-2 p-1">
-            <span className="px-2 font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">Steps 16-4096</span>
-            {STEP_OPTIONS.map((option) => (
-              <React.Fragment key={`steps-${option}`}>
-                <WindowButton active={stepsPerPattern === option} label={`${option}`} onClick={() => setStepsPerPattern(option)} />
-              </React.Fragment>
-            ))}
+            <label className="flex items-center gap-2 px-2 text-xs">
+              Pattern length
+              <select
+                aria-label="Pattern length in steps"
+                className="control-field h-10 px-2"
+                value={stepsPerPattern}
+                onChange={(event) => setStepsPerPattern(Number(event.target.value))}
+              >
+                {!STEP_OPTIONS.some((option) => option === stepsPerPattern) && <option value={stepsPerPattern}>{stepsPerPattern} steps</option>}
+                {STEP_OPTIONS.map((option) => <option key={option} value={option}>{option} steps</option>)}
+              </select>
+            </label>
             <WindowButton active={false} label="-1 bar" onClick={() => setStepsPerPattern(Math.max(16, stepsPerPattern - 16))} />
             <WindowButton active={false} label="+1 bar" onClick={() => setStepsPerPattern(Math.min(MAX_STEPS_PER_PATTERN, stepsPerPattern + 16))} />
-            <WindowButton active={false} label="+2 bars" onClick={() => setStepsPerPattern(Math.min(MAX_STEPS_PER_PATTERN, stepsPerPattern + 32))} />
             </div>
 
             {!isDrum && (
@@ -1168,13 +1173,6 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
                     label="Focus note"
                     onClick={() => setFocusSelectedNote((current) => !current)}
                   />
-                  {isMobileViewport && (
-                    <WindowButton
-                      active={mobileInspectorVisible}
-                      label={mobileInspectorVisible ? 'Hide inspector' : 'Show inspector'}
-                      onClick={() => setMobileInspectorOpen((current) => !current)}
-                    />
-                  )}
                 </div>
               )}
             </div>
