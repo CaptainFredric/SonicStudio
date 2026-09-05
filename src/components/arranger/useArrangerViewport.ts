@@ -47,6 +47,9 @@ export const useArrangerViewport = ({
 }: UseArrangerViewportOptions) => {
   const [viewportWidth, setViewportWidth] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
+  const selectedClipId = selectedClip?.id;
+  const selectedClipStart = selectedClip?.startBeat;
+  const selectedClipLength = selectedClip?.beatLength;
 
   useEffect(() => {
     const node = timelineRef.current;
@@ -83,7 +86,7 @@ export const useArrangerViewport = ({
   }, [currentStep, followPlayhead, pixelsPerStep, timelineRef]);
 
   useEffect(() => {
-    if (!selectedClip) {
+    if (selectedClipStart === undefined || selectedClipLength === undefined) {
       return;
     }
 
@@ -92,9 +95,15 @@ export const useArrangerViewport = ({
       return;
     }
 
-    const clipMidpoint = selectedClip.startBeat + selectedClip.beatLength / 2;
+    const clipMidpoint = selectedClipStart + selectedClipLength / 2;
     scrollTimelineToStep(node, clipMidpoint, pixelsPerStep, 'nearest');
-  }, [pixelsPerStep, selectedClip?.id, timelineRef]);
+  }, [
+    pixelsPerStep,
+    selectedClipLength,
+    selectedClipId,
+    selectedClipStart,
+    timelineRef,
+  ]);
 
   const jumpToStep = (step: number, align: 'center' | 'nearest' = 'center') => {
     if (!timelineRef.current) {

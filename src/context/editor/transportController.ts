@@ -72,6 +72,23 @@ export const createTransportController = ({
   setIsRecording,
   tracks,
 }: CreateTransportControllerOptions) => {
+  const warmSampleAssets = () => {
+    if (!currentProject.tracks.some((track) => track.source.engine === 'sample')) {
+      return;
+    }
+
+    // Sample downloads are useful preparation, but they must never gate the
+    // transport. ToneAudioBuffer.loaded() is global, so it can include a slow
+    // preview-only buffer created while editing a note. Let synth lanes and the
+    // playhead start immediately; sample lanes safely join as their buffers
+    // become ready (ToneEngine skips an unloaded sample hit).
+    void Promise.resolve()
+      .then(() => engine.awaitAssetLoad())
+      .catch((error) => {
+        console.warn('SonicStudio: sample asset load failed; continuing playback with available sources.', error);
+      });
+  };
+
   const ensureAudioReady = async () => {
     // Resume Tone's context synchronously inside the user gesture before
     // any await — uiSounds use a separate context that auto-resumes, so
@@ -80,15 +97,7 @@ export const createTransportController = ({
     engine.wakeContext();
     await initAudio();
     engine.syncProject(currentProject);
-
-    if (currentProject.tracks.some((track) => track.source.engine === 'sample')) {
-      try {
-        await engine.awaitAssetLoad();
-      } catch (error) {
-        // Keep transport usable even if one sample source fails to decode.
-        console.warn('SonicStudio: sample asset load failed; continuing playback with available sources.', error);
-      }
-    }
+    warmSampleAssets();
   };
 
   const cancelCountIn = () => {

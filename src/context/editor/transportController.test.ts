@@ -258,6 +258,47 @@ describe('transportController', () => {
     warnSpy.mockRestore();
   });
 
+  it('starts playback while a global sample asset load remains pending', async () => {
+    const project = createProjectFromTemplate('blank-grid');
+    const pendingAssetLoad = new Promise<void>(() => undefined);
+    const engine = {
+      awaitAssetLoad: vi.fn(() => pendingAssetLoad),
+      init: vi.fn(),
+      previewMetronomeTick: vi.fn(),
+      previewTrack: vi.fn(),
+      startRecording: vi.fn(),
+      stop: vi.fn(),
+      stopRecording: vi.fn(),
+      syncProject: vi.fn(),
+      togglePlayback: vi.fn(() => true),
+      wakeContext: vi.fn(),
+    };
+    const setIsPlaying = vi.fn();
+
+    const controller = createTransportController({
+      countInActive: false,
+      countInToken: createCountInTokenController(),
+      currentProject: project,
+      engine,
+      initAudio: vi.fn(),
+      isInitialized: true,
+      isPlaying: false,
+      isRecording: false,
+      setCountInActive: vi.fn(),
+      setCountInBeatsRemaining: vi.fn(),
+      setCurrentStep: vi.fn(),
+      setIsPlaying,
+      setIsRecording: vi.fn(),
+      tracks: project.tracks,
+    });
+
+    await controller.togglePlay();
+
+    expect(engine.awaitAssetLoad).toHaveBeenCalledTimes(1);
+    expect(engine.togglePlayback).toHaveBeenCalledTimes(1);
+    expect(setIsPlaying).toHaveBeenCalledWith(true);
+  });
+
   it('passes preview velocity through to the engine', async () => {
     const project = createProjectFromTemplate('blank-grid');
     const previewTrackTarget = project.tracks.find((track) => track.type === 'hihat') ?? project.tracks[0];

@@ -1,20 +1,27 @@
 import { useAudio } from '../context/AudioContext';
+import { useNotesPanelScope } from './notesPanelStore';
 import { PianoRoll } from './PianoRoll';
 import { WholeSongPianoRoll } from './WholeSongPianoRoll';
 
-// Pattern mode edits one loop. Song mode edits the selected lane across the
-// continuous arrangement. The transport mode is the single source of truth,
-// so the user never has to resolve a second Pattern versus Song toggle here.
+// The dock follows transport mode by default. A clip's edit action can request
+// the selected source pattern without changing Song playback or exposing a
+// second Pattern versus Song toggle to the user.
 export const PianoRollView = () => {
   const { selectedTrackId, tracks, transportMode } = useAudio();
+  const notesPanelScope = useNotesPanelScope();
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? tracks[0] ?? null;
   const isRhythmTrack = selectedTrack?.type === 'kick' || selectedTrack?.type === 'snare' || selectedTrack?.type === 'hihat';
+  const clipScoped = transportMode === 'SONG' && notesPanelScope === 'clip';
+  const patternEditor = transportMode === 'PATTERN' || clipScoped;
+  const scopeLabel = clipScoped ? 'Clip' : transportMode === 'SONG' ? 'Song' : 'Pattern';
   const editorLabel = isRhythmTrack
-    ? `${transportMode === 'SONG' ? 'Song' : 'Pattern'} hit lane`
-    : `${transportMode === 'SONG' ? 'Song' : 'Pattern'} piano roll`;
+    ? `${scopeLabel} hit lane`
+    : `${scopeLabel} piano roll`;
   const helper = isRhythmTrack
     ? `Click steps to add or remove ${selectedTrack?.type === 'hihat' ? 'hi-hat' : selectedTrack?.type ?? 'drum'} hits.`
-    : transportMode === 'SONG'
+    : clipScoped
+      ? 'Edit this clip\'s source pattern. Linked clips update together.'
+      : transportMode === 'SONG'
       ? 'Drag notes to change pitch or timing. Click cells to add or remove. Reused patterns update together.'
       : 'Click empty space to add. Drag a note to change pitch or timing. Select it for precise controls.';
 
@@ -26,7 +33,7 @@ export const PianoRollView = () => {
           {helper}
         </span>
       </div>
-      {transportMode === 'SONG' ? <WholeSongPianoRoll /> : <PianoRoll />}
+      {patternEditor ? <PianoRoll /> : <WholeSongPianoRoll />}
     </div>
   );
 };

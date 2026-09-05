@@ -3266,7 +3266,7 @@ export const MainWorkspace = () => {
                   setSelectedTrackId(clip.trackId);
                   setCurrentPattern(clip.patternIndex);
                   setSelectedArrangerClipId(clip.id);
-                  openNotesPanel();
+                  openNotesPanel('clip');
                 }}
               />
             )}

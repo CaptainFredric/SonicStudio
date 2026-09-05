@@ -184,7 +184,7 @@ const buildCapturePreviewTrack = (suggestion: CaptureSuggestion) => {
   });
 };
 
-export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
+const AudioCaptureContent = ({ onClose }: Pick<AudioCaptureProps, 'onClose'>) => {
   const {
     applyTrackVoicePreset,
     capturePreferences,
@@ -198,7 +198,7 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
     tracks,
   } = useAudio();
   const captureDialogRef = useRef<HTMLDivElement | null>(null);
-  useDialogFocus(open, captureDialogRef, { trap: true });
+  useDialogFocus(true, captureDialogRef, { trap: true });
   const recorderRef = useRef<AudioRecorder | null>(null);
   const audioElRef = useRef<HTMLAudioElement | null>(null);
   const pendingCreateRef = useRef<{ note: string | null; previousTrackCount: number; suggestion: CaptureSuggestion } | null>(null);
@@ -211,10 +211,9 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
   const [liveFrame, setLiveFrame] = useState<LiveCaptureFrame | null>(null);
   const [pendingRecordedNote, setPendingRecordedNote] = useState<PendingRecordedNote | null>(null);
   const [captureNameDraft, setCaptureNameDraft] = useState('');
-  const [recordedNoteLibrary, setRecordedNoteLibrary] = useState<RecordedNotePreset[]>([]);
+  const [recordedNoteLibrary, setRecordedNoteLibrary] = useState<RecordedNotePreset[]>(() => loadRecordedNotePresets());
   const [sessionRecordedNotes, setSessionRecordedNotes] = useState<RecordedNotePreset[]>([]);
   const [suggestions, setSuggestions] = useState<CaptureSuggestion[]>([]);
-  const [pitchCoachTarget, setPitchCoachTarget] = useState('C4');
   const [vocalTakeLibrary, setVocalTakeLibrary] = useState<VocalTakeSummary[]>([]);
   const [vocalTakeNameDraft, setVocalTakeNameDraft] = useState('');
   const [vocalTakeMessage, setVocalTakeMessage] = useState<string | null>(null);
@@ -222,13 +221,25 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
   const [isSavingVocalTake, setIsSavingVocalTake] = useState(false);
   const [isExportingVocalTake, setIsExportingVocalTake] = useState(false);
   const [activeVocalTakeId, setActiveVocalTakeId] = useState<string | null>(null);
-  const [useShortGuidanceCopy, setUseShortGuidanceCopy] = useState(() => hasSeenUiReminder('capture-copy'));
+  const [useShortGuidanceCopy] = useState(() => hasSeenUiReminder('capture-copy'));
   const [recordingStartedAt, setRecordingStartedAt] = useState<number | null>(null);
   const [recordingElapsedSeconds, setRecordingElapsedSeconds] = useState(0);
   const autoPreviewKeyRef = useRef<string | null>(null);
   const recordingRequestIdRef = useRef(0);
 
   const selectedTrack = tracks.find((track) => track.id === selectedTrackId) ?? null;
+  const defaultPitchCoachTarget = selectedTrack ? defaultNoteForTrack(selectedTrack) : 'C4';
+  const pitchCoachSelectionKey = `${selectedTrack?.id ?? 'none'}:${defaultPitchCoachTarget}`;
+  const [pitchCoachSelection, setPitchCoachSelection] = useState({
+    key: pitchCoachSelectionKey,
+    target: defaultPitchCoachTarget,
+  });
+  const pitchCoachTarget = pitchCoachSelection.key === pitchCoachSelectionKey
+    ? pitchCoachSelection.target
+    : defaultPitchCoachTarget;
+  const setPitchCoachTarget = (target: string) => {
+    setPitchCoachSelection({ key: pitchCoachSelectionKey, target });
+  };
   const activeNoteCandidate = result?.noteCandidates[activeNoteIndex] ?? result?.noteCandidates[0] ?? null;
   const selectedDetectedNote = activeNoteCandidate?.note ?? result?.detectedNote ?? null;
   const pitchCoachFeedback = getPitchCoachFeedback({
@@ -238,47 +249,14 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
   });
 
   useEffect(() => {
-    if (!result) {
-      setSuggestions([]);
-      setActiveNoteIndex(0);
-      setVocalTakeNameDraft('');
-      return;
-    }
-
-    setSuggestions(result.suggestions.map(cloneCaptureSuggestion));
-    setActiveNoteIndex(0);
-    setVocalTakeNameDraft(buildSuggestedVocalTakeName(result.detectedNote));
-    setVocalTakeMessage(null);
-  }, [result]);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    setPitchCoachTarget(selectedTrack ? defaultNoteForTrack(selectedTrack) : 'C4');
-  }, [open, selectedTrack?.id]);
-
-  useEffect(() => {
-    if (!open) {
-      return undefined;
-    }
-
-    const seen = hasSeenUiReminder('capture-copy');
-    setUseShortGuidanceCopy(seen);
-    if (!seen) {
+    if (!useShortGuidanceCopy) {
       markUiReminderSeen('capture-copy');
     }
 
-    setRecordedNoteLibrary(loadRecordedNotePresets());
     return subscribeRecordedNotePresets(setRecordedNoteLibrary);
-  }, [open]);
+  }, [useShortGuidanceCopy]);
 
   useEffect(() => {
-    if (!open) {
-      return undefined;
-    }
-
     let cancelled = false;
     const syncVocalTakes = async () => {
       try {
@@ -310,7 +288,7 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
       cancelled = true;
       unsubscribe();
     };
-  }, [open]);
+  }, []);
 
   const applySuggestionToTrack = useCallback((trackId: string, suggestion: CaptureSuggestion, note: string | null) => {
     if (suggestion.presetId) {
@@ -343,13 +321,12 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
   }, [applySuggestionToTrack, onClose, selectedTrackId, tracks]);
 
   useEffect(() => {
-    if (!open) return undefined;
     const handler = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [open, onClose]);
+  }, [onClose]);
 
   useEffect(() => {
     return () => {
@@ -357,35 +334,13 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
     };
   }, [previewUrl]);
 
-  useEffect(() => {
-    if (!open) {
-      recordingRequestIdRef.current += 1;
-      recorderRef.current?.cancel();
-      recorderRef.current = null;
-      stableCaptureRef.current = null;
-      setState('idle');
-      setResult(null);
-      setLiveFrame(null);
-      setPendingRecordedNote(null);
-      setCaptureNameDraft('');
-      setSessionRecordedNotes([]);
-      setVocalTakeNameDraft('');
-      setVocalTakeMessage(null);
-      setCaptureNotice(null);
-      setIsSavingVocalTake(false);
-      setIsExportingVocalTake(false);
-      setActiveVocalTakeId(null);
-      setRecordingStartedAt(null);
-      setRecordingElapsedSeconds(0);
-      setPitchCoachTarget(selectedTrack ? defaultNoteForTrack(selectedTrack) : 'C4');
-      setSuggestions([]);
-      setError(null);
-      if (previewUrl) {
-        URL.revokeObjectURL(previewUrl);
-        setPreviewUrl(null);
-      }
-    }
-  }, [open, previewUrl]);
+  useEffect(() => () => {
+    recordingRequestIdRef.current += 1;
+    recorderRef.current?.cancel();
+    recorderRef.current = null;
+    stableCaptureRef.current = null;
+    audioElRef.current?.pause();
+  }, []);
 
   useEffect(() => {
     if (state !== 'recording' || !liveFrame) {
@@ -467,6 +422,8 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
     recordingRequestIdRef.current = recordingRequestId;
     setError(null);
     setResult(null);
+    setSuggestions([]);
+    setActiveNoteIndex(0);
     setLiveFrame(null);
     setPendingRecordedNote(null);
     setCaptureNameDraft('');
@@ -485,6 +442,9 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
     // Let the chosen analysis profile steer how eagerly pitch is tracked.
     recorder.setPitchThreshold(captureProfileToPitchThreshold(capturePreferences.analysisProfile));
     recorder.onLiveUpdate((frame) => {
+      if (recordingRequestId !== recordingRequestIdRef.current) {
+        return;
+      }
       setLiveFrame({
         ...frame,
         noteCandidates: [...frame.noteCandidates],
@@ -516,16 +476,27 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
   const stopRecording = useCallback(async () => {
     const recorder = recorderRef.current;
     if (!recorder) return;
+    const recordingRequestId = recordingRequestIdRef.current;
     setState('analyzing');
     setRecordingStartedAt(null);
     try {
       const next = await recorder.stop();
+      if (recordingRequestId !== recordingRequestIdRef.current) {
+        return;
+      }
       const url = URL.createObjectURL(next.blob);
       setPreviewUrl(url);
       setResult(next);
+      setSuggestions(next.suggestions.map(cloneCaptureSuggestion));
+      setActiveNoteIndex(0);
+      setVocalTakeNameDraft(buildSuggestedVocalTakeName(next.detectedNote));
+      setVocalTakeMessage(null);
       setLiveFrame(null);
       setState('ready');
     } catch (err) {
+      if (recordingRequestId !== recordingRequestIdRef.current) {
+        return;
+      }
       setError(err instanceof Error ? err.message : 'Recording failed.');
       setState('error');
     } finally {
@@ -544,6 +515,7 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
     setResult(null);
     setLiveFrame(null);
     setSuggestions([]);
+    setActiveNoteIndex(0);
     setPendingRecordedNote(null);
     setCaptureNameDraft('');
     setVocalTakeNameDraft('');
@@ -760,8 +732,6 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
       setActiveVocalTakeId(null);
     }
   }, []);
-
-  if (!open) return null;
 
   const liveSuggestions = getStagedLiveSuggestions(liveFrame, capturePreferences);
   const visibleSuggestions = suggestions.slice(0, capturePreferences.liveSuggestionCount);
@@ -1412,6 +1382,10 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => {
     </div>
   );
 };
+
+export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => (
+  open ? <AudioCaptureContent onClose={onClose} /> : null
+);
 
 const CaptureProgress = ({ state }: { state: 'idle' | 'recording' | 'analyzing' | 'ready' | 'error' }) => {
   const activeIndex = state === 'recording' || state === 'idle' || state === 'error'
