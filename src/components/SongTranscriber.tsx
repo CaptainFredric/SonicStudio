@@ -1146,6 +1146,9 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
                   <div className="mt-4">
                     <TranscriptionTimeline
                       notes={result.notes}
+                      onDelete={(index) => commitEdit(result.notes.filter((_, candidate) => candidate !== index), index)}
+                      onUndo={undoEdit}
+                      onRedo={redoEdit}
                       onEdit={(index, pitch, start, duration) => commitEdit(result.notes.map((note, candidate) => candidate === index
                         ? { ...transposeNote(note, pitch), startStep: Math.max(0, note.startStep + start), durationSteps: Math.max(1, Math.min(32, note.durationSteps + duration)) }
                         : note), index)}
@@ -1397,15 +1400,24 @@ const WaveformStrip = ({ peaks, strength = 1 }: { peaks: number[]; strength?: nu
 const TranscriptionTimeline = ({
   notes,
   onEdit,
+  onDelete,
+  onUndo,
+  onRedo,
   onSelect,
   selectedIndex,
 }: {
   notes: TranscriptionNote[];
   onEdit: (index: number, pitch: number, start: number, duration: number) => void;
+  onDelete: (index: number) => void;
+  onUndo: () => void;
+  onRedo: () => void;
   onSelect: (index: number) => void;
   selectedIndex: number | null;
 }) => {
   const totalSteps = Math.max(16, notes.reduce((max, note) => Math.max(max, note.startStep + note.durationSteps), 0));
+  const gesture = useRef<{ index: number; x: number; y: number; resize: boolean; pitch: number; steps: number } | null>(null);
+  const [dragPreview, setDragPreview] = useState<{ index: number; pitch: number; steps: number; resize: boolean } | null>(null);
+  const suppressClick = useRef(false);
   const minMidi = Math.min(...notes.map((note) => note.midi));
   const maxMidi = Math.max(...notes.map((note) => note.midi));
   const pitchSpan = Math.max(6, maxMidi - minMidi + 4);
@@ -1438,9 +1450,47 @@ const TranscriptionTimeline = ({
               aria-pressed={selected}
               className="absolute flex h-7 items-center overflow-hidden rounded-[2px] border px-2 text-left font-mono text-[9px] font-semibold transition-colors"
               key={index}
-              onClick={() => onSelect(index)}
+              onClick={() => {
+                if (suppressClick.current) { suppressClick.current = false; return; }
+                onSelect(index);
+              }}
+              onPointerDown={(event) => {
+                if (event.button !== 0) return;
+                const box = event.currentTarget.getBoundingClientRect();
+                gesture.current = { index, x: event.clientX, y: event.clientY, resize: event.clientX >= box.right - Math.min(10, box.width / 3), pitch: 0, steps: 0 };
+                event.currentTarget.setPointerCapture(event.pointerId);
+              }}
+              onPointerMove={(event) => {
+                const current = gesture.current;
+                if (!current || current.index !== index) return;
+                current.pitch = current.resize ? 0 : Math.max(24 - note.midi, Math.min(108 - note.midi, Math.round((current.y - event.clientY) * pitchSpan / 166)));
+                const steps = Math.round((event.clientX - current.x) * totalSteps / timelineWidth);
+                current.steps = current.resize ? Math.max(1 - note.durationSteps, Math.min(32 - note.durationSteps, steps)) : Math.max(-note.startStep, steps);
+                setDragPreview({ index, pitch: current.pitch, steps: current.steps, resize: current.resize });
+              }}
+              onPointerUp={() => {
+                const current = gesture.current;
+                gesture.current = null;
+                setDragPreview(null);
+                if (!current || (!current.pitch && !current.steps)) return;
+                suppressClick.current = true;
+                onEdit(index, current.pitch, current.resize ? 0 : current.steps, current.resize ? current.steps : 0);
+              }}
+              onPointerCancel={() => { gesture.current = null; setDragPreview(null); }}
               onKeyDown={(event) => {
+                if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  if (event.shiftKey) onRedo(); else onUndo();
+                  return;
+                }
                 if (event.altKey || event.ctrlKey || event.metaKey) return;
+                if (event.key === 'Delete' || event.key === 'Backspace') {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onDelete(index);
+                  return;
+                }
                 const direction = event.key === 'ArrowUp' || event.key === 'ArrowRight' ? 1 : -1;
                 if (!['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(event.key)) return;
                 event.preventDefault();
@@ -1457,11 +1507,16 @@ const TranscriptionTimeline = ({
                 left: `${left}px`,
                 top: `${top}px`,
                 width: `${width}px`,
+                touchAction: 'none',
+                cursor: 'grab',
+                transform: dragPreview?.index === index && !dragPreview.resize ? `translate(${dragPreview.steps * timelineWidth / totalSteps}px, ${-dragPreview.pitch * 166 / pitchSpan}px)` : undefined,
+                ...(dragPreview?.index === index && dragPreview.resize ? { width: `${Math.max(18, width + dragPreview.steps * timelineWidth / totalSteps)}px` } : {}),
               }}
-              title={`${note.note}. Arrow keys change pitch and timing. Shift with arrows changes octave or length.`}
+              title={`${note.note}. Drag to move; drag the right edge to resize. Arrow keys change pitch and timing. Shift with arrows changes octave or length.`}
               type="button"
             >
               {width >= 34 ? note.note : ''}
+              <span aria-hidden="true" className="absolute inset-y-1 right-0 w-2 cursor-ew-resize border-r-2 border-current opacity-60" />
             </button>
           );
         })}

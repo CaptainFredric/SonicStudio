@@ -754,15 +754,8 @@ const AudioCaptureContent = ({ onClose }: Pick<AudioCaptureProps, 'onClose'>) =>
   const recentVocalTakes = vocalTakeLibrary.slice(0, 4);
   const recordingRemainingSeconds = Math.max(0, CAPTURE_MAX_DURATION_SECONDS - recordingElapsedSeconds);
   const recordingProgress = Math.min(1, recordingElapsedSeconds / CAPTURE_MAX_DURATION_SECONDS);
-  const bestSuggestion = visibleSuggestions[0] ?? null;
-  const bestMatchingTrack = bestSuggestion
-    ? selectedTrack?.type === bestSuggestion.trackType
-      ? selectedTrack
-      : tracks.find((track) => track.type === bestSuggestion.trackType) ?? null
-    : null;
   const isQuickTakeResult = Boolean(result && result.durationSeconds <= 0.9);
   const shouldShowRetryHint = Boolean(result && result.clarity < 0.42);
-  const hasMatchingTrackForBestSuggestion = Boolean(bestMatchingTrack);
 
   return (
     <div
@@ -873,37 +866,6 @@ const AudioCaptureContent = ({ onClose }: Pick<AudioCaptureProps, 'onClose'>) =>
                     style={{ width: `${Math.max(2, recordingProgress * 100)}%` }}
                   />
                 </div>
-              </div>
-            ) : null}
-
-            {state === 'ready' && bestSuggestion ? (
-              <div className="mt-3 grid gap-2 sm:flex sm:flex-wrap">
-                {hasMatchingTrackForBestSuggestion ? (
-                  <button
-                    className="control-chip w-full px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] sm:w-auto"
-                    onClick={() => applyToMatchingTrack(bestSuggestion)}
-                    type="button"
-                  >
-                    Apply to {bestMatchingTrack?.name ?? 'matching lane'}
-                  </button>
-                ) : (
-                  <button
-                    className="control-chip w-full px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] sm:w-auto"
-                    onClick={() => createSuggestedTrack(bestSuggestion)}
-                    type="button"
-                  >
-                    Create best lane
-                  </button>
-                )}
-                {saveableDetectedNote ? (
-                  <button
-                    className="control-chip w-full px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] sm:w-auto"
-                    onClick={() => saveSuggestedRecordedNote(bestSuggestion)}
-                    type="button"
-                  >
-                    Save best note
-                  </button>
-                ) : null}
               </div>
             ) : null}
 
