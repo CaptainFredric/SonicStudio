@@ -10,7 +10,7 @@ import { MIN_ARRANGEMENT_STEPS, type ArrangementClip, type StepValue, type Track
 
 const RULER_HEIGHT = 28;
 const GUTTER_WIDTH = 58;
-const ROW_HEIGHT = 16;
+const ROW_HEIGHT = 24;
 const CELL_WIDTH = 22;
 const OVERSCAN = 8;
 // Keep the grid at least two octaves tall so it never collapses to a sliver
@@ -76,6 +76,8 @@ export const WholeSongPianoRoll = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [scrollLeft, setScrollLeft] = useState(0);
   const [viewportWidth, setViewportWidth] = useState(800);
+  const [viewportHeight, setViewportHeight] = useState(0);
+  const trackPickerRef = useRef<HTMLDivElement>(null);
   const [playBeat, setPlayBeat] = useState(0);
   const noteDragRef = useRef<SongNoteDragGesture | null>(null);
   const suppressClickRef = useRef(false);
@@ -83,6 +85,12 @@ export const WholeSongPianoRoll = () => {
 
   const track = tracks.find((candidate) => candidate.id === selectedTrackId) ?? tracks[0] ?? null;
   const isRhythmTrack = Boolean(track && isRhythmTrackType(track.type));
+  useEffect(() => {
+    const picker = trackPickerRef.current;
+    const selected = picker?.querySelector<HTMLElement>('[aria-pressed="true"]');
+    if (!picker || !selected) return;
+    picker.scrollLeft = Math.max(0, selected.offsetLeft - (picker.clientWidth - selected.offsetWidth) / 2);
+  }, [selectedTrackId, viewportWidth]);
 
   const totalSteps = Math.max(MIN_ARRANGEMENT_STEPS, Math.round(songLengthInBeats));
   const totalWidth = totalSteps * CELL_WIDTH;
@@ -155,7 +163,10 @@ export const WholeSongPianoRoll = () => {
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return undefined;
-    const measure = () => setViewportWidth(el.clientWidth);
+    const measure = () => {
+      setViewportWidth(el.clientWidth);
+      setViewportHeight(el.clientHeight);
+    };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(el);
@@ -276,14 +287,14 @@ export const WholeSongPianoRoll = () => {
   };
 
   const playheadLeft = GUTTER_WIDTH + playBeat * CELL_WIDTH;
-  const rowHeight = isRhythmTrack ? 44 : ROW_HEIGHT;
+  const rowHeight = isRhythmTrack ? 44 : Math.max(ROW_HEIGHT, Math.min(44, Math.floor((viewportHeight - RULER_HEIGHT) / rows.length)));
   const gridHeight = RULER_HEIGHT + rows.length * rowHeight;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2">
       {/* Track picker + hint. The roll follows the selected track. */}
       <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
-        <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto">
+        <div ref={trackPickerRef} className="relative flex min-w-0 max-w-full items-center gap-1.5 overflow-x-auto">
           {tracks.map((candidate: Track) => {
             const isSelected = candidate.id === track.id;
             return (

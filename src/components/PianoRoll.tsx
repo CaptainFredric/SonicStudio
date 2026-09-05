@@ -1091,7 +1091,7 @@ const PianoRollEditor = ({ track }: { track: Track }) => {
         </button>
 
         {controlsExpanded && (
-        <div className="flex w-full flex-col gap-2 xl:flex-row xl:flex-wrap xl:items-center">
+        <div className="piano-roll-expanded-tools flex w-full flex-col gap-2 xl:flex-row xl:flex-wrap xl:items-center">
           <div className="flex max-w-full flex-wrap items-center gap-2">
             <div className="surface-panel-muted flex max-w-full flex-wrap items-center gap-2 p-1">
             <label className="flex items-center gap-2 px-2 text-xs">

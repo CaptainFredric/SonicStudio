@@ -4223,6 +4223,15 @@ html[data-note-string-queued="true"] [data-seq-cell="true"]:focus-visible {
   height: clamp(420px, 64vh, 720px);
 }
 
+@media (max-width: 767px) {
+  .piano-roll-expanded-tools {
+    max-height: min(200px, 28dvh);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    flex-shrink: 0;
+  }
+}
+
 .studio-inspector-stack[data-active-panel="notes"] .notes-panel {
   height: auto;
 }
