@@ -42,6 +42,7 @@ import {
 } from '../project/schema';
 import type { CaptureAnalysisProfile, CapturePreferences } from '../project/preferences';
 import { useDialogFocus } from '../hooks/useDialogFocus';
+import { microphoneErrorMessage } from '../services/microphoneError';
 
 interface AudioCaptureProps {
   open: boolean;
@@ -203,7 +204,7 @@ const AudioCaptureContent = ({ onClose }: Pick<AudioCaptureProps, 'onClose'>) =>
   const audioElRef = useRef<HTMLAudioElement | null>(null);
   const pendingCreateRef = useRef<{ note: string | null; previousTrackCount: number; suggestion: CaptureSuggestion } | null>(null);
   const stableCaptureRef = useRef<StableCaptureTracker | null>(null);
-  const [state, setState] = useState<'idle' | 'recording' | 'analyzing' | 'ready' | 'error'>('idle');
+  const [state, setState] = useState<'idle' | 'requesting' | 'recording' | 'analyzing' | 'ready' | 'error'>('idle');
   const [result, setResult] = useState<RecordingResult | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -418,6 +419,7 @@ const AudioCaptureContent = ({ onClose }: Pick<AudioCaptureProps, 'onClose'>) =>
   }, [liveFrame, pendingRecordedNote, state]);
 
   const startRecording = useCallback(async () => {
+    setState('requesting');
     const recordingRequestId = recordingRequestIdRef.current + 1;
     recordingRequestIdRef.current = recordingRequestId;
     setError(null);
@@ -468,7 +470,8 @@ const AudioCaptureContent = ({ onClose }: Pick<AudioCaptureProps, 'onClose'>) =>
       setState('recording');
     } catch (err) {
       if (recordingRequestId !== recordingRequestIdRef.current) return;
-      setError(err instanceof Error ? err.message : 'Could not access the microphone.');
+      recorder.cancel();
+      setError(microphoneErrorMessage(err));
       setState('error');
     }
   }, [capturePreferences.analysisProfile, capturePreferences.keepShelfBetweenTakes, previewUrl]);
@@ -811,6 +814,7 @@ const AudioCaptureContent = ({ onClose }: Pick<AudioCaptureProps, 'onClose'>) =>
                   {state === 'idle' && 'Tap record, make one clear sound, then stop whenever it feels right. Quick one-shots are valid here and still produce useful matches.'}
                   {state === 'recording' && `Listening now. Hold a steady tone for the clearest match, or make one clean transient if you are capturing a hit. You can stop any time, or auto-stop in ${Math.ceil(recordingRemainingSeconds)}s.`}
                   {state === 'analyzing' && 'Analyzing...'}
+                  {state === 'requesting' && 'Allow microphone access in your browser to begin.'}
                   {state === 'ready' && (isQuickTakeResult
                     ? 'Nice quick capture. That is enough to match a lane, and you can always do one longer pass after if you want a tighter note lock.'
                     : 'Got it. Check the preview, save the vocal take if you want the raw idea later, then store the note or apply a lane below.')}
@@ -839,13 +843,13 @@ const AudioCaptureContent = ({ onClose }: Pick<AudioCaptureProps, 'onClose'>) =>
                     Stop
                   </button>
                 ) : null}
-                {state === 'analyzing' ? (
+                {state === 'analyzing' || state === 'requesting' ? (
                   <button
                     className="control-chip flex items-center gap-2 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] opacity-60"
                     disabled
                     type="button"
                   >
-                    Analyzing...
+                    {state === 'requesting' ? 'Waiting for microphone…' : 'Analyzing...'}
                   </button>
                 ) : null}
                 {state === 'ready' ? (
@@ -1387,8 +1391,8 @@ export const AudioCapture = ({ open, onClose }: AudioCaptureProps) => (
   open ? <AudioCaptureContent onClose={onClose} /> : null
 );
 
-const CaptureProgress = ({ state }: { state: 'idle' | 'recording' | 'analyzing' | 'ready' | 'error' }) => {
-  const activeIndex = state === 'recording' || state === 'idle' || state === 'error'
+const CaptureProgress = ({ state }: { state: 'idle' | 'requesting' | 'recording' | 'analyzing' | 'ready' | 'error' }) => {
+  const activeIndex = state === 'recording' || state === 'requesting' || state === 'idle' || state === 'error'
     ? 0
     : state === 'analyzing'
       ? 1

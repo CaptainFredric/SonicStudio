@@ -86,6 +86,8 @@ describe('AudioCapture lifecycle', () => {
     const view = render(<AudioCapture open onClose={vi.fn()} />);
 
     fireEvent.click(screen.getByRole('button', { name: 'Record' }));
+    expect(screen.queryByRole('button', { name: 'Record' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Waiting for microphone…' }).hasAttribute('disabled')).toBe(true);
     view.rerender(<AudioCapture open={false} onClose={vi.fn()} />);
     finishStarting?.();
 

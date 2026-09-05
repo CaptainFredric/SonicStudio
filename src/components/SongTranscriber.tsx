@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
+import { microphoneErrorMessage } from '../services/microphoneError';
 import {
   AlertTriangle,
   AudioWaveform,
@@ -53,7 +54,7 @@ interface SongTranscriberProps {
   onNotify?: (tone: NoticeTone, title: string, detail?: string) => void;
 }
 
-type TranscriberStatus = 'idle' | 'recording' | 'decoding' | 'analyzing' | 'ready' | 'error';
+type TranscriberStatus = 'idle' | 'requesting' | 'recording' | 'decoding' | 'analyzing' | 'ready' | 'error';
 
 interface PendingWorker {
   reject: (reason?: unknown) => void;
@@ -300,6 +301,7 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
     setShelfSaved(false);
 
     await new Promise((resolve) => window.setTimeout(resolve, 30));
+    if (requestId !== requestIdRef.current) return;
 
     try {
       const mono = mixToMono(buffer);
@@ -491,6 +493,8 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
     cancelRecording();
     const recordingRequestId = recordingRequestIdRef.current + 1;
     recordingRequestIdRef.current = recordingRequestId;
+    setStatus('requesting');
+    setErrorMessage('');
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -548,9 +552,7 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
     } catch (error) {
       if (recordingRequestId !== recordingRequestIdRef.current) return;
       stopStream();
-      setErrorMessage(error instanceof Error && error.name !== 'NotAllowedError'
-        ? error.message
-        : 'Microphone access was blocked. Allow it in the browser, or upload a file instead.');
+      setErrorMessage(microphoneErrorMessage(error));
       setStatus('error');
     }
   }, [cancelAnalysis, cancelRecording, ingestAudio, startMeter, stopPhrasePreview, stopStream]);
@@ -844,7 +846,7 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
           <section className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
             <button
               className="group flex min-h-[74px] items-center gap-3 rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.025)] px-4 py-3 text-left transition-colors hover:border-[rgba(114,217,255,0.35)] hover:bg-[rgba(114,217,255,0.05)] disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={working || status === 'recording'}
+              disabled={working || status === 'recording' || status === 'requesting'}
               onClick={() => fileInputRef.current?.click()}
               type="button"
             >
@@ -884,7 +886,7 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
             ) : (
               <button
                 className="group flex min-h-[74px] items-center gap-3 rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.025)] px-4 py-3 text-left transition-colors hover:border-[rgba(248,113,113,0.35)] hover:bg-[rgba(248,113,113,0.05)] disabled:cursor-not-allowed disabled:opacity-50"
-                disabled={working}
+                disabled={working || status === 'requesting'}
                 onClick={() => void startRecording()}
                 type="button"
               >
@@ -892,7 +894,7 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
                   <Mic className="h-4 w-4" />
                 </span>
                 <span>
-                  <span className="block text-[12px] font-semibold text-[var(--text-primary)]">Record a phrase</span>
+                  <span className="block text-[12px] font-semibold text-[var(--text-primary)]">{status === 'requesting' ? 'Waiting for microphone…' : 'Record a phrase'}</span>
                   <span className="mt-1 block text-[11px] leading-4 text-[var(--text-tertiary)]">Live level meter · automatic stop at 90 seconds</span>
                 </span>
               </button>
@@ -907,11 +909,7 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
           </section>
 
           {status === 'idle' ? (
-            <section className="mt-4 grid gap-3 sm:grid-cols-3">
-              <EmptyStep index="01" label="Capture one clear melody" />
-              <EmptyStep index="02" label="Correct notes and timing" />
-              <EmptyStep index="03" label="Add a lane or start fresh" />
-            </section>
+            <p className="mt-4 text-[12px] leading-5 text-[var(--text-secondary)]">For clearer notes, sing, hum, or play one melody at a time. Chords and full mixes can confuse pitch detection.</p>
           ) : null}
 
           {status === 'recording' ? (
@@ -960,6 +958,7 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
               <p className="mt-2 text-[11px] leading-5 text-[var(--text-tertiary)]">
                 {status === 'analyzing' ? 'The analyzer is running in the background, so the rest of the studio stays responsive.' : 'Reading the source and building a local waveform preview.'}
               </p>
+              <button className="control-chip mt-3 px-3 py-2 text-[11px]" onClick={resetState} type="button">Cancel analysis</button>
             </section>
           ) : null}
 
@@ -1261,7 +1260,7 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
           ) : null}
         </div>
 
-        <footer className="shrink-0 border-t border-[var(--border-soft)] bg-[rgba(6,9,13,0.92)] px-4 py-3 sm:px-5">
+        {status === 'ready' ? <footer className="shrink-0 border-t border-[var(--border-soft)] bg-[var(--bg-panel-strong)] px-4 py-3 sm:px-5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               {status === 'ready' ? (
@@ -1307,7 +1306,7 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
           {!canAppend && status === 'ready' && result?.notes.length ? (
             <div className="mt-2 text-right text-[10px] text-[var(--warning)]">This phrase extends past Pattern {MAX_PATTERN_COUNT}; start it as a new project or shorten the source.</div>
           ) : null}
-        </footer>
+        </footer> : null}
       </div>
     </div>
   );
@@ -1337,13 +1336,6 @@ const TranscriberProgress = ({ status }: { status: TranscriberStatus }) => {
     </div>
   );
 };
-
-const EmptyStep = ({ index, label }: { index: string; label: string }) => (
-  <div className="rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.018)] px-4 py-4">
-    <div className="font-mono text-[10px] text-[var(--accent)]">{index}</div>
-    <div className="mt-2 text-[11px] font-medium text-[var(--text-secondary)]">{label}</div>
-  </div>
-);
 
 const ResultStat = ({ label, value }: { label: string; value: string }) => (
   <div className="rounded-[3px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] px-2.5 py-2">
