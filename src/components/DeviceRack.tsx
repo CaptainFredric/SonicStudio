@@ -33,7 +33,7 @@ const RACK_DEFAULT_HEIGHT = 210;
 const getRackMaxHeight = () => (
   typeof window === 'undefined'
     ? RACK_MAX_HEIGHT
-    : Math.min(RACK_MAX_HEIGHT, Math.max(RACK_MIN_HEIGHT, window.innerHeight - 360))
+    : Math.min(RACK_MAX_HEIGHT, Math.max(RACK_MIN_HEIGHT, window.innerHeight - 180))
 );
 
 const isRackView = (value: unknown): value is RackView => (
@@ -137,37 +137,11 @@ export const DeviceRack = () => {
   }, [activeRackView, activeSourceSubView]);
 
   const handleResizeStart = useCallback(
-    (event: React.MouseEvent<HTMLDivElement> | React.TouchEvent<HTMLDivElement>) => {
-      const clientY = 'touches' in event ? event.touches[0]?.clientY ?? 0 : event.clientY;
-      dragStateRef.current = { startY: clientY, startHeight: rackHeight };
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (event.button !== 0) return;
+      dragStateRef.current = { startY: event.clientY, startHeight: rackHeight };
       event.preventDefault();
-
-      const onMove = (moveEvent: MouseEvent | TouchEvent) => {
-        const state = dragStateRef.current;
-        if (!state) return;
-        const moveClientY = 'touches' in moveEvent
-          ? moveEvent.touches[0]?.clientY ?? state.startY
-          : (moveEvent as MouseEvent).clientY;
-        const delta = state.startY - moveClientY;
-        const next = Math.min(getRackMaxHeight(), Math.max(RACK_MIN_HEIGHT, state.startHeight + delta));
-        setRackHeight(next);
-      };
-      const onEnd = () => {
-        dragStateRef.current = null;
-        window.removeEventListener('mousemove', onMove);
-        window.removeEventListener('mouseup', onEnd);
-        window.removeEventListener('touchmove', onMove);
-        window.removeEventListener('touchend', onEnd);
-        document.body.style.userSelect = '';
-        document.body.style.cursor = '';
-      };
-
-      document.body.style.userSelect = 'none';
-      document.body.style.cursor = 'ns-resize';
-      window.addEventListener('mousemove', onMove);
-      window.addEventListener('mouseup', onEnd);
-      window.addEventListener('touchmove', onMove, { passive: false });
-      window.addEventListener('touchend', onEnd);
+      event.currentTarget.setPointerCapture(event.pointerId);
     },
     [rackHeight],
   );
@@ -329,8 +303,19 @@ export const DeviceRack = () => {
         className="group absolute inset-x-2 top-1 z-20 hidden h-6 cursor-ns-resize items-center justify-center gap-2 rounded-[3px] border border-[var(--border-soft)] bg-[var(--bg-control)] text-[var(--text-tertiary)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--accent-strong)] md:flex"
         onDoubleClick={() => setRackHeight(RACK_DEFAULT_HEIGHT)}
         onKeyDown={handleResizeKeyDown}
-        onMouseDown={handleResizeStart}
-        onTouchStart={handleResizeStart}
+        onPointerDown={handleResizeStart}
+        onPointerMove={(event) => {
+          const drag = dragStateRef.current;
+          if (!drag) return;
+          setRackHeight(Math.min(getRackMaxHeight(), Math.max(RACK_MIN_HEIGHT, drag.startHeight + drag.startY - event.clientY)));
+        }}
+        onPointerUp={(event) => {
+          dragStateRef.current = null;
+          event.currentTarget.releasePointerCapture(event.pointerId);
+        }}
+        onPointerCancel={() => { dragStateRef.current = null; }}
+        onLostPointerCapture={() => { dragStateRef.current = null; }}
+        style={{ touchAction: 'none' }}
         role="separator"
         tabIndex={0}
         title="Drag up for a larger Sound Desk. Double-click to reset."
@@ -353,7 +338,7 @@ export const DeviceRack = () => {
         <ChevronDown className="h-4 w-4" />
       </button>
 
-      <div className="grid gap-3 2xl:h-full 2xl:min-h-0 2xl:grid-cols-[300px_minmax(0,1fr)]">
+      <div className="grid gap-3 xl:grid-cols-[240px_minmax(0,1fr)]">
         <DeviceRackSidebar
           activeTrackSnapshot={null}
           filterValue={filterLabel(track.params.filterMode)}
@@ -381,7 +366,7 @@ export const DeviceRack = () => {
             <RackModeButton active={activeRackView === 'SPACE'} icon={<Layers3 className="h-3.5 w-3.5" />} label="Space" onClick={() => setActiveRackView('SPACE')} />
           </div>
 
-          <div className="min-h-0 flex-1 overflow-visible 2xl:overflow-auto">
+          <div className="min-h-0 flex-1 overflow-visible">
             {activeRackView === 'SOURCE' ? (
               <DeviceRackSourcePanel
                 activeSampleMeta={activeSampleMeta}

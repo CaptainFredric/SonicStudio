@@ -91,7 +91,10 @@ export const DeviceRackShapePanel = ({
         </div>
       </RackSection>
 
-      <RackSection icon={<Mic2 className="h-4 w-4 text-[var(--accent)]" />} title="Input strips">
+      <details className="min-w-0 2xl:col-span-2">
+        <summary className="control-chip cursor-pointer px-3 py-2 text-xs">More shaping tools: input strips and performance pad</summary>
+        <div className="mt-3 grid gap-4">
+      {inputStrips.length > 0 && <RackSection icon={<Mic2 className="h-4 w-4 text-[var(--accent)]" />} title="Input strips">
         <div className="grid gap-3">
           <div className="text-[11px] leading-5 text-[var(--text-secondary)]">
             Guitar and vocal quick-load chains for guide takes, hooks, and input-first writing. They reshape the current lane with a more amp-or-channel-strip style contour.
@@ -136,7 +139,7 @@ export const DeviceRackShapePanel = ({
             </div>
           )}
         </div>
-      </RackSection>
+      </RackSection>}
 
       <RackSection icon={<Gauge className="h-4 w-4 text-[var(--accent)]" />} title="Performance pad">
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_180px]">
@@ -220,6 +223,8 @@ export const DeviceRackShapePanel = ({
           </div>
         </div>
       </RackSection>
+        </div>
+      </details>
     </div>
   );
 };
