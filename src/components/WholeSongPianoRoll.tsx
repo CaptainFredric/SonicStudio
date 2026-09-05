@@ -79,6 +79,7 @@ export const WholeSongPianoRoll = () => {
   const [viewportHeight, setViewportHeight] = useState(0);
   const trackPickerRef = useRef<HTMLDivElement>(null);
   const [playBeat, setPlayBeat] = useState(0);
+  const [followPlayhead, setFollowPlayhead] = useState(true);
   const noteDragRef = useRef<SongNoteDragGesture | null>(null);
   const suppressClickRef = useRef(false);
   const [noteDragPreview, setNoteDragPreview] = useState<SongNoteDragGesture | null>(null);
@@ -147,7 +148,7 @@ export const WholeSongPianoRoll = () => {
         lastBeat = beat;
         setPlayBeat(beat);
         const el = scrollRef.current;
-        if (el) {
+        if (el && followPlayhead) {
           const playX = GUTTER_WIDTH + beat * CELL_WIDTH;
           if (playX < el.scrollLeft + GUTTER_WIDTH + 40 || playX > el.scrollLeft + el.clientWidth - 40) {
             el.scrollLeft = Math.max(0, playX - el.clientWidth / 2);
@@ -158,7 +159,7 @@ export const WholeSongPianoRoll = () => {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, []);
+  }, [followPlayhead]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -179,8 +180,10 @@ export const WholeSongPianoRoll = () => {
     const node = scrollRef.current;
     if (!node) return undefined;
     const onWheel = (event: WheelEvent) => {
+      setFollowPlayhead(false);
       if (event.ctrlKey || event.altKey || event.shiftKey) return;
       if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+      if (node.scrollHeight > node.clientHeight + 1) return;
       if (node.scrollWidth <= node.clientWidth) return;
       const atStart = node.scrollLeft <= 0;
       const atEnd = node.scrollLeft >= node.scrollWidth - node.clientWidth - 1;
@@ -319,13 +322,21 @@ export const WholeSongPianoRoll = () => {
             );
           })}
         </div>
-        <span className="shrink-0 text-[11px] text-[var(--text-tertiary)]">
-          Editing {track.name} across the full song
-        </span>
+        <button
+          type="button"
+          className="shrink-0 rounded-[3px] border border-[var(--border-soft)] bg-[var(--bg-panel-strong)] px-3 py-1 text-[11px] text-[var(--text-primary)] hover:bg-[var(--accent-muted)]"
+          aria-pressed={followPlayhead}
+          onClick={() => setFollowPlayhead((value) => !value)}
+          title="Keep the playing notes in view. Scrolling or editing pauses following so you can work elsewhere in the song."
+        >
+          Follow {followPlayhead ? 'on' : 'off'}
+        </button>
       </div>
 
       <div
         ref={scrollRef}
+        data-song-piano-scroll="true"
+        onPointerDownCapture={() => setFollowPlayhead(false)}
         className={`relative overflow-auto rounded-[4px] border border-[var(--border-soft)] bg-[rgba(255,255,255,0.02)] ${isRhythmTrack ? 'shrink-0' : 'min-h-0 flex-1'}`}
         onScroll={(event) => setScrollLeft(event.currentTarget.scrollLeft)}
         style={isRhythmTrack ? { height: gridHeight } : undefined}
