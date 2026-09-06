@@ -440,7 +440,7 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
     const context = new AudioContextClass();
     const source = context.createMediaStreamSource(stream);
     const analyser = context.createAnalyser();
-    analyser.fftSize = 2048;
+    analyser.fftSize = 4096;
     source.connect(analyser);
     meterContextRef.current = context;
     meterSourceRef.current = source;
@@ -464,8 +464,8 @@ export const SongTranscriber = ({ open, onClose, onNotify }: SongTranscriberProp
           : 0;
         meterLastPitchCheckRef.current = now;
         const reading = detectPitchYin(samples, context.sampleRate, {
-          maxHz: 1760,
-          minHz: 65,
+          maxHz: 2200,
+          minHz: 35,
           silenceRms: 0.004,
           threshold: 0.2,
         });

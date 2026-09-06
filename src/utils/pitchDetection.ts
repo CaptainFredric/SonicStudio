@@ -64,7 +64,7 @@ export const detectPitchYin = (
 
   // 1. Difference function d(tau).
   const diff = new Float32Array(maxTau + 1);
-  for (let tau = minTau; tau <= maxTau; tau += 1) {
+  for (let tau = 1; tau <= maxTau; tau += 1) {
     let sum = 0;
     for (let j = 0; j < halfLength; j += 1) {
       const delta = samples[j] - samples[j + tau];
@@ -75,11 +75,11 @@ export const detectPitchYin = (
 
   // 2. Cumulative mean normalized difference d'(tau).
   const cmnd = new Float32Array(maxTau + 1);
-  cmnd[minTau] = 1;
+  cmnd[0] = 1;
   let runningSum = 0;
-  for (let tau = minTau; tau <= maxTau; tau += 1) {
+  for (let tau = 1; tau <= maxTau; tau += 1) {
     runningSum += diff[tau];
-    cmnd[tau] = runningSum > 0 ? (diff[tau] * (tau - minTau + 1)) / runningSum : 1;
+    cmnd[tau] = runningSum > 0 ? (diff[tau] * tau) / runningSum : 1;
   }
 
   // 3. Absolute threshold: take the first tau that dips below threshold,
@@ -102,6 +102,25 @@ export const detectPitchYin = (
     // No dip crossed the threshold: only accept a strongly periodic global
     // minimum, otherwise this frame is effectively unpitched.
     if (cmnd[chosenTau] > 0.6) return null;
+  }
+
+  // Compare interpolated valley depths: integer-lag comparisons alone can
+  // prefer an octave down simply because its period lies nearer a sample.
+  const valleyDepth = (tau: number): number => {
+    if (tau <= minTau || tau >= maxTau) return cmnd[tau];
+    const left = cmnd[tau - 1];
+    const right = cmnd[tau + 1];
+    const curvature = left + right - 2 * cmnd[tau];
+    return curvature > 1e-9
+      ? Math.max(0, cmnd[tau] - (left - right) ** 2 / (8 * curvature))
+      : cmnd[tau];
+  };
+  if (valleyDepth(chosenTau) > 0.06 && chosenTau * 2 + 2 <= maxTau) {
+    let doubled = chosenTau * 2;
+    for (let tau = chosenTau * 2 - 2; tau <= chosenTau * 2 + 2; tau += 1) {
+      if (cmnd[tau] < cmnd[doubled]) doubled = tau;
+    }
+    if (valleyDepth(doubled) < valleyDepth(chosenTau) * 0.25) chosenTau = doubled;
   }
 
   // 4. Parabolic interpolation around the chosen lag for sub-sample accuracy.

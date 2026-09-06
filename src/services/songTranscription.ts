@@ -44,10 +44,10 @@ const TARGET_RATE = 12000;
 const WINDOW = 1536;
 /** Hop between analysis frames in samples (~40 ms at 12 kHz). */
 const HOP = 480;
-/** Lowest / highest fundamentals the tracker will report. MAX_HZ ~1760
- *  reaches A6, covering the violin's working range. */
-const MIN_HZ = 65;
-const MAX_HZ = 1760;
+/** Leave headroom around bass E1 and violin A6 so vibrato never crosses
+ *  a hard boundary and forces a harmonic or subharmonic instead. */
+const MIN_HZ = 35;
+const MAX_HZ = 2200;
 /** RMS below this is treated as silence (no pitch). */
 const SILENCE_RMS = 0.012;
 /** Longest input we will analyze, to keep the pass interactive. */
@@ -340,13 +340,22 @@ export const correctOctaveJumps = (frames: FrameAnalysis[]): FrameAnalysis[] => 
   let lastShift = 0;
   let sustainCount = 0;
 
-  return frames.map((frame) => {
+  return frames.map((frame, index) => {
     if (frame.midi === null) {
       return frame;
     }
     if (recent.length === 0) {
-      recent.push(frame.midi);
-      return frame;
+      // Avoid letting a brief overtone at the attack become the reference
+      // for the entire opening. Require a stable following pitch before
+      // correcting an initial octave; other intervals remain untouched.
+      const following = frames.slice(index + 1, index + 1 + SUSTAIN_FRAMES);
+      const pitches = following.flatMap(entry => entry.midi === null ? [] : [entry.midi]);
+      const reference = pitches.length === SUSTAIN_FRAMES && Math.max(...pitches) - Math.min(...pitches) < 1
+        ? median(pitches) : frame.midi;
+      const offset = Math.round((reference - frame.midi) / 12) * 12;
+      const corrected = offset !== 0 && Math.abs(frame.midi + offset - reference) < 1 ? frame.midi + offset : frame.midi;
+      recent.push(corrected);
+      return { ...frame, midi: corrected };
     }
 
     const ref = median(recent);
@@ -538,7 +547,7 @@ export const transcribeSamples = (
 
   // Strip DC offset and sub-sonic rumble (cutoff sits below the lowest tracked
   // note at 65 Hz, so notes survive while floor noise does not).
-  const conditioned = highPassFilter(mono, workingRate, 40);
+  const conditioned = highPassFilter(mono, workingRate, 25);
   const signal = measureSignal(conditioned);
   const pitchOptions = sensitivityToPitchOptions(options.sensitivity ?? 0.5);
   pitchOptions.silenceRms = getAdaptiveSilenceFloor(signal.averageRms, pitchOptions.silenceRms);

@@ -927,9 +927,9 @@ const detectPitchInWindow = (
 
   // YIN reads the fundamental more reliably than the old normalized
   // autocorrelation, especially on breathy or harmonic-rich input.
-  // ~50-2500 Hz keeps the violin's upper register reachable.
+  // Include bass E1 while keeping the violin's upper register reachable.
   const reading = detectPitchYin(samples, sampleRate, {
-    minHz: 50,
+    minHz: 35,
     maxHz: 2500,
     threshold,
     silenceRms: 0,
