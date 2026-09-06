@@ -74,7 +74,7 @@ export const MobileStudioNavigation = ({
             <button aria-label="Close studio actions" className="ghost-icon-button flex h-9 w-9 items-center justify-center" onClick={() => setActionsOpen(false)} type="button"><X className="h-4 w-4" /></button>
           </div>
           <div className="grid grid-cols-2 gap-2 p-3">
-            <button className="mobile-command-action" data-tour-target="sessions" onClick={() => runAndClose(onOpenLaunchpad)} type="button"><Sparkles className="h-4 w-4" /><span>Library</span></button>
+            <button className="mobile-command-action" onClick={() => runAndClose(() => setActiveView('MIXER'))} type="button"><Volume2 className="h-4 w-4" /><span>Mix</span></button>
             <button className="mobile-command-action" onClick={() => runAndClose(onOpenTranscribe)} type="button"><AudioWaveform className="h-4 w-4" /><span>Transcribe</span></button>
             <button className="mobile-command-action" data-active={isSettingsOpen} data-tour-target="options" onClick={() => runAndClose(toggleSettings)} type="button"><Settings className="h-4 w-4" /><span>Settings</span></button>
             <button className="mobile-command-action" onClick={() => runAndClose(() => { setActiveView('SEQUENCER'); onEnterEditingMode(); })} type="button"><Maximize2 className="h-4 w-4" /><span>Focus editor</span></button>
@@ -85,9 +85,9 @@ export const MobileStudioNavigation = ({
 
       <nav aria-label="Mobile studio navigation" className="mobile-studio-dock md:hidden" data-tour-target="views">
         <button aria-label="Create" className={primaryClass} data-active={activeView === 'SEQUENCER'} onClick={() => setActiveView('SEQUENCER')} type="button"><SequencerIcon /><span>Create</span></button>
-        <button aria-label="Mixer" className={primaryClass} data-active={activeView === 'MIXER'} onClick={() => setActiveView('MIXER')} type="button"><Volume2 className="h-5 w-5" /><span>Mix</span></button>
+        <button aria-label="Library" className={primaryClass} data-tour-target="sessions" onClick={onOpenLaunchpad} type="button"><Sparkles className="h-5 w-5" /><span>Library</span></button>
         <button aria-label="Capture sound" className={`${primaryClass} mobile-studio-capture`} data-tour-target="record" onClick={onOpenRecord} type="button"><CaptureIcon /><span>Capture</span></button>
-        <button aria-label="Share this session" className={primaryClass} data-tour-target="share" onClick={onOpenShare} type="button"><Share2 className="h-5 w-5" /><span>Share</span></button>
+        <button aria-label="Save or share this session" className={primaryClass} data-tour-target="share" onClick={onOpenShare} type="button"><Share2 className="h-5 w-5" /><span>Save</span></button>
         <button aria-controls="mobile-studio-actions" aria-expanded={actionsOpen} aria-label="More studio actions" className={primaryClass} onClick={() => setActionsOpen((current) => !current)} type="button">{actionsOpen ? <ChevronDown className="h-5 w-5" /> : <Menu className="h-5 w-5" />}<span>More</span></button>
       </nav>
     </>

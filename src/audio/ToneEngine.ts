@@ -102,6 +102,7 @@ export class ToneEngine {
   private masterLimiter: Tone.Limiter | null = null;
   private masterLowpass: Tone.Filter | null = null;
   private masterMeter: Tone.Meter | null = null;
+  private pitchReference: Tone.Synth | null = null;
   private metronomeEnabled = false;
   private metronomeSynth: Tone.Synth | null = null;
   private masterSettings: MasterSettings = {
@@ -748,6 +749,16 @@ export class ToneEngine {
     };
 
     this.triggerTrack(graph, previewTrackClone, previewNote, Tone.now() + 0.02);
+  }
+
+  public previewReferenceNote(note: string) {
+    if (!this.masterLimiter) return;
+    this.pitchReference ??= new Tone.Synth({
+      oscillator: { type: 'sine' },
+      envelope: { attack: 0.01, decay: 0.08, sustain: 0.65, release: 0.15 },
+      volume: -12,
+    }).connect(this.masterLimiter);
+    this.pitchReference.triggerAttackRelease(note, 0.4, Tone.now(), 0.8);
   }
 
   public previewMetronomeTick(accent: boolean = false) {

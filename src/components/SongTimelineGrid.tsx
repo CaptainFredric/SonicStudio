@@ -207,6 +207,8 @@ export const SongTimelineGrid = ({
   const dragEditRef = useRef<{ mode: 'erase' | 'paint'; trackId: string } | null>(null);
   const lastDragCellRef = useRef<string | null>(null);
   const suppressClickRef = useRef(false);
+  const touchPlacementRef = useRef<{ started: number; y: number; note: string; trackId: string; pattern: number; step: number } | null>(null);
+  const [touchPitchPreview, setTouchPitchPreview] = useState<string | null>(null);
   useEffect(() => {
     const end = () => {
       dragEditRef.current = null;
@@ -1368,6 +1370,12 @@ export const SongTimelineGrid = ({
                       // off-grid) fires no click to self-clear the flag, so without
                       // this the next plain click would be swallowed.
                       suppressClickRef.current = false;
+                      if (event.pointerType === 'touch' && placeable && resolved) {
+                        const note = getTrackAnchorNote(track, track.patterns[resolved.patternIndex] ?? [], resolved.stepIndex);
+                        touchPlacementRef.current = { started: performance.now(), y: event.clientY, note, trackId: track.id, pattern: resolved.patternIndex, step: resolved.stepIndex };
+                        event.currentTarget.setPointerCapture(event.pointerId);
+                        return;
+                      }
                       if (event.button !== 0) return;
                       if (active) {
                         // Filled start: erase this cell and everything filled the
@@ -1412,6 +1420,17 @@ export const SongTimelineGrid = ({
                       applyDragToCell(track, songStep);
                     }}
                     onPointerMove={(event) => {
+                      const placement = touchPlacementRef.current;
+                      if (event.pointerType === 'touch' && placement) {
+                        if (performance.now() - placement.started < 250) return;
+                        const box = event.currentTarget.getBoundingClientRect();
+                        const index = Math.max(0, Math.min(SUPERSONIC_NOTE_OFFSETS.length - 1, Math.floor((event.clientY - box.top) / box.height * SUPERSONIC_NOTE_OFFSETS.length)));
+                        const anchor = getTrackAnchorNote(track, track.patterns[placement.pattern] ?? [], placement.step);
+                        placement.note = shiftPitch(anchor, SUPERSONIC_NOTE_OFFSETS[index]) ?? anchor;
+                        setHoverCell({ trackId: track.id, step: songStep });
+                        setTouchPitchPreview(placement.note);
+                        return;
+                      }
                       // Touch keeps implicit pointer capture, so sibling cells never
                       // get pointerenter; walk the finger via elementFromPoint the
                       // way the per-pattern grid does.
@@ -1424,12 +1443,26 @@ export const SongTimelineGrid = ({
                       if (!overTrack || Number.isNaN(overStep)) return;
                       applyDragToCell(overTrack, overStep);
                     }}
+                    onPointerUp={(event) => {
+                      const placement = touchPlacementRef.current;
+                      touchPlacementRef.current = null;
+                      setTouchPitchPreview(null);
+                      if (!placement || performance.now() - placement.started < 250) return;
+                      const box = event.currentTarget.getBoundingClientRect();
+                      const index = Math.max(0, Math.min(SUPERSONIC_NOTE_OFFSETS.length - 1, Math.floor((event.clientY - box.top) / box.height * SUPERSONIC_NOTE_OFFSETS.length)));
+                      const anchor = getTrackAnchorNote(track, track.patterns[placement.pattern] ?? [], placement.step);
+                      placement.note = shiftPitch(anchor, SUPERSONIC_NOTE_OFFSETS[index]) ?? anchor;
+                      suppressClickRef.current = true;
+                      onPlaceNote?.(placement.trackId, placement.pattern, placement.step, placement.note);
+                      setHoverCell(null);
+                    }}
+                    onPointerCancel={() => { touchPlacementRef.current = null; setTouchPitchPreview(null); setHoverCell(null); }}
                     style={{
                       left: songStep * cellW,
                       width: cellW,
                       // Filled cells keep vertical panning but claim sideways touch
                       // pulls for the erase drag; empty cells scroll freely.
-                      touchAction: active ? 'pan-y' : undefined,
+                      touchAction: placeable ? 'none' : active ? 'pan-y' : undefined,
                       borderLeft: isBar
                         ? '1px solid rgba(255,255,255,0.16)'
                         : isBeat
@@ -1495,6 +1528,7 @@ export const SongTimelineGrid = ({
                         className="supersonic-ladder absolute inset-0 z-[2]"
                         style={{ '--supersonic-ladder-count': String(SUPERSONIC_NOTE_OFFSETS.length) } as React.CSSProperties}
                       >
+                        {touchPitchPreview && <span className="pointer-events-none absolute left-0 top-0 z-10 rounded bg-[var(--bg-panel-strong)] px-1 font-mono text-[10px] text-[var(--text-primary)]">{touchPitchPreview}</span>}
                         {SUPERSONIC_NOTE_OFFSETS.map((offset) => {
                           const targetNote = shiftPitch(anchorNote, offset);
                           if (!targetNote) {
@@ -1512,6 +1546,7 @@ export const SongTimelineGrid = ({
                               data-center={offset === 0 ? 'true' : 'false'}
                               key={offset}
                               onPointerDown={(event) => {
+                                if (event.pointerType === 'touch') return;
                                 event.stopPropagation();
                                 onPlaceNote?.(track.id, resolved.patternIndex, resolved.stepIndex, targetNote);
                               }}

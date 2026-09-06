@@ -23,7 +23,7 @@ const formatBytes = (bytes: number): string => {
 const ShareDialogContent = ({ onClose, onNotify }: Omit<ShareDialogProps, 'open'>) => {
   const { currentSession, exportSession } = useAudio();
   const [override] = useManualKeyOverride();
-  const [tab, setTab] = useState<Tab>('link');
+  const [tab, setTab] = useState<Tab>('file');
   const [copied, setCopied] = useState<Tab | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   useDialogFocus(true, dialogRef, { trap: true });

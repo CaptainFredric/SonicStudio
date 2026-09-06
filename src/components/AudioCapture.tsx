@@ -630,17 +630,16 @@ const AudioCaptureContent = ({ onClose }: Pick<AudioCaptureProps, 'onClose'>) =>
     engine.previewTrack(previewTrack, previewNote);
   }, [initAudio, selectedDetectedNote]);
 
-  // Play a specific detected note through the best-match voice, so tapping a
-  // closest-note candidate actually sounds it out instead of only selecting it.
+  // Use a clear reference tone so pitch comparison stays independent of the
+  // suggested instrument, its samples, and its effects.
   const playDetectedNote = useCallback(async (note: string) => {
-    await initAudio();
-    const suggestion = suggestions[0];
-    const previewTrack = suggestion
-      ? buildCapturePreviewTrack(suggestion)
-      : selectedTrack ?? tracks[0];
-    if (!previewTrack) return;
-    engine.previewTrack(previewTrack, note);
-  }, [initAudio, selectedTrack, suggestions, tracks]);
+    try {
+      await initAudio();
+      engine.previewReferenceNote(note);
+    } catch {
+      setError('Could not play the reference note. Try enabling audio with the Play button, then retry.');
+    }
+  }, [initAudio]);
 
   useEffect(() => {
     if (!capturePreferences.autoPreviewMatch || state !== 'ready' || suggestions.length === 0) {
@@ -1139,8 +1138,8 @@ const AudioCaptureContent = ({ onClose }: Pick<AudioCaptureProps, 'onClose'>) =>
 
                   {result.noteCandidates.length > 0 && (
                     <div className="border-t border-[var(--border-soft)] pt-4">
-                      <div className="section-label">Closest notes</div>
-                      <div className="mt-3 grid gap-2">
+                      <div className="section-label">Choose pitch · tap to hear</div>
+                      <div className="mt-3 grid grid-cols-2 gap-2">
                         {result.noteCandidates.map((candidate, index) => (
                           <button
                             className="flex items-center justify-between gap-3 border px-3 py-2 text-left transition-colors"
@@ -1159,9 +1158,6 @@ const AudioCaptureContent = ({ onClose }: Pick<AudioCaptureProps, 'onClose'>) =>
                               <Play className="h-3.5 w-3.5 shrink-0 text-[var(--accent)]" />
                               <div>
                                 <div className="font-mono text-[12px] text-[var(--text-primary)]">{candidate.note}</div>
-                                <div className="mt-1 text-[10px] uppercase tracking-[0.14em] text-[var(--text-tertiary)]">
-                                  {candidate.centsOff > 0 ? '+' : ''}{candidate.centsOff.toFixed(1)} ct · {candidate.pitchHz.toFixed(1)} Hz
-                                </div>
                               </div>
                             </div>
                             <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-[var(--accent)]">
