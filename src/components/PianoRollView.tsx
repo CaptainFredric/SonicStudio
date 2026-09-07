@@ -22,7 +22,7 @@ export const PianoRollView = () => {
     : clipScoped
       ? 'Edit this clip\'s source pattern. Linked clips update together.'
       : transportMode === 'SONG'
-      ? 'Drag notes to change pitch or timing. Click cells to add or remove. Reused patterns update together.'
+      ? 'Tap a note to edit it. Tap empty space to add. Drag to move. Reused patterns update together.'
       : 'Click empty space to add. Drag a note to change pitch or timing. Select it for precise controls.';
 
   return (

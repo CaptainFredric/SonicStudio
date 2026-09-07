@@ -57,7 +57,7 @@ const isBlackKey = (rank: number): boolean => NOTE_NAMES[((rank % 12) + 12) % 12
 // A pitch-by-song-step piano roll: every note the arrangement plays for the
 // selected track, laid out across the whole song on one scrollable canvas
 // instead of one pattern at a time. Each song step resolves to the pattern the
-// arrangement loops there, so a click adds or removes that pitch in the source
+// arrangement loops there, so edits update that pitch in the source
 // pattern and the change shows up everywhere the pattern repeats. The ruler and
 // pitch gutter stay pinned while the grid scrolls in both directions; cells are
 // virtualized horizontally so a long song stays smooth.
@@ -71,6 +71,7 @@ export const WholeSongPianoRoll = () => {
     stepsPerPattern,
     togglePatternStep,
     movePatternNote,
+    updatePatternStepEvent,
   } = useAudio();
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -83,9 +84,13 @@ export const WholeSongPianoRoll = () => {
   const noteDragRef = useRef<SongNoteDragGesture | null>(null);
   const suppressClickRef = useRef(false);
   const [noteDragPreview, setNoteDragPreview] = useState<SongNoteDragGesture | null>(null);
+  const [selection, setSelection] = useState<{ trackId: string; pattern: number; step: number; note: string } | null>(null);
 
   const track = tracks.find((candidate) => candidate.id === selectedTrackId) ?? tracks[0] ?? null;
   const isRhythmTrack = Boolean(track && isRhythmTrackType(track.type));
+  const selectedStep = selection?.trackId === track?.id ? track?.patterns[selection.pattern]?.[selection.step] : undefined;
+  const selectedIndex = selectedStep?.findIndex((event) => event.note === selection?.note) ?? -1;
+  const selectedEvent = selectedIndex >= 0 ? selectedStep?.[selectedIndex] : undefined;
   useEffect(() => {
     const picker = trackPickerRef.current;
     const selected = picker?.querySelector<HTMLElement>('[aria-pressed="true"]');
@@ -282,6 +287,7 @@ export const WholeSongPianoRoll = () => {
       target.stepIndex,
       isRhythmTrack ? gesture.note : gesture.targetNote,
     );
+    setSelection({ trackId: track.id, pattern: target.patternIndex, step: target.stepIndex, note: isRhythmTrack ? gesture.note : gesture.targetNote });
   };
 
   const cancelNoteDrag = () => {
@@ -333,6 +339,31 @@ export const WholeSongPianoRoll = () => {
         </button>
       </div>
 
+      {selectedEvent && selection && (
+        <section aria-label="Selected note controls" className="surface-panel-muted shrink-0 rounded-md border border-[var(--accent)] p-2 text-[11px] text-[var(--text-primary)]">
+          <div className="flex flex-wrap items-center gap-2">
+            <strong className="mr-auto font-mono">{selectedEvent.note} · Step {selection.step + 1}</strong>
+            {!isRhythmTrack && [-1, 1].map((delta) => (
+              <button key={delta} type="button" className="control-chip min-h-9 px-3" aria-label={delta < 0 ? 'Lower selected pitch' : 'Raise selected pitch'} onClick={() => {
+                const note = rankToNote(pitchRank(selectedEvent.note) + delta);
+                movePatternNote(track.id, selection.pattern, selection.step, selectedIndex, selection.pattern, selection.step, note);
+                setSelection({ ...selection, note });
+              }}>{delta < 0 ? 'Pitch ↓' : 'Pitch ↑'}</button>
+            ))}
+            <button type="button" className="control-chip min-h-9 px-3" onClick={() => { togglePatternStep(track.id, selection.pattern, selection.step, selectedEvent.note); setSelection(null); }}>Delete note</button>
+            <button type="button" className="control-chip min-h-9 px-3" aria-label="Close selected note controls" onClick={() => setSelection(null)}>Done</button>
+          </div>
+          <div className="mt-2 grid max-w-xl grid-cols-2 gap-3">
+            <label className="flex min-w-0 flex-col gap-1">Volume {Math.round(selectedEvent.velocity * 100)}%
+              <input aria-label="Selected note volume" type="range" min="0.1" max="1" step="0.01" value={selectedEvent.velocity} onChange={(event) => updatePatternStepEvent(track.id, selection.pattern, selection.step, selectedIndex, { velocity: Number(event.target.value) })} />
+            </label>
+            <label className="flex min-w-0 flex-col gap-1">Length {selectedEvent.gate.toFixed(2)} steps
+              <input aria-label="Selected note duration" type="range" min="0.1" max="4" step="0.1" value={selectedEvent.gate} onChange={(event) => updatePatternStepEvent(track.id, selection.pattern, selection.step, selectedIndex, { gate: Number(event.target.value) })} />
+            </label>
+          </div>
+          <p className="mt-2 text-[var(--text-secondary)]">Edits apply wherever this pattern repeats.</p>
+        </section>
+      )}
       <div
         ref={scrollRef}
         data-song-piano-scroll="true"
@@ -425,7 +456,10 @@ export const WholeSongPianoRoll = () => {
                           suppressClickRef.current = false;
                           return;
                         }
-                        if (resolved) togglePatternStep(track.id, resolved.patternIndex, resolved.stepIndex, event?.note ?? row.note);
+                        if (resolved) {
+                          if (!event) togglePatternStep(track.id, resolved.patternIndex, resolved.stepIndex, row.note);
+                          setSelection({ trackId: track.id, pattern: resolved.patternIndex, step: resolved.stepIndex, note: event?.note ?? row.note });
+                        }
                       }}
                       onPointerCancel={cancelNoteDrag}
                       onPointerDown={(pointerEvent) => {
@@ -452,7 +486,7 @@ export const WholeSongPianoRoll = () => {
                       {event && (
                         <span
                           className="absolute inset-x-[1px] inset-y-[1.5px] rounded-[2px]"
-                          style={{ background: track.color, opacity: draggingSource ? 0.3 : Math.max(0.45, Math.min(1, event.velocity || 0.9)) }}
+                          style={{ background: track.color, outline: selection?.trackId === track.id && selection.pattern === resolved?.patternIndex && selection.step === resolved?.stepIndex && selection.note === event.note ? '2px solid var(--text-primary)' : undefined, outlineOffset: -2, opacity: draggingSource ? 0.3 : Math.max(0.45, Math.min(1, event.velocity || 0.9)) }}
                         />
                       )}
                       {draggingTarget && !event && (
