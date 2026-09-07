@@ -2559,10 +2559,10 @@ export const MainWorkspace = () => {
         stepCellWidth={stepCellWidth}
         stepsPerPattern={stepsPerPattern}
       />
-      <div className={`sequencer-panel-header flex flex-col gap-3 border-b border-[var(--border-soft)] px-5 py-3 md:flex-row md:items-center md:justify-between md:gap-4 ${editingMode ? 'hidden' : ''}`}>
+      <div className={`sequencer-panel-header flex flex-row flex-wrap items-center justify-between gap-3 border-b border-[var(--border-soft)] px-5 py-3 md:gap-4 ${editingMode ? 'hidden' : ''}`}>
         <div className="min-w-0 shrink-0">
           <div className="flex items-baseline gap-2">
-            <div className="section-label">Create</div>
+            <div className="section-label hidden sm:block">Create</div>
             <h2 className="text-lg font-semibold tracking-tight text-[var(--text-primary)]">
               {showSongGrid ? 'Song arrangement' : 'Pattern grid'}
             </h2>
@@ -2573,7 +2573,7 @@ export const MainWorkspace = () => {
               : 'Build the current pattern here before you move it into Song view.'}
           </p>
         </div>
-        <div className={`surface-panel-muted min-w-0 p-2 ${addLaneOpen ? 'w-full sm:max-w-full md:max-w-[700px] md:flex-1' : 'w-full md:w-auto'}`}>
+        <div className={`add-lane-control surface-panel-muted min-w-0 p-2 ${addLaneOpen ? 'w-full sm:max-w-full md:max-w-[700px] md:flex-1' : 'w-auto'}`} data-expanded={addLaneOpen}>
           <div className="flex items-center justify-between gap-3">
             <span className="section-label shrink-0">Add lane</span>
             <div className="flex items-center gap-1.5">
