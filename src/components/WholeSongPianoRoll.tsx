@@ -5,6 +5,7 @@ import { engine } from '../audio/ToneEngine';
 import { resolvePatternStepForPlayback } from '../audio/playbackResolver';
 import { useAudio } from '../context/AudioContext';
 import { NOTE_NAMES } from '../utils/notePlacement';
+import { NOTE_GATE_MIN, NOTE_GATE_MAX, snapNoteGate } from '../utils/noteEditing';
 import { TrackIcon } from '../utils/trackPersonality';
 import { MIN_ARRANGEMENT_STEPS, type ArrangementClip, type StepValue, type Track } from '../project/schema';
 
@@ -85,6 +86,8 @@ export const WholeSongPianoRoll = () => {
   const suppressClickRef = useRef(false);
   const [noteDragPreview, setNoteDragPreview] = useState<SongNoteDragGesture | null>(null);
   const [selection, setSelection] = useState<{ trackId: string; pattern: number; step: number; note: string } | null>(null);
+  const resizeRef = useRef<{ x: number; gate: number; pattern: number; step: number; index: number } | null>(null);
+  const [resizeGate, setResizeGate] = useState<number | null>(null);
 
   const track = tracks.find((candidate) => candidate.id === selectedTrackId) ?? tracks[0] ?? null;
   const isRhythmTrack = Boolean(track && isRhythmTrackType(track.type));
@@ -358,10 +361,10 @@ export const WholeSongPianoRoll = () => {
               <input aria-label="Selected note volume" type="range" min="0.1" max="1" step="0.01" value={selectedEvent.velocity} onChange={(event) => updatePatternStepEvent(track.id, selection.pattern, selection.step, selectedIndex, { velocity: Number(event.target.value) })} />
             </label>
             <label className="flex min-w-0 flex-col gap-1">Length {selectedEvent.gate.toFixed(2)} steps
-              <input aria-label="Selected note duration" type="range" min="0.1" max="4" step="0.1" value={selectedEvent.gate} onChange={(event) => updatePatternStepEvent(track.id, selection.pattern, selection.step, selectedIndex, { gate: Number(event.target.value) })} />
+              <input aria-label="Selected note duration" type="range" min={NOTE_GATE_MIN} max={NOTE_GATE_MAX} step="0.125" value={selectedEvent.gate} onChange={(event) => updatePatternStepEvent(track.id, selection.pattern, selection.step, selectedIndex, { gate: Number(event.target.value) })} />
             </label>
           </div>
-          <p className="mt-2 text-[var(--text-secondary)]">Edits apply wherever this pattern repeats.</p>
+          <p className="mt-2 text-[var(--text-secondary)]">Drag the note’s right edge to resize. Edits apply wherever this pattern repeats.</p>
         </section>
       )}
       <div
@@ -430,6 +433,8 @@ export const WholeSongPianoRoll = () => {
                     ? resolved?.note[0] ?? null
                     : resolved?.note.find((candidate) => candidate.note === row.note) ?? null;
                   const noteIndex = event && resolved ? resolved.note.indexOf(event) : -1;
+                  const isSelectedNote = Boolean(event && selection?.trackId === track.id && selection.pattern === resolved?.patternIndex && selection.step === resolved?.stepIndex && selection.note === event.note);
+                  const displayedGate = isSelectedNote && resizeGate !== null ? resizeGate : event?.gate ?? 1;
                   const draggingSource = Boolean(
                     event
                     && noteDragPreview?.sourceSongStep === songStep
@@ -471,7 +476,8 @@ export const WholeSongPianoRoll = () => {
                       onPointerUp={finishNoteDrag}
                       style={{
                         left: songStep * CELL_WIDTH,
-                        width: CELL_WIDTH,
+                        width: event ? Math.max(4, Math.min(displayedGate, totalSteps - songStep) * CELL_WIDTH) : CELL_WIDTH,
+                        zIndex: event ? (isSelectedNote ? 4 : 2) : undefined,
                         borderLeft: isBar
                           ? '1px solid rgba(255,255,255,0.16)'
                           : isBeat
@@ -487,6 +493,41 @@ export const WholeSongPianoRoll = () => {
                         <span
                           className="absolute inset-x-[1px] inset-y-[1.5px] rounded-[2px]"
                           style={{ background: track.color, outline: selection?.trackId === track.id && selection.pattern === resolved?.patternIndex && selection.step === resolved?.stepIndex && selection.note === event.note ? '2px solid var(--text-primary)' : undefined, outlineOffset: -2, opacity: draggingSource ? 0.3 : Math.max(0.45, Math.min(1, event.velocity || 0.9)) }}
+                        />
+                      )}
+                      {event && resolved && isSelectedNote && (
+                        <span
+                          role="slider"
+                          aria-label="Resize selected note"
+                          aria-valuemin={NOTE_GATE_MIN}
+                          aria-valuemax={NOTE_GATE_MAX}
+                          aria-valuenow={displayedGate}
+                          tabIndex={0}
+                          className="absolute right-0 top-0 z-10 h-full w-3 cursor-ew-resize border-r-2 border-[var(--text-primary)]"
+                          style={{ touchAction: 'none', background: 'rgba(0,0,0,0.15)' }}
+                          onClick={(pointerEvent) => { pointerEvent.stopPropagation(); }}
+                          onKeyDown={(keyEvent) => {
+                            if (keyEvent.key !== 'ArrowLeft' && keyEvent.key !== 'ArrowRight') return;
+                            keyEvent.preventDefault(); keyEvent.stopPropagation();
+                            updatePatternStepEvent(track.id, resolved.patternIndex, resolved.stepIndex, noteIndex, { gate: snapNoteGate(event.gate + (keyEvent.key === 'ArrowRight' ? 0.125 : -0.125), 0.125) });
+                          }}
+                          onPointerDown={(pointerEvent) => {
+                            pointerEvent.stopPropagation();
+                            resizeRef.current = { x: pointerEvent.clientX, gate: event.gate, pattern: resolved.patternIndex, step: resolved.stepIndex, index: noteIndex };
+                            pointerEvent.currentTarget.setPointerCapture(pointerEvent.pointerId);
+                          }}
+                          onPointerMove={(pointerEvent) => {
+                            pointerEvent.stopPropagation();
+                            const resize = resizeRef.current;
+                            if (resize) setResizeGate(snapNoteGate(resize.gate + (pointerEvent.clientX - resize.x) / CELL_WIDTH, 0.125));
+                          }}
+                          onPointerUp={(pointerEvent) => {
+                            pointerEvent.stopPropagation();
+                            const resize = resizeRef.current;
+                            if (resize) updatePatternStepEvent(track.id, resize.pattern, resize.step, resize.index, { gate: snapNoteGate(resize.gate + (pointerEvent.clientX - resize.x) / CELL_WIDTH, 0.125) });
+                            resizeRef.current = null; setResizeGate(null);
+                          }}
+                          onPointerCancel={(pointerEvent) => { pointerEvent.stopPropagation(); resizeRef.current = null; setResizeGate(null); }}
                         />
                       )}
                       {draggingTarget && !event && (
